@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Metadata local del CLI de Supabase (link, db push) — se regenera sola en cada máquina
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
