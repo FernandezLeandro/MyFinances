@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { InputHTMLAttributes, ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode, Ref } from 'react'
 import { cn } from '@/lib/cn'
 
 interface FieldProps {
@@ -33,11 +33,14 @@ export const controlBase =
   'transition-colors duration-150 outline-none ' +
   'hover:bg-ink-800 focus:bg-ink-800 disabled:opacity-40'
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }
+type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }
 
-export function Input({ className, invalid, ...props }: InputProps) {
+// React 19: una función puede recibir `ref` como prop normal, sin forwardRef. Hace falta que
+// llegue al <input> real para que React Hook Form (no controlado) pueda leer el valor.
+export function Input({ className, invalid, ref, ...props }: InputProps) {
   return (
     <input
+      ref={ref}
       aria-invalid={invalid || undefined}
       className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-coral/60', className)}
       {...props}
@@ -47,13 +50,14 @@ export function Input({ className, invalid, ...props }: InputProps) {
 
 interface AmountInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
   invalid?: boolean
+  ref?: Ref<HTMLInputElement>
 }
 
 /**
  * Campo de importe: teclado numérico en el celular y tipografía display, porque es el dato que el
  * usuario mira mientras escribe. El parseo a centavos lo hace `parseAmountToCents` en el submit.
  */
-export function AmountInput({ className, invalid, ...props }: AmountInputProps) {
+export function AmountInput({ className, invalid, ref, ...props }: AmountInputProps) {
   const id = useId()
   return (
     <div
@@ -68,6 +72,7 @@ export function AmountInput({ className, invalid, ...props }: AmountInputProps) 
         $
       </label>
       <input
+        ref={ref}
         id={props.id ?? id}
         type="text"
         inputMode="decimal"

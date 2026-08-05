@@ -1,14 +1,15 @@
-import type { SelectHTMLAttributes } from 'react'
+import type { Ref, SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 import { controlBase } from '@/components/ui/Input'
 
-type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; ref?: Ref<HTMLSelectElement> }
 
 /** `<select>` nativo estilizado. En mobile abre el picker del sistema, que siempre gana. */
-export function Select({ className, invalid, children, ...props }: SelectProps) {
+export function Select({ className, invalid, ref, children, ...props }: SelectProps) {
   return (
     <div className="relative">
       <select
+        ref={ref}
         aria-invalid={invalid || undefined}
         className={cn(
           controlBase,

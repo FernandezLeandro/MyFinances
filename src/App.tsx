@@ -1,23 +1,56 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '@/app/AppLayout'
+import { AuthLayout } from '@/app/AuthLayout'
+import { AuthProvider } from '@/features/auth/AuthProvider'
+import { RequireAuth, RedirectIfAuthed } from '@/features/auth/guards'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
 import { Analisis } from '@/pages/Analisis'
+import { Login } from '@/pages/auth/Login'
+import { Register } from '@/pages/auth/Register'
+import { ForgotPassword } from '@/pages/auth/ForgotPassword'
+import { ResetPassword } from '@/pages/auth/ResetPassword'
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/hoy" replace />} />
-          <Route path="hoy" element={<Hoy />} />
-          <Route path="movimientos" element={<Movimientos />} />
-          <Route path="fijos" element={<Fijos />} />
-          <Route path="analisis" element={<Analisis />} />
+      <AuthProvider>
+        <Routes>
+          <Route element={<AuthLayout />}>
+            {/* Sin RedirectIfAuthed: Supabase abre una sesión temporal de recovery acá mismo. */}
+            <Route path="restablecer" element={<ResetPassword />} />
+
+            <Route
+              element={
+                <RedirectIfAuthed>
+                  <Outlet />
+                </RedirectIfAuthed>
+              }
+            >
+              <Route path="login" element={<Login />} />
+              <Route path="registro" element={<Register />} />
+              <Route path="recuperar" element={<ForgotPassword />} />
+            </Route>
+          </Route>
+
+          <Route
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="/hoy" replace />} />
+            <Route path="hoy" element={<Hoy />} />
+            <Route path="movimientos" element={<Movimientos />} />
+            <Route path="fijos" element={<Fijos />} />
+            <Route path="analisis" element={<Analisis />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/hoy" replace />} />
-        </Route>
-      </Routes>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
