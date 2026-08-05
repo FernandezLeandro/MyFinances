@@ -1,0 +1,2 @@
+# SPA fallback. Sin esto, recargar en /movimientos devuelve 404 en Cloudflare Pages.
+/*  /index.html  200

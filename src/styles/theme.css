@@ -1,0 +1,151 @@
+/*
+ * Sistema de diseño de Saldo — "dark fintech con acento neón".
+ *
+ * Reglas que sostienen la identidad y que NO hay que romper:
+ *  - El acento ácido se reserva para el dato principal y la serie primaria de un gráfico.
+ *    Si aparece en todos lados deja de ser acento.
+ *  - Las superficies se elevan por luminosidad, no por borde gris de 1px.
+ *  - Ingreso = ácido, gasto = coral. Nunca verde/rojo de semáforo.
+ *  - Radios mixtos: chico y casi recto en elementos densos, amplio en paneles.
+ */
+
+@theme {
+  /* Superficies — near-black con tinte frío, no gris neutro */
+  --color-ink-950: #0a0b0e;
+  --color-ink-900: #101218;
+  --color-ink-850: #14161d;
+  --color-ink-800: #191c24;
+  --color-ink-700: #22262f;
+  --color-ink-600: #2f3440;
+  --color-ink-500: #434959;
+
+  /* Texto */
+  --color-chalk: #edefea;
+  --color-chalk-dim: #a0a6ae;
+  --color-chalk-faint: #676d78;
+
+  /* Acento único */
+  --color-acid: #c8f751;
+  --color-acid-soft: #dcff8c;
+  --color-acid-deep: #8aab30;
+
+  /* Semántica de dinero (no semáforo) */
+  --color-coral: #ff7a66;
+  --color-coral-deep: #b9503f;
+  --color-amber: #ffc46b;
+
+  /* Paleta de categorías — apagada a propósito: convive con el fondo y nunca le compite al ácido,
+     que queda reservado para el saldo y la serie primaria. */
+  --color-cat-coral: #ff7a66;
+  --color-cat-amber: #ffc46b;
+  --color-cat-teal: #5fd3c4;
+  --color-cat-violet: #a892f0;
+  --color-cat-rose: #f2789f;
+  --color-cat-sky: #6fb4f0;
+  --color-cat-sand: #d9c9a3;
+  --color-cat-moss: #9bbf46;
+
+  /* Tipografía */
+  --font-display: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
+  --font-sans: 'Instrument Sans', system-ui, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  /* Escala tipográfica — el salto entre display y UI es deliberadamente brutal */
+  --text-hero: clamp(3.5rem, 12vw, 8rem);
+  --text-hero--line-height: 0.86;
+  --text-hero--letter-spacing: -0.045em;
+  --text-figure: clamp(1.75rem, 4.5vw, 2.75rem);
+  --text-figure--line-height: 0.95;
+  --text-figure--letter-spacing: -0.03em;
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1.1;
+  --text-eyebrow--letter-spacing: 0.14em;
+
+  /* Radios mixtos */
+  --radius-chip: 4px;
+  --radius-control: 10px;
+  --radius-panel: 20px;
+
+  /* Sombras: casi nunca; la elevación es por luminosidad */
+  --shadow-lift: 0 24px 60px -32px rgb(0 0 0 / 0.9);
+  --shadow-glow: 0 0 0 1px rgb(200 247 81 / 0.35), 0 10px 40px -18px rgb(200 247 81 / 0.35);
+
+  /* Motion */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-sheet-in: sheet-in 240ms var(--ease-out-quint);
+
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-chalk);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    /* Halos muy tenues: le sacan el negro plano al fondo sin caer en gradiente decorativo */
+    background-image:
+      radial-gradient(60rem 40rem at 78% -12%, rgb(200 247 81 / 0.055), transparent 60%),
+      radial-gradient(45rem 30rem at 5% 108%, rgb(255 122 102 / 0.045), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* Todo número que se compara en columna va tabular. Sin excepciones. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  ::selection {
+    background-color: var(--color-acid);
+    color: var(--color-ink-950);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-acid);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Scrollbar acorde al fondo, no la blanca del sistema */
+  * {
+    scrollbar-color: var(--color-ink-600) transparent;
+    scrollbar-width: thin;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility eyebrow {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  letter-spacing: var(--text-eyebrow--letter-spacing);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-chalk-faint);
+}

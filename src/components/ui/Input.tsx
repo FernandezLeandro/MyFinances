@@ -1,0 +1,82 @@
+import { useId } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
+import { cn } from '@/lib/cn'
+
+interface FieldProps {
+  label: string
+  hint?: string
+  error?: string
+  htmlFor?: string
+  children: ReactNode
+  className?: string
+}
+
+/** Etiqueta + control + error. La etiqueta va en eyebrow: chiquita, en mayúsculas y fuera del campo. */
+export function Field({ label, hint, error, htmlFor, children, className }: FieldProps) {
+  return (
+    <div className={cn('flex flex-col gap-2', className)}>
+      <label htmlFor={htmlFor} className="eyebrow">
+        {label}
+      </label>
+      {children}
+      {error ? (
+        <p className="text-[12px] text-coral">{error}</p>
+      ) : (
+        hint && <p className="text-[12px] text-chalk-faint">{hint}</p>
+      )}
+    </div>
+  )
+}
+
+export const controlBase =
+  'w-full rounded-control bg-ink-850 px-3.5 text-chalk placeholder:text-chalk-faint ' +
+  'transition-colors duration-150 outline-none ' +
+  'hover:bg-ink-800 focus:bg-ink-800 disabled:opacity-40'
+
+type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }
+
+export function Input({ className, invalid, ...props }: InputProps) {
+  return (
+    <input
+      aria-invalid={invalid || undefined}
+      className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-coral/60', className)}
+      {...props}
+    />
+  )
+}
+
+interface AmountInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
+  invalid?: boolean
+}
+
+/**
+ * Campo de importe: teclado numérico en el celular y tipografía display, porque es el dato que el
+ * usuario mira mientras escribe. El parseo a centavos lo hace `parseAmountToCents` en el submit.
+ */
+export function AmountInput({ className, invalid, ...props }: AmountInputProps) {
+  const id = useId()
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded-control bg-ink-850 pl-4 transition-colors duration-150',
+        'focus-within:bg-ink-800',
+        invalid && 'ring-1 ring-coral/60',
+        className,
+      )}
+    >
+      <label htmlFor={props.id ?? id} className="font-display text-2xl text-chalk-faint select-none">
+        $
+      </label>
+      <input
+        id={props.id ?? id}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="0,00"
+        aria-invalid={invalid || undefined}
+        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-chalk outline-none placeholder:text-ink-600"
+        {...props}
+      />
+    </div>
+  )
+}
