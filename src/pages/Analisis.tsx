@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { useSpendByCategory } from '@/features/transactions/api'
 import { useMonthlySeries, useTopCategoriesComparison } from '@/features/analytics/api'
 import { PeriodSelector } from '@/features/analytics/PeriodSelector'
@@ -16,9 +18,12 @@ export function Analisis() {
   const [period, setPeriod] = useState(defaultPeriod)
   const navigate = useNavigate()
 
-  const { data: spend } = useSpendByCategory(period.from, period.to)
-  const { data: series } = useMonthlySeries(period.from, period.to)
-  const { data: comparison } = useTopCategoriesComparison(period.from, period.to)
+  const spendQuery = useSpendByCategory(period.from, period.to)
+  const seriesQuery = useMonthlySeries(period.from, period.to)
+  const comparisonQuery = useTopCategoriesComparison(period.from, period.to)
+  const { data: spend } = spendQuery
+  const { data: series } = seriesQuery
+  const { data: comparison } = comparisonQuery
 
   const total = (spend ?? []).reduce((acc, s) => acc + s.cents, 0)
 
@@ -35,14 +40,25 @@ export function Analisis() {
 
       <PeriodSelector value={period} onChange={setPeriod} />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Panel className="p-6 lg:col-span-2">
           <p className="eyebrow">En qué se fue la plata</p>
 
-          {!spend || spend.length === 0 ? (
+          {spendQuery.isError ? (
+            <ErrorState onRetry={() => spendQuery.refetch()} className="mt-4" />
+          ) : spendQuery.isPending ? (
+            <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-center">
+              <Skeleton className="mx-auto size-52 rounded-full" />
+              <div className="flex flex-col gap-4">
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-5 w-full" />
+                ))}
+              </div>
+            </div>
+          ) : !spend || spend.length === 0 ? (
             <EmptyState glyph="◔" title="No hay gastos en este período" hint="Probá con un rango más amplio." />
           ) : (
-            <div className="mt-4 grid gap-6 sm:grid-cols-2 sm:items-center">
+            <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-center">
               <CategoryDonut
                 data={spend.map((s) => ({ categoryId: s.categoryId, categoryName: s.categoryName, color: s.color, cents: s.cents }))}
                 onSelect={goToCategory}
@@ -77,7 +93,15 @@ export function Analisis() {
 
         <Panel className="p-6">
           <p className="eyebrow">Top categorías vs. período anterior</p>
-          {!comparison || comparison.length === 0 ? (
+          {comparisonQuery.isError ? (
+            <ErrorState onRetry={() => comparisonQuery.refetch()} className="mt-4" />
+          ) : comparisonQuery.isPending ? (
+            <div className="mt-4 flex flex-col gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-5 w-full" />
+              ))}
+            </div>
+          ) : !comparison || comparison.length === 0 ? (
             <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
           ) : (
             <div className="mt-4">
@@ -90,7 +114,11 @@ export function Analisis() {
       <Panel>
         <PanelHeader title="Evolución mensual" hint="Ingresos y gastos, mes a mes" />
         <div className="px-4 pb-5">
-          {series && series.length > 0 ? (
+          {seriesQuery.isError ? (
+            <ErrorState onRetry={() => seriesQuery.refetch()} />
+          ) : seriesQuery.isPending ? (
+            <Skeleton className="h-64 w-full" />
+          ) : series && series.length > 0 ? (
             <MonthlyEvolutionChart data={series} />
           ) : (
             <EmptyState glyph="▤" title="Todavía no hay datos" className="py-8" />
@@ -101,7 +129,11 @@ export function Analisis() {
       <Panel>
         <PanelHeader title="Tendencia de saldo" hint="Saldo acumulado al cierre de cada mes" />
         <div className="px-4 pb-5">
-          {series && series.length > 0 ? (
+          {seriesQuery.isError ? (
+            <ErrorState onRetry={() => seriesQuery.refetch()} />
+          ) : seriesQuery.isPending ? (
+            <Skeleton className="h-64 w-full" />
+          ) : series && series.length > 0 ? (
             <BalanceTrendChart data={series} />
           ) : (
             <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
