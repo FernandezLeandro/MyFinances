@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { splitMoney } from '@/lib/money'
+import { splitMoney, type Currency } from '@/lib/money'
 
 type Tone = 'acid' | 'coral' | 'chalk' | 'dim'
 type Size = 'hero' | 'figure' | 'compact' | 'inline'
@@ -10,6 +10,8 @@ interface MoneyProps {
   size?: Size
   /** Antepone "+" a los importes positivos. Para listas donde conviven ingresos y gastos. */
   signed?: boolean
+  /** ARS por default — el resto de la app nunca la toca; Patrimonio es lo único que usa USD. */
+  currency?: Currency
   className?: string
 }
 
@@ -48,8 +50,8 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
  * Importe tipografiado: los centavos van más chicos y levantados, así la cifra se lee como un número
  * y no como un párrafo. Nunca formatear plata a mano en un componente — siempre pasar por acá.
  */
-export function Money({ cents, tone = 'chalk', size = 'inline', signed = false, className }: MoneyProps) {
-  const { sign, symbol, whole, fraction } = splitMoney(cents)
+export function Money({ cents, tone = 'chalk', size = 'inline', signed = false, currency = 'ARS', className }: MoneyProps) {
+  const { sign, symbol, whole, fraction } = splitMoney(cents, currency)
   const s = sizes[size]
   const prefix = sign || (signed && cents > 0 ? '+' : '')
 
@@ -57,7 +59,7 @@ export function Money({ cents, tone = 'chalk', size = 'inline', signed = false, 
     <span
       className={cn('tnum inline-flex items-start leading-none', s.root, tones[tone], className)}
       // El lector de pantalla no debe deletrear los fragmentos por separado.
-      aria-label={`${prefix}$${whole},${fraction}`}
+      aria-label={`${prefix}${symbol}${whole},${fraction}`}
     >
       {prefix && <span aria-hidden>{prefix}</span>}
       <span className={s.symbol} aria-hidden>

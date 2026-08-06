@@ -10,6 +10,15 @@ export const CURRENCY = 'ARS'
 const LOCALE = 'es-AR'
 
 /**
+ * Monedas soportadas en Patrimonio. El resto de la app (movimientos, fijos, saldo) sigue
+ * exclusivamente en ARS — esto no las vuelve multi-moneda, sólo le da a `Money` un segundo símbolo
+ * para poder mostrar los aportes en USD sin tocar ningún call site existente.
+ */
+export type Currency = 'ARS' | 'USD'
+
+const CURRENCY_SYMBOLS: Record<Currency, string> = { ARS: '$', USD: 'US$' }
+
+/**
  * Convierte un `numeric` tal como lo devuelve PostgREST (string con punto decimal, p.ej. "1234.50")
  * a centavos enteros. Distinto de `parseAmountToCents`: ese interpreta lo que tipea el usuario
  * (con comas y formato es-AR), esto interpreta lo que ya devolvió la base.
@@ -39,10 +48,10 @@ export function parseAmountToCents(input: string): number | null {
 }
 
 /** Importe completo con símbolo: "$ 12.480,50" */
-export function formatMoney(cents: number, options: { signed?: boolean } = {}): string {
+export function formatMoney(cents: number, options: { signed?: boolean; currency?: Currency } = {}): string {
   const formatted = new Intl.NumberFormat(LOCALE, {
     style: 'currency',
-    currency: CURRENCY,
+    currency: options.currency ?? CURRENCY,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(cents / 100)
@@ -63,7 +72,10 @@ export function formatCompact(cents: number): string {
  * Parte el importe para poder tipografiarlo distinto: los centavos van más chicos que los enteros.
  * Es lo que hace que la cifra hero se lea como un número y no como un párrafo.
  */
-export function splitMoney(cents: number): { sign: string; symbol: string; whole: string; fraction: string } {
+export function splitMoney(
+  cents: number,
+  currency: Currency = 'ARS',
+): { sign: string; symbol: string; whole: string; fraction: string } {
   const negative = cents < 0
   const parts = new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
@@ -76,5 +88,40 @@ export function splitMoney(cents: number): { sign: string; symbol: string; whole
     .join('')
   const fraction = parts.find((p) => p.type === 'fraction')?.value ?? '00'
 
-  return { sign: negative ? '−' : '', symbol: '$', whole, fraction }
+  return { sign: negative ? '−' : '', symbol: CURRENCY_SYMBOLS[currency], whole, fraction }
+}
+
+/**
+ * Versiones genéricas de `centsFromNumeric`/`centsToNumeric`/`parseAmountToCents` para cantidades de
+ * un activo con una escala propia (2 decimales para dinero/acciones, 8 para cripto — estilo
+ * satoshi). Con `decimals = 2` se comportan exactamente igual que las funciones de ARS-cents de
+ * arriba, que quedan intactas: todo lo que ya usa `centsFromNumeric` sigue andando sin tocarlo.
+ */
+export function unitsFromNumeric(value: string, decimals: number): number {
+  return Math.round(Number(value) * 10 ** decimals)
+}
+
+export function unitsToNumeric(units: number, decimals: number): string {
+  return (units / 10 ** decimals).toFixed(decimals)
+}
+
+/** Cantidad de un activo sin arrastrar ceros de más: "0,015" en vez de "0,01500000". */
+export function formatQuantity(units: number, decimals: number): string {
+  return new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: decimals }).format(
+    units / 10 ** decimals,
+  )
+}
+
+/** Convierte lo que escribió el usuario a unidades enteras en la escala de `decimals`. `null` si no es válido. */
+export function parseQuantity(input: string, decimals: number): number | null {
+  const raw = input.trim()
+  if (!raw) return null
+
+  const hasComma = raw.includes(',')
+  const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
+
+  const value = Number(normalized.replace(/[^\d.-]/g, ''))
+  if (!Number.isFinite(value)) return null
+
+  return Math.round(value * 10 ** decimals)
 }

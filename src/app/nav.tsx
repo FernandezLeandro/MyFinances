@@ -55,4 +55,15 @@ export const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    to: '/patrimonio',
+    label: 'Patrimonio',
+    index: '05',
+    icon: (
+      <svg viewBox="0 0 20 20" className={iconClass} aria-hidden>
+        <path d="M10 3.5 16.5 7 10 10.5 3.5 7z" {...stroke} strokeLinejoin="round" />
+        <path d="M3.5 7v6.5L10 17l6.5-3.5V7" {...stroke} strokeLinejoin="round" />
+      </svg>
+    ),
+  },
 ]

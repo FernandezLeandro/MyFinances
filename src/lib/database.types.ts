@@ -11,14 +11,138 @@
  */
 
 type Kind = 'income' | 'expense'
+type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
+type SavingsEntryKind = 'deposit' | 'withdrawal'
+type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
+type AssetQuoteCurrency = 'ARS' | 'USD'
+type AssetPriceSource = 'coingecko' | 'manual'
 
 export interface Database {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; display_name: string | null; currency: string; created_at: string }
+        Row: {
+          id: string
+          display_name: string | null
+          currency: string
+          created_at: string
+          fx_source: FxSource
+          usd_rate_manual: string | null
+          usd_rate_updated_at: string | null
+        }
         Insert: { id: string; display_name?: string | null; currency?: string }
-        Update: { display_name?: string | null; currency?: string }
+        Update: Partial<{
+          display_name: string | null
+          currency: string
+          fx_source: FxSource
+          usd_rate_manual: number | string | null
+          usd_rate_updated_at: string | null
+        }>
+        Relationships: []
+      }
+      savings_buckets: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          slug: string | null
+          single_currency: boolean
+          include_in_total: boolean
+          sort_order: number
+          is_archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          slug?: string | null
+          single_currency?: boolean
+          include_in_total?: boolean
+          sort_order?: number
+          is_archived?: boolean
+        }
+        Update: Partial<{
+          name: string
+          single_currency: boolean
+          include_in_total: boolean
+          sort_order: number
+          is_archived: boolean
+        }>
+        Relationships: []
+      }
+      savings_entries: {
+        Row: {
+          id: string
+          user_id: string
+          bucket_id: string
+          kind: SavingsEntryKind
+          asset_id: string
+          amount: string
+          rate_to_main: string | null
+          occurred_on: string
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          bucket_id: string
+          kind: SavingsEntryKind
+          asset_id: string
+          amount: number | string
+          rate_to_main?: number | string | null
+          occurred_on?: string
+          note?: string | null
+        }
+        Update: Partial<{
+          kind: SavingsEntryKind
+          asset_id: string
+          amount: number | string
+          rate_to_main: number | string | null
+          occurred_on: string
+          note: string | null
+        }>
+        Relationships: []
+      }
+      assets: {
+        Row: {
+          id: string
+          user_id: string | null
+          symbol: string
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          decimals: number
+          price_source: AssetPriceSource
+          coingecko_id: string | null
+          is_archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          // Por ahora todo lo que se agrega desde el cliente queda global — `user_id` siempre null.
+          // Ver 20260806200001_assets_global_for_now.sql.
+          user_id: null
+          symbol: string
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          decimals?: number
+          price_source?: AssetPriceSource
+        }
+        Update: Partial<{
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          is_archived: boolean
+        }>
+        Relationships: []
+      }
+      asset_manual_prices: {
+        Row: { user_id: string; asset_id: string; price: string; updated_at: string }
+        Insert: { user_id: string; asset_id: string; price: number | string; updated_at?: string }
+        Update: Partial<{ price: number | string; updated_at: string }>
         Relationships: []
       }
       categories: {
