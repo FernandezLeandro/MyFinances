@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -7,7 +7,9 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
-import { parseAmountToCents, type Currency } from '@/lib/money'
+import { Select } from '@/components/ui/Select'
+import { centsFromNumeric, centsToNumeric, parseAmountToCents, parseQuantity, unitsFromNumeric, unitsToNumeric } from '@/lib/money'
+import { useAssets, type Asset } from '@/features/assets/api'
 import {
   useCreateSavingsEntry,
   useDeleteSavingsEntry,
@@ -18,14 +20,11 @@ import {
 
 const schema = z.object({
   kind: z.enum(['deposit', 'withdrawal']),
-  currency: z.enum(['ARS', 'USD']),
-  amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
-    message: 'Ingresá un importe válido',
-  }),
-  rate: z
-    .string()
-    .optional()
-    .refine((v) => !v || (parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0), 'Cotización inválida'),
+  assetId: z.string().min(1, 'Elegí un activo'),
+  // La validación numérica real depende de los decimales del activo elegido (2 para dinero/acciones,
+  // 8 para cripto) — no se puede expresar en un schema estático, se resuelve a mano en onSubmit.
+  amount: z.string().min(1, 'Ingresá una cantidad'),
+  rate: z.string().optional(),
   occurredOn: z.string().min(1, 'Falta la fecha'),
   note: z.string().max(140).optional(),
 })
@@ -34,6 +33,10 @@ type FormValues = z.infer<typeof schema>
 
 function centsToInputText(cents: number): string {
   return (cents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function unitsToInputText(units: number, decimals: number): string {
+  return (units / 10 ** decimals).toLocaleString('es-AR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
 interface SavingsEntryFormDialogProps {
@@ -45,59 +48,86 @@ interface SavingsEntryFormDialogProps {
 
 export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: SavingsEntryFormDialogProps) {
   const isEditing = !!entry
+  const { data: allAssets } = useAssets()
   const createEntry = useCreateSavingsEntry()
   const updateEntry = useUpdateSavingsEntry()
   const deleteEntry = useDeleteSavingsEntry()
+
+  // Fondo de emergencia (single_currency) sólo ofrece la moneda principal; el resto, todo el catálogo.
+  const assets = useMemo(
+    () => (allAssets ?? []).filter((a) => !bucket.single_currency || a.symbol === 'ARS'),
+    [allAssets, bucket.single_currency],
+  )
+  const assetById = useMemo(() => new Map((allAssets ?? []).map((a) => [a.id, a])), [allAssets])
+  const arsAssetId = useMemo(() => (allAssets ?? []).find((a) => a.symbol === 'ARS')?.id ?? '', [allAssets])
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { kind: 'deposit', currency: 'ARS', occurredOn: format(new Date(), 'yyyy-MM-dd') },
+    defaultValues: { kind: 'deposit', occurredOn: format(new Date(), 'yyyy-MM-dd') },
   })
 
   const kind = watch('kind')
-  const currency = watch('currency')
+  const assetId = watch('assetId')
+  const selectedAsset: Asset | undefined = assetById.get(assetId)
 
   useEffect(() => {
     if (!open) return
-    reset(
-      entry
-        ? {
-            kind: entry.kind,
-            currency: entry.currency,
-            amount: centsToInputText(entry.cents),
-            rate: entry.rateToMainCents != null ? centsToInputText(entry.rateToMainCents) : '',
-            occurredOn: entry.occurred_on,
-            note: entry.note ?? '',
-          }
-        : {
-            kind: 'deposit',
-            currency: 'ARS',
-            amount: '',
-            rate: '',
-            occurredOn: format(new Date(), 'yyyy-MM-dd'),
-            note: '',
-          },
-    )
-  }, [open, entry, reset])
+    if (entry) {
+      const asset = assetById.get(entry.asset_id)
+      reset({
+        kind: entry.kind,
+        assetId: entry.asset_id,
+        amount: asset ? unitsToInputText(unitsFromNumeric(entry.amount, asset.decimals), asset.decimals) : entry.amount,
+        rate: entry.rate_to_main != null ? centsToInputText(centsFromNumeric(entry.rate_to_main)) : '',
+        occurredOn: entry.occurred_on,
+        note: entry.note ?? '',
+      })
+    } else if (arsAssetId) {
+      reset({
+        kind: 'deposit',
+        assetId: arsAssetId,
+        amount: '',
+        rate: '',
+        occurredOn: format(new Date(), 'yyyy-MM-dd'),
+        note: '',
+      })
+    }
+  }, [open, entry, arsAssetId, assetById, reset])
 
   async function onSubmit(values: FormValues) {
-    const cents = parseAmountToCents(values.amount)!
-    // Un retiro no "compra" nada: la cotización de compra sólo aplica a un depósito.
-    const rateCents =
-      values.currency === 'USD' && values.kind === 'deposit' && values.rate ? parseAmountToCents(values.rate) : null
+    const asset = assetById.get(values.assetId)
+    if (!asset) return
+
+    const units = parseQuantity(values.amount, asset.decimals)
+    if (units == null || units <= 0) {
+      setError('amount', { message: 'Ingresá una cantidad válida' })
+      return
+    }
+
+    let rateCents: number | null = null
+    if (asset.symbol !== 'ARS' && values.kind === 'deposit' && values.rate) {
+      const parsed = parseAmountToCents(values.rate)
+      if (parsed == null || parsed <= 0) {
+        setError('rate', { message: 'Cotización inválida' })
+        return
+      }
+      rateCents = parsed
+    }
+
     const payload = {
       bucketId: bucket.id,
       kind: values.kind,
-      currency: values.currency as Currency,
-      cents,
-      rateToMainCents: rateCents,
+      assetId: values.assetId,
+      amount: unitsToNumeric(units, asset.decimals),
+      rateToMain: rateCents == null ? null : centsToNumeric(rateCents),
       occurredOn: values.occurredOn,
       note: values.note?.trim() || null,
     }
@@ -116,17 +146,13 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
     onClose()
   }
 
-  function selectCurrency(next: Currency) {
-    if (next === currency) return
-    setValue('currency', next)
-    if (next === 'ARS') setValue('rate', '')
-  }
-
   function selectKind(next: FormValues['kind']) {
     if (next === kind) return
     setValue('kind', next)
     if (next === 'withdrawal') setValue('rate', '')
   }
+
+  const showRate = !!selectedAsset && selectedAsset.symbol !== 'ARS' && kind === 'deposit'
 
   return (
     <Dialog
@@ -159,24 +185,36 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
           </Chip>
         </div>
 
-        {!bucket.single_currency && (
-          <div className="flex gap-1.5">
-            <Chip active={currency === 'ARS'} onClick={() => selectCurrency('ARS')}>
-              ARS
-            </Chip>
-            <Chip active={currency === 'USD'} onClick={() => selectCurrency('USD')}>
-              USD
-            </Chip>
-          </div>
+        {assets.length > 1 && (
+          <Field label="Activo" htmlFor="assetId" error={errors.assetId?.message}>
+            <Select id="assetId" {...register('assetId', { onChange: () => setValue('rate', '') })}>
+              {assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.symbol} — {a.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
         )}
 
-        <Field label="Importe" error={errors.amount?.message}>
-          <AmountInput invalid={!!errors.amount} {...register('amount')} />
-        </Field>
-
-        {currency === 'USD' && kind === 'deposit' && (
+        {selectedAsset?.symbol === 'ARS' ? (
+          <Field label="Importe" error={errors.amount?.message}>
+            <AmountInput invalid={!!errors.amount} {...register('amount')} />
+          </Field>
+        ) : (
           <Field
-            label="Cotización de compra (ARS por USD)"
+            label="Cantidad"
+            htmlFor="amount"
+            hint={selectedAsset ? `En ${selectedAsset.symbol}` : undefined}
+            error={errors.amount?.message}
+          >
+            <Input id="amount" inputMode="decimal" placeholder="0,00" invalid={!!errors.amount} {...register('amount')} />
+          </Field>
+        )}
+
+        {showRate && (
+          <Field
+            label={`Cotización de compra (ARS por ${selectedAsset!.symbol})`}
             htmlFor="rate"
             hint="Opcional — hace falta para calcular la ganancia más adelante"
             error={errors.rate?.message}

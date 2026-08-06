@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useProfile, type FxSource } from '@/features/profile/api'
+import { useAssetManualPrices, useAssets } from '@/features/assets/api'
 
 interface DolarApiResponse {
   venta: number
@@ -10,6 +11,17 @@ interface DolarApiResponse {
 async function fetchDolarApi(casa: Exclude<FxSource, 'manual'>): Promise<DolarApiResponse> {
   const res = await fetch(`https://dolarapi.com/v1/dolares/${casa}`)
   if (!res.ok) throw new Error(`dolarapi respondió ${res.status}`)
+  return res.json()
+}
+
+type CoinGeckoResponse = Record<string, { ars: number; last_updated_at: number }>
+
+/** CoinGecko: sin key, confirmado con CORS abierto. Devuelve el precio directo en ARS, sin pasar por el dólar. */
+async function fetchCoinGeckoPrices(ids: string[]): Promise<CoinGeckoResponse> {
+  const res = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=ars&include_last_updated_at=true`,
+  )
+  if (!res.ok) throw new Error(`coingecko respondió ${res.status}`)
   return res.json()
 }
 
@@ -61,4 +73,60 @@ export function useUsdRate() {
   })()
 
   return { ...result, isPending: !isManualSource && apiQuery.isPending && manual.rateCents == null }
+}
+
+export interface AssetPrice {
+  /** Centavos de ARS por 1 unidad entera del activo. `null` si no hay ninguna cotización cargada. */
+  priceArsCents: number | null
+  origin: 'fixed' | 'api' | 'manual' | 'none'
+  updatedAt: string | null
+}
+
+/**
+ * Precio en vivo (o manual) de cada activo del catálogo, resuelto por `asset_id`. ARS vale 1 por
+ * definición; USD reusa `useUsdRate` tal cual; cripto pega una sola vez a CoinGecko por todos los
+ * activos con `price_source='coingecko'` juntos; el resto (equities, activos propios) lee el
+ * override manual de esta cuenta. Nunca lanza — un precio faltante se resuelve como `null`, no como error.
+ */
+export function useAssetPrices() {
+  const { data: assets } = useAssets()
+  const { data: manualPrices } = useAssetManualPrices()
+  const usdRate = useUsdRate()
+
+  const cryptoIds = [
+    ...new Set((assets ?? []).filter((a) => a.price_source === 'coingecko' && a.coingecko_id).map((a) => a.coingecko_id!)),
+  ].sort()
+
+  const cryptoQuery = useQuery({
+    queryKey: ['crypto-prices', cryptoIds.join(',')],
+    queryFn: () => fetchCoinGeckoPrices(cryptoIds),
+    enabled: cryptoIds.length > 0,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  })
+
+  const prices = new Map<string, AssetPrice>()
+  for (const asset of assets ?? []) {
+    if (asset.symbol === 'ARS') {
+      prices.set(asset.id, { priceArsCents: 100, origin: 'fixed', updatedAt: null })
+    } else if (asset.symbol === 'USD') {
+      prices.set(asset.id, { priceArsCents: usdRate.rateCents, origin: usdRate.origin, updatedAt: usdRate.updatedAt })
+    } else if (asset.price_source === 'coingecko' && asset.coingecko_id) {
+      const quote = cryptoQuery.data?.[asset.coingecko_id]
+      prices.set(asset.id, {
+        priceArsCents: quote ? Math.round(quote.ars * 100) : null,
+        origin: quote ? 'api' : 'none',
+        updatedAt: quote ? new Date(quote.last_updated_at * 1000).toISOString() : null,
+      })
+    } else {
+      const manual = manualPrices?.get(asset.id)
+      prices.set(asset.id, {
+        priceArsCents: manual?.priceArsCents ?? null,
+        origin: manual ? 'manual' : 'none',
+        updatedAt: manual?.updatedAt ?? null,
+      })
+    }
+  }
+
+  return prices
 }

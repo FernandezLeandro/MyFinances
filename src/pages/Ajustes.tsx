@@ -19,6 +19,15 @@ import {
 } from '@/features/invites/api'
 import { useProfile, useUpdateProfile, type FxSource } from '@/features/profile/api'
 import { useUsdRate } from '@/features/fx/api'
+import {
+  useAssets,
+  useAssetManualPrices,
+  useCreateAsset,
+  useUpdateAssetManualPrice,
+  type Asset,
+  type AssetClass,
+  type AssetQuoteCurrency,
+} from '@/features/assets/api'
 
 function codeStatus(code: InviteCode) {
   if (!code.isActive) return { label: 'Revocado', tone: 'text-chalk-faint' }
@@ -127,6 +136,119 @@ function FxPanel() {
   )
 }
 
+function AssetPriceRow({ asset, currentCents }: { asset: Asset; currentCents: number | null }) {
+  const updatePrice = useUpdateAssetManualPrice()
+  const [input, setInput] = useState(
+    currentCents != null ? (currentCents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '',
+  )
+
+  async function save() {
+    const cents = parseAmountToCents(input)
+    if (cents == null || cents <= 0) return
+    await updatePrice.mutateAsync({ assetId: asset.id, priceArsCents: cents })
+  }
+
+  return (
+    <div className="flex items-end gap-2 border-t border-ink-850 py-3 first:border-t-0">
+      <Field label={`${asset.symbol} — ${asset.name}`} hint="ARS por unidad" className="flex-1">
+        <Input inputMode="decimal" placeholder="0,00" value={input} onChange={(e) => setInput(e.target.value)} />
+      </Field>
+      <Button variant="outline" size="sm" onClick={save} disabled={updatePrice.isPending}>
+        Guardar
+      </Button>
+    </div>
+  )
+}
+
+const assetClassOptions: { value: Exclude<AssetClass, 'fiat'>; label: string }[] = [
+  { value: 'equity', label: 'Acción' },
+  { value: 'crypto', label: 'Cripto' },
+  { value: 'bond', label: 'Bono' },
+  { value: 'other', label: 'Otro' },
+]
+
+function AddAssetForm() {
+  const createAsset = useCreateAsset()
+  const [symbol, setSymbol] = useState('')
+  const [name, setName] = useState('')
+  const [assetClass, setAssetClass] = useState<Exclude<AssetClass, 'fiat'>>('equity')
+  const [quoteCurrency, setQuoteCurrency] = useState<AssetQuoteCurrency>('USD')
+
+  async function handleCreate() {
+    if (!symbol.trim() || !name.trim()) return
+    await createAsset.mutateAsync({ symbol, name, assetClass, quoteCurrency })
+    setSymbol('')
+    setName('')
+  }
+
+  return (
+    <div className="mt-5 border-t border-ink-800 pt-4">
+      <p className="eyebrow">Agregar activo</p>
+      <div className="mt-3 flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Símbolo">
+            <Input placeholder="VOO, AL30…" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+          </Field>
+          <Field label="Nombre">
+            <Input placeholder="Vanguard S&P 500" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {assetClassOptions.map((c) => (
+            <Chip key={c.value} active={assetClass === c.value} onClick={() => setAssetClass(c.value)}>
+              {c.label}
+            </Chip>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          <Chip active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
+            Se cotiza en ARS
+          </Chip>
+          <Chip active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
+            Se cotiza en USD
+          </Chip>
+        </div>
+        <Button variant="outline" onClick={handleCreate} disabled={createAsset.isPending}>
+          {createAsset.isPending ? 'Agregando…' : 'Agregar activo'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function AssetsPanel() {
+  const { data: assets, isPending } = useAssets()
+  const { data: manualPrices } = useAssetManualPrices()
+
+  // ARS no tiene precio (vale 1 por definición) y USD ya tiene su propio panel arriba — acá van
+  // los que de verdad necesitan un número cargado a mano: acciones, bonos, activos propios.
+  const manualAssets = (assets ?? []).filter((a) => a.price_source === 'manual' && a.symbol !== 'ARS' && a.symbol !== 'USD')
+
+  return (
+    <Panel className="p-6">
+      <p className="eyebrow">Activos</p>
+      <p className="mt-3 text-[13px] text-chalk-faint">
+        Cripto se valúa sola (CoinGecko). Estos todavía no tienen cotización en vivo — cargá el precio
+        actual a mano cuando quieras actualizarlo.
+      </p>
+
+      {isPending ? (
+        <Skeleton className="mt-4 h-16 w-full" />
+      ) : manualAssets.length === 0 ? (
+        <p className="mt-4 text-[13px] text-chalk-faint">Todavía no hay acciones ni bonos cargados.</p>
+      ) : (
+        <div className="mt-2">
+          {manualAssets.map((asset) => (
+            <AssetPriceRow key={asset.id} asset={asset} currentCents={manualPrices?.get(asset.id)?.priceArsCents ?? null} />
+          ))}
+        </div>
+      )}
+
+      <AddAssetForm />
+    </Panel>
+  )
+}
+
 export function Ajustes() {
   const { data: codes, isPending, isError, refetch } = useMyInviteCodes()
   const createCode = useCreateInviteCode()
@@ -224,6 +346,7 @@ export function Ajustes() {
           </Panel>
 
           <FxPanel />
+          <AssetsPanel />
         </div>
       </div>
     </div>

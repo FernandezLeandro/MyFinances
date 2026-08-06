@@ -90,3 +90,38 @@ export function splitMoney(
 
   return { sign: negative ? '−' : '', symbol: CURRENCY_SYMBOLS[currency], whole, fraction }
 }
+
+/**
+ * Versiones genéricas de `centsFromNumeric`/`centsToNumeric`/`parseAmountToCents` para cantidades de
+ * un activo con una escala propia (2 decimales para dinero/acciones, 8 para cripto — estilo
+ * satoshi). Con `decimals = 2` se comportan exactamente igual que las funciones de ARS-cents de
+ * arriba, que quedan intactas: todo lo que ya usa `centsFromNumeric` sigue andando sin tocarlo.
+ */
+export function unitsFromNumeric(value: string, decimals: number): number {
+  return Math.round(Number(value) * 10 ** decimals)
+}
+
+export function unitsToNumeric(units: number, decimals: number): string {
+  return (units / 10 ** decimals).toFixed(decimals)
+}
+
+/** Cantidad de un activo sin arrastrar ceros de más: "0,015" en vez de "0,01500000". */
+export function formatQuantity(units: number, decimals: number): string {
+  return new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 0, maximumFractionDigits: decimals }).format(
+    units / 10 ** decimals,
+  )
+}
+
+/** Convierte lo que escribió el usuario a unidades enteras en la escala de `decimals`. `null` si no es válido. */
+export function parseQuantity(input: string, decimals: number): number | null {
+  const raw = input.trim()
+  if (!raw) return null
+
+  const hasComma = raw.includes(',')
+  const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
+
+  const value = Number(normalized.replace(/[^\d.-]/g, ''))
+  if (!Number.isFinite(value)) return null
+
+  return Math.round(value * 10 ** decimals)
+}

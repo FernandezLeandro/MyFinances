@@ -1,45 +1,84 @@
 import { useMemo, useState } from 'react'
-import { formatDistanceToNow } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { cn } from '@/lib/cn'
+import { formatQuantity } from '@/lib/money'
 import { useSavingsBuckets, useSavingsEntries, type SavingsBucket } from '@/features/savings/api'
-import { summarizePortfolio, type BucketSummary } from '@/features/savings/aggregate'
-import { useUsdRate } from '@/features/fx/api'
+import { summarizePortfolio, type AssetNet, type BucketSummary } from '@/features/savings/aggregate'
+import { useAssets, type Asset } from '@/features/assets/api'
+import { useAssetPrices, type AssetPrice } from '@/features/fx/api'
 import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
 import { BucketDetailDialog } from '@/features/savings/BucketDetailDialog'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
 
-function fxLabel(rate: ReturnType<typeof useUsdRate>) {
-  if (rate.rateCents == null) return 'Sin cotización del dólar cargada — cargá una en Ajustes'
-  const money = <Money cents={rate.rateCents} tone="dim" />
-  const when = rate.updatedAt
-    ? `actualizado ${formatDistanceToNow(new Date(rate.updatedAt), { locale: es, addSuffix: true })}`
-    : null
-  const originLabel = rate.origin === 'manual' ? (rate.isFallback ? 'valor manual, la API falló' : 'valor manual') : 'dolarapi.com'
+function originLabel(price: AssetPrice | undefined) {
+  if (!price) return null
+  if (price.origin === 'fixed') return null
+  if (price.origin === 'api') return 'en vivo'
+  if (price.origin === 'manual') return 'manual'
+  return null
+}
+
+/** Cantidad neta de un activo, tipografiada según corresponda: `Money` para ARS, cantidad + símbolo para el resto. */
+function NetAmount({ net, asset, tone = 'dim' }: { net: AssetNet; asset: Asset; tone?: 'dim' | 'chalk' | 'coral' | 'acid' }) {
+  if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} />
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-1.5">
-      Dólar: {money} <span className="text-chalk-faint">· {originLabel}{when ? ` · ${when}` : ''}</span>
+    <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>
+      {formatQuantity(net.quantityUnits, asset.decimals)} {asset.symbol}
     </span>
+  )
+}
+
+function PriceStatusLine({ nets, assets, prices }: { nets: AssetNet[]; assets: Asset[]; prices: Map<string, AssetPrice> }) {
+  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const held = nets.filter((n) => n.quantityUnits !== 0 && assetById.get(n.assetId)?.symbol !== 'ARS')
+
+  if (held.length === 0) return null
+
+  return (
+    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]">
+      {held.map((net) => {
+        const asset = assetById.get(net.assetId)
+        if (!asset) return null
+        const price = prices.get(net.assetId)
+        const label = originLabel(price)
+        return (
+          <span key={net.assetId} className="text-chalk-faint">
+            {asset.symbol}:{' '}
+            {price?.priceArsCents != null ? (
+              <>
+                <Money cents={price.priceArsCents} tone="dim" /> {label && <span>({label})</span>}
+              </>
+            ) : (
+              <span className="text-amber">sin cotización</span>
+            )}
+          </span>
+        )
+      })}
+    </div>
   )
 }
 
 function BucketCard({
   summary,
+  assets,
   onEdit,
   onOpenDetail,
   onQuickEntry,
 }: {
   summary: BucketSummary
+  assets: Asset[]
   onEdit: (b: SavingsBucket) => void
   onOpenDetail: (b: SavingsBucket) => void
   onQuickEntry: (b: SavingsBucket) => void
 }) {
-  const { bucket, net, valueCents } = summary
+  const { bucket, nets, valueCents } = summary
+  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const heldNets = nets.filter((n) => n.quantityUnits !== 0)
 
   return (
     <Panel className="flex flex-col p-5">
@@ -70,24 +109,20 @@ function BucketCard({
         </button>
       </div>
 
-      {(net.arsCents !== 0 || net.usdCents !== 0) && (
+      {heldNets.length > 0 && (
         <dl className="mt-4 space-y-1.5 border-t border-ink-800 pt-3 text-[13px]">
-          {net.arsCents !== 0 && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-chalk-faint">ARS</dt>
-              <dd>
-                <Money cents={net.arsCents} tone="dim" />
-              </dd>
-            </div>
-          )}
-          {net.usdCents !== 0 && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-chalk-faint">USD</dt>
-              <dd>
-                <Money cents={net.usdCents} currency="USD" tone="dim" />
-              </dd>
-            </div>
-          )}
+          {heldNets.map((net) => {
+            const asset = assetById.get(net.assetId)
+            if (!asset) return null
+            return (
+              <div key={net.assetId} className="flex justify-between gap-4">
+                <dt className="text-chalk-faint">{asset.symbol}</dt>
+                <dd>
+                  <NetAmount net={net} asset={asset} />
+                </dd>
+              </div>
+            )
+          })}
         </dl>
       )}
 
@@ -106,7 +141,8 @@ function BucketCard({
 export function Patrimonio() {
   const { data: buckets, isPending, isError, refetch } = useSavingsBuckets()
   const { data: entries } = useSavingsEntries()
-  const usdRate = useUsdRate()
+  const { data: assets } = useAssets()
+  const prices = useAssetPrices()
 
   const [bucketFormOpen, setBucketFormOpen] = useState(false)
   const [editingBucket, setEditingBucket] = useState<SavingsBucket | null>(null)
@@ -114,8 +150,8 @@ export function Patrimonio() {
   const [quickEntryBucket, setQuickEntryBucket] = useState<SavingsBucket | null>(null)
 
   const portfolio = useMemo(
-    () => summarizePortfolio(buckets ?? [], entries ?? [], usdRate.rateCents),
-    [buckets, entries, usdRate.rateCents],
+    () => summarizePortfolio(buckets ?? [], entries ?? [], assets ?? [], prices),
+    [buckets, entries, assets, prices],
   )
 
   function openNewBucket() {
@@ -172,7 +208,7 @@ export function Patrimonio() {
               ) : (
                 <Money cents={portfolio.totalValueCents} tone="acid" size="hero" className="mt-2" />
               )}
-              <p className="mt-4 text-[13px] text-chalk-faint">{fxLabel(usdRate)}</p>
+              <PriceStatusLine nets={portfolio.totalNets} assets={assets ?? []} prices={prices} />
             </Panel>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -180,6 +216,7 @@ export function Patrimonio() {
                 <BucketCard
                   key={summary.bucket.id}
                   summary={summary}
+                  assets={assets ?? []}
                   onEdit={openEditBucket}
                   onOpenDetail={setDetailBucket}
                   onQuickEntry={setQuickEntryBucket}
@@ -191,18 +228,20 @@ export function Patrimonio() {
           <Panel tone="flat" className="p-6">
             <PanelHeader title="Composición" />
             <dl className="space-y-2 text-[13px]">
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">En ARS</dt>
-                <dd>
-                  <Money cents={portfolio.totalNet.arsCents} tone="dim" />
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">En USD</dt>
-                <dd>
-                  <Money cents={portfolio.totalNet.usdCents} currency="USD" tone="dim" />
-                </dd>
-              </div>
+              {portfolio.totalNets
+                .filter((n) => n.quantityUnits !== 0)
+                .map((net) => {
+                  const asset = (assets ?? []).find((a) => a.id === net.assetId)
+                  if (!asset) return null
+                  return (
+                    <div key={net.assetId} className="flex justify-between gap-4">
+                      <dt className="text-chalk-faint">{asset.symbol}</dt>
+                      <dd>
+                        <NetAmount net={net} asset={asset} />
+                      </dd>
+                    </div>
+                  )
+                })}
             </dl>
 
             <div className="mt-5 border-t border-ink-800 pt-4">
@@ -210,8 +249,8 @@ export function Patrimonio() {
               {portfolio.totalGain.gainCents == null ? (
                 <p className="mt-2 text-[13px] text-chalk-faint">
                   {portfolio.totalGain.missingRateCount > 0
-                    ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'} en USD.`
-                    : 'No disponible sin cotización del dólar.'}
+                    ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
+                    : 'No disponible sin cotización de algún activo en tenencia.'}
                 </p>
               ) : (
                 <Money
@@ -234,6 +273,7 @@ export function Patrimonio() {
           onClose={() => setDetailBucket(null)}
           bucket={detailBucket}
           entries={(entries ?? []).filter((e) => e.bucket_id === detailBucket.id)}
+          assets={assets ?? []}
         />
       )}
       {quickEntryBucket && (

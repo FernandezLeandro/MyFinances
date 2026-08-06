@@ -1,32 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { centsFromNumeric, centsToNumeric, type Currency } from '@/lib/money'
 import type { Database } from '@/lib/database.types'
 
-type BucketRow = Database['public']['Tables']['savings_buckets']['Row']
-type EntryRow = Database['public']['Tables']['savings_entries']['Row']
+export type SavingsBucket = Database['public']['Tables']['savings_buckets']['Row']
 
-export type SavingsBucket = BucketRow
-
-export interface SavingsEntry extends Omit<EntryRow, 'amount' | 'rate_to_main' | 'currency' | 'kind'> {
-  cents: number
-  /** Centavos de ARS que costó 1 unidad de `currency` ese día. `null` en ARS o si no se cargó. */
-  rateToMainCents: number | null
-  currency: Currency
-  kind: 'deposit' | 'withdrawal'
-}
-
-function toEntry(row: EntryRow): SavingsEntry {
-  const { amount, rate_to_main, currency, kind, ...rest } = row
-  return {
-    ...rest,
-    cents: centsFromNumeric(amount),
-    rateToMainCents: rate_to_main == null ? null : centsFromNumeric(rate_to_main),
-    currency: currency as Currency,
-    kind,
-  }
-}
+/**
+ * `amount` y `rate_to_main` quedan como el `numeric` crudo que devuelve PostgREST — a diferencia del
+ * resto de la plata en la app, acá la escala depende del activo (2 decimales para dinero/acciones,
+ * 8 para cripto), así que la conversión a unidades pasa por `aggregate.ts`, que es quien ya necesita
+ * la lista de activos para resolver precios. `rate_to_main` sí es siempre ARS con 2 decimales (es
+ * plata), independientemente del activo que valúa.
+ */
+export type SavingsEntry = Database['public']['Tables']['savings_entries']['Row']
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['savings-buckets', userId] })
@@ -62,7 +48,7 @@ export function useSavingsEntries() {
         .select('*')
         .order('occurred_on', { ascending: false })
       if (error) throw error
-      return data.map(toEntry)
+      return data
     },
   })
 }
@@ -114,10 +100,12 @@ export function useUpdateBucket() {
 export interface SavingsEntryInput {
   bucketId: string
   kind: 'deposit' | 'withdrawal'
-  currency: Currency
-  cents: number
-  /** Cotización de compra en centavos de ARS por unidad — sólo aplica y sólo es opcional en USD. */
-  rateToMainCents: number | null
+  assetId: string
+  /** `numeric` ya formateado en la escala de decimales del activo — lo arma el form, que es quien
+   *  conoce el activo elegido (vía `unitsToNumeric`). */
+  amount: string
+  /** ARS por unidad, `numeric` ya formateado (2 decimales de plata). `null` si no se cargó. */
+  rateToMain: string | null
   occurredOn: string
   note: string | null
 }
@@ -133,9 +121,9 @@ export function useCreateSavingsEntry() {
         user_id: user.id,
         bucket_id: input.bucketId,
         kind: input.kind,
-        currency: input.currency,
-        amount: centsToNumeric(input.cents),
-        rate_to_main: input.rateToMainCents == null ? null : centsToNumeric(input.rateToMainCents),
+        asset_id: input.assetId,
+        amount: input.amount,
+        rate_to_main: input.rateToMain,
         occurred_on: input.occurredOn,
         note: input.note,
       })
@@ -155,9 +143,9 @@ export function useUpdateSavingsEntry() {
         .from('savings_entries')
         .update({
           kind: input.kind,
-          currency: input.currency,
-          amount: centsToNumeric(input.cents),
-          rate_to_main: input.rateToMainCents == null ? null : centsToNumeric(input.rateToMainCents),
+          asset_id: input.assetId,
+          amount: input.amount,
+          rate_to_main: input.rateToMain,
           occurred_on: input.occurredOn,
           note: input.note,
         })

@@ -12,8 +12,10 @@
 
 type Kind = 'income' | 'expense'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
-type SavingsCurrency = 'ARS' | 'USD'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
+type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
+type AssetQuoteCurrency = 'ARS' | 'USD'
+type AssetPriceSource = 'coingecko' | 'manual'
 
 export interface Database {
   public: {
@@ -67,7 +69,7 @@ export interface Database {
           user_id: string
           bucket_id: string
           kind: SavingsEntryKind
-          currency: SavingsCurrency
+          asset_id: string
           amount: string
           rate_to_main: string | null
           occurred_on: string
@@ -79,7 +81,7 @@ export interface Database {
           user_id: string
           bucket_id: string
           kind: SavingsEntryKind
-          currency: SavingsCurrency
+          asset_id: string
           amount: number | string
           rate_to_main?: number | string | null
           occurred_on?: string
@@ -87,12 +89,45 @@ export interface Database {
         }
         Update: Partial<{
           kind: SavingsEntryKind
-          currency: SavingsCurrency
+          asset_id: string
           amount: number | string
           rate_to_main: number | string | null
           occurred_on: string
           note: string | null
         }>
+        Relationships: []
+      }
+      assets: {
+        Row: {
+          id: string
+          user_id: string | null
+          symbol: string
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          decimals: number
+          price_source: AssetPriceSource
+          coingecko_id: string | null
+          is_archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          symbol: string
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          decimals?: number
+          price_source?: AssetPriceSource
+        }
+        Update: Partial<{ name: string; is_archived: boolean }>
+        Relationships: []
+      }
+      asset_manual_prices: {
+        Row: { user_id: string; asset_id: string; price_ars: string; updated_at: string }
+        Insert: { user_id: string; asset_id: string; price_ars: number | string; updated_at?: string }
+        Update: Partial<{ price_ars: number | string; updated_at: string }>
         Relationships: []
       }
       categories: {

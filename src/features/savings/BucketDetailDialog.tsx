@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { cn } from '@/lib/cn'
+import { formatQuantity, unitsFromNumeric } from '@/lib/money'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
+import type { Asset } from '@/features/assets/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 
 interface BucketDetailDialogProps {
@@ -13,12 +16,14 @@ interface BucketDetailDialogProps {
   onClose: () => void
   bucket: SavingsBucket
   entries: SavingsEntry[]
+  assets: Asset[]
 }
 
 /** Historial de aportes de un ítem, con alta y edición on-demand del aporte tocado. */
-export function BucketDetailDialog({ open, onClose, bucket, entries }: BucketDetailDialogProps) {
+export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: BucketDetailDialogProps) {
   const [entryFormOpen, setEntryFormOpen] = useState(false)
   const [editing, setEditing] = useState<SavingsEntry | null>(null)
+  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
 
   function openNewEntry() {
     setEditing(null)
@@ -57,10 +62,15 @@ export function BucketDetailDialog({ open, onClose, bucket, entries }: BucketDet
         ) : (
           <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
             {entries.map((entry) => {
+              const asset = assetById.get(entry.asset_id)
+              if (!asset) return null
               const isWithdrawal = entry.kind === 'withdrawal'
-              // Sólo un depósito en USD necesita cotización de compra — sin ella, no entra en la
-              // ganancia estimada. Se marca acá porque si no, hay que abrir cada aporte para saberlo.
-              const missingRate = !isWithdrawal && entry.currency === 'USD' && entry.rateToMainCents == null
+              // Sólo un depósito en un activo distinto de ARS necesita cotización de compra — sin
+              // ella no entra en la ganancia estimada. Se marca acá porque si no, hay que abrir cada
+              // aporte para saberlo.
+              const missingRate = !isWithdrawal && asset.symbol !== 'ARS' && entry.rate_to_main == null
+              const units = unitsFromNumeric(entry.amount, asset.decimals)
+
               return (
                 <li key={entry.id} className="border-t border-ink-850 first:border-t-0">
                   <button
@@ -70,7 +80,7 @@ export function BucketDetailDialog({ open, onClose, bucket, entries }: BucketDet
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] text-chalk">
-                        {isWithdrawal ? 'Retiro' : 'Aporte'} en {entry.currency}
+                        {isWithdrawal ? 'Retiro' : 'Aporte'} en {asset.symbol}
                         {missingRate && <span className="ml-2 text-[11px] font-medium text-amber">Sin cotización</span>}
                       </p>
                       <p className="mt-0.5 text-[12px] text-chalk-faint">
@@ -78,12 +88,14 @@ export function BucketDetailDialog({ open, onClose, bucket, entries }: BucketDet
                         {entry.note ? ` · ${entry.note}` : ''}
                       </p>
                     </div>
-                    <Money
-                      cents={isWithdrawal ? -entry.cents : entry.cents}
-                      currency={entry.currency}
-                      tone={isWithdrawal ? 'coral' : 'chalk'}
-                      signed
-                    />
+                    {asset.symbol === 'ARS' ? (
+                      <Money cents={isWithdrawal ? -units : units} tone={isWithdrawal ? 'coral' : 'chalk'} signed />
+                    ) : (
+                      <span className={cn('tnum text-[14px]', isWithdrawal ? 'text-coral' : 'text-chalk')}>
+                        {isWithdrawal ? '−' : '+'}
+                        {formatQuantity(units, asset.decimals)} {asset.symbol}
+                      </span>
+                    )}
                   </button>
                 </li>
               )
