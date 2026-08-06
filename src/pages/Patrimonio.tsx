@@ -164,10 +164,15 @@ function BucketCard({
 }
 
 export function Patrimonio() {
-  const { data: buckets, isPending, isError, refetch } = useSavingsBuckets()
-  const { data: entries } = useSavingsEntries()
-  const { data: assets } = useAssets()
+  const { data: buckets, isPending: isBucketsPending, isError, refetch } = useSavingsBuckets()
+  const { data: entries, isPending: isEntriesPending } = useSavingsEntries()
+  const { data: assets, isPending: isAssetsPending } = useAssets()
   const prices = useAssetPrices()
+
+  // Buckets, entries y assets son tres queries independientes — hay que esperar a las tres antes de
+  // agregar, si no `summarizePortfolio` puede correr con aportes ya cargados pero activos todavía no
+  // (pasa justo después de un reload duro, como al cambiar de vista con un plugin de responsive).
+  const isPending = isBucketsPending || isEntriesPending || isAssetsPending
 
   const [bucketFormOpen, setBucketFormOpen] = useState(false)
   const [editingBucket, setEditingBucket] = useState<SavingsBucket | null>(null)

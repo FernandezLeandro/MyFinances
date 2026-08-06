@@ -73,7 +73,13 @@ export interface GainResult {
 export function computeGain(entries: SavingsEntry[], assets: Asset[], currentValueCents: number | null): GainResult {
   const assetById = new Map(assets.map((a) => [a.id, a]))
 
-  const nonArsDeposits = entries.filter((e) => e.kind === 'deposit' && assetById.get(e.asset_id)?.symbol !== 'ARS')
+  // `assetById.has(...)` es a propósito, no sólo `?.symbol !== 'ARS'`: si `assets` todavía no cargó
+  // (ventana breve entre queries independientes, p. ej. justo después de un reload), un aporte cuyo
+  // activo no se puede resolver NO es "distinto de ARS" — es desconocido, y no debe entrar en ningún
+  // lado del cálculo hasta que se pueda resolver.
+  const nonArsDeposits = entries.filter(
+    (e) => e.kind === 'deposit' && assetById.has(e.asset_id) && assetById.get(e.asset_id)!.symbol !== 'ARS',
+  )
   const missingRateCount = nonArsDeposits.filter((e) => e.rate_to_main == null).length
 
   if (missingRateCount > 0 || currentValueCents == null) {
