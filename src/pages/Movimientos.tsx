@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router'
 import { addMonths, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Panel } from '@/components/ui/Panel'
@@ -7,18 +8,26 @@ import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { useCategories } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useTransactions, type Transaction, type TransactionType } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
+import { centsToNumeric } from '@/lib/money'
+import { downloadCsv } from '@/lib/csv'
 
 type Filter = 'all' | TransactionType
 
 export function Movimientos() {
+  // Llega acá desde el drill-down de Análisis con una categoría pre-elegida.
+  const location = useLocation()
+  const incomingCategoryId = (location.state as { categoryId?: string } | null)?.categoryId ?? null
+
   const [month, setMonth] = useState(() => new Date())
   const [filter, setFilter] = useState<Filter>('all')
-  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [categoryId, setCategoryId] = useState<string | null>(incomingCategoryId)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -33,7 +42,7 @@ export function Movimientos() {
   const from = format(startOfMonth(month), 'yyyy-MM-dd')
   const to = format(endOfMonth(month), 'yyyy-MM-dd')
 
-  const { data: transactions } = useTransactions({
+  const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
     to,
     type: filter === 'all' ? undefined : filter,
@@ -62,6 +71,21 @@ export function Movimientos() {
   function openEdit(tx: Transaction) {
     setEditingTx(tx)
     setFormOpen(true)
+  }
+
+  function handleExport() {
+    if (!transactions || transactions.length === 0) return
+    const rows = [
+      ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Importe'],
+      ...transactions.map((tx) => [
+        tx.occurred_on,
+        tx.type === 'income' ? 'Ingreso' : 'Gasto',
+        categoryById.get(tx.category_id ?? '')?.name ?? '',
+        tx.description ?? '',
+        centsToNumeric(tx.type === 'income' ? tx.cents : -tx.cents),
+      ]),
+    ]
+    downloadCsv(`movimientos-${format(month, 'yyyy-MM')}.csv`, rows)
   }
 
   const hasFilters = filter !== 'all' || categoryId !== null || search !== ''
@@ -95,7 +119,10 @@ export function Movimientos() {
           </div>
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={!transactions?.length}>
+            Exportar CSV
+          </Button>
           <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
             Categorías
           </Button>
@@ -138,7 +165,23 @@ export function Movimientos() {
         </div>
       </div>
 
-      {!transactions || byDay.length === 0 ? (
+      {isError ? (
+        <Panel>
+          <ErrorState onRetry={() => refetch()} />
+        </Panel>
+      ) : isPending ? (
+        <Panel>
+          <ul className="flex flex-col gap-1 px-6 py-5">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className="flex items-center gap-3 py-2">
+                <Skeleton className="size-2 shrink-0 rounded-full" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-24" />
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      ) : byDay.length === 0 ? (
         <Panel>
           <EmptyState
             glyph="∅"

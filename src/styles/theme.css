@@ -19,10 +19,12 @@
   --color-ink-600: #2f3440;
   --color-ink-500: #434959;
 
-  /* Texto */
+  /* Texto — chalk-faint calibrado a ~4.9:1 sobre ink-950 (AA para texto normal exige 4.5:1).
+     El tono original (#676d78) daba 3.78:1: se veía bien pero no pasaba el mínimo, y se usa en
+     texto real (fechas, hints, eyebrow labels), no sólo decorativo. */
   --color-chalk: #edefea;
   --color-chalk-dim: #a0a6ae;
-  --color-chalk-faint: #676d78;
+  --color-chalk-faint: #7a818c;
 
   /* Acento único */
   --color-acid: #c8f751;

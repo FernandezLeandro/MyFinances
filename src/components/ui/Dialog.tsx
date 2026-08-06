@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { MouseEvent, ReactNode } from 'react'
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
@@ -36,11 +36,36 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
     if (event.target === ref.current) onClose()
   }
 
+  // El focus-trap de <dialog> nativo no es del todo confiable (Tab desde el último elemento a
+  // veces se escapa al resto del documento en vez de volver al principio) — se refuerza a mano.
+  function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== 'Tab') return
+    const dialog = ref.current
+    if (!dialog) return
+
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    if (focusable.length === 0) return
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <dialog
       ref={ref}
       onClose={onClose}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       aria-labelledby="dialog-title"
       className={cn(
         'mx-0 mt-auto mb-0 w-full max-w-none overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',

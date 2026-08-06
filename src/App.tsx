@@ -8,6 +8,7 @@ import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
 import { Analisis } from '@/pages/Analisis'
+import { Invitaciones } from '@/pages/Invitaciones'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="movimientos" element={<Movimientos />} />
             <Route path="fijos" element={<Fijos />} />
             <Route path="analisis" element={<Analisis />} />
+            <Route path="invitaciones" element={<Invitaciones />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/hoy" replace />} />

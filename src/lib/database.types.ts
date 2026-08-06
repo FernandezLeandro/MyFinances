@@ -153,6 +153,16 @@ export interface Database {
         Args: Record<string, never>
         Returns: number
       }
+      rpc_monthly_series: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          period: string
+          total_income: string
+          total_expense: string
+          net: string
+          running_balance: string
+        }[]
+      }
       rpc_mark_fixed_expense_paid: {
         Args: { p_fixed_expense_id: string; p_period: string }
         Returns: undefined
@@ -167,6 +177,25 @@ export interface Database {
       }
       rpc_redeem_invite_code: {
         Args: { p_code: string; p_display_name?: string | null }
+        Returns: undefined
+      }
+      rpc_create_invite_code: {
+        Args: { p_max_uses?: number; p_expires_at?: string | null }
+        Returns: { code: string; max_uses: number; expires_at: string | null }[]
+      }
+      rpc_list_my_invite_codes: {
+        Args: Record<string, never>
+        Returns: {
+          code: string
+          max_uses: number
+          used_count: number
+          expires_at: string | null
+          is_active: boolean
+          created_at: string
+        }[]
+      }
+      rpc_deactivate_invite_code: {
+        Args: { p_code: string }
         Returns: undefined
       }
     }

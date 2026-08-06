@@ -5,6 +5,8 @@ import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
@@ -27,10 +29,10 @@ export function Fijos() {
   const isCurrentMonth = isSameMonth(month, new Date())
   const todayDay = new Date().getDate()
 
-  const { data: fixedExpenses } = useFixedExpenses()
+  const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses()
   const { data: payments } = useFixedExpensePayments(period)
   const { data: currentBalance } = useCurrentBalance()
-  const { data: projectedBalance } = useProjectedBalance(period)
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
   const { data: categories } = useCategories(true)
   const markPaid = useMarkFixedExpensePaid()
   const unmarkPaid = useUnmarkFixedExpensePaid()
@@ -107,10 +109,23 @@ export function Fijos() {
         </Button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
           <PanelHeader title="Del mes" hint="Ordenados por día de vencimiento" />
-          {sorted.length === 0 ? (
+          {isError ? (
+            <ErrorState onRetry={() => refetch()} />
+          ) : isPending ? (
+            <ul className="flex flex-col gap-1 px-6 py-5">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="flex items-center gap-3 py-2.5">
+                  <Skeleton className="size-5 shrink-0" />
+                  <Skeleton className="size-2 shrink-0 rounded-full" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-20" />
+                </li>
+              ))}
+            </ul>
+          ) : sorted.length === 0 ? (
             <EmptyState
               glyph="◷"
               title="Todavía no cargaste gastos fijos"
@@ -180,7 +195,11 @@ export function Fijos() {
         <div className="flex flex-col gap-6">
           <Panel className="p-6 ring-1 ring-acid/15">
             <p className="eyebrow">Saldo proyectado a fin de mes</p>
-            <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
+            {isProjectedPending ? (
+              <Skeleton className="mt-2 h-9 w-32" />
+            ) : (
+              <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
+            )}
 
             <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
               <div className="flex justify-between gap-4">
