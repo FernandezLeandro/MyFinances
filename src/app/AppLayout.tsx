@@ -82,10 +82,10 @@ export function AppLayout() {
         <div className="mt-auto flex flex-col gap-2 border-t border-ink-850 pt-4">
           <p className="truncate text-[12px] text-chalk-faint">{user?.email}</p>
           <Link
-            to="/invitaciones"
+            to="/ajustes"
             className="self-start text-[12px] text-chalk-faint transition-colors hover:text-chalk"
           >
-            Invitaciones
+            Ajustes
           </Link>
           <button
             type="button"
@@ -97,24 +97,24 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* Mobile: sin sidebar, así que logout e invitaciones necesitan su propio lugar. Íconos
+      {/* Mobile: sin sidebar, así que logout y ajustes necesitan su propio lugar. Íconos
           chicos y fijos arriba a la derecha, no una barra de chrome — eso sigue siendo territorio
           del saldo. */}
       <div className="fixed top-[max(1.25rem,env(safe-area-inset-top))] right-5 z-20 flex gap-2 lg:hidden">
         <Link
-          to="/invitaciones"
-          aria-label="Invitaciones"
+          to="/ajustes"
+          aria-label="Ajustes"
           className="grid size-9 place-items-center rounded-full bg-ink-900/80 text-chalk-faint ring-1 ring-ink-800 backdrop-blur-lg transition-colors duration-150 hover:text-chalk"
         >
           <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+            <circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
             <path
-              d="M2.5 4.5h11v7h-11z"
+              d="M8 2.5v1.6M8 11.9v1.6M13.5 8h-1.6M4.1 8H2.5M11.6 4.4l-1.1 1.1M5.5 10.5l-1.1 1.1M11.6 11.6l-1.1-1.1M5.5 5.5 4.4 4.4"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.4"
-              strokeLinejoin="round"
+              strokeLinecap="round"
             />
-            <path d="M2.5 4.5 8 9l5.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
           </svg>
         </Link>
         <button

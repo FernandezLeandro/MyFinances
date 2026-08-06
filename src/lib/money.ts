@@ -10,6 +10,15 @@ export const CURRENCY = 'ARS'
 const LOCALE = 'es-AR'
 
 /**
+ * Monedas soportadas en Patrimonio. El resto de la app (movimientos, fijos, saldo) sigue
+ * exclusivamente en ARS — esto no las vuelve multi-moneda, sólo le da a `Money` un segundo símbolo
+ * para poder mostrar los aportes en USD sin tocar ningún call site existente.
+ */
+export type Currency = 'ARS' | 'USD'
+
+const CURRENCY_SYMBOLS: Record<Currency, string> = { ARS: '$', USD: 'US$' }
+
+/**
  * Convierte un `numeric` tal como lo devuelve PostgREST (string con punto decimal, p.ej. "1234.50")
  * a centavos enteros. Distinto de `parseAmountToCents`: ese interpreta lo que tipea el usuario
  * (con comas y formato es-AR), esto interpreta lo que ya devolvió la base.
@@ -39,10 +48,10 @@ export function parseAmountToCents(input: string): number | null {
 }
 
 /** Importe completo con símbolo: "$ 12.480,50" */
-export function formatMoney(cents: number, options: { signed?: boolean } = {}): string {
+export function formatMoney(cents: number, options: { signed?: boolean; currency?: Currency } = {}): string {
   const formatted = new Intl.NumberFormat(LOCALE, {
     style: 'currency',
-    currency: CURRENCY,
+    currency: options.currency ?? CURRENCY,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(cents / 100)
@@ -63,7 +72,10 @@ export function formatCompact(cents: number): string {
  * Parte el importe para poder tipografiarlo distinto: los centavos van más chicos que los enteros.
  * Es lo que hace que la cifra hero se lea como un número y no como un párrafo.
  */
-export function splitMoney(cents: number): { sign: string; symbol: string; whole: string; fraction: string } {
+export function splitMoney(
+  cents: number,
+  currency: Currency = 'ARS',
+): { sign: string; symbol: string; whole: string; fraction: string } {
   const negative = cents < 0
   const parts = new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
@@ -76,5 +88,5 @@ export function splitMoney(cents: number): { sign: string; symbol: string; whole
     .join('')
   const fraction = parts.find((p) => p.type === 'fraction')?.value ?? '00'
 
-  return { sign: negative ? '−' : '', symbol: '$', whole, fraction }
+  return { sign: negative ? '−' : '', symbol: CURRENCY_SYMBOLS[currency], whole, fraction }
 }

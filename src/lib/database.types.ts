@@ -11,14 +11,88 @@
  */
 
 type Kind = 'income' | 'expense'
+type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
+type SavingsCurrency = 'ARS' | 'USD'
+type SavingsEntryKind = 'deposit' | 'withdrawal'
 
 export interface Database {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; display_name: string | null; currency: string; created_at: string }
+        Row: {
+          id: string
+          display_name: string | null
+          currency: string
+          created_at: string
+          fx_source: FxSource
+          usd_rate_manual: string | null
+          usd_rate_updated_at: string | null
+        }
         Insert: { id: string; display_name?: string | null; currency?: string }
-        Update: { display_name?: string | null; currency?: string }
+        Update: Partial<{
+          display_name: string | null
+          currency: string
+          fx_source: FxSource
+          usd_rate_manual: number | string | null
+          usd_rate_updated_at: string | null
+        }>
+        Relationships: []
+      }
+      savings_buckets: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          slug: string | null
+          single_currency: boolean
+          sort_order: number
+          is_archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          slug?: string | null
+          single_currency?: boolean
+          sort_order?: number
+          is_archived?: boolean
+        }
+        Update: Partial<{ name: string; single_currency: boolean; sort_order: number; is_archived: boolean }>
+        Relationships: []
+      }
+      savings_entries: {
+        Row: {
+          id: string
+          user_id: string
+          bucket_id: string
+          kind: SavingsEntryKind
+          currency: SavingsCurrency
+          amount: string
+          rate_to_main: string | null
+          occurred_on: string
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          bucket_id: string
+          kind: SavingsEntryKind
+          currency: SavingsCurrency
+          amount: number | string
+          rate_to_main?: number | string | null
+          occurred_on?: string
+          note?: string | null
+        }
+        Update: Partial<{
+          kind: SavingsEntryKind
+          currency: SavingsCurrency
+          amount: number | string
+          rate_to_main: number | string | null
+          occurred_on: string
+          note: string | null
+        }>
         Relationships: []
       }
       categories: {
