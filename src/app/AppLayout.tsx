@@ -86,6 +86,26 @@ export function AppLayout() {
         </div>
       </aside>
 
+      {/* Mobile: sin sidebar, así que el logout necesita su propio lugar. Un ícono chico y fijo
+          arriba a la derecha, no una barra de chrome — eso sigue siendo territorio del saldo. */}
+      <button
+        type="button"
+        onClick={() => supabase.auth.signOut()}
+        aria-label="Cerrar sesión"
+        className="fixed top-[max(1.25rem,env(safe-area-inset-top))] right-5 z-20 grid size-9 place-items-center rounded-full bg-ink-900/80 text-chalk-faint ring-1 ring-ink-800 backdrop-blur-lg transition-colors duration-150 hover:text-coral lg:hidden"
+      >
+        <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+          <path
+            d="M6.5 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M10.5 11.5 14 8l-3.5-3.5M14 8H6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-12 lg:pb-16 lg:pl-[276px]">
         <div className="mx-auto w-full max-w-[1080px]">
           <Outlet />
