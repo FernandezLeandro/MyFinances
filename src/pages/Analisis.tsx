@@ -1,66 +1,58 @@
+import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Panel } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { categoryById, mockTransactions, monthExpense } from '@/lib/mock'
+import { useSpendByCategory } from '@/features/transactions/api'
 
 export function Analisis() {
-  // Bloque 0: el reparto se calcula sobre el mock. En el Bloque 4 lo resuelve `v_spend_by_category`.
-  const porCategoria = [...new Map<string, number>(
-    mockTransactions
-      .filter((t) => t.type === 'expense')
-      .reduce((map, t) => map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.cents), new Map<string, number>()),
-  )].sort((a, b) => b[1] - a[1])
+  const from = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const to = format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  const { data: spend } = useSpendByCategory(from, to)
+
+  const total = (spend ?? []).reduce((acc, s) => acc + s.cents, 0)
 
   return (
     <div className="flex flex-col gap-8">
       <header>
-        <p className="eyebrow">Agosto 2026</p>
+        <p className="eyebrow">{format(new Date(), 'MMMM yyyy', { locale: es })}</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Análisis</h1>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Panel className="p-6 lg:col-span-2">
-          <p className="eyebrow">En qué se fue la plata</p>
+      <Panel className="p-6">
+        <p className="eyebrow">En qué se fue la plata</p>
+
+        {!spend || spend.length === 0 ? (
+          <EmptyState
+            glyph="◔"
+            title="Todavía no hay gastos este mes"
+            hint="Los gráficos de tendencia y la comparación con el mes anterior llegan en el Bloque 4."
+          />
+        ) : (
           <ul className="mt-6 flex flex-col gap-4">
-            {porCategoria.map(([id, cents], i) => {
-              const category = categoryById.get(id)
-              const share = cents / monthExpense
+            {spend.map((s, i) => {
+              const share = total > 0 ? s.cents / total : 0
               return (
-                <li key={id}>
+                <li key={s.categoryId}>
                   <div className="flex items-baseline justify-between gap-4">
-                    <span className="text-[14px] text-chalk">{category?.name}</span>
+                    <span className="text-[14px] text-chalk">{s.categoryName}</span>
                     <span className="flex items-baseline gap-3">
-                      <span className="tnum text-[12px] text-chalk-faint">
-                        {(share * 100).toFixed(0)}%
-                      </span>
-                      <Money cents={cents} tone={i === 0 ? 'chalk' : 'dim'} />
+                      <span className="tnum text-[12px] text-chalk-faint">{(share * 100).toFixed(0)}%</span>
+                      <Money cents={s.cents} tone={i === 0 ? 'chalk' : 'dim'} />
                     </span>
                   </div>
-                  {/* Barra horizontal: comparar longitudes es más fácil que comparar ángulos. */}
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-850">
                     <div
                       className="h-full rounded-full"
-                      style={{
-                        width: `${share * 100}%`,
-                        // El ácido queda para la serie primaria; el resto usa el color de su categoría.
-                        backgroundColor: i === 0 ? 'var(--color-acid)' : category?.color,
-                      }}
+                      style={{ width: `${share * 100}%`, backgroundColor: i === 0 ? 'var(--color-acid)' : s.color }}
                     />
                   </div>
                 </li>
               )
             })}
           </ul>
-        </Panel>
-
-        <Panel tone="flat">
-          <EmptyState
-            glyph="◔"
-            title="Evolución mensual"
-            hint="Los gráficos de tendencia y la comparación con el mes anterior llegan en el Bloque 4."
-          />
-        </Panel>
-      </div>
+        )}
+      </Panel>
     </div>
   )
 }

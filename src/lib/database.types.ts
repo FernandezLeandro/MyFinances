@@ -149,6 +149,10 @@ export interface Database {
         Args: { p_period: string }
         Returns: number
       }
+      rpc_current_balance: {
+        Args: Record<string, never>
+        Returns: number
+      }
       rpc_check_invite_code: {
         Args: { p_code: string }
         Returns: boolean

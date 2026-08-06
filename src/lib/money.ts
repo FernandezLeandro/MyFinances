@@ -9,6 +9,20 @@
 export const CURRENCY = 'ARS'
 const LOCALE = 'es-AR'
 
+/**
+ * Convierte un `numeric` tal como lo devuelve PostgREST (string con punto decimal, p.ej. "1234.50")
+ * a centavos enteros. Distinto de `parseAmountToCents`: ese interpreta lo que tipea el usuario
+ * (con comas y formato es-AR), esto interpreta lo que ya devolvió la base.
+ */
+export function centsFromNumeric(value: string): number {
+  return Math.round(Number(value) * 100)
+}
+
+/** Centavos enteros → string decimal para mandar a un `numeric(12,2)` de la base. */
+export function centsToNumeric(cents: number): string {
+  return (cents / 100).toFixed(2)
+}
+
 /** Convierte lo que escribió el usuario ("1.234,50", "1234.5") a centavos. `null` si no es válido. */
 export function parseAmountToCents(input: string): number | null {
   const raw = input.trim()
