@@ -12,7 +12,7 @@ function Wordmark() {
   return (
     <div className="flex items-baseline gap-1.5">
       <span className="font-display text-[22px] leading-none font-extrabold tracking-[-0.04em] text-chalk">
-        saldo
+        MyFinances
       </span>
       <span aria-hidden className="size-1.5 translate-y-[-1px] rounded-full bg-acid" />
     </div>

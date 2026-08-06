@@ -92,7 +92,7 @@ export function AdjustBalanceDialog({ open, onClose }: AdjustBalanceDialogProps)
       >
         <div className="flex flex-col gap-5">
           <div>
-            <p className="eyebrow">Saldo actual según Saldo</p>
+            <p className="eyebrow">Saldo actual según MyFinances</p>
             <Money cents={currentBalanceCents ?? 0} tone="dim" size="figure" className="mt-1" />
           </div>
 

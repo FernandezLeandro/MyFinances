@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Saldo',
-        short_name: 'Saldo',
+        name: 'MyFinances',
+        short_name: 'MyFinances',
         description: 'Ingresos, gastos y gastos fijos del mes, con el saldo final que te queda de verdad.',
         theme_color: '#0A0B0E',
         background_color: '#0A0B0E',

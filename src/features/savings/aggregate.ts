@@ -5,7 +5,7 @@
  *
  * Cada activo tiene su propia escala (`decimals`: 2 para dinero/acciones, 8 para cripto). Todo lo
  * de acá opera en unidades enteras en esa escala — la misma disciplina de "nunca floats" que rige
- * el resto de la plata en Saldo, sólo que el factor de escala ya no está fijo en 100.
+ * el resto de la plata en MyFinances, sólo que el factor de escala ya no está fijo en 100.
  */
 import { centsFromNumeric, unitsFromNumeric } from '@/lib/money'
 import type { Asset } from '@/features/assets/api'
