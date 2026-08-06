@@ -28,7 +28,9 @@ export function useAssets(includeArchived = false) {
 /**
  * Precio manual por activo, cargado por esta cuenta — igual que `profiles.usd_rate_manual`, es una
  * referencia propia, no un dato compartido: dos cuentas pueden tener valores distintos para el mismo
- * MELI del catálogo global. Devuelve un mapa por `asset_id` para resolverlo rápido en `useAssetPrices`.
+ * MELI del catálogo global. Se guarda en la moneda NATIVA del activo (`assets.quote_currency`), no
+ * pre-convertido a ARS — así, si es en USD, sigue el dólar en vivo en vez de quedar congelado con el
+ * que estaba vigente el día que se cargó. La conversión final a ARS pasa por `useAssetPrices`.
  */
 export function useAssetManualPrices() {
   const { user } = useAuth()
@@ -39,9 +41,9 @@ export function useAssetManualPrices() {
     queryFn: async () => {
       const { data, error } = await supabase.from('asset_manual_prices').select('*')
       if (error) throw error
-      const map = new Map<string, { priceArsCents: number; updatedAt: string }>()
+      const map = new Map<string, { priceCents: number; updatedAt: string }>()
       for (const row of data) {
-        map.set(row.asset_id, { priceArsCents: centsFromNumeric(row.price_ars), updatedAt: row.updated_at })
+        map.set(row.asset_id, { priceCents: centsFromNumeric(row.price), updatedAt: row.updated_at })
       }
       return map
     },
@@ -69,8 +71,9 @@ export function useCreateAsset() {
         asset_class: input.assetClass,
         quote_currency: input.quoteCurrency,
         // Un activo agregado a mano siempre arranca sin cotización en vivo — el usuario la carga
-        // él mismo en Ajustes. 8 decimales para cripto (estilo satoshi), 2 para el resto.
-        decimals: input.assetClass === 'crypto' ? 8 : 2,
+        // él mismo en Ajustes. 8 decimales para cualquier activo que no sea dinero: comprar
+        // fracciones finas (acciones, bonos, cripto) es más la regla que la excepción.
+        decimals: 8,
         price_source: 'manual',
       })
       if (error) throw error
@@ -84,13 +87,14 @@ export function useUpdateAssetManualPrice() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ assetId, priceArsCents }: { assetId: string; priceArsCents: number }) => {
+    /** `priceCents` va en la moneda nativa del activo (`quote_currency`) — nunca pre-convertido. */
+    mutationFn: async ({ assetId, priceCents }: { assetId: string; priceCents: number }) => {
       if (!user) throw new Error('No autenticado')
       const { error } = await supabase.from('asset_manual_prices').upsert(
         {
           user_id: user.id,
           asset_id: assetId,
-          price_ars: centsToNumeric(priceArsCents),
+          price: centsToNumeric(priceCents),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,asset_id' },

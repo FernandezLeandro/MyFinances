@@ -136,8 +136,17 @@ function FxPanel() {
   )
 }
 
+/**
+ * El precio se carga y se guarda en la moneda en la que el activo realmente cotiza
+ * (`quote_currency`) — para una acción de un broker del exterior eso es USD, que es el número que
+ * el usuario tiene a mano. La conversión a ARS se hace en vivo recién al valuar (`useAssetPrices`),
+ * nunca acá: si se convirtiera al guardar quedaría congelada con el dólar de ese momento, y cambiar
+ * la fuente del dólar después en Ajustes no movería nada — que fue justo el bug que esto reemplaza.
+ */
 function AssetPriceRow({ asset, currentCents }: { asset: Asset; currentCents: number | null }) {
   const updatePrice = useUpdateAssetManualPrice()
+  const isUsd = asset.quote_currency === 'USD'
+
   const [input, setInput] = useState(
     currentCents != null ? (currentCents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '',
   )
@@ -145,12 +154,12 @@ function AssetPriceRow({ asset, currentCents }: { asset: Asset; currentCents: nu
   async function save() {
     const cents = parseAmountToCents(input)
     if (cents == null || cents <= 0) return
-    await updatePrice.mutateAsync({ assetId: asset.id, priceArsCents: cents })
+    await updatePrice.mutateAsync({ assetId: asset.id, priceCents: cents })
   }
 
   return (
     <div className="flex items-end gap-2 border-t border-ink-850 py-3 first:border-t-0">
-      <Field label={`${asset.symbol} — ${asset.name}`} hint="ARS por unidad" className="flex-1">
+      <Field label={`${asset.symbol} — ${asset.name}`} hint={isUsd ? 'USD por unidad' : 'ARS por unidad'} className="flex-1">
         <Input inputMode="decimal" placeholder="0,00" value={input} onChange={(e) => setInput(e.target.value)} />
       </Field>
       <Button variant="outline" size="sm" onClick={save} disabled={updatePrice.isPending}>
@@ -239,7 +248,7 @@ function AssetsPanel() {
       ) : (
         <div className="mt-2">
           {manualAssets.map((asset) => (
-            <AssetPriceRow key={asset.id} asset={asset} currentCents={manualPrices?.get(asset.id)?.priceArsCents ?? null} />
+            <AssetPriceRow key={asset.id} asset={asset} currentCents={manualPrices?.get(asset.id)?.priceCents ?? null} />
           ))}
         </div>
       )}

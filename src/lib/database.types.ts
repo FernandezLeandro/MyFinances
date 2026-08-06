@@ -125,9 +125,9 @@ export interface Database {
         Relationships: []
       }
       asset_manual_prices: {
-        Row: { user_id: string; asset_id: string; price_ars: string; updated_at: string }
-        Insert: { user_id: string; asset_id: string; price_ars: number | string; updated_at?: string }
-        Update: Partial<{ price_ars: number | string; updated_at: string }>
+        Row: { user_id: string; asset_id: string; price: string; updated_at: string }
+        Insert: { user_id: string; asset_id: string; price: number | string; updated_at?: string }
+        Update: Partial<{ price: number | string; updated_at: string }>
         Relationships: []
       }
       categories: {

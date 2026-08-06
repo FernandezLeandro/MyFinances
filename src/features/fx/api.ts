@@ -120,11 +120,20 @@ export function useAssetPrices() {
       })
     } else {
       const manual = manualPrices?.get(asset.id)
-      prices.set(asset.id, {
-        priceArsCents: manual?.priceArsCents ?? null,
-        origin: manual ? 'manual' : 'none',
-        updatedAt: manual?.updatedAt ?? null,
-      })
+      if (!manual) {
+        prices.set(asset.id, { priceArsCents: null, origin: 'none', updatedAt: null })
+      } else if (asset.quote_currency === 'USD') {
+        // Guardado en USD por unidad — se convierte con el dólar EN VIVO, no con el que estaba
+        // vigente el día que se cargó. Así, cambiar la fuente del dólar en Ajustes mueve también
+        // el valor de las acciones, no sólo el de USD como moneda suelta.
+        prices.set(asset.id, {
+          priceArsCents: usdRate.rateCents == null ? null : Math.round((manual.priceCents * usdRate.rateCents) / 100),
+          origin: 'manual',
+          updatedAt: manual.updatedAt,
+        })
+      } else {
+        prices.set(asset.id, { priceArsCents: manual.priceCents, origin: 'manual', updatedAt: manual.updatedAt })
+      }
     }
   }
 
