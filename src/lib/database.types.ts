@@ -153,6 +153,14 @@ export interface Database {
         Args: Record<string, never>
         Returns: number
       }
+      rpc_mark_fixed_expense_paid: {
+        Args: { p_fixed_expense_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_unmark_fixed_expense_paid: {
+        Args: { p_fixed_expense_id: string; p_period: string }
+        Returns: undefined
+      }
       rpc_check_invite_code: {
         Args: { p_code: string }
         Returns: boolean
