@@ -131,6 +131,8 @@ export interface TransactionInput {
   occurredOn: string
   categoryId: string | null
   description: string | null
+  /** Movimiento creado por "Ajustar saldo" — sin categoría, afuera de Análisis, pero cuenta para el saldo. */
+  isAdjustment?: boolean
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
@@ -154,6 +156,7 @@ export function useCreateTransaction() {
         occurred_on: input.occurredOn,
         category_id: input.categoryId,
         description: input.description,
+        is_adjustment: input.isAdjustment ?? false,
       })
       if (error) throw error
     },

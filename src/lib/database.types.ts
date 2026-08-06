@@ -178,6 +178,7 @@ export interface Database {
           category_id: string | null
           description: string | null
           fixed_expense_payment_id: string | null
+          is_adjustment: boolean
           created_at: string
         }
         Insert: {
@@ -189,6 +190,7 @@ export interface Database {
           category_id?: string | null
           description?: string | null
           fixed_expense_payment_id?: string | null
+          is_adjustment?: boolean
         }
         Update: Partial<{
           type: Kind

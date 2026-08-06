@@ -13,10 +13,12 @@ import { useCountUp } from '@/lib/useCountUp'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
+import { AdjustBalanceDialog } from '@/features/transactions/AdjustBalanceDialog'
 import { Link } from 'react-router'
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const period = format(startOfMonth(new Date()), 'yyyy-MM-dd')
 
   const balance = useCurrentBalance()
@@ -55,13 +57,18 @@ export function Hoy() {
               <Money cents={summary.data?.totalExpense ?? 0} tone="coral" size="figure" className="mt-1" />
             )}
           </div>
-          <Button
-            className="ml-auto w-full sm:w-auto"
-            icon={<span className="text-base leading-none">+</span>}
-            onClick={() => setOpen(true)}
-          >
-            Nuevo movimiento
-          </Button>
+          <div className="ml-auto flex w-full gap-2 sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setAdjustOpen(true)}>
+              Ajustar saldo
+            </Button>
+            <Button
+              className="flex-1 sm:flex-none"
+              icon={<span className="text-base leading-none">+</span>}
+              onClick={() => setOpen(true)}
+            >
+              Nuevo movimiento
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -105,6 +112,7 @@ export function Hoy() {
       {/* Montado sólo mientras está abierto: así cada apertura dispara una consulta fresca de
           categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}
       {open && <TransactionFormDialog open={open} onClose={() => setOpen(false)} />}
+      {adjustOpen && <AdjustBalanceDialog open={adjustOpen} onClose={() => setAdjustOpen(false)} />}
     </div>
   )
 }

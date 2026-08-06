@@ -1,4 +1,4 @@
-# Saldo
+# MyFinances
 
 Finanzas personales del día a día: ingresos y gastos con categoría, saldo actual, gastos fijos del mes
 con estado de pago y —lo que la diferencia de una planilla— **el saldo con el que realmente terminás el
