@@ -39,9 +39,11 @@ interface TransactionFormDialogProps {
   onClose: () => void
   /** Si viene, el dialog edita esta transacción en vez de crear una nueva. */
   transaction?: Transaction | null
+  /** Precarga tipo e importe en un alta nueva (ej. "Ajustar saldo" → "Registrar como movimiento"). Se ignora si viene `transaction`. */
+  prefill?: { type: TransactionType; cents: number }
 }
 
-export function TransactionFormDialog({ open, onClose, transaction }: TransactionFormDialogProps) {
+export function TransactionFormDialog({ open, onClose, transaction, prefill }: TransactionFormDialogProps) {
   const isEditing = !!transaction
   const { data: categories } = useCategories()
   const createTx = useCreateTransaction()
@@ -74,14 +76,14 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
             description: transaction.description ?? '',
           }
         : {
-            type: 'expense',
-            amount: '',
+            type: prefill?.type ?? 'expense',
+            amount: prefill ? centsToInputText(prefill.cents) : '',
             categoryId: '',
             occurredOn: format(new Date(), 'yyyy-MM-dd'),
             description: '',
           },
     )
-  }, [open, transaction, reset])
+  }, [open, transaction, prefill, reset])
 
   const categoriesForType = (categories ?? []).filter((c) => c.kind === type)
 
