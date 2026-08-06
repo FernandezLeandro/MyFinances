@@ -3,8 +3,9 @@ import { Grain } from '@/components/Grain'
 import { Money } from '@/components/ui/Money'
 import { cn } from '@/lib/cn'
 import { navItems } from '@/app/nav'
-// Bloque 0: el saldo de la nav sale del mock. En el Bloque 2 pasa a ser una query de TanStack Query.
-import { currentBalance } from '@/lib/mock'
+import { useAuth } from '@/features/auth/auth-context'
+import { useCurrentBalance } from '@/features/transactions/api'
+import { supabase } from '@/lib/supabase'
 
 function Wordmark() {
   return (
@@ -22,6 +23,9 @@ function Wordmark() {
  * horizontal: el tope de la pantalla es territorio de la cifra de saldo, no de una barra de chrome.
  */
 export function AppLayout() {
+  const { user } = useAuth()
+  const { data: balanceCents } = useCurrentBalance()
+
   return (
     <>
       <Grain />
@@ -31,7 +35,7 @@ export function AppLayout() {
 
         <div className="mt-9">
           <p className="eyebrow">Saldo actual</p>
-          <Money cents={currentBalance} tone="acid" size="compact" className="mt-1.5" />
+          <Money cents={balanceCents ?? 0} tone="acid" size="compact" className="mt-1.5" />
         </div>
 
         <nav className="mt-10 flex flex-col gap-0.5" aria-label="Secciones">
@@ -70,7 +74,16 @@ export function AppLayout() {
           ))}
         </nav>
 
-        <p className="mt-auto text-[11px] text-ink-500">Datos de ejemplo · Bloque 0</p>
+        <div className="mt-auto flex flex-col gap-2 border-t border-ink-850 pt-4">
+          <p className="truncate text-[12px] text-chalk-faint">{user?.email}</p>
+          <button
+            type="button"
+            onClick={() => supabase.auth.signOut()}
+            className="self-start text-[12px] text-chalk-faint transition-colors hover:text-coral"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </aside>
 
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-12 lg:pb-16 lg:pl-[276px]">

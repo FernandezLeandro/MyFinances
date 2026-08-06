@@ -1,112 +1,83 @@
+import { useMemo, useState } from 'react'
+import { format, startOfMonth } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { buttonClasses } from '@/components/ui/button-styles'
 import { Money } from '@/components/ui/Money'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { TransactionRow } from '@/components/TransactionRow'
+import { useCountUp } from '@/lib/useCountUp'
+import { useCategories } from '@/features/categories/api'
+import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
+import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { Link } from 'react-router'
-import {
-  categoryById,
-  currentBalance,
-  monthExpense,
-  monthIncome,
-  mockTransactions,
-  pendingFixed,
-  pendingFixedTotal,
-  projectedBalance,
-} from '@/lib/mock'
 
 export function Hoy() {
-  const ultimos = mockTransactions.slice(-6).reverse()
+  const [open, setOpen] = useState(false)
+  const period = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+
+  const { data: balanceCents } = useCurrentBalance()
+  const { data: summary } = useMonthlySummary(period)
+  const { data: recent } = useRecentTransactions(6)
+  const { data: categories } = useCategories(true)
+
+  const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
+  const animatedBalance = useCountUp(balanceCents ?? 0)
 
   return (
     <div className="flex flex-col gap-12">
-      {/* El hero va suelto, a ancho completo: la cifra ES la pantalla, no el contenido de una tarjeta. */}
       <header>
-        <p className="eyebrow">Saldo actual · Agosto 2026</p>
-        <Money cents={currentBalance} tone="acid" size="hero" className="mt-3 -ml-1" />
+        <p className="eyebrow">Saldo actual · {format(new Date(), 'MMMM yyyy', { locale: es })}</p>
+        <Money cents={animatedBalance} tone="acid" size="hero" className="mt-3 -ml-1" />
 
         <div className="mt-8 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-ink-850 pt-6">
           <div>
             <p className="eyebrow">Ingresos del mes</p>
-            <Money cents={monthIncome} tone="chalk" size="figure" className="mt-1" />
+            <Money cents={summary?.totalIncome ?? 0} tone="chalk" size="figure" className="mt-1" />
           </div>
           <div>
             <p className="eyebrow">Gastos del mes</p>
-            <Money cents={monthExpense} tone="coral" size="figure" className="mt-1" />
+            <Money cents={summary?.totalExpense ?? 0} tone="coral" size="figure" className="mt-1" />
           </div>
           <Button
-            className="w-full sm:ml-auto sm:w-auto"
+            className="ml-auto w-full sm:w-auto"
             icon={<span className="text-base leading-none">+</span>}
+            onClick={() => setOpen(true)}
           >
             Nuevo movimiento
           </Button>
         </div>
       </header>
 
-      {/* Grilla asimétrica 2/3 – 1/3. Nunca tres tarjetas iguales en fila. */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <PanelHeader
-            title="Últimos movimientos"
-            action={
-              <Link to="/movimientos" className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
-                Ver todos
-              </Link>
-            }
-          />
+      <Panel>
+        <PanelHeader
+          title="Últimos movimientos"
+          action={
+            <Link to="/movimientos" className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
+              Ver todos
+            </Link>
+          }
+        />
+        {recent && recent.length > 0 ? (
           <ul className="pb-3">
-            {ultimos.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} />
+            {recent.map((tx) => (
+              <TransactionRow key={tx.id} tx={tx} category={categoryById.get(tx.category_id ?? '')} />
             ))}
           </ul>
-        </Panel>
+        ) : (
+          <EmptyState
+            glyph="∅"
+            title="Todavía no cargaste nada"
+            hint="Arrancá con tu primer ingreso o gasto del día."
+            action={<Button onClick={() => setOpen(true)}>Nuevo movimiento</Button>}
+          />
+        )}
+      </Panel>
 
-        <div className="flex flex-col gap-6">
-          {/* La métrica estrella: con cuánto termina el mes una vez pagados los fijos que faltan. */}
-          <Panel className="p-6 ring-1 ring-acid/15">
-            <p className="eyebrow">Saldo proyectado a fin de mes</p>
-            <Money cents={projectedBalance} tone="chalk" size="figure" className="mt-2" />
-
-            <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Saldo actual</dt>
-                <dd>
-                  <Money cents={currentBalance} tone="dim" />
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">
-                  Fijos por pagar ({pendingFixed.length})
-                </dt>
-                <dd>
-                  <Money cents={-pendingFixedTotal} tone="coral" />
-                </dd>
-              </div>
-            </dl>
-          </Panel>
-
-          <Panel tone="flat">
-            <PanelHeader title="Fijos pendientes" hint={`${pendingFixed.length} sin abonar este mes`} />
-            <ul className="px-6 pb-5">
-              {pendingFixed.map((fixed) => (
-                <li
-                  key={fixed.id}
-                  className="flex items-center gap-3 border-t border-ink-850 py-2.5 first:border-t-0"
-                >
-                  <span
-                    aria-hidden
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: categoryById.get(fixed.categoryId)?.color }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[14px]">{fixed.name}</span>
-                  <span className="tnum text-[12px] text-chalk-faint">día {fixed.dueDay}</span>
-                  <Money cents={fixed.cents} tone="dim" />
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        </div>
-      </div>
+      {/* Montado sólo mientras está abierto: así cada apertura dispara una consulta fresca de
+          categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}
+      {open && <TransactionFormDialog open={open} onClose={() => setOpen(false)} />}
     </div>
   )
 }
