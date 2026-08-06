@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router'
 import { addMonths, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Panel } from '@/components/ui/Panel'
@@ -16,9 +17,13 @@ import { TransactionFormDialog } from '@/features/transactions/TransactionFormDi
 type Filter = 'all' | TransactionType
 
 export function Movimientos() {
+  // Llega acá desde el drill-down de Análisis con una categoría pre-elegida.
+  const location = useLocation()
+  const incomingCategoryId = (location.state as { categoryId?: string } | null)?.categoryId ?? null
+
   const [month, setMonth] = useState(() => new Date())
   const [filter, setFilter] = useState<Filter>('all')
-  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [categoryId, setCategoryId] = useState<string | null>(incomingCategoryId)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)

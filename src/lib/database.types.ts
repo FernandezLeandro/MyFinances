@@ -153,6 +153,16 @@ export interface Database {
         Args: Record<string, never>
         Returns: number
       }
+      rpc_monthly_series: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          period: string
+          total_income: string
+          total_expense: string
+          net: string
+          running_balance: string
+        }[]
+      }
       rpc_mark_fixed_expense_paid: {
         Args: { p_fixed_expense_id: string; p_period: string }
         Returns: undefined
