@@ -32,14 +32,22 @@ export function netByAsset(entries: SavingsEntry[], assets: Asset[]): AssetNet[]
   return [...totals.entries()].map(([assetId, quantityUnits]) => ({ assetId, quantityUnits }))
 }
 
+export interface AssetValue {
+  assetId: string
+  /** Valor actual en centavos de ARS de la tenencia de este activo. */
+  valueCents: number
+}
+
 /**
- * Valor actual en ARS. Por cada activo con saldo ≠ 0 hace falta su precio EN VIVO (no el de compra
- * de cada aporte, ese sólo importa para el costo) — si falta el precio de cualquiera de los activos
- * en tenencia, el total completo queda `null`: mostrar un total parcial sería mentir.
+ * Valor actual EN ARS de cada activo con saldo ≠ 0 (no la cantidad — para eso ya está `netByAsset`).
+ * Hace falta el precio EN VIVO de cada uno (no el de compra de cada aporte, ese sólo importa para el
+ * costo) — si falta el de cualquiera de los activos en tenencia, devuelve `null`: mostrar un
+ * desglose parcial sería mentir. Es la base tanto del total (sumar todo) como de la composición
+ * (cada valor sobre el total).
  */
-export function valueInMainCents(nets: AssetNet[], assets: Asset[], prices: Map<string, AssetPrice>): number | null {
+export function valueByAsset(nets: AssetNet[], assets: Asset[], prices: Map<string, AssetPrice>): AssetValue[] | null {
   const assetById = new Map(assets.map((a) => [a.id, a]))
-  let total = 0
+  const values: AssetValue[] = []
 
   for (const net of nets) {
     if (net.quantityUnits === 0) continue
@@ -47,10 +55,16 @@ export function valueInMainCents(nets: AssetNet[], assets: Asset[], prices: Map<
     if (!asset) continue
     const price = prices.get(net.assetId)
     if (!price || price.priceArsCents == null) return null
-    total += Math.round((net.quantityUnits * price.priceArsCents) / 10 ** asset.decimals)
+    values.push({ assetId: net.assetId, valueCents: Math.round((net.quantityUnits * price.priceArsCents) / 10 ** asset.decimals) })
   }
 
-  return total
+  return values
+}
+
+export function valueInMainCents(nets: AssetNet[], assets: Asset[], prices: Map<string, AssetPrice>): number | null {
+  const values = valueByAsset(nets, assets, prices)
+  if (values == null) return null
+  return values.reduce((sum, v) => sum + v.valueCents, 0)
 }
 
 export interface GainResult {

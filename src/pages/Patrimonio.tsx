@@ -10,8 +10,9 @@ import { cn } from '@/lib/cn'
 import { formatQuantity, type Currency } from '@/lib/money'
 import { useSavingsBuckets, useSavingsEntries, type SavingsBucket } from '@/features/savings/api'
 import { summarizePortfolio, type AssetNet, type BucketSummary } from '@/features/savings/aggregate'
+import { CompositionView } from '@/features/savings/CompositionView'
 import { useAssets, type Asset } from '@/features/assets/api'
-import { useAssetPrices, type AssetPrice } from '@/features/fx/api'
+import { useAssetPrices } from '@/features/fx/api'
 import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
 import { BucketDetailDialog } from '@/features/savings/BucketDetailDialog'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
@@ -37,14 +38,6 @@ function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Cu
   )
 }
 
-function originLabel(price: AssetPrice | undefined) {
-  if (!price) return null
-  if (price.origin === 'fixed') return null
-  if (price.origin === 'api') return 'en vivo'
-  if (price.origin === 'manual') return 'manual'
-  return null
-}
-
 /** Cantidad neta de un activo, tipografiada según corresponda: `Money` para ARS, cantidad + símbolo para el resto. */
 function NetAmount({ net, asset, tone = 'dim' }: { net: AssetNet; asset: Asset; tone?: 'dim' | 'chalk' | 'coral' | 'acid' }) {
   if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} />
@@ -52,36 +45,6 @@ function NetAmount({ net, asset, tone = 'dim' }: { net: AssetNet; asset: Asset; 
     <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>
       {formatQuantity(net.quantityUnits, asset.decimals)} {asset.symbol}
     </span>
-  )
-}
-
-function PriceStatusLine({ nets, assets, prices }: { nets: AssetNet[]; assets: Asset[]; prices: Map<string, AssetPrice> }) {
-  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const held = nets.filter((n) => n.quantityUnits !== 0 && assetById.get(n.assetId)?.symbol !== 'ARS')
-
-  if (held.length === 0) return null
-
-  return (
-    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]">
-      {held.map((net) => {
-        const asset = assetById.get(net.assetId)
-        if (!asset) return null
-        const price = prices.get(net.assetId)
-        const label = originLabel(price)
-        return (
-          <span key={net.assetId} className="text-chalk-faint">
-            {asset.symbol}:{' '}
-            {price?.priceArsCents != null ? (
-              <>
-                <Money cents={price.priceArsCents} tone="dim" /> {label && <span>({label})</span>}
-              </>
-            ) : (
-              <span className="text-amber">sin cotización</span>
-            )}
-          </span>
-        )
-      })}
-    </div>
   )
 }
 
@@ -248,7 +211,6 @@ export function Patrimonio() {
                   <Money cents={displayCents} currency={displayCurrency} tone="acid" size="hero" className="mt-2" />
                 )
               })()}
-              <PriceStatusLine nets={portfolio.totalNets} assets={assets ?? []} prices={prices} />
             </Panel>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -265,66 +227,53 @@ export function Patrimonio() {
             </div>
           </div>
 
-          <Panel tone="flat" className="p-6">
+          <Panel tone="flat">
             <PanelHeader title="Composición" />
-            <dl className="space-y-2 text-[13px]">
-              {portfolio.totalNets
-                .filter((n) => n.quantityUnits !== 0)
-                .map((net) => {
-                  const asset = (assets ?? []).find((a) => a.id === net.assetId)
-                  if (!asset) return null
-                  return (
-                    <div key={net.assetId} className="flex justify-between gap-4">
-                      <dt className="text-chalk-faint">{asset.symbol}</dt>
-                      <dd>
-                        <NetAmount net={net} asset={asset} />
-                      </dd>
-                    </div>
-                  )
-                })}
-            </dl>
+            <div className="px-6 pb-6">
+              <CompositionView nets={portfolio.totalNets} assets={assets ?? []} prices={prices} />
 
-            <div className="mt-5 border-t border-ink-800 pt-4">
-              <p className="eyebrow">Total invertido</p>
-              {(() => {
-                const displayCents = toDisplayCents(portfolio.totalGain.costArsCents, displayCurrency, usdRateCents)
-                if (displayCents == null) {
-                  return (
-                    <p className="mt-2 text-[13px] text-chalk-faint">
-                      {portfolio.totalGain.missingRateCount > 0
-                        ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
-                        : 'No disponible sin cotización de algún activo en tenencia.'}
-                    </p>
-                  )
-                }
-                return <Money cents={displayCents} currency={displayCurrency} tone="dim" size="figure" className="mt-2" />
-              })()}
-            </div>
+              <div className="mt-5 border-t border-ink-800 pt-4">
+                <p className="eyebrow">Total invertido</p>
+                {(() => {
+                  const displayCents = toDisplayCents(portfolio.totalGain.costArsCents, displayCurrency, usdRateCents)
+                  if (displayCents == null) {
+                    return (
+                      <p className="mt-2 text-[13px] text-chalk-faint">
+                        {portfolio.totalGain.missingRateCount > 0
+                          ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
+                          : 'No disponible sin cotización de algún activo en tenencia.'}
+                      </p>
+                    )
+                  }
+                  return <Money cents={displayCents} currency={displayCurrency} tone="dim" size="figure" className="mt-2" />
+                })()}
+              </div>
 
-            <div className="mt-5 border-t border-ink-800 pt-4">
-              <p className="eyebrow">Ganancia estimada</p>
-              {(() => {
-                const displayCents = toDisplayCents(portfolio.totalGain.gainCents, displayCurrency, usdRateCents)
-                if (displayCents == null) {
+              <div className="mt-5 border-t border-ink-800 pt-4">
+                <p className="eyebrow">Ganancia estimada</p>
+                {(() => {
+                  const displayCents = toDisplayCents(portfolio.totalGain.gainCents, displayCurrency, usdRateCents)
+                  if (displayCents == null) {
+                    return (
+                      <p className="mt-2 text-[13px] text-chalk-faint">
+                        {portfolio.totalGain.missingRateCount > 0
+                          ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
+                          : 'No disponible sin cotización de algún activo en tenencia.'}
+                      </p>
+                    )
+                  }
                   return (
-                    <p className="mt-2 text-[13px] text-chalk-faint">
-                      {portfolio.totalGain.missingRateCount > 0
-                        ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
-                        : 'No disponible sin cotización de algún activo en tenencia.'}
-                    </p>
+                    <Money
+                      cents={displayCents}
+                      currency={displayCurrency}
+                      tone={displayCents < 0 ? 'coral' : 'chalk'}
+                      size="figure"
+                      signed
+                      className="mt-2"
+                    />
                   )
-                }
-                return (
-                  <Money
-                    cents={displayCents}
-                    currency={displayCurrency}
-                    tone={displayCents < 0 ? 'coral' : 'chalk'}
-                    size="figure"
-                    signed
-                    className="mt-2"
-                  />
-                )
-              })()}
+                })()}
+              </div>
             </div>
           </Panel>
         </div>

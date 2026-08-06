@@ -8,6 +8,9 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/cn'
 import { formatQuantity, unitsFromNumeric } from '@/lib/money'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
+import { CompositionView } from '@/features/savings/CompositionView'
+import { netByAsset } from '@/features/savings/aggregate'
+import { useAssetPrices } from '@/features/fx/api'
 import type { Asset } from '@/features/assets/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 
@@ -24,6 +27,11 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
   const [entryFormOpen, setEntryFormOpen] = useState(false)
   const [editing, setEditing] = useState<SavingsEntry | null>(null)
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const prices = useAssetPrices()
+  const nets = useMemo(() => netByAsset(entries, assets), [entries, assets])
+  // Con un solo activo en tenencia la composición es trivialmente "100%" — no aporta nada, así que
+  // sólo se muestra cuando el ítem de verdad mezcla monedas/activos.
+  const heldAssetCount = nets.filter((n) => n.quantityUnits !== 0).length
 
   function openNewEntry() {
     setEditing(null)
@@ -60,7 +68,14 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
         {entries.length === 0 ? (
           <EmptyState glyph="◈" title="Todavía no cargaste aportes" hint="El primero puede ser el saldo que ya tenés ahorrado." />
         ) : (
-          <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
+          <>
+            {heldAssetCount > 1 && (
+              <div className="mb-5 border-b border-ink-850 pb-5">
+                <p className="eyebrow mb-3">Composición</p>
+                <CompositionView nets={nets} assets={assets} prices={prices} />
+              </div>
+            )}
+            <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
             {entries.map((entry) => {
               const asset = assetById.get(entry.asset_id)
               if (!asset) return null
@@ -100,7 +115,8 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
                 </li>
               )
             })}
-          </ul>
+            </ul>
+          </>
         )}
       </Dialog>
 
