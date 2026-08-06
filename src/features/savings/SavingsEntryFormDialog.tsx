@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -76,7 +76,32 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
 
   const kind = watch('kind')
   const assetId = watch('assetId')
+  const amount = watch('amount')
   const selectedAsset: Asset | undefined = assetById.get(assetId)
+
+  // Calculadora de cotización: no se guarda en ningún lado, sólo ayuda a completar "Cotización de
+  // compra" a partir de dos números que el usuario sí tiene a mano (cuánto compró y cuánto pagó),
+  // en vez de obligarlo a hacer la división él mismo.
+  const [totalSpent, setTotalSpent] = useState('')
+  const [calcHint, setCalcHint] = useState<string | null>(null)
+
+  function calculateRate() {
+    if (!selectedAsset) return
+    const units = parseQuantity(amount, selectedAsset.decimals)
+    if (units == null || units <= 0) {
+      setCalcHint('Ingresá primero la cantidad comprada')
+      return
+    }
+    const totalCents = parseAmountToCents(totalSpent)
+    if (totalCents == null || totalCents <= 0) {
+      setCalcHint('Ingresá cuánto gastaste en total, en ARS')
+      return
+    }
+    const quantityWhole = units / 10 ** selectedAsset.decimals
+    const rateCents = Math.round(totalCents / quantityWhole)
+    setValue('rate', (rateCents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2 }))
+    setCalcHint(null)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -149,7 +174,11 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
   function selectKind(next: FormValues['kind']) {
     if (next === kind) return
     setValue('kind', next)
-    if (next === 'withdrawal') setValue('rate', '')
+    if (next === 'withdrawal') {
+      setValue('rate', '')
+      setTotalSpent('')
+      setCalcHint(null)
+    }
   }
 
   const showRate = !!selectedAsset && selectedAsset.symbol !== 'ARS' && kind === 'deposit'
@@ -187,7 +216,16 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
 
         {assets.length > 1 && (
           <Field label="Activo" htmlFor="assetId" error={errors.assetId?.message}>
-            <Select id="assetId" {...register('assetId', { onChange: () => setValue('rate', '') })}>
+            <Select
+              id="assetId"
+              {...register('assetId', {
+                onChange: () => {
+                  setValue('rate', '')
+                  setTotalSpent('')
+                  setCalcHint(null)
+                },
+              })}
+            >
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.symbol} — {a.name}
@@ -210,6 +248,33 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
           >
             <Input id="amount" inputMode="decimal" placeholder="0,00" invalid={!!errors.amount} {...register('amount')} />
           </Field>
+        )}
+
+        {showRate && (
+          <div className="rounded-control bg-ink-850 p-4">
+            <p className="eyebrow">¿No sabés la cotización?</p>
+            <p className="mt-1 text-[12px] text-chalk-faint">
+              Poné cuánto gastaste en total y la calculamos con la cantidad de arriba.
+            </p>
+            <div className="mt-3 flex items-end gap-2">
+              <Field label="Total gastado en ARS" htmlFor="totalSpent" className="flex-1">
+                <Input
+                  id="totalSpent"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={totalSpent}
+                  onChange={(e) => {
+                    setTotalSpent(e.target.value)
+                    setCalcHint(null)
+                  }}
+                />
+              </Field>
+              <Button type="button" variant="outline" onClick={calculateRate}>
+                Calcular
+              </Button>
+            </div>
+            {calcHint && <p className="mt-2 text-[12px] text-coral">{calcHint}</p>}
+          </div>
         )}
 
         {showRate && (
