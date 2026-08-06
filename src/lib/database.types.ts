@@ -121,7 +121,9 @@ export interface Database {
         }
         Insert: {
           id?: string
-          user_id: string
+          // Por ahora todo lo que se agrega desde el cliente queda global — `user_id` siempre null.
+          // Ver 20260806200001_assets_global_for_now.sql.
+          user_id: null
           symbol: string
           name: string
           asset_class: AssetClass
@@ -129,7 +131,12 @@ export interface Database {
           decimals?: number
           price_source?: AssetPriceSource
         }
-        Update: Partial<{ name: string; is_archived: boolean }>
+        Update: Partial<{
+          name: string
+          asset_class: AssetClass
+          quote_currency: AssetQuoteCurrency
+          is_archived: boolean
+        }>
         Relationships: []
       }
       asset_manual_prices: {

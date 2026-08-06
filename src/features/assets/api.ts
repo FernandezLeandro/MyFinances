@@ -64,8 +64,10 @@ export function useCreateAsset() {
   return useMutation({
     mutationFn: async (input: AssetInput) => {
       if (!user) throw new Error('No autenticado')
+      // Decisión temporal: todo lo que se agrega desde acá queda GLOBAL (user_id null), visible para
+      // cualquier cuenta — no privado de quien lo creó. Se puede revisar más adelante.
       const { error } = await supabase.from('assets').insert({
-        user_id: user.id,
+        user_id: null,
         symbol: input.symbol.trim().toUpperCase(),
         name: input.name.trim(),
         asset_class: input.assetClass,
@@ -76,6 +78,36 @@ export function useCreateAsset() {
         decimals: 8,
         price_source: 'manual',
       })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assets', user?.id] }),
+  })
+}
+
+export interface AssetUpdateInput {
+  name?: string
+  assetClass?: Exclude<AssetClass, 'fiat'>
+  quoteCurrency?: AssetQuoteCurrency
+  isArchived?: boolean
+}
+
+/** Edita los datos propios del activo (nombre, clase, moneda de cotización, archivado). El símbolo
+ *  no se puede cambiar — varias partes del código lo usan para identificar ARS/USD/etc. */
+export function useUpdateAsset() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: AssetUpdateInput & { id: string }) => {
+      const { error } = await supabase
+        .from('assets')
+        .update({
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.assetClass !== undefined && { asset_class: input.assetClass }),
+          ...(input.quoteCurrency !== undefined && { quote_currency: input.quoteCurrency }),
+          ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
+        })
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assets', user?.id] }),

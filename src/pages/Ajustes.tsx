@@ -18,16 +18,16 @@ import {
   type InviteCode,
 } from '@/features/invites/api'
 import { useProfile, useUpdateProfile, type FxSource } from '@/features/profile/api'
-import { useUsdRate } from '@/features/fx/api'
+import { useAssetPrices, useUsdRate } from '@/features/fx/api'
 import {
-  useAssets,
   useAssetManualPrices,
+  useAssets,
   useCreateAsset,
-  useUpdateAssetManualPrice,
   type Asset,
   type AssetClass,
   type AssetQuoteCurrency,
 } from '@/features/assets/api'
+import { AssetEditDialog } from '@/features/assets/AssetEditDialog'
 
 function codeStatus(code: InviteCode) {
   if (!code.isActive) return { label: 'Revocado', tone: 'text-chalk-faint' }
@@ -83,17 +83,16 @@ function FxPanel() {
   }
 
   return (
-    <Panel className="p-6">
-      <p className="eyebrow">Moneda y cotización</p>
-      <p className="mt-3 text-[13px] text-chalk-faint">
-        Moneda principal: <span className="text-chalk">ARS</span> — es la que usa Patrimonio para mostrar el total.
-      </p>
+    <Panel>
+      <PanelHeader title="Moneda y cotización" hint="ARS es la moneda principal — la que usa Patrimonio para el total" />
 
       {isPending ? (
-        <Skeleton className="mt-5 h-20 w-full" />
+        <div className="px-6 pb-6">
+          <Skeleton className="h-20 w-full" />
+        </div>
       ) : (
-        <>
-          <div className="mt-5">
+        <div className="grid grid-cols-1 gap-6 px-6 pb-6 sm:grid-cols-2">
+          <div>
             <p className="eyebrow">Fuente del dólar</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {fxSources.map((s) => (
@@ -106,66 +105,33 @@ function FxPanel() {
                 </Chip>
               ))}
             </div>
+
+            <div className="mt-5 text-[13px]">
+              <p className="text-chalk-faint">Cotización en uso ahora</p>
+              {usdRate.rateCents == null ? (
+                <p className="mt-1 text-chalk-faint">Sin cotización disponible</p>
+              ) : (
+                <div className="mt-1 flex items-center gap-2">
+                  <Money cents={usdRate.rateCents} tone="chalk" size="figure" />
+                  <span className="text-[12px] text-chalk-faint">
+                    {usdRate.origin === 'manual' ? (usdRate.isFallback ? '· manual (la API falló)' : '· manual') : '· dolarapi.com'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="mt-4 flex items-end gap-2">
-            <Field label="Cotización manual (ARS por USD)" hint="Se usa si elegís 'Manual', o como respaldo si la API falla" className="flex-1">
+          <div className="flex flex-col justify-end gap-2">
+            <Field label="Cotización manual (ARS por USD)" hint="Se usa si elegís 'Manual', o como respaldo si la API falla">
               <Input inputMode="decimal" placeholder="0,00" value={manualInput} onChange={(e) => setManualInput(e.target.value)} />
             </Field>
-            <Button variant="outline" onClick={saveManualRate} disabled={updateProfile.isPending}>
+            <Button variant="outline" onClick={saveManualRate} disabled={updateProfile.isPending} className="self-start">
               Guardar
             </Button>
           </div>
-
-          <div className="mt-5 border-t border-ink-800 pt-4 text-[13px]">
-            <p className="text-chalk-faint">Cotización en uso ahora</p>
-            {usdRate.rateCents == null ? (
-              <p className="mt-1 text-chalk-faint">Sin cotización disponible</p>
-            ) : (
-              <div className="mt-1 flex items-center gap-2">
-                <Money cents={usdRate.rateCents} tone="chalk" />
-                <span className="text-[12px] text-chalk-faint">
-                  {usdRate.origin === 'manual' ? (usdRate.isFallback ? '· manual (la API falló)' : '· manual') : '· dolarapi.com'}
-                </span>
-              </div>
-            )}
-          </div>
-        </>
+        </div>
       )}
     </Panel>
-  )
-}
-
-/**
- * El precio se carga y se guarda en la moneda en la que el activo realmente cotiza
- * (`quote_currency`) — para una acción de un broker del exterior eso es USD, que es el número que
- * el usuario tiene a mano. La conversión a ARS se hace en vivo recién al valuar (`useAssetPrices`),
- * nunca acá: si se convirtiera al guardar quedaría congelada con el dólar de ese momento, y cambiar
- * la fuente del dólar después en Ajustes no movería nada — que fue justo el bug que esto reemplaza.
- */
-function AssetPriceRow({ asset, currentCents }: { asset: Asset; currentCents: number | null }) {
-  const updatePrice = useUpdateAssetManualPrice()
-  const isUsd = asset.quote_currency === 'USD'
-
-  const [input, setInput] = useState(
-    currentCents != null ? (currentCents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2 }) : '',
-  )
-
-  async function save() {
-    const cents = parseAmountToCents(input)
-    if (cents == null || cents <= 0) return
-    await updatePrice.mutateAsync({ assetId: asset.id, priceCents: cents })
-  }
-
-  return (
-    <div className="flex items-end gap-2 border-t border-ink-850 py-3 first:border-t-0">
-      <Field label={`${asset.symbol} — ${asset.name}`} hint={isUsd ? 'USD por unidad' : 'ARS por unidad'} className="flex-1">
-        <Input inputMode="decimal" placeholder="0,00" value={input} onChange={(e) => setInput(e.target.value)} />
-      </Field>
-      <Button variant="outline" size="sm" onClick={save} disabled={updatePrice.isPending}>
-        Guardar
-      </Button>
-    </div>
   )
 }
 
@@ -175,6 +141,66 @@ const assetClassOptions: { value: Exclude<AssetClass, 'fiat'>; label: string }[]
   { value: 'bond', label: 'Bono' },
   { value: 'other', label: 'Otro' },
 ]
+
+const assetClassLabels: Record<AssetClass, string> = {
+  fiat: 'Moneda',
+  equity: 'Acción',
+  crypto: 'Cripto',
+  bond: 'Bono',
+  other: 'Otro',
+}
+
+function AssetRow({ asset, onEdit }: { asset: Asset; onEdit: (a: Asset) => void }) {
+  const prices = useAssetPrices()
+  const price = prices.get(asset.id)
+
+  return (
+    <li
+      className={cn(
+        'flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850',
+        asset.is_archived && 'opacity-50',
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="tnum shrink-0 rounded-chip bg-ink-800 px-2 py-1 font-mono text-[12px] text-chalk">{asset.symbol}</span>
+        <div className="min-w-0">
+          <p className="truncate text-[14px] text-chalk">{asset.name}</p>
+          <p className="text-[12px] text-chalk-faint">
+            {assetClassLabels[asset.asset_class]} · cotiza en {asset.quote_currency}
+            {asset.is_archived && ' · archivado'}
+          </p>
+        </div>
+      </div>
+
+      <div className="text-right text-[13px]">
+        {asset.price_source === 'coingecko' ? (
+          price?.priceArsCents != null ? (
+            <span className="text-chalk-dim">
+              <Money cents={price.priceArsCents} tone="dim" /> <span className="text-[11px] text-chalk-faint">en vivo</span>
+            </span>
+          ) : (
+            <span className="text-chalk-faint">sin cotización</span>
+          )
+        ) : price?.priceArsCents != null ? (
+          <Money cents={price.priceArsCents} tone="dim" />
+        ) : (
+          <span className="text-amber">sin cotización</span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onEdit(asset)}
+        aria-label={`Editar ${asset.symbol}`}
+        className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+      >
+        <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+          <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </li>
+  )
+}
 
 function AddAssetForm() {
   const createAsset = useCreateAsset()
@@ -191,8 +217,9 @@ function AddAssetForm() {
   }
 
   return (
-    <div className="mt-5 border-t border-ink-800 pt-4">
+    <div className="border-t border-ink-800 p-6">
       <p className="eyebrow">Agregar activo</p>
+      <p className="mt-1.5 text-[12px] text-chalk-faint">Queda visible para todas las cuentas, no sólo la tuya.</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Símbolo">
@@ -217,7 +244,7 @@ function AddAssetForm() {
             Se cotiza en USD
           </Chip>
         </div>
-        <Button variant="outline" onClick={handleCreate} disabled={createAsset.isPending}>
+        <Button variant="outline" onClick={handleCreate} disabled={createAsset.isPending} className="self-start">
           {createAsset.isPending ? 'Agregando…' : 'Agregar activo'}
         </Button>
       </div>
@@ -226,39 +253,57 @@ function AddAssetForm() {
 }
 
 function AssetsPanel() {
-  const { data: assets, isPending } = useAssets()
-  const { data: manualPrices } = useAssetManualPrices()
+  const { data: assets, isPending } = useAssets(true)
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
 
-  // ARS no tiene precio (vale 1 por definición) y USD ya tiene su propio panel arriba — acá van
-  // los que de verdad necesitan un número cargado a mano: acciones, bonos, activos propios.
-  const manualAssets = (assets ?? []).filter((a) => a.price_source === 'manual' && a.symbol !== 'ARS' && a.symbol !== 'USD')
+  // ARS y USD tienen su propio tratamiento en "Moneda y cotización" (arriba) — acá va el resto del
+  // catálogo: cripto (se valúa sola), acciones, bonos y lo que cada cuenta haya agregado.
+  const listedAssets = (assets ?? []).filter((a) => a.symbol !== 'ARS' && a.symbol !== 'USD')
 
   return (
-    <Panel className="p-6">
-      <p className="eyebrow">Activos</p>
-      <p className="mt-3 text-[13px] text-chalk-faint">
-        Cripto se valúa sola (CoinGecko). Estos todavía no tienen cotización en vivo — cargá el precio
-        actual a mano cuando quieras actualizarlo.
-      </p>
+    <Panel>
+      <PanelHeader title="Activos" hint="Cripto se valúa sola vía CoinGecko — el resto necesita un precio cargado a mano" />
 
       {isPending ? (
-        <Skeleton className="mt-4 h-16 w-full" />
-      ) : manualAssets.length === 0 ? (
-        <p className="mt-4 text-[13px] text-chalk-faint">Todavía no hay acciones ni bonos cargados.</p>
-      ) : (
-        <div className="mt-2">
-          {manualAssets.map((asset) => (
-            <AssetPriceRow key={asset.id} asset={asset} currentCents={manualPrices?.get(asset.id)?.priceCents ?? null} />
-          ))}
+        <div className="px-6 pb-5">
+          <Skeleton className="h-16 w-full" />
         </div>
+      ) : listedAssets.length === 0 ? (
+        <p className="px-6 pb-5 text-[13px] text-chalk-faint">Todavía no hay activos más allá de ARS y USD.</p>
+      ) : (
+        <ul className="pb-1">
+          {listedAssets.map((asset) => (
+            <AssetRow key={asset.id} asset={asset} onEdit={setEditingAsset} />
+          ))}
+        </ul>
       )}
 
       <AddAssetForm />
+
+      {editingAsset && (
+        <AssetEditDialogWithPrice open={!!editingAsset} onClose={() => setEditingAsset(null)} asset={editingAsset} />
+      )}
     </Panel>
   )
 }
 
-export function Ajustes() {
+/** Puente chico: `AssetEditDialog` necesita el precio manual actual, que vive en otra query. */
+function AssetEditDialogWithPrice({ open, onClose, asset }: { open: boolean; onClose: () => void; asset: Asset }) {
+  // Ojo: `useAssetManualPrices`, no `useAssetPrices` — este último ya devuelve el precio convertido
+  // a ARS en vivo, y acá hace falta el número tal cual lo cargó esta cuenta, en la moneda nativa del
+  // activo (USD para una acción), que es lo que el campo del dialog vuelve a mostrar y a guardar.
+  const { data: manualPrices } = useAssetManualPrices()
+  return (
+    <AssetEditDialog
+      open={open}
+      onClose={onClose}
+      asset={asset}
+      currentPriceCents={manualPrices?.get(asset.id)?.priceCents ?? null}
+    />
+  )
+}
+
+function InvitesPanel() {
   const { data: codes, isPending, isError, refetch } = useMyInviteCodes()
   const createCode = useCreateInviteCode()
   const deactivateCode = useDeactivateInviteCode()
@@ -278,85 +323,89 @@ export function Ajustes() {
   }
 
   return (
+    <Panel>
+      <PanelHeader title="Invitaciones" />
+
+      <div className="px-6 pb-6">
+        {isError ? (
+          <ErrorState onRetry={() => refetch()} />
+        ) : isPending ? (
+          <div className="flex flex-col gap-1">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center gap-3 py-2.5">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 flex-1" />
+              </div>
+            ))}
+          </div>
+        ) : !codes || codes.length === 0 ? (
+          <EmptyState glyph="✉" title="Todavía no generaste ningún código" />
+        ) : (
+          <ul>
+            {codes.map((code) => {
+              const status = codeStatus(code)
+              return (
+                <li
+                  key={code.code}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-850 py-2.5 text-[13px] first:border-t-0"
+                >
+                  <span className="tnum font-mono text-chalk">{code.code}</span>
+                  <span className={cn('text-[11px] font-medium', status.tone)}>{status.label}</span>
+                  <span className="text-[12px] text-chalk-faint">
+                    {code.usedCount}/{code.maxUses}
+                  </span>
+                  {code.expiresAt && (
+                    <span className="text-[12px] text-chalk-faint">{format(parseISO(code.expiresAt), "d/MM", { locale: es })}</span>
+                  )}
+                  <div className="ml-auto flex items-center gap-1">
+                    <CopyButton text={code.code} />
+                    {status.label === 'Activo' && (
+                      <button
+                        type="button"
+                        onClick={() => deactivateCode.mutate(code.code)}
+                        className="rounded-chip px-2 py-1 text-[11px] text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+                      >
+                        Revocar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <div className="mt-5 border-t border-ink-800 pt-4">
+          <p className="eyebrow">Generar código nuevo</p>
+          <div className="mt-3 flex items-end gap-2">
+            <Field label="Usos" className="w-20">
+              <Input type="number" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
+            </Field>
+            <Field label="Vence el" hint="Opcional" className="flex-1">
+              <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            </Field>
+            <Button variant="outline" onClick={handleCreate} disabled={createCode.isPending}>
+              {createCode.isPending ? 'Generando…' : 'Generar'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
+export function Ajustes() {
+  return (
     <div className="flex flex-col gap-8">
       <header>
         <p className="eyebrow">Ajustes</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Ajustes</h1>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <PanelHeader title="Códigos de invitación" />
-          {isError ? (
-            <ErrorState onRetry={() => refetch()} />
-          ) : isPending ? (
-            <ul className="flex flex-col gap-1 px-6 py-5">
-              {[0, 1].map((i) => (
-                <li key={i} className="flex items-center gap-3 py-2.5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-4 flex-1" />
-                </li>
-              ))}
-            </ul>
-          ) : !codes || codes.length === 0 ? (
-            <EmptyState glyph="✉" title="Todavía no generaste ningún código" />
-          ) : (
-            <ul className="pb-3">
-              {codes.map((code) => {
-                const status = codeStatus(code)
-                return (
-                  <li
-                    key={code.code}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850"
-                  >
-                    <span className="tnum font-mono text-[13px] text-chalk">{code.code}</span>
-                    <span className={cn('text-[11px] font-medium', status.tone)}>{status.label}</span>
-                    <span className="text-[12px] text-chalk-faint">
-                      {code.usedCount}/{code.maxUses} usos
-                    </span>
-                    {code.expiresAt && (
-                      <span className="text-[12px] text-chalk-faint">
-                        vence {format(parseISO(code.expiresAt), "d 'de' MMMM", { locale: es })}
-                      </span>
-                    )}
-                    <div className="ml-auto flex items-center gap-1">
-                      <CopyButton text={code.code} />
-                      {status.label === 'Activo' && (
-                        <button
-                          type="button"
-                          onClick={() => deactivateCode.mutate(code.code)}
-                          className="rounded-chip px-2 py-1 text-[11px] text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
-                        >
-                          Revocar
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Panel>
-
-        <div className="flex flex-col gap-6">
-          <Panel className="p-6">
-            <p className="eyebrow">Generar código nuevo</p>
-            <div className="mt-4 flex flex-col gap-4">
-              <Field label="Usos permitidos">
-                <Input type="number" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
-              </Field>
-              <Field label="Vence el" hint="Opcional">
-                <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
-              </Field>
-              <Button onClick={handleCreate} disabled={createCode.isPending}>
-                {createCode.isPending ? 'Generando…' : 'Generar código'}
-              </Button>
-            </div>
-          </Panel>
-
-          <FxPanel />
-          <AssetsPanel />
-        </div>
+      <div className="flex flex-col gap-6">
+        <FxPanel />
+        <AssetsPanel />
+        <InvitesPanel />
       </div>
     </div>
   )
