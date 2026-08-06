@@ -3,6 +3,7 @@ import { AppLayout } from '@/app/AppLayout'
 import { AuthLayout } from '@/app/AuthLayout'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { RequireAuth, RedirectIfAuthed } from '@/features/auth/guards'
+import { MutationLockOverlay } from '@/components/MutationLockOverlay'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <MutationLockOverlay />
         <Routes>
           <Route element={<AuthLayout />}>
             {/* Sin RedirectIfAuthed: Supabase abre una sesión temporal de recovery acá mismo. */}
