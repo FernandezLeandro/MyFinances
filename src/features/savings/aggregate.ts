@@ -150,9 +150,17 @@ export function summarizePortfolio(
   assets: Asset[],
   prices: Map<string, AssetPrice>,
 ): PortfolioSummary {
+  // Cada ítem siempre se resume individualmente (su tarjeta muestra su propio valor y ganancia pase
+  // lo que pase) — pero los agregados de portfolio (total, composición, ganancia general) sólo suman
+  // los ítems marcados `include_in_total`. Es lo que permite sacar "Ahorros" del número grande sin
+  // dejar de verlo.
   const perBucket = buckets.map((b) => summarizeBucket(b, entries, assets, prices))
-  const totalNets = netByAsset(entries, assets)
+
+  const includedBucketIds = new Set(buckets.filter((b) => b.include_in_total).map((b) => b.id))
+  const includedEntries = entries.filter((e) => includedBucketIds.has(e.bucket_id))
+
+  const totalNets = netByAsset(includedEntries, assets)
   const totalValueCents = valueInMainCents(totalNets, assets, prices)
-  const totalGain = computeGain(entries, assets, totalValueCents)
+  const totalGain = computeGain(includedEntries, assets, totalValueCents)
   return { perBucket, totalNets, totalValueCents, totalGain }
 }

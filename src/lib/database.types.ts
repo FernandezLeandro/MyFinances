@@ -47,6 +47,7 @@ export interface Database {
           name: string
           slug: string | null
           single_currency: boolean
+          include_in_total: boolean
           sort_order: number
           is_archived: boolean
           created_at: string
@@ -57,10 +58,17 @@ export interface Database {
           name: string
           slug?: string | null
           single_currency?: boolean
+          include_in_total?: boolean
           sort_order?: number
           is_archived?: boolean
         }
-        Update: Partial<{ name: string; single_currency: boolean; sort_order: number; is_archived: boolean }>
+        Update: Partial<{
+          name: string
+          single_currency: boolean
+          include_in_total: boolean
+          sort_order: number
+          is_archived: boolean
+        }>
         Relationships: []
       }
       savings_entries: {

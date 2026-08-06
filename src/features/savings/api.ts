@@ -56,6 +56,7 @@ export function useSavingsEntries() {
 export interface BucketInput {
   name: string
   singleCurrency: boolean
+  includeInTotal: boolean
 }
 
 export function useCreateBucket() {
@@ -69,6 +70,7 @@ export function useCreateBucket() {
         user_id: user.id,
         name: input.name,
         single_currency: input.singleCurrency,
+        include_in_total: input.includeInTotal,
         sort_order: 999,
       })
       if (error) throw error
@@ -88,6 +90,7 @@ export function useUpdateBucket() {
         .update({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.singleCurrency !== undefined && { single_currency: input.singleCurrency }),
+          ...(input.includeInTotal !== undefined && { include_in_total: input.includeInTotal }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
         })
         .eq('id', id)

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { formatQuantity } from '@/lib/money'
+import { formatQuantity, type Currency } from '@/lib/money'
 import { useSavingsBuckets, useSavingsEntries, type SavingsBucket } from '@/features/savings/api'
 import { summarizePortfolio, type AssetNet, type BucketSummary } from '@/features/savings/aggregate'
 import { useAssets, type Asset } from '@/features/assets/api'
@@ -14,6 +15,27 @@ import { useAssetPrices, type AssetPrice } from '@/features/fx/api'
 import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
 import { BucketDetailDialog } from '@/features/savings/BucketDetailDialog'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
+
+/** Todo el estado interno de Patrimonio vive en ARS — esto sólo convierte para MOSTRAR. */
+function toDisplayCents(arsCents: number | null, currency: Currency, usdRateCents: number | null): number | null {
+  if (arsCents == null) return null
+  if (currency === 'ARS') return arsCents
+  if (usdRateCents == null) return null
+  return Math.round((arsCents * 100) / usdRateCents)
+}
+
+function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Currency) => void }) {
+  return (
+    <div className="flex gap-1">
+      <Chip active={value === 'ARS'} onClick={() => onChange('ARS')}>
+        ARS
+      </Chip>
+      <Chip active={value === 'USD'} onClick={() => onChange('USD')}>
+        USD
+      </Chip>
+    </div>
+  )
+}
 
 function originLabel(price: AssetPrice | undefined) {
   if (!price) return null
@@ -84,7 +106,10 @@ function BucketCard({
     <Panel className="flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] text-chalk-dim">{bucket.name}</p>
+          <p className="truncate text-[14px] text-chalk-dim">
+            {bucket.name}
+            {!bucket.include_in_total && <span className="ml-2 text-[11px] font-medium text-chalk-faint">No cuenta en el total</span>}
+          </p>
           {valueCents == null ? (
             <p className="mt-1.5 text-[13px] text-chalk-faint">Cotización no disponible</p>
           ) : (
@@ -148,11 +173,15 @@ export function Patrimonio() {
   const [editingBucket, setEditingBucket] = useState<SavingsBucket | null>(null)
   const [detailBucket, setDetailBucket] = useState<SavingsBucket | null>(null)
   const [quickEntryBucket, setQuickEntryBucket] = useState<SavingsBucket | null>(null)
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>('ARS')
 
   const portfolio = useMemo(
     () => summarizePortfolio(buckets ?? [], entries ?? [], assets ?? [], prices),
     [buckets, entries, assets, prices],
   )
+
+  const usdAssetId = (assets ?? []).find((a) => a.symbol === 'USD')?.id
+  const usdRateCents = usdAssetId ? (prices.get(usdAssetId)?.priceArsCents ?? null) : null
 
   function openNewBucket() {
     setEditingBucket(null)
@@ -202,12 +231,18 @@ export function Patrimonio() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <Panel className="p-6 ring-1 ring-acid/15">
-              <p className="eyebrow">Total de Patrimonio</p>
-              {portfolio.totalValueCents == null ? (
-                <p className="mt-2 text-[15px] text-chalk-dim">Cotización no disponible</p>
-              ) : (
-                <Money cents={portfolio.totalValueCents} tone="acid" size="hero" className="mt-2" />
-              )}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="eyebrow">Total de Patrimonio</p>
+                <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
+              </div>
+              {(() => {
+                const displayCents = toDisplayCents(portfolio.totalValueCents, displayCurrency, usdRateCents)
+                return displayCents == null ? (
+                  <p className="mt-2 text-[15px] text-chalk-dim">Cotización no disponible</p>
+                ) : (
+                  <Money cents={displayCents} currency={displayCurrency} tone="acid" size="hero" className="mt-2" />
+                )
+              })()}
               <PriceStatusLine nets={portfolio.totalNets} assets={assets ?? []} prices={prices} />
             </Panel>
 
@@ -245,22 +280,46 @@ export function Patrimonio() {
             </dl>
 
             <div className="mt-5 border-t border-ink-800 pt-4">
+              <p className="eyebrow">Total invertido</p>
+              {(() => {
+                const displayCents = toDisplayCents(portfolio.totalGain.costArsCents, displayCurrency, usdRateCents)
+                if (displayCents == null) {
+                  return (
+                    <p className="mt-2 text-[13px] text-chalk-faint">
+                      {portfolio.totalGain.missingRateCount > 0
+                        ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
+                        : 'No disponible sin cotización de algún activo en tenencia.'}
+                    </p>
+                  )
+                }
+                return <Money cents={displayCents} currency={displayCurrency} tone="dim" size="figure" className="mt-2" />
+              })()}
+            </div>
+
+            <div className="mt-5 border-t border-ink-800 pt-4">
               <p className="eyebrow">Ganancia estimada</p>
-              {portfolio.totalGain.gainCents == null ? (
-                <p className="mt-2 text-[13px] text-chalk-faint">
-                  {portfolio.totalGain.missingRateCount > 0
-                    ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
-                    : 'No disponible sin cotización de algún activo en tenencia.'}
-                </p>
-              ) : (
-                <Money
-                  cents={portfolio.totalGain.gainCents}
-                  tone={portfolio.totalGain.gainCents < 0 ? 'coral' : 'chalk'}
-                  size="figure"
-                  signed
-                  className="mt-2"
-                />
-              )}
+              {(() => {
+                const displayCents = toDisplayCents(portfolio.totalGain.gainCents, displayCurrency, usdRateCents)
+                if (displayCents == null) {
+                  return (
+                    <p className="mt-2 text-[13px] text-chalk-faint">
+                      {portfolio.totalGain.missingRateCount > 0
+                        ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
+                        : 'No disponible sin cotización de algún activo en tenencia.'}
+                    </p>
+                  )
+                }
+                return (
+                  <Money
+                    cents={displayCents}
+                    currency={displayCurrency}
+                    tone={displayCents < 0 ? 'coral' : 'chalk'}
+                    size="figure"
+                    signed
+                    className="mt-2"
+                  />
+                )
+              })()}
             </div>
           </Panel>
         </div>
