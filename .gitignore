@@ -16,6 +16,12 @@ dist-ssr
 .env
 .env.*
 !.env.example
+# Dummy, sin ninguna clave real — hace falta commiteado para que `supabase.ts` no explote en tiempo
+# de módulo si algún test futuro importa (aunque sea transitivamente) algo que llegue ahí.
+!.env.test
+
+# Coverage de Vitest
+coverage/
 
 # Metadata local del CLI de Supabase (link, db push) — se regenera sola en cada máquina
 supabase/.temp/
