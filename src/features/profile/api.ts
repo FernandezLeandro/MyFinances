@@ -28,7 +28,11 @@ function toProfile(row: ProfileRow): Profile {
   }
 }
 
-/** `profiles` es 1:1 con el usuario — siempre una sola fila, nunca una lista. */
+/**
+ * `profiles` es 1:1 con el usuario — a lo sumo una fila. `maybeSingle()`, no `single()`: una cuenta
+ * recién creada (o una que todavía no redimió su código de invitación) legítimamente no tiene perfil
+ * todavía, y eso no es un error — es el estado que el guard de `/bienvenida` necesita distinguir.
+ */
 export function useProfile() {
   const { user } = useAuth()
 
@@ -36,9 +40,9 @@ export function useProfile() {
     queryKey: ['profile', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').single()
+      const { data, error } = await supabase.from('profiles').select('*').maybeSingle()
       if (error) throw error
-      return toProfile(data)
+      return data ? toProfile(data) : null
     },
   })
 }

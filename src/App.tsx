@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '@/app/AppLayout'
 import { AuthLayout } from '@/app/AuthLayout'
 import { AuthProvider } from '@/features/auth/AuthProvider'
-import { RequireAuth, RedirectIfAuthed } from '@/features/auth/guards'
+import { RequireAuth, RedirectIfAuthed, RequireSessionNoProfile } from '@/features/auth/guards'
 import { MutationLockOverlay } from '@/components/MutationLockOverlay'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
@@ -12,6 +12,7 @@ import { Patrimonio } from '@/pages/Patrimonio'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
+import { Bienvenida } from '@/pages/auth/Bienvenida'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
 
@@ -36,6 +37,8 @@ export default function App() {
               <Route path="registro" element={<Register />} />
               <Route path="recuperar" element={<ForgotPassword />} />
             </Route>
+
+            <Route path="bienvenida" element={<RequireSessionNoProfile><Bienvenida /></RequireSessionNoProfile>} />
           </Route>
 
           <Route
