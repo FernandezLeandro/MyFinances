@@ -41,7 +41,12 @@ export function parseAmountToCents(input: string): number | null {
   const hasComma = raw.includes(',')
   const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
 
-  const value = Number(normalized.replace(/[^\d.-]/g, ''))
+  const digitsOnly = normalized.replace(/[^\d.-]/g, '')
+  // Sin esto, texto sin ningún dígito (p.ej. "abc") queda en "" tras el replace, y `Number('')`
+  // es `0` — un importe "válido" que no lo es. Un input no numérico tiene que dar `null`, no `0`.
+  if (!/\d/.test(digitsOnly)) return null
+
+  const value = Number(digitsOnly)
   if (!Number.isFinite(value)) return null
 
   return Math.round(value * 100)
@@ -120,7 +125,11 @@ export function parseQuantity(input: string, decimals: number): number | null {
   const hasComma = raw.includes(',')
   const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
 
-  const value = Number(normalized.replace(/[^\d.-]/g, ''))
+  const digitsOnly = normalized.replace(/[^\d.-]/g, '')
+  // Mismo bug que en parseAmountToCents: sin esto, texto sin dígitos daba `0`, no `null`.
+  if (!/\d/.test(digitsOnly)) return null
+
+  const value = Number(digitsOnly)
   if (!Number.isFinite(value)) return null
 
   return Math.round(value * 10 ** decimals)
