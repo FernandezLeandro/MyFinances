@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Field, Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/ui/FormError'
 import { supabase } from '@/lib/supabase'
 
 const schema = z.object({
@@ -55,11 +56,7 @@ export function Login() {
         />
       </Field>
 
-      {errors.root && (
-        <p role="alert" className="text-[13px] text-coral">
-          {errors.root.message}
-        </p>
-      )}
+      <FormError message={errors.root?.message} />
 
       <Button type="submit" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Entrando…' : 'Entrar'}

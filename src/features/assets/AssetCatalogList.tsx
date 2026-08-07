@@ -20,7 +20,6 @@ function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCata
   const prices = useAssetPrices()
   const price = prices.get(asset.id)
   const deleteAsset = useDeleteAsset()
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   // Sin permiso de catálogo, sólo tiene sentido abrir el editor si hay un precio manual que tocar —
   // para cripto (sin precio manual) no habría nada editable adentro.
@@ -28,15 +27,10 @@ function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCata
   // ARS/USD son la base del resto de la conversión de moneda en toda la app — no se pueden borrar.
   const canDelete = canEditCatalog && asset.asset_class !== 'fiat'
 
-  async function handleConfirmDelete() {
-    setDeleteError(null)
-    try {
-      await deleteAsset.mutateAsync(asset.id)
-      setConfirmingDelete(false)
-    } catch {
-      setConfirmingDelete(false)
-      setDeleteError('No se pudo eliminar — hay movimientos que lo usan. Podés archivarlo en su lugar.')
-    }
+  function handleConfirmDelete() {
+    // Si falla (típicamente por el FK de savings_entries), el MutationCache global ya muestra el
+    // toast con el mensaje de "está en uso, archivalo" — acá sólo cerramos el diálogo si salió bien.
+    deleteAsset.mutate(asset.id, { onSuccess: () => setConfirmingDelete(false) })
   }
 
   return (
@@ -54,7 +48,6 @@ function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCata
             {assetClassLabels[asset.asset_class]} · cotiza en {asset.quote_currency}
             {asset.is_archived && ' · archivado'}
           </p>
-          {deleteError && <p className="mt-0.5 text-[11px] text-coral">{deleteError}</p>}
         </div>
       </div>
 
