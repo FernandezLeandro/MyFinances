@@ -1,8 +1,9 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '@/app/AppLayout'
+import { AdminLayout } from '@/app/AdminLayout'
 import { AuthLayout } from '@/app/AuthLayout'
 import { AuthProvider } from '@/features/auth/AuthProvider'
-import { RequireAuth, RedirectIfAuthed, RequireSessionNoProfile } from '@/features/auth/guards'
+import { RequireAuth, RequireAdmin, RedirectIfAuthed, RequireSessionNoProfile } from '@/features/auth/guards'
 import { MutationLockOverlay } from '@/components/MutationLockOverlay'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
@@ -10,6 +11,9 @@ import { Fijos } from '@/pages/Fijos'
 import { Analisis } from '@/pages/Analisis'
 import { Patrimonio } from '@/pages/Patrimonio'
 import { Ajustes } from '@/pages/Ajustes'
+import { Categorias } from '@/pages/admin/Categorias'
+import { Activos } from '@/pages/admin/Activos'
+import { Invitaciones } from '@/pages/admin/Invitaciones'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
 import { Bienvenida } from '@/pages/auth/Bienvenida'
@@ -57,6 +61,20 @@ export default function App() {
             <Route path="ajustes" element={<Ajustes />} />
             {/* Ruta vieja: por si alguien tiene el link guardado. */}
             <Route path="invitaciones" element={<Navigate to="/ajustes" replace />} />
+          </Route>
+
+          <Route
+            path="admin"
+            element={
+              <RequireAdmin>
+                <AdminLayout />
+              </RequireAdmin>
+            }
+          >
+            <Route index element={<Navigate to="/admin/categorias" replace />} />
+            <Route path="categorias" element={<Categorias />} />
+            <Route path="activos" element={<Activos />} />
+            <Route path="invitaciones" element={<Invitaciones />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/hoy" replace />} />

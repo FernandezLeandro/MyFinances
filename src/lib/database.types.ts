@@ -11,6 +11,7 @@
  */
 
 type Kind = 'income' | 'expense'
+type Role = 'user' | 'admin'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
@@ -25,12 +26,15 @@ export interface Database {
           id: string
           display_name: string | null
           currency: string
+          role: Role
           created_at: string
           fx_source: FxSource
           usd_rate_manual: string | null
           usd_rate_updated_at: string | null
         }
         Insert: { id: string; display_name?: string | null; currency?: string }
+        // `role` no está acá a propósito: la columna se sacó del GRANT de UPDATE para `authenticated`
+        // (ver 20260807010001_admin_role.sql), así que el cliente no puede tocarla ni aunque quisiera.
         Update: Partial<{
           display_name: string | null
           currency: string
@@ -38,6 +42,27 @@ export interface Database {
           usd_rate_manual: number | string | null
           usd_rate_updated_at: string | null
         }>
+        Relationships: []
+      }
+      default_categories: {
+        Row: {
+          id: string
+          name: string
+          kind: Kind
+          color: string
+          sort_order: number
+          is_archived: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          kind: Kind
+          color: string
+          sort_order?: number
+          is_archived?: boolean
+        }
+        Update: Partial<{ name: string; kind: Kind; color: string; sort_order: number; is_archived: boolean }>
         Relationships: []
       }
       savings_buckets: {
@@ -321,6 +346,21 @@ export interface Database {
         }[]
       }
       rpc_deactivate_invite_code: {
+        Args: { p_code: string }
+        Returns: undefined
+      }
+      rpc_admin_list_invite_codes: {
+        Args: Record<string, never>
+        Returns: {
+          code: string
+          max_uses: number
+          used_count: number
+          expires_at: string | null
+          is_active: boolean
+          created_at: string
+        }[]
+      }
+      rpc_admin_delete_invite_code: {
         Args: { p_code: string }
         Returns: undefined
       }

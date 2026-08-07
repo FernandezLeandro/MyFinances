@@ -114,6 +114,21 @@ export function useUpdateAsset() {
   })
 }
 
+/** Sólo activos globales (RLS ya lo exige) — si está en uso en algún `savings_entries`, el FK sin
+ *  `on delete` frena el borrado y esto tira error en vez de arrastrar movimientos de otra cuenta. */
+export function useDeleteAsset() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('assets').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assets', user?.id] }),
+  })
+}
+
 export function useUpdateAssetManualPrice() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
