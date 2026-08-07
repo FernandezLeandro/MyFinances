@@ -25,6 +25,9 @@ interface AssetEditDialogProps {
   asset: Asset
   /** Precio manual actual en centavos, en la moneda nativa del activo — `null` si nunca se cargó. */
   currentPriceCents: number | null
+  /** El catálogo (nombre, clase, moneda, archivado) es sólo del admin — la base ya lo rechaza
+   *  igual (`assets_update_global` exige `is_admin()`), esto evita mostrar campos que van a fallar. */
+  canEditCatalog?: boolean
 }
 
 /**
@@ -33,7 +36,7 @@ interface AssetEditDialogProps {
  * suelto en la lista, acá queda junto con el resto. El símbolo no se toca: varias partes del código
  * lo usan para reconocer ARS/USD, cambiarlo rompería esos casos especiales.
  */
-export function AssetEditDialog({ open, onClose, asset, currentPriceCents }: AssetEditDialogProps) {
+export function AssetEditDialog({ open, onClose, asset, currentPriceCents, canEditCatalog = false }: AssetEditDialogProps) {
   const updateAsset = useUpdateAsset()
   const updatePrice = useUpdateAssetManualPrice()
 
@@ -72,12 +75,14 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents }: Ass
       }
     }
 
-    await updateAsset.mutateAsync({
-      id: asset.id,
-      name: name.trim() || asset.name,
-      ...(!isFiat && { assetClass, quoteCurrency }),
-      isArchived,
-    })
+    if (canEditCatalog) {
+      await updateAsset.mutateAsync({
+        id: asset.id,
+        name: name.trim() || asset.name,
+        ...(!isFiat && { assetClass, quoteCurrency }),
+        isArchived,
+      })
+    }
 
     if (priceCents != null) {
       await updatePrice.mutateAsync({ assetId: asset.id, priceCents })
@@ -109,11 +114,17 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents }: Ass
           <Input value={asset.symbol} disabled />
         </Field>
 
-        <Field label="Nombre" htmlFor="asset-name">
-          <Input id="asset-name" value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
+        {canEditCatalog ? (
+          <Field label="Nombre" htmlFor="asset-name">
+            <Input id="asset-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        ) : (
+          <Field label="Nombre">
+            <Input value={asset.name} disabled />
+          </Field>
+        )}
 
-        {!isFiat && (
+        {canEditCatalog && !isFiat && (
           <>
             <Field label="Clase">
               <div className="flex flex-wrap gap-1.5">
@@ -160,7 +171,7 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents }: Ass
           <p className="text-[13px] text-chalk-faint">Se valúa sola en vivo (CoinGecko) — no hace falta cargarle nada.</p>
         )}
 
-        {!isFiat && (
+        {canEditCatalog && !isFiat && (
           <Field label="Estado">
             <div className="flex gap-1.5">
               <Chip active={!isArchived} onClick={() => setIsArchived(false)}>

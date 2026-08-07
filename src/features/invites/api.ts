@@ -11,27 +11,14 @@ export interface InviteCode {
   createdAt: string
 }
 
-export function useMyInviteCodes() {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['invite-codes', user?.id],
-    enabled: !!user,
-    queryFn: async (): Promise<InviteCode[]> => {
-      const { data, error } = await supabase.rpc('rpc_list_my_invite_codes')
-      if (error) throw error
-      return (data ?? []).map((row) => ({
-        code: row.code,
-        maxUses: row.max_uses,
-        usedCount: row.used_count,
-        expiresAt: row.expires_at,
-        isActive: row.is_active,
-        createdAt: row.created_at,
-      }))
-    },
-  })
+export function codeStatus(code: InviteCode) {
+  if (!code.isActive) return { label: 'Revocado', tone: 'text-chalk-faint' }
+  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return { label: 'Vencido', tone: 'text-coral' }
+  if (code.usedCount >= code.maxUses) return { label: 'Agotado', tone: 'text-coral' }
+  return { label: 'Activo', tone: 'text-acid' }
 }
 
+/** Sólo el admin puede crear (la base lo exige, `is_admin()`) — se invalida la lista admin al pegarle. */
 export function useCreateInviteCode() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -45,19 +32,41 @@ export function useCreateInviteCode() {
       if (error) throw error
       return data?.[0]
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invite-codes', user?.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-invite-codes', user?.id] }),
   })
 }
 
-export function useDeactivateInviteCode() {
+/** Todas las invitaciones del sistema, no sólo las que creó esta cuenta — sólo el admin ve algo acá. */
+export function useAdminInviteCodes() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['admin-invite-codes', user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<InviteCode[]> => {
+      const { data, error } = await supabase.rpc('rpc_admin_list_invite_codes')
+      if (error) throw error
+      return (data ?? []).map((row) => ({
+        code: row.code,
+        maxUses: row.max_uses,
+        usedCount: row.used_count,
+        expiresAt: row.expires_at,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+      }))
+    },
+  })
+}
+
+export function useAdminDeleteInviteCode() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (code: string) => {
-      const { error } = await supabase.rpc('rpc_deactivate_invite_code', { p_code: code })
+      const { error } = await supabase.rpc('rpc_admin_delete_invite_code', { p_code: code })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invite-codes', user?.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-invite-codes', user?.id] }),
   })
 }
