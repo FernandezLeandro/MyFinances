@@ -48,6 +48,22 @@ export function useCreateDefaultCategory() {
   })
 }
 
+/** Persiste el nuevo orden tras arrastrar — un update por fila, todas en paralelo. */
+export function useReorderDefaultCategories() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (items: { id: string; sortOrder: number }[]) => {
+      const results = await Promise.all(
+        items.map(({ id, sortOrder }) => supabase.from('default_categories').update({ sort_order: sortOrder }).eq('id', id)),
+      )
+      const failed = results.find((r) => r.error)
+      if (failed?.error) throw failed.error
+    },
+    onSuccess: () => invalidateAll(queryClient),
+  })
+}
+
 export function useUpdateDefaultCategory() {
   const queryClient = useQueryClient()
 

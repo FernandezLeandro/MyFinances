@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Reorder, useDragControls } from 'motion/react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -12,6 +13,7 @@ import { cn } from '@/lib/cn'
 import {
   useCreateDefaultCategory,
   useDefaultCategories,
+  useReorderDefaultCategories,
   useUpdateDefaultCategory,
   type DefaultCategory,
   type DefaultCategoryKind,
@@ -22,18 +24,11 @@ function CategoryEditDialog({ category, onClose }: { category: DefaultCategory; 
   const [name, setName] = useState(category.name)
   const [kind, setKind] = useState<DefaultCategoryKind>(category.kind)
   const [color, setColor] = useState(category.color)
-  const [sortOrder, setSortOrder] = useState(String(category.sort_order))
 
   async function handleSave() {
     const trimmed = name.trim()
     if (!trimmed) return
-    await updateCategory.mutateAsync({
-      id: category.id,
-      name: trimmed,
-      kind,
-      color,
-      sortOrder: Number(sortOrder) || 0,
-    })
+    await updateCategory.mutateAsync({ id: category.id, name: trimmed, kind, color })
     onClose()
   }
 
@@ -63,14 +58,9 @@ function CategoryEditDialog({ category, onClose }: { category: DefaultCategory; 
           </Chip>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Nombre">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <Field label="Orden">
-            <Input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
-          </Field>
-        </div>
+        <Field label="Nombre">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
 
         <div className="flex flex-wrap gap-2">
           {CATEGORY_COLORS.map((c) => (
@@ -93,16 +83,47 @@ function CategoryEditDialog({ category, onClose }: { category: DefaultCategory; 
   )
 }
 
-function CategoryRow({ category, onEdit }: { category: DefaultCategory; onEdit: (c: DefaultCategory) => void }) {
+function CategoryRow({
+  category,
+  onEdit,
+  onDragEnd,
+}: {
+  category: DefaultCategory
+  onEdit: (c: DefaultCategory) => void
+  onDragEnd: () => void
+}) {
   const updateCategory = useUpdateDefaultCategory()
+  const dragControls = useDragControls()
 
   return (
-    <li className={cn('flex items-center gap-3 px-6 py-3', category.is_archived && 'opacity-50')}>
+    <Reorder.Item
+      value={category}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragEnd={onDragEnd}
+      className={cn('flex items-center gap-3 bg-ink-900 px-6 py-3', category.is_archived && 'opacity-50')}
+    >
+      <button
+        type="button"
+        onPointerDown={(e) => dragControls.start(e)}
+        aria-label={`Reordenar ${category.name}`}
+        className="shrink-0 touch-none cursor-grab p-1 text-chalk-faint active:cursor-grabbing"
+      >
+        <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+          <circle cx="5" cy="4" r="1" fill="currentColor" />
+          <circle cx="5" cy="8" r="1" fill="currentColor" />
+          <circle cx="5" cy="12" r="1" fill="currentColor" />
+          <circle cx="11" cy="4" r="1" fill="currentColor" />
+          <circle cx="11" cy="8" r="1" fill="currentColor" />
+          <circle cx="11" cy="12" r="1" fill="currentColor" />
+        </svg>
+      </button>
+
       <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] text-chalk">{category.name}</p>
         <p className="text-[12px] text-chalk-faint">
-          {category.kind === 'income' ? 'Ingreso' : 'Gasto'} · orden {category.sort_order}
+          {category.kind === 'income' ? 'Ingreso' : 'Gasto'}
           {category.is_archived && ' · archivada'}
         </p>
       </div>
@@ -124,30 +145,28 @@ function CategoryRow({ category, onEdit }: { category: DefaultCategory; onEdit: 
       >
         {category.is_archived ? 'Reactivar' : 'Archivar'}
       </button>
-    </li>
+    </Reorder.Item>
   )
 }
 
-function AddCategoryForm() {
+function AddCategoryForm({ nextSortOrder }: { nextSortOrder: number }) {
   const createCategory = useCreateDefaultCategory()
   const [name, setName] = useState('')
   const [kind, setKind] = useState<DefaultCategoryKind>('expense')
   const [color, setColor] = useState<string>(CATEGORY_COLORS[0].hex)
-  const [sortOrder, setSortOrder] = useState('99')
 
   async function handleAdd() {
     const trimmed = name.trim()
     if (!trimmed) return
-    await createCategory.mutateAsync({ name: trimmed, kind, color, sortOrder: Number(sortOrder) || 99 })
+    await createCategory.mutateAsync({ name: trimmed, kind, color, sortOrder: nextSortOrder })
     setName('')
     setColor(CATEGORY_COLORS[0].hex)
-    setSortOrder('99')
   }
 
   return (
     <div className="border-t border-ink-800 p-6">
       <p className="eyebrow">Agregar categoría</p>
-      <p className="mt-1.5 text-[12px] text-chalk-faint">Se suma a lo que arranca sembrado en cada cuenta nueva.</p>
+      <p className="mt-1.5 text-[12px] text-chalk-faint">Se suma al final — el orden después se arrastra.</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="flex gap-1.5">
           <Chip active={kind === 'expense'} onClick={() => setKind('expense')}>
@@ -158,14 +177,9 @@ function AddCategoryForm() {
           </Chip>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Nombre">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mascotas, Regalos…" />
-          </Field>
-          <Field label="Orden">
-            <Input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
-          </Field>
-        </div>
+        <Field label="Nombre">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mascotas, Regalos…" />
+        </Field>
 
         <div className="flex flex-wrap gap-2">
           {CATEGORY_COLORS.map((c) => (
@@ -192,9 +206,47 @@ function AddCategoryForm() {
   )
 }
 
+function CategoryList({ categories }: { categories: DefaultCategory[] }) {
+  const [order, setOrder] = useState(categories)
+  const orderRef = useRef(order)
+  const reorder = useReorderDefaultCategories()
+  const [editingCategory, setEditingCategory] = useState<DefaultCategory | null>(null)
+
+  // Resincroniza cuando cambian los datos del server (alta, archivado, o el propio reorder ya
+  // confirmado) — como siempre mandamos sort_order secuencial sin empates, el refetch vuelve en el
+  // mismo orden que se ve en pantalla, sin salto visual.
+  useEffect(() => setOrder(categories), [categories])
+
+  // `onReorder` sólo reacomoda en pantalla mientras se arrastra — dispara en cada cruce con otra
+  // fila, así que guardar ahí prendería el overlay de "Guardando" de golpe en golpe. Se persiste
+  // recién en `onDragEnd` (una vez al soltar), leyendo el ref porque el handler de esa fila se
+  // define en el render en que empezó el drag y no se refresca en cada reacomodo intermedio.
+  function handleReorder(newOrder: DefaultCategory[]) {
+    orderRef.current = newOrder
+    setOrder(newOrder)
+  }
+
+  function handleDragEnd() {
+    reorder.mutate(orderRef.current.map((c, i) => ({ id: c.id, sortOrder: i })))
+  }
+
+  return (
+    <>
+      <Reorder.Group axis="y" values={order} onReorder={handleReorder} className="divide-y divide-ink-850">
+        {order.map((c) => (
+          <CategoryRow key={c.id} category={c} onEdit={setEditingCategory} onDragEnd={handleDragEnd} />
+        ))}
+      </Reorder.Group>
+
+      <AddCategoryForm nextSortOrder={order.length} />
+
+      {editingCategory && <CategoryEditDialog category={editingCategory} onClose={() => setEditingCategory(null)} />}
+    </>
+  )
+}
+
 export function Categorias() {
   const { data: categories, isPending, isError, refetch } = useDefaultCategories(true)
-  const [editingCategory, setEditingCategory] = useState<DefaultCategory | null>(null)
 
   return (
     <div className="flex flex-col gap-8">
@@ -202,7 +254,8 @@ export function Categorias() {
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Categorías por defecto</h1>
         <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
-          Lo que arranca sembrado cada cuenta nueva al redimir su invitación. No afecta a las categorías que ya tiene cargadas cada cuenta.
+          Lo que arranca sembrado cada cuenta nueva al redimir su invitación. No afecta a las categorías que ya tiene cargadas cada cuenta. Arrastrá
+          para cambiar el orden.
         </p>
       </header>
 
@@ -220,21 +273,16 @@ export function Categorias() {
             ))}
           </div>
         ) : !categories || categories.length === 0 ? (
-          <div className="px-6 pb-5">
-            <EmptyState glyph="▤" title="Todavía no hay categorías por defecto" />
-          </div>
+          <>
+            <div className="px-6 pb-5">
+              <EmptyState glyph="▤" title="Todavía no hay categorías por defecto" />
+            </div>
+            <AddCategoryForm nextSortOrder={0} />
+          </>
         ) : (
-          <ul className="divide-y divide-ink-850">
-            {categories.map((c) => (
-              <CategoryRow key={c.id} category={c} onEdit={setEditingCategory} />
-            ))}
-          </ul>
+          <CategoryList categories={categories} />
         )}
-
-        <AddCategoryForm />
       </Panel>
-
-      {editingCategory && <CategoryEditDialog category={editingCategory} onClose={() => setEditingCategory(null)} />}
     </div>
   )
 }
