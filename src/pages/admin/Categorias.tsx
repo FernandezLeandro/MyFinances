@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
+import { Dialog } from '@/components/ui/Dialog'
 import { Field, Input } from '@/components/ui/Input'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -16,7 +17,83 @@ import {
   type DefaultCategoryKind,
 } from '@/features/default-categories/api'
 
-function CategoryRow({ category }: { category: DefaultCategory }) {
+function CategoryEditDialog({ category, onClose }: { category: DefaultCategory; onClose: () => void }) {
+  const updateCategory = useUpdateDefaultCategory()
+  const [name, setName] = useState(category.name)
+  const [kind, setKind] = useState<DefaultCategoryKind>(category.kind)
+  const [color, setColor] = useState(category.color)
+  const [sortOrder, setSortOrder] = useState(String(category.sort_order))
+
+  async function handleSave() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    await updateCategory.mutateAsync({
+      id: category.id,
+      name: trimmed,
+      kind,
+      color,
+      sortOrder: Number(sortOrder) || 0,
+    })
+    onClose()
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Editar categoría"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={!name.trim() || updateCategory.isPending}>
+            {updateCategory.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-1.5">
+          <Chip active={kind === 'expense'} onClick={() => setKind('expense')}>
+            Gasto
+          </Chip>
+          <Chip active={kind === 'income'} onClick={() => setKind('income')}>
+            Ingreso
+          </Chip>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Nombre">
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Orden">
+            <Input type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              type="button"
+              onClick={() => setColor(c.hex)}
+              aria-label={`Color ${c.name}`}
+              aria-pressed={color === c.hex}
+              className={cn(
+                'size-6 rounded-full transition-transform duration-150',
+                color === c.hex && 'ring-2 ring-chalk ring-offset-2 ring-offset-ink-900',
+              )}
+              style={{ backgroundColor: c.hex }}
+            />
+          ))}
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+function CategoryRow({ category, onEdit }: { category: DefaultCategory; onEdit: (c: DefaultCategory) => void }) {
   const updateCategory = useUpdateDefaultCategory()
 
   return (
@@ -29,6 +106,16 @@ function CategoryRow({ category }: { category: DefaultCategory }) {
           {category.is_archived && ' · archivada'}
         </p>
       </div>
+      <button
+        type="button"
+        onClick={() => onEdit(category)}
+        aria-label={`Editar ${category.name}`}
+        className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+      >
+        <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+          <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        </svg>
+      </button>
       <button
         type="button"
         onClick={() => updateCategory.mutate({ id: category.id, isArchived: !category.is_archived })}
@@ -107,6 +194,7 @@ function AddCategoryForm() {
 
 export function Categorias() {
   const { data: categories, isPending, isError, refetch } = useDefaultCategories(true)
+  const [editingCategory, setEditingCategory] = useState<DefaultCategory | null>(null)
 
   return (
     <div className="flex flex-col gap-8">
@@ -138,13 +226,15 @@ export function Categorias() {
         ) : (
           <ul className="divide-y divide-ink-850">
             {categories.map((c) => (
-              <CategoryRow key={c.id} category={c} />
+              <CategoryRow key={c.id} category={c} onEdit={setEditingCategory} />
             ))}
           </ul>
         )}
 
         <AddCategoryForm />
       </Panel>
+
+      {editingCategory && <CategoryEditDialog category={editingCategory} onClose={() => setEditingCategory(null)} />}
     </div>
   )
 }
