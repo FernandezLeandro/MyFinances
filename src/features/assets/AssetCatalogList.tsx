@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useAssetPrices } from '@/features/fx/api'
-import { useAssetManualPrices, useAssets, type Asset, type AssetClass } from '@/features/assets/api'
+import { useAssetManualPrices, useAssets, useDeleteAsset, type Asset, type AssetClass } from '@/features/assets/api'
 import { AssetEditDialog } from '@/features/assets/AssetEditDialog'
 
 const assetClassLabels: Record<AssetClass, string> = {
@@ -17,9 +19,25 @@ const assetClassLabels: Record<AssetClass, string> = {
 function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCatalog: boolean; onEdit: (a: Asset) => void }) {
   const prices = useAssetPrices()
   const price = prices.get(asset.id)
+  const deleteAsset = useDeleteAsset()
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   // Sin permiso de catálogo, sólo tiene sentido abrir el editor si hay un precio manual que tocar —
   // para cripto (sin precio manual) no habría nada editable adentro.
   const canEditSomething = canEditCatalog || asset.price_source === 'manual'
+  // ARS/USD son la base del resto de la conversión de moneda en toda la app — no se pueden borrar.
+  const canDelete = canEditCatalog && asset.asset_class !== 'fiat'
+
+  async function handleConfirmDelete() {
+    setDeleteError(null)
+    try {
+      await deleteAsset.mutateAsync(asset.id)
+      setConfirmingDelete(false)
+    } catch {
+      setConfirmingDelete(false)
+      setDeleteError('No se pudo eliminar — hay movimientos que lo usan. Podés archivarlo en su lugar.')
+    }
+  }
 
   return (
     <li
@@ -36,6 +54,7 @@ function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCata
             {assetClassLabels[asset.asset_class]} · cotiza en {asset.quote_currency}
             {asset.is_archived && ' · archivado'}
           </p>
+          {deleteError && <p className="mt-0.5 text-[11px] text-coral">{deleteError}</p>}
         </div>
       </div>
 
@@ -66,6 +85,49 @@ function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCata
             <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
           </svg>
         </button>
+      )}
+
+      {canDelete && (
+        <button
+          type="button"
+          onClick={() => setConfirmingDelete(true)}
+          disabled={deleteAsset.isPending}
+          aria-label={`Eliminar ${asset.symbol}`}
+          className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+        >
+          <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+            <path
+              d="M4 4.5h8M6.5 4.5v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M5 4.5l.5 8.5a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1l.5-8.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+
+      {confirmingDelete && (
+        <Dialog
+          open={confirmingDelete}
+          onClose={() => setConfirmingDelete(false)}
+          title="Eliminar activo"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteAsset.isPending}>
+                {deleteAsset.isPending ? 'Eliminando…' : 'Eliminar'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[14px] text-chalk-dim">
+            ¿Eliminar <span className="text-chalk">{asset.symbol}</span> ({asset.name}) del catálogo? No se puede deshacer.
+          </p>
+        </Dialog>
       )}
     </li>
   )
