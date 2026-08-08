@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useProfile, type FxSource } from '@/features/profile/api'
 import { useAssetManualPrices, useAssets } from '@/features/assets/api'
@@ -105,37 +106,43 @@ export function useAssetPrices() {
     retry: 1,
   })
 
-  const prices = new Map<string, AssetPrice>()
-  for (const asset of assets ?? []) {
-    if (asset.symbol === 'ARS') {
-      prices.set(asset.id, { priceArsCents: 100, origin: 'fixed', updatedAt: null })
-    } else if (asset.symbol === 'USD') {
-      prices.set(asset.id, { priceArsCents: usdRate.rateCents, origin: usdRate.origin, updatedAt: usdRate.updatedAt })
-    } else if (asset.price_source === 'coingecko' && asset.coingecko_id) {
-      const quote = cryptoQuery.data?.[asset.coingecko_id]
-      prices.set(asset.id, {
-        priceArsCents: quote ? Math.round(quote.ars * 100) : null,
-        origin: quote ? 'api' : 'none',
-        updatedAt: quote ? new Date(quote.last_updated_at * 1000).toISOString() : null,
-      })
-    } else {
-      const manual = manualPrices?.get(asset.id)
-      if (!manual) {
-        prices.set(asset.id, { priceArsCents: null, origin: 'none', updatedAt: null })
-      } else if (asset.quote_currency === 'USD') {
-        // Guardado en USD por unidad — se convierte con el dólar EN VIVO, no con el que estaba
-        // vigente el día que se cargó. Así, cambiar la fuente del dólar en Ajustes mueve también
-        // el valor de las acciones, no sólo el de USD como moneda suelta.
+  // Memoizado: sin esto, `prices` es un Map con identidad nueva en CADA render, lo que rompe
+  // cualquier `useMemo` que dependa de él más arriba (p.ej. `summarizePortfolio` en Patrimonio.tsx
+  // recalcula todo el agregado del patrimonio en cada render en vez de cachear). Las dependencias
+  // usan los campos primitivos de `usdRate`, no el objeto entero — `useUsdRate()` devuelve un
+  // literal nuevo por render, así que depender de él completo también invalidaría el memo siempre.
+  return useMemo(() => {
+    const prices = new Map<string, AssetPrice>()
+    for (const asset of assets ?? []) {
+      if (asset.symbol === 'ARS') {
+        prices.set(asset.id, { priceArsCents: 100, origin: 'fixed', updatedAt: null })
+      } else if (asset.symbol === 'USD') {
+        prices.set(asset.id, { priceArsCents: usdRate.rateCents, origin: usdRate.origin, updatedAt: usdRate.updatedAt })
+      } else if (asset.price_source === 'coingecko' && asset.coingecko_id) {
+        const quote = cryptoQuery.data?.[asset.coingecko_id]
         prices.set(asset.id, {
-          priceArsCents: usdRate.rateCents == null ? null : Math.round((manual.priceCents * usdRate.rateCents) / 100),
-          origin: 'manual',
-          updatedAt: manual.updatedAt,
+          priceArsCents: quote ? Math.round(quote.ars * 100) : null,
+          origin: quote ? 'api' : 'none',
+          updatedAt: quote ? new Date(quote.last_updated_at * 1000).toISOString() : null,
         })
       } else {
-        prices.set(asset.id, { priceArsCents: manual.priceCents, origin: 'manual', updatedAt: manual.updatedAt })
+        const manual = manualPrices?.get(asset.id)
+        if (!manual) {
+          prices.set(asset.id, { priceArsCents: null, origin: 'none', updatedAt: null })
+        } else if (asset.quote_currency === 'USD') {
+          // Guardado en USD por unidad — se convierte con el dólar EN VIVO, no con el que estaba
+          // vigente el día que se cargó. Así, cambiar la fuente del dólar en Ajustes mueve también
+          // el valor de las acciones, no sólo el de USD como moneda suelta.
+          prices.set(asset.id, {
+            priceArsCents: usdRate.rateCents == null ? null : Math.round((manual.priceCents * usdRate.rateCents) / 100),
+            origin: 'manual',
+            updatedAt: manual.updatedAt,
+          })
+        } else {
+          prices.set(asset.id, { priceArsCents: manual.priceCents, origin: 'manual', updatedAt: manual.updatedAt })
+        }
       }
     }
-  }
-
-  return prices
+    return prices
+  }, [assets, manualPrices, usdRate.rateCents, usdRate.origin, usdRate.updatedAt, cryptoQuery.data])
 }

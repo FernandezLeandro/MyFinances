@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { Grain } from '@/components/Grain'
+import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { cn } from '@/lib/cn'
 import { adminNavItems } from '@/app/adminNav'
 import { useAuth } from '@/features/auth/auth-context'
@@ -106,7 +108,9 @@ export function AdminLayout() {
 
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-12 lg:pb-16 lg:pl-[276px]">
         <div className="mx-auto w-full max-w-[1080px]">
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 

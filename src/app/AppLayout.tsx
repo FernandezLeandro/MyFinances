@@ -1,6 +1,8 @@
+import { Suspense } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { Grain } from '@/components/Grain'
 import { Money } from '@/components/ui/Money'
+import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { navItems } from '@/app/nav'
@@ -138,7 +140,10 @@ export function AppLayout() {
 
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-12 lg:pb-16 lg:pl-[276px]">
         <div className="mx-auto w-full max-w-[1080px]">
-          <Outlet />
+          {/* Sólo el contenido suspende, no el shell (nav/header) — así no parpadea al navegar. */}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 
