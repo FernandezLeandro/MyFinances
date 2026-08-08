@@ -227,7 +227,7 @@ function CategoryList({ categories }: { categories: DefaultCategory[] }) {
   }
 
   function handleDragEnd() {
-    reorder.mutate(orderRef.current.map((c, i) => ({ id: c.id, sortOrder: i })))
+    reorder.mutate(orderRef.current.map((c) => c.id))
   }
 
   return (

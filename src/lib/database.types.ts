@@ -334,21 +334,6 @@ export interface Database {
         Args: { p_max_uses?: number; p_expires_at?: string | null }
         Returns: { code: string; max_uses: number; expires_at: string | null }[]
       }
-      rpc_list_my_invite_codes: {
-        Args: Record<string, never>
-        Returns: {
-          code: string
-          max_uses: number
-          used_count: number
-          expires_at: string | null
-          is_active: boolean
-          created_at: string
-        }[]
-      }
-      rpc_deactivate_invite_code: {
-        Args: { p_code: string }
-        Returns: undefined
-      }
       rpc_admin_list_invite_codes: {
         Args: Record<string, never>
         Returns: {
@@ -362,6 +347,10 @@ export interface Database {
       }
       rpc_admin_delete_invite_code: {
         Args: { p_code: string }
+        Returns: undefined
+      }
+      rpc_reorder_default_categories: {
+        Args: { p_ids: string[] }
         Returns: undefined
       }
     }
