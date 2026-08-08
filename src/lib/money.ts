@@ -64,6 +64,12 @@ export function formatMoney(cents: number, options: { signed?: boolean; currency
   return options.signed && cents > 0 ? `+${formatted}` : formatted
 }
 
+/** Sin símbolo, para prellenar un `AmountInput` editable: "12.480,50" (`parseAmountToCents` lo
+ *  vuelve a leer tal cual). Dos call sites (form de fijos, popup de marcar pagado). */
+export function centsToInputText(cents: number): string {
+  return (cents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 /** Sin símbolo ni decimales, para ejes de gráficos: "12.480" */
 export function formatCompact(cents: number): string {
   const value = Math.abs(cents) / 100

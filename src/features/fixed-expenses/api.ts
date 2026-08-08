@@ -56,6 +56,26 @@ export function useFixedExpensePayments(period: string) {
   })
 }
 
+/** Todo el historial de pagos de UN fijo, más reciente primero — a diferencia de
+ *  `useFixedExpensePayments`, que trae los de TODOS los fijos pero de un solo período. */
+export function useFixedExpensePaymentHistory(fixedExpenseId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fixed-expense-payments', user?.id, 'history', fixedExpenseId],
+    enabled: !!user && !!fixedExpenseId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fixed_expense_payments')
+        .select('*')
+        .eq('fixed_expense_id', fixedExpenseId!)
+        .order('period', { ascending: false })
+      if (error) throw error
+      return data.map(toPayment)
+    },
+  })
+}
+
 export function useProjectedBalance(period: string) {
   const { user } = useAuth()
 
@@ -139,14 +159,26 @@ export function useMarkFixedExpensePaid() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ fixedExpenseId, period }: { fixedExpenseId: string; period: string }) => {
+    mutationFn: async ({
+      fixedExpenseId,
+      period,
+      cents,
+    }: {
+      fixedExpenseId: string
+      period: string
+      /** Importe realmente pagado — puede diferir del importe de la plantilla (aumentos, ajustes).
+       *  El RPC decide solo si con esto actualiza la plantilla (sólo mes en curso o futuro). */
+      cents: number
+    }) => {
       const { error } = await supabase.rpc('rpc_mark_fixed_expense_paid', {
         p_fixed_expense_id: fixedExpenseId,
         p_period: period,
+        p_amount: centsToNumeric(cents),
       })
       if (error) throw error
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo marcar como pagado. Probá de nuevo.' },
   })
 }
 

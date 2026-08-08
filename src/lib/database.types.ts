@@ -315,7 +315,7 @@ export interface Database {
         }[]
       }
       rpc_mark_fixed_expense_paid: {
-        Args: { p_fixed_expense_id: string; p_period: string }
+        Args: { p_fixed_expense_id: string; p_period: string; p_amount?: number | string | null }
         Returns: undefined
       }
       rpc_unmark_fixed_expense_paid: {
