@@ -4,7 +4,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { useAssetPrices } from '@/features/fx/api'
+import { useAssetPrices, type AssetPrice } from '@/features/fx/api'
 import { useAssetManualPrices, useAssets, useDeleteAsset, type Asset, type AssetClass } from '@/features/assets/api'
 import { AssetEditDialog } from '@/features/assets/AssetEditDialog'
 
@@ -16,9 +16,17 @@ const assetClassLabels: Record<AssetClass, string> = {
   other: 'Otro',
 }
 
-function AssetRow({ asset, canEditCatalog, onEdit }: { asset: Asset; canEditCatalog: boolean; onEdit: (a: Asset) => void }) {
-  const prices = useAssetPrices()
-  const price = prices.get(asset.id)
+function AssetRow({
+  asset,
+  price,
+  canEditCatalog,
+  onEdit,
+}: {
+  asset: Asset
+  price: AssetPrice | undefined
+  canEditCatalog: boolean
+  onEdit: (a: Asset) => void
+}) {
   const deleteAsset = useDeleteAsset()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   // Sin permiso de catálogo, sólo tiene sentido abrir el editor si hay un precio manual que tocar —
@@ -167,6 +175,9 @@ interface AssetCatalogListProps {
  */
 export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false }: AssetCatalogListProps) {
   const { data: assets, isPending } = useAssets(true)
+  // Una sola vez acá arriba, no por fila — antes cada AssetRow llamaba su propio useAssetPrices(),
+  // reconstruyendo el Map completo N veces por render con N activos en la lista.
+  const prices = useAssetPrices()
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
 
   const listedAssets = excludeMainCurrencies
@@ -184,7 +195,7 @@ export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false
       ) : (
         <ul className="pb-1">
           {listedAssets.map((asset) => (
-            <AssetRow key={asset.id} asset={asset} canEditCatalog={canEditCatalog} onEdit={setEditingAsset} />
+            <AssetRow key={asset.id} asset={asset} price={prices.get(asset.id)} canEditCatalog={canEditCatalog} onEdit={setEditingAsset} />
           ))}
         </ul>
       )}

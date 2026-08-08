@@ -51,6 +51,38 @@ export default defineConfig(({ mode }) => ({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // react/react-router/supabase salen a su propio chunk con nombre fijo: no es sólo el peso
+    // inicial (recharts/motion ya se sacaron del camino eager con React.lazy en App.tsx) — es el
+    // cache-hit ENTRE DEPLOYS. Sin esto, cambiar una línea de UI invalida un único chunk de más de
+    // 1 MB para todos los usuarios; separado, el navegador sólo vuelve a bajar el pedacito de la
+    // app que de verdad cambió, mientras react/supabase siguen cacheados entre versiones.
+    chunkSizeWarningLimit: 400,
+    rollupOptions: {
+      output: {
+        // Sólo react/react-router/supabase van a un bucket con nombre fijo: son necesarios para
+        // TODO por igual (eager y lazy), así que agruparlos aparte da cache-hit entre deploys sin
+        // ningún riesgo. `recharts` y `motion` quedan deliberadamente SIN asignar acá — forzarlos a
+        // un bucket propio sonaba bien en la teoría, pero en la práctica arrastra código de
+        // react-dom al mismo chunk (recharts usa Redux/react-redux internamente, y el interop
+        // CJS→ESM de esa cadena termina filtrando al bucket forzado), lo que hacía que ese chunk se
+        // precargara eager en TODAS las rutas — exactamente lo que este cambio quería evitar. Sin
+        // nombre, Rollup arma el chunk según quién los alcanza de verdad: como sólo los importan
+        // Analisis/Patrimonio/Categorias (las 3 rutas lazy), quedan afuera del chunk inicial igual,
+        // sólo que sin el nombre fijo — cache-hit entre deploys se sacrifica ahí, pero no vale la
+        // pena el riesgo de que un cambio de versión futuro de recharts vuelva a filtrar código eager.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          const parts = id.split(/[\\/]/)
+          const i = parts.lastIndexOf('node_modules')
+          const pkg = parts[i + 1]?.startsWith('@') ? `${parts[i + 1]}/${parts[i + 2]}` : parts[i + 1]
+          if (pkg === 'react' || pkg === 'react-dom' || pkg === 'react-router' || pkg === 'scheduler') return 'vendor-react'
+          if (pkg?.startsWith('@supabase')) return 'vendor-supabase'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     // money.ts y aggregate.ts son funciones puras, sin DOM — no hace falta jsdom/happy-dom.
     environment: 'node',

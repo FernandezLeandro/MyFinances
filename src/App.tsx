@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '@/app/AppLayout'
 import { AdminLayout } from '@/app/AdminLayout'
@@ -9,17 +10,21 @@ import { ToastHost } from '@/components/ui/ToastHost'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
-import { Analisis } from '@/pages/Analisis'
-import { Patrimonio } from '@/pages/Patrimonio'
 import { Ajustes } from '@/pages/Ajustes'
-import { Categorias } from '@/pages/admin/Categorias'
-import { Activos } from '@/pages/admin/Activos'
-import { Invitaciones } from '@/pages/admin/Invitaciones'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
 import { Bienvenida } from '@/pages/auth/Bienvenida'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
+
+// `lazy`, no import estático: son las únicas rutas que arrastran recharts (Analisis, Patrimonio) o
+// motion/react (Categorias, por el Reorder) — sacarlas del chunk inicial evita que /hoy pague el
+// peso de gráficos y drag-and-drop que ni siquiera usa. El resto queda eager (ver Suspense abajo).
+const Analisis = lazy(() => import('@/pages/Analisis').then((m) => ({ default: m.Analisis })))
+const Patrimonio = lazy(() => import('@/pages/Patrimonio').then((m) => ({ default: m.Patrimonio })))
+const Categorias = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
+const Activos = lazy(() => import('@/pages/admin/Activos').then((m) => ({ default: m.Activos })))
+const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones').then((m) => ({ default: m.Invitaciones })))
 
 export default function App() {
   return (
