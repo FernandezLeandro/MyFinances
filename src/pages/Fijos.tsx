@@ -13,17 +13,19 @@ import { useCurrentBalance } from '@/features/transactions/api'
 import {
   useFixedExpensePayments,
   useFixedExpenses,
-  useMarkFixedExpensePaid,
   useProjectedBalance,
   useUnmarkFixedExpensePaid,
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
+import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
+import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 
 export function Fijos() {
   const [month, setMonth] = useState(() => new Date())
   const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<FixedExpense | null>(null)
+  const [markingPaid, setMarkingPaid] = useState<FixedExpense | null>(null)
+  const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
 
   const period = format(startOfMonth(month), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(month, new Date())
@@ -34,7 +36,6 @@ export function Fijos() {
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
   const { data: categories } = useCategories(true)
-  const markPaid = useMarkFixedExpensePaid()
   const unmarkPaid = useUnmarkFixedExpensePaid()
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
@@ -58,20 +59,16 @@ export function Fijos() {
   const pendingTotal = pending.reduce((acc, fe) => acc + fe.cents, 0)
 
   function openNew() {
-    setEditing(null)
-    setFormOpen(true)
-  }
-
-  function openEdit(fe: FixedExpense) {
-    setEditing(fe)
     setFormOpen(true)
   }
 
   function togglePaid(fe: FixedExpense) {
     if (paymentByFixedId.has(fe.id)) {
+      // Desmarcar sigue siendo un toque, sin diálogo: es reversible y es el control más usado de
+      // la pantalla. Sólo el camino "no pagado → pagado" necesita preguntar el importe.
       unmarkPaid.mutate({ fixedExpenseId: fe.id, period })
     } else {
-      markPaid.mutate({ fixedExpenseId: fe.id, period })
+      setMarkingPaid(fe)
     }
   }
 
@@ -138,7 +135,7 @@ export function Fijos() {
                 const payment = paymentByFixedId.get(fe.id)
                 const paid = !!payment
                 const vencido = isCurrentMonth && !paid && fe.due_day < todayDay
-                const busy = markPaid.isPending || unmarkPaid.isPending
+                const busy = unmarkPaid.isPending
 
                 return (
                   <li
@@ -168,7 +165,12 @@ export function Fijos() {
                       </svg>
                     </button>
 
-                    <button type="button" onClick={() => openEdit(fe)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                    <button
+                      type="button"
+                      onClick={() => setDetailFixed(fe)}
+                      aria-label={`${fe.name}: ver detalle`}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    >
                       <span
                         aria-hidden
                         className="size-2 shrink-0 rounded-full"
@@ -184,7 +186,10 @@ export function Fijos() {
                       </div>
                     </button>
 
-                    <Money cents={fe.cents} tone={paid ? 'dim' : 'chalk'} />
+                    {/* Pagado: se muestra lo que realmente salió (amountPaidCents), no la plantilla —
+                        con un mes en curso ambos suelen coincidir (el pago actualiza la plantilla),
+                        pero en un mes pasado o si el pago no tocó la plantilla, pueden diferir. */}
+                    <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} />
                   </li>
                 )
               })}
@@ -239,7 +244,13 @@ export function Fijos() {
         </div>
       </div>
 
-      {formOpen && <FixedExpenseFormDialog open={formOpen} onClose={() => setFormOpen(false)} fixedExpense={editing} />}
+      {formOpen && <FixedExpenseFormDialog open={formOpen} onClose={() => setFormOpen(false)} />}
+      {markingPaid && (
+        <MarkPaidDialog open={!!markingPaid} onClose={() => setMarkingPaid(null)} fixedExpense={markingPaid} period={period} />
+      )}
+      {detailFixed && (
+        <FixedExpenseDetailDialog open={!!detailFixed} onClose={() => setDetailFixed(null)} fixedExpense={detailFixed} />
+      )}
     </div>
   )
 }

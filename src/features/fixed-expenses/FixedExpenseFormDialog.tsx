@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { parseAmountToCents } from '@/lib/money'
+import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import {
   useCreateFixedExpense,
@@ -27,10 +27,6 @@ const schema = z.object({
 })
 
 type FormValues = z.infer<typeof schema>
-
-function centsToInputText(cents: number): string {
-  return (cents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 interface FixedExpenseFormDialogProps {
   open: boolean
