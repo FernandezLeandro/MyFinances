@@ -7,6 +7,7 @@
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
+import type { CreditCard, CreditCardPayment, CreditCardSaving, CreditInstallment } from '@/features/credits/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
 
@@ -50,6 +51,50 @@ export function makeEntry(
     occurred_on: '2026-01-01',
     note: null,
     created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeCard(p: Partial<CreditCard> & Pick<CreditCard, 'id'>): CreditCard {
+  return {
+    user_id: 'user-1',
+    name: 'Tarjeta de test',
+    due_day: 10,
+    created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeInstallment(
+  p: Partial<CreditInstallment> & Pick<CreditInstallment, 'card_id' | 'amountCents'>,
+): CreditInstallment {
+  return {
+    purchase_id: `purchase-${Math.random().toString(36).slice(2)}`,
+    description: 'Compra de test',
+    installment_no: 1,
+    installments: 1,
+    category_id: null,
+    ...p,
+  }
+}
+
+export function makeSaving(p: Partial<CreditCardSaving> & Pick<CreditCardSaving, 'card_id' | 'amountCents'>): CreditCardSaving {
+  return {
+    id: `saving-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    period: '2026-08-01',
+    updated_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makePayment(p: Partial<CreditCardPayment> & Pick<CreditCardPayment, 'card_id'>): CreditCardPayment {
+  return {
+    id: `payment-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    period: '2026-08-01',
+    paid_at: FIXED_DATE,
+    amountPaidCents: 0,
     ...p,
   }
 }

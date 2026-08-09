@@ -10,6 +10,7 @@ import { ToastHost } from '@/components/ui/ToastHost'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
+import { Creditos } from '@/pages/Creditos'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="hoy" element={<Hoy />} />
             <Route path="movimientos" element={<Movimientos />} />
             <Route path="fijos" element={<Fijos />} />
+            <Route path="creditos" element={<Creditos />} />
             <Route path="analisis" element={<Analisis />} />
             <Route path="patrimonio" element={<Patrimonio />} />
             <Route path="ajustes" element={<Ajustes />} />

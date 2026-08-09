@@ -20,7 +20,11 @@ export function TransactionRow({ tx, category, onClick }: { tx: Transaction; cat
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] text-chalk">{tx.description || category?.name || 'Sin descripción'}</p>
           <p className="mt-0.5 text-[12px] text-chalk-faint">
-            {tx.is_adjustment ? 'Ajuste de saldo · afuera de Análisis' : (category?.name ?? 'Sin categoría')}
+            {tx.is_adjustment
+              ? 'Ajuste de saldo · afuera de Análisis'
+              : tx.is_credit_card_payment
+                ? `${category?.name ?? 'Sin categoría'} · Tarjeta`
+                : (category?.name ?? 'Sin categoría')}
           </p>
         </div>
         <Money cents={income ? tx.cents : -tx.cents} tone={income ? 'acid' : 'coral'} signed />
