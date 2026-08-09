@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
@@ -14,8 +14,11 @@ interface DialogProps {
 }
 
 /**
- * Sobre `<dialog>` nativo: trae gratis el foco atrapado, el Escape y el `::backdrop`.
+ * Sobre `<dialog>` nativo: trae gratis el foco atrapado y el `::backdrop`.
  * En mobile entra como bottom sheet — un modal centrado en un celular siempre queda peor.
+ * Cierra sólo por la X o los botones del footer — ni Escape ni un click afuera lo cierran (ver
+ * `handleCancel`), a propósito: perder una carga en curso por un click sin querer es peor que la
+ * comodidad de cerrar rápido.
  */
 export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -31,9 +34,10 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
     else if (!open && el.open) el.close()
   }, [open])
 
-  // Clic en el backdrop: el target es el propio <dialog>, no su contenido.
-  function handleClick(event: MouseEvent<HTMLDialogElement>) {
-    if (event.target === ref.current) onClose()
+  // "cancel" es el evento que dispara Escape antes de cerrar — bloquearlo con preventDefault no
+  // toca "close" (que sigue disparando onClose para el cierre programático de la X/footer).
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault()
   }
 
   // El focus-trap de <dialog> nativo no es del todo confiable (Tab desde el último elemento a
@@ -64,7 +68,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
     <dialog
       ref={ref}
       onClose={onClose}
-      onClick={handleClick}
+      onCancel={handleCancel}
       onKeyDown={handleKeyDown}
       aria-labelledby="dialog-title"
       className={cn(
