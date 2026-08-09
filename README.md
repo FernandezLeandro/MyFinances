@@ -84,8 +84,9 @@ Settings → Branches.
 
 ## Estado
 
-Funcionalmente completo para su alcance: movimientos, fijos, análisis, patrimonio multi-activo y
-administración (categorías por defecto, catálogo de activos, invitaciones) — las cinco secciones de
-usuario y el panel de admin andan de punta a punta. La deuda técnica que quedaba (tests, CI, errores
-de guardado silenciosos, peso del bundle) se fue cerrando en bloques; el estado de cada uno vive en el
-historial de commits, no hace falta duplicarlo acá.
+Funcionalmente completo para su alcance: movimientos, fijos, créditos (tarjetas en cuotas), análisis,
+patrimonio multi-activo, cuadrar saldo contra la plata real y administración (categorías por defecto,
+catálogo de activos, invitaciones) — las cinco secciones de la nav más créditos (colgado de Fijos, sin
+ítem propio) andan de punta a punta. La deuda técnica que quedaba (tests, CI, errores de guardado
+silenciosos, peso del bundle) se fue cerrando en bloques; el estado de cada uno vive en el historial de
+commits, no hace falta duplicarlo acá.

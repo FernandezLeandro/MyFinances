@@ -20,7 +20,7 @@ interface MarkPaidDialogProps {
  * en el momento de marcar como pagado. Prellenado con el importe actual y sin autofocus: el caso
  * dominante es "vino igual, confirmo", y el autofocus en mobile levanta el teclado para nada.
  *
- * No anida ningún otro diálogo (a diferencia de AdjustBalanceDialog/BucketDetailDialog) — no hace
+ * No anida ningún otro diálogo (a diferencia de CuadrarSaldoDialog/BucketDetailDialog) — no hace
  * falta el filtro de "close" que esos dos necesitan para no cerrarse en cascada.
  */
 export function MarkPaidDialog({ open, onClose, fixedExpense, period }: MarkPaidDialogProps) {

@@ -13,12 +13,12 @@ import { useCountUp } from '@/lib/useCountUp'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import { AdjustBalanceDialog } from '@/features/transactions/AdjustBalanceDialog'
+import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
 import { Link } from 'react-router'
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
-  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [cuadrarOpen, setCuadrarOpen] = useState(false)
   const period = format(startOfMonth(new Date()), 'yyyy-MM-dd')
 
   const balance = useCurrentBalance()
@@ -58,8 +58,8 @@ export function Hoy() {
             )}
           </div>
           <div className="ml-auto flex w-full gap-2 sm:w-auto">
-            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setAdjustOpen(true)}>
-              Ajustar saldo
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setCuadrarOpen(true)}>
+              Cuadrar saldo
             </Button>
             <Button
               className="flex-1 sm:flex-none"
@@ -112,7 +112,7 @@ export function Hoy() {
       {/* Montado sólo mientras está abierto: así cada apertura dispara una consulta fresca de
           categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}
       {open && <TransactionFormDialog open={open} onClose={() => setOpen(false)} />}
-      {adjustOpen && <AdjustBalanceDialog open={adjustOpen} onClose={() => setAdjustOpen(false)} />}
+      {cuadrarOpen && <CuadrarSaldoDialog open={cuadrarOpen} onClose={() => setCuadrarOpen(false)} />}
     </div>
   )
 }
