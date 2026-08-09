@@ -405,6 +405,25 @@ export interface Database {
         Update: Partial<{ description: string; transaction_id: string | null }>
         Relationships: []
       }
+      balance_locations: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          amount: string
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          amount?: number | string
+          updated_at?: string
+        }
+        Update: Partial<{ name: string; amount: number | string; updated_at: string }>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
