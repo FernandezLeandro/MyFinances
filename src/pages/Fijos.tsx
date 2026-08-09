@@ -20,6 +20,7 @@ import {
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
+import { ObligacionesTabs } from '@/features/credits/ObligacionesTabs'
 
 export function Fijos() {
   const [month, setMonth] = useState(() => new Date())
@@ -100,6 +101,9 @@ export function Fijos() {
             </button>
           </div>
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
+          <div className="mt-3">
+            <ObligacionesTabs />
+          </div>
         </div>
         <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
           Nuevo fijo

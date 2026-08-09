@@ -34,10 +34,8 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
     else if (!open && el.open) el.close()
   }, [open])
 
-  // A propósito, el dialog NO se cierra solo con un click afuera ni con Escape — sólo por la X o
-  // los botones del footer (Cancelar/etc). Pasó que un click sin querer fuera del popup, cargando
-  // un movimiento, cerraba todo y perdía lo tipeado; "cancel" es el evento que dispara Escape en un
-  // <dialog> nativo, y cancelarlo bloquea ese camino sin tocar nada del resto del comportamiento.
+  // "cancel" es el evento que dispara Escape antes de cerrar — bloquearlo con preventDefault no
+  // toca "close" (que sigue disparando onClose para el cierre programático de la X/footer).
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault()
   }

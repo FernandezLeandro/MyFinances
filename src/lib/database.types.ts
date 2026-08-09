@@ -204,6 +204,7 @@ export interface Database {
           description: string | null
           fixed_expense_payment_id: string | null
           is_adjustment: boolean
+          is_credit_card_payment: boolean
           created_at: string
         }
         Insert: {
@@ -216,6 +217,7 @@ export interface Database {
           description?: string | null
           fixed_expense_payment_id?: string | null
           is_adjustment?: boolean
+          is_credit_card_payment?: boolean
         }
         Update: Partial<{
           type: Kind
@@ -285,6 +287,124 @@ export interface Database {
         Update: Partial<{ transaction_id: string | null }>
         Relationships: []
       }
+      credit_cards: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          due_day: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          due_day: number
+        }
+        Update: Partial<{ name: string; due_day: number }>
+        Relationships: []
+      }
+      credit_purchases: {
+        Row: {
+          id: string
+          user_id: string
+          card_id: string
+          description: string
+          installment_amount: string
+          installments: number
+          first_period: string
+          category_id: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          card_id: string
+          description: string
+          installment_amount: number | string
+          installments: number
+          first_period: string
+          category_id?: string | null
+          notes?: string | null
+        }
+        Update: Partial<{
+          description: string
+          installment_amount: number | string
+          installments: number
+          first_period: string
+          category_id: string | null
+          notes: string | null
+        }>
+        Relationships: []
+      }
+      credit_card_savings: {
+        Row: {
+          id: string
+          user_id: string
+          card_id: string
+          period: string
+          amount: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          card_id: string
+          period: string
+          amount: number | string
+          updated_at?: string
+        }
+        Update: Partial<{ amount: number | string; updated_at: string }>
+        Relationships: []
+      }
+      credit_card_payments: {
+        Row: {
+          id: string
+          user_id: string
+          card_id: string
+          period: string
+          paid_at: string
+          amount_paid: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          card_id: string
+          period: string
+          amount_paid: number | string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      credit_card_payment_items: {
+        Row: {
+          id: string
+          user_id: string
+          payment_id: string
+          purchase_id: string | null
+          description: string
+          installment_no: number
+          installments: number
+          amount: string
+          category_id: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          payment_id: string
+          purchase_id?: string | null
+          description: string
+          installment_no: number
+          installments: number
+          amount: number | string
+          category_id?: string | null
+          transaction_id?: string | null
+        }
+        Update: Partial<{ description: string; transaction_id: string | null }>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -351,6 +471,26 @@ export interface Database {
       }
       rpc_reorder_default_categories: {
         Args: { p_ids: string[] }
+        Returns: undefined
+      }
+      v_credit_installments: {
+        Args: { p_period: string }
+        Returns: {
+          card_id: string
+          purchase_id: string
+          description: string
+          installment_no: number
+          installments: number
+          amount: string
+          category_id: string | null
+        }[]
+      }
+      rpc_mark_credit_card_paid: {
+        Args: { p_card_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_unmark_credit_card_paid: {
+        Args: { p_card_id: string; p_period: string }
         Returns: undefined
       }
     }
