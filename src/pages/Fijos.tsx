@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
+import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
@@ -33,6 +34,7 @@ function FixedExpenseRow({
   categoryColor,
   vencido,
   busy,
+  hidden,
   onTogglePaid,
   onOpenDetail,
 }: {
@@ -41,6 +43,7 @@ function FixedExpenseRow({
   categoryColor: string | undefined
   vencido: boolean
   busy: boolean
+  hidden: boolean
   onTogglePaid: () => void
   onOpenDetail: () => void
 }) {
@@ -91,7 +94,7 @@ function FixedExpenseRow({
       {/* Pagado: se muestra lo que realmente salió (amountPaidCents), no la plantilla — con un mes
           en curso ambos suelen coincidir (el pago actualiza la plantilla), pero en un mes pasado o
           si el pago no tocó la plantilla, pueden diferir. */}
-      <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} />
+      <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} hidden={hidden} />
     </li>
   )
 }
@@ -118,6 +121,10 @@ export function Fijos() {
   const { data: installments } = useCreditInstallments(period)
   const { data: savings } = useCreditCardSavings(period)
   const { data: cardPayments } = useCreditCardPayments(period)
+
+  // Sin botón propio acá: el toggle vive en Hoy y comparte clave, así que ocultar el saldo ahí
+  // también enmascara los importes de esta pantalla — un solo control, no uno por pantalla.
+  const [balanceHidden] = useHiddenBalance('saldo-actual')
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const paymentByFixedId = useMemo(
@@ -231,6 +238,7 @@ export function Fijos() {
                     categoryColor={categoryById.get(fe.category_id ?? '')?.color}
                     vencido={isCurrentMonth && fe.due_day < todayDay}
                     busy={unmarkPaid.isPending}
+                    hidden={balanceHidden}
                     onTogglePaid={() => togglePaid(fe)}
                     onOpenDetail={() => setDetailFixed(fe)}
                   />
@@ -249,6 +257,7 @@ export function Fijos() {
                         categoryColor={categoryById.get(fe.category_id ?? '')?.color}
                         vencido={false}
                         busy={unmarkPaid.isPending}
+                        hidden={balanceHidden}
                         onTogglePaid={() => togglePaid(fe)}
                         onOpenDetail={() => setDetailFixed(fe)}
                       />
@@ -282,7 +291,7 @@ export function Fijos() {
                             <p className="mt-0.5 text-[12px] text-chalk-faint">Pausado · vence el {fe.due_day}</p>
                           </div>
                         </button>
-                        <Money cents={fe.cents} tone="dim" />
+                        <Money cents={fe.cents} tone="dim" hidden={balanceHidden} />
                       </li>
                     ))}
                   </ul>
@@ -298,20 +307,20 @@ export function Fijos() {
             {isProjectedPending ? (
               <Skeleton className="mt-2 h-9 w-32" />
             ) : (
-              <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
+              <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
             )}
 
             <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
               <div className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">Saldo actual</dt>
                 <dd>
-                  <Money cents={currentBalance ?? 0} tone="dim" />
+                  <Money cents={currentBalance ?? 0} tone="dim" hidden={balanceHidden} />
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">Fijos por pagar ({pending.length})</dt>
                 <dd>
-                  <Money cents={-pendingTotal} tone="coral" />
+                  <Money cents={-pendingTotal} tone="coral" hidden={balanceHidden} />
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
@@ -319,7 +328,7 @@ export function Fijos() {
                   Tarjetas por pagar ({creditsSummary.perCard.filter((c) => !c.paid).length})
                 </dt>
                 <dd>
-                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" />
+                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
                 </dd>
               </div>
             </dl>
@@ -338,7 +347,7 @@ export function Fijos() {
                     />
                     <span className="min-w-0 flex-1 truncate text-[14px]">{fe.name}</span>
                     <span className="tnum text-[12px] text-chalk-faint">día {fe.due_day}</span>
-                    <Money cents={fe.cents} tone="dim" />
+                    <Money cents={fe.cents} tone="dim" hidden={balanceHidden} />
                   </li>
                 ))}
               </ul>

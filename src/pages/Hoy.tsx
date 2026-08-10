@@ -75,7 +75,13 @@ export function Hoy() {
             {summary.isPending ? (
               <Skeleton className="mt-2 h-9 w-28" />
             ) : (
-              <Money cents={summary.data?.totalIncome ?? 0} tone="chalk" size="figure" className="mt-1" />
+              <Money
+                cents={summary.data?.totalIncome ?? 0}
+                tone="chalk"
+                size="figure"
+                className="mt-1"
+                hidden={balanceHidden}
+              />
             )}
           </div>
           <div>
@@ -83,7 +89,13 @@ export function Hoy() {
             {summary.isPending ? (
               <Skeleton className="mt-2 h-9 w-28" />
             ) : (
-              <Money cents={summary.data?.totalExpense ?? 0} tone="coral" size="figure" className="mt-1" />
+              <Money
+                cents={summary.data?.totalExpense ?? 0}
+                tone="coral"
+                size="figure"
+                className="mt-1"
+                hidden={balanceHidden}
+              />
             )}
           </div>
           <div className="ml-auto flex w-full gap-2 sm:w-auto">
