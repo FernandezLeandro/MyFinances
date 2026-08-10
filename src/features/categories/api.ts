@@ -43,6 +43,21 @@ export function useCreateCategory() {
   })
 }
 
+export function useUpdateCategory() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string; name: string; kind: CategoryKind; color: string }) => {
+      const { error } = await supabase.from('categories').update(input).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories', user?.id] })
+    },
+  })
+}
+
 export function useArchiveCategory() {
   const { user } = useAuth()
   const queryClient = useQueryClient()

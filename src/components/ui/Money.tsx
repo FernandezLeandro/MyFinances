@@ -12,6 +12,8 @@ interface MoneyProps {
   signed?: boolean
   /** ARS por default — el resto de la app nunca la toca; Patrimonio es lo único que usa USD. */
   currency?: Currency
+  /** Enmascara la cifra (para el toggle de ocultar saldo) sin dejar de anunciar el símbolo. */
+  hidden?: boolean
   className?: string
 }
 
@@ -50,10 +52,32 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
  * Importe tipografiado: los centavos van más chicos y levantados, así la cifra se lee como un número
  * y no como un párrafo. Nunca formatear plata a mano en un componente — siempre pasar por acá.
  */
-export function Money({ cents, tone = 'chalk', size = 'inline', signed = false, currency = 'ARS', className }: MoneyProps) {
+export function Money({
+  cents,
+  tone = 'chalk',
+  size = 'inline',
+  signed = false,
+  currency = 'ARS',
+  hidden = false,
+  className,
+}: MoneyProps) {
   const { sign, symbol, whole, fraction } = splitMoney(cents, currency)
   const s = sizes[size]
   const prefix = sign || (signed && cents > 0 ? '+' : '')
+
+  if (hidden) {
+    return (
+      <span
+        className={cn('tnum inline-flex items-start leading-none', s.root, tones[tone], className)}
+        aria-label="Saldo oculto"
+      >
+        <span className={s.symbol} aria-hidden>
+          {symbol}
+        </span>
+        <span aria-hidden>••••</span>
+      </span>
+    )
+  }
 
   return (
     <span

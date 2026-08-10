@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { navItems } from '@/app/nav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useCurrentBalance } from '@/features/transactions/api'
+import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { supabase } from '@/lib/supabase'
 
 function Wordmark() {
@@ -28,6 +29,7 @@ function Wordmark() {
 export function AppLayout() {
   const { user } = useAuth()
   const { data: balanceCents, isPending: isBalancePending } = useCurrentBalance()
+  const [balanceHidden] = useHiddenBalance('saldo-actual')
 
   return (
     <>
@@ -41,7 +43,7 @@ export function AppLayout() {
           {isBalancePending ? (
             <Skeleton className="mt-2 h-6 w-24" />
           ) : (
-            <Money cents={balanceCents ?? 0} tone="acid" size="compact" className="mt-1.5" />
+            <Money cents={balanceCents ?? 0} tone="acid" size="compact" className="mt-1.5" hidden={balanceHidden} />
           )}
         </div>
 
