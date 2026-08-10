@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { useFixedExpensePaymentHistory, type FixedExpense } from '@/features/fixed-expenses/api'
+import { useDeleteFixedExpense, useFixedExpensePaymentHistory, type FixedExpense } from '@/features/fixed-expenses/api'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 
 interface FixedExpenseDetailDialogProps {
@@ -19,24 +19,33 @@ interface FixedExpenseDetailDialogProps {
  *  BucketDetailDialog en Patrimonio: el detalle abierto, y desde ahí se entra a editar. */
 export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedExpenseDetailDialogProps) {
   const [formOpen, setFormOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const { data: payments, isPending } = useFixedExpensePaymentHistory(fixedExpense.id)
+  const deleteFixedExpense = useDeleteFixedExpense()
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir "Editar" encima, porque `open` de este Dialog baja a
   // false). Sin este filtro, editar cerraba todo el historial de un tirón — mismo gotcha que ya
   // apareció en Patrimonio y en Ajustar saldo.
   function handleDetailClose() {
-    if (!formOpen) onClose()
+    if (!formOpen && !confirmingDelete) onClose()
+  }
+
+  function handleConfirmDelete() {
+    deleteFixedExpense.mutate(fixedExpense.id, { onSuccess: () => onClose() })
   }
 
   return (
     <>
       <Dialog
-        open={open && !formOpen}
+        open={open && !formOpen && !confirmingDelete}
         onClose={handleDetailClose}
         title={fixedExpense.name}
         footer={
           <>
+            <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+              Eliminar
+            </Button>
             <Button variant="ghost" onClick={onClose}>
               Cerrar
             </Button>
@@ -83,6 +92,31 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
 
       {formOpen && (
         <FixedExpenseFormDialog open={formOpen} onClose={() => setFormOpen(false)} fixedExpense={fixedExpense} />
+      )}
+
+      {confirmingDelete && (
+        <Dialog
+          open={confirmingDelete}
+          onClose={() => setConfirmingDelete(false)}
+          title="Eliminar gasto fijo"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteFixedExpense.isPending}>
+                {deleteFixedExpense.isPending ? 'Eliminando…' : 'Eliminar'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[14px] text-chalk-dim">
+            ¿Eliminar <span className="text-chalk">{fixedExpense.name}</span>?
+            {payments && payments.length > 0
+              ? ' Se borra también su historial de pagos. Los movimientos ya registrados no se tocan.'
+              : ' No se puede deshacer.'}
+          </p>
+        </Dialog>
       )}
     </>
   )

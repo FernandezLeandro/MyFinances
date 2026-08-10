@@ -3,6 +3,7 @@ import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } f
 import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -16,47 +17,128 @@ import {
   useProjectedBalance,
   useUnmarkFixedExpensePaid,
   type FixedExpense,
+  type FixedExpensePayment,
 } from '@/features/fixed-expenses/api'
+import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 import { ObligacionesTabs } from '@/features/credits/ObligacionesTabs'
+import { summarizeCredits } from '@/features/credits/aggregate'
+import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
+
+function FixedExpenseRow({
+  fe,
+  payment,
+  categoryColor,
+  vencido,
+  busy,
+  onTogglePaid,
+  onOpenDetail,
+}: {
+  fe: FixedExpense
+  payment: FixedExpensePayment | undefined
+  categoryColor: string | undefined
+  vencido: boolean
+  busy: boolean
+  onTogglePaid: () => void
+  onOpenDetail: () => void
+}) {
+  const paid = !!payment
+
+  return (
+    <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onTogglePaid}
+        aria-pressed={paid}
+        aria-label={paid ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
+        className={cn(
+          'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
+          paid ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
+        )}
+      >
+        <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
+          <path
+            d="M2.5 6.2 5 8.6l4.5-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpenDetail}
+        aria-label={`${fe.name}: ver detalle`}
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+      >
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
+        <div className="min-w-0 flex-1">
+          <p className={cn('truncate text-[14px]', paid ? 'text-chalk-faint' : 'text-chalk')}>{fe.name}</p>
+          <p className="mt-0.5 text-[12px]">
+            <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
+              {vencido ? `Venció el ${fe.due_day}` : `Vence el ${fe.due_day}`}
+            </span>
+          </p>
+        </div>
+      </button>
+
+      {/* Pagado: se muestra lo que realmente salió (amountPaidCents), no la plantilla — con un mes
+          en curso ambos suelen coincidir (el pago actualiza la plantilla), pero en un mes pasado o
+          si el pago no tocó la plantilla, pueden diferir. */}
+      <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} />
+    </li>
+  )
+}
 
 export function Fijos() {
   const [month, setMonth] = useState(() => new Date())
   const [formOpen, setFormOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<FixedExpense | null>(null)
   const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
+  const [showPaused, setShowPaused] = useState(false)
 
   const period = format(startOfMonth(month), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(month, new Date())
   const todayDay = new Date().getDate()
 
-  const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses()
+  const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(showPaused)
   const { data: payments } = useFixedExpensePayments(period)
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
   const { data: categories } = useCategories(true)
   const unmarkPaid = useUnmarkFixedExpensePaid()
 
+  const { data: cards } = useCreditCards()
+  const { data: installments } = useCreditInstallments(period)
+  const { data: savings } = useCreditCardSavings(period)
+  const { data: cardPayments } = useCreditCardPayments(period)
+
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const paymentByFixedId = useMemo(
     () => new Map((payments ?? []).map((p) => [p.fixed_expense_id, p])),
     [payments],
   )
+  const creditsSummary = useMemo(
+    () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
+    [cards, installments, savings, cardPayments],
+  )
 
-  const eligible = useMemo(() => {
-    const periodStart = startOfMonth(month)
-    const periodEnd = endOfMonth(month)
-    return (fixedExpenses ?? []).filter((fe) => {
-      if (new Date(fe.starts_on) > periodEnd) return false
-      if (fe.ends_on && new Date(fe.ends_on) < periodStart) return false
-      return true
-    })
-  }, [fixedExpenses, month])
+  const eligible = useMemo(
+    () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
+    [fixedExpenses, month],
+  )
 
   const sorted = [...eligible].sort((a, b) => a.due_day - b.due_day)
-  const pending = sorted.filter((fe) => !paymentByFixedId.has(fe.id))
+  const active = sorted.filter((fe) => fe.is_active)
+  const pending = active.filter((fe) => !paymentByFixedId.has(fe.id))
+  const paidItems = active.filter((fe) => paymentByFixedId.has(fe.id))
+  const pausedItems = sorted.filter((fe) => !fe.is_active)
   const pendingTotal = pending.reduce((acc, fe) => acc + fe.cents, 0)
 
   function openNew() {
@@ -105,9 +187,14 @@ export function Fijos() {
             <ObligacionesTabs />
           </div>
         </div>
-        <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
-          Nuevo fijo
-        </Button>
+        <div className="flex items-center gap-2">
+          <Chip active={showPaused} onClick={() => setShowPaused((v) => !v)}>
+            Mostrar pausados
+          </Chip>
+          <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
+            Nuevo fijo
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -134,70 +221,74 @@ export function Fijos() {
               action={<Button onClick={openNew}>Nuevo fijo</Button>}
             />
           ) : (
-            <ul className="pb-3">
-              {sorted.map((fe) => {
-                const payment = paymentByFixedId.get(fe.id)
-                const paid = !!payment
-                const vencido = isCurrentMonth && !paid && fe.due_day < todayDay
-                const busy = unmarkPaid.isPending
-
-                return (
-                  <li
+            <>
+              <ul className="pb-3">
+                {pending.map((fe) => (
+                  <FixedExpenseRow
                     key={fe.id}
-                    className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850"
-                  >
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => togglePaid(fe)}
-                      aria-pressed={paid}
-                      aria-label={paid ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
-                      className={cn(
-                        'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
-                        paid ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
-                      )}
-                    >
-                      <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-                        <path
-                          d="M2.5 6.2 5 8.6l4.5-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
+                    fe={fe}
+                    payment={paymentByFixedId.get(fe.id)}
+                    categoryColor={categoryById.get(fe.category_id ?? '')?.color}
+                    vencido={isCurrentMonth && fe.due_day < todayDay}
+                    busy={unmarkPaid.isPending}
+                    onTogglePaid={() => togglePaid(fe)}
+                    onOpenDetail={() => setDetailFixed(fe)}
+                  />
+                ))}
+              </ul>
 
-                    <button
-                      type="button"
-                      onClick={() => setDetailFixed(fe)}
-                      aria-label={`${fe.name}: ver detalle`}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                    >
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color }}
+              {paidItems.length > 0 && (
+                <div className="border-t border-ink-850 pt-1 pb-3">
+                  <p className="eyebrow px-6 pt-3 pb-1">Pagados ({paidItems.length})</p>
+                  <ul>
+                    {paidItems.map((fe) => (
+                      <FixedExpenseRow
+                        key={fe.id}
+                        fe={fe}
+                        payment={paymentByFixedId.get(fe.id)}
+                        categoryColor={categoryById.get(fe.category_id ?? '')?.color}
+                        vencido={false}
+                        busy={unmarkPaid.isPending}
+                        onTogglePaid={() => togglePaid(fe)}
+                        onOpenDetail={() => setDetailFixed(fe)}
                       />
-                      <div className="min-w-0 flex-1">
-                        <p className={cn('truncate text-[14px]', paid ? 'text-chalk-faint' : 'text-chalk')}>{fe.name}</p>
-                        <p className="mt-0.5 text-[12px]">
-                          <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
-                            {vencido ? `Venció el ${fe.due_day}` : `Vence el ${fe.due_day}`}
-                          </span>
-                        </p>
-                      </div>
-                    </button>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-                    {/* Pagado: se muestra lo que realmente salió (amountPaidCents), no la plantilla —
-                        con un mes en curso ambos suelen coincidir (el pago actualiza la plantilla),
-                        pero en un mes pasado o si el pago no tocó la plantilla, pueden diferir. */}
-                    <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} />
-                  </li>
-                )
-              })}
-            </ul>
+              {showPaused && pausedItems.length > 0 && (
+                <div className="border-t border-ink-850 pt-1 pb-3">
+                  <p className="eyebrow px-6 pt-3 pb-1">Pausados ({pausedItems.length})</p>
+                  <ul>
+                    {pausedItems.map((fe) => (
+                      <li
+                        key={fe.id}
+                        className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setDetailFixed(fe)}
+                          aria-label={`${fe.name}: ver detalle`}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                        >
+                          <span
+                            aria-hidden
+                            className="size-2 shrink-0 rounded-full opacity-50"
+                            style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[14px] text-chalk-faint">{fe.name}</p>
+                            <p className="mt-0.5 text-[12px] text-chalk-faint">Pausado · vence el {fe.due_day}</p>
+                          </div>
+                        </button>
+                        <Money cents={fe.cents} tone="dim" />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </Panel>
 
@@ -221,6 +312,14 @@ export function Fijos() {
                 <dt className="text-chalk-faint">Fijos por pagar ({pending.length})</dt>
                 <dd>
                   <Money cents={-pendingTotal} tone="coral" />
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-chalk-faint">
+                  Tarjetas por pagar ({creditsSummary.perCard.filter((c) => !c.paid).length})
+                </dt>
+                <dd>
+                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" />
                 </dd>
               </div>
             </dl>

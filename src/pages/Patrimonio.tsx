@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
+import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { formatQuantity, type Currency } from '@/lib/money'
+import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useSavingsBuckets, useSavingsEntries, type SavingsBucket } from '@/features/savings/api'
 import { summarizePortfolio, type AssetNet, type BucketSummary } from '@/features/savings/aggregate'
 import { CompositionView } from '@/features/savings/CompositionView'
@@ -142,6 +144,7 @@ export function Patrimonio() {
   const [detailBucket, setDetailBucket] = useState<SavingsBucket | null>(null)
   const [quickEntryBucket, setQuickEntryBucket] = useState<SavingsBucket | null>(null)
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('ARS')
+  const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('patrimonio-total')
 
   const portfolio = useMemo(
     () => summarizePortfolio(buckets ?? [], entries ?? [], assets ?? [], prices),
@@ -200,7 +203,10 @@ export function Patrimonio() {
           <div className="flex flex-col gap-6 lg:col-span-2">
             <Panel className="p-6 ring-1 ring-acid/15">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="eyebrow">Total de Patrimonio</p>
+                <div className="flex items-center gap-2">
+                  <p className="eyebrow">Total de Patrimonio</p>
+                  <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="patrimonio" />
+                </div>
                 <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
               </div>
               {(() => {
@@ -208,7 +214,14 @@ export function Patrimonio() {
                 return displayCents == null ? (
                   <p className="mt-2 text-[15px] text-chalk-dim">Cotización no disponible</p>
                 ) : (
-                  <Money cents={displayCents} currency={displayCurrency} tone="acid" size="hero" className="mt-2" />
+                  <Money
+                    cents={displayCents}
+                    currency={displayCurrency}
+                    tone="acid"
+                    size="hero"
+                    className="mt-2"
+                    hidden={balanceHidden}
+                  />
                 )
               })()}
             </Panel>

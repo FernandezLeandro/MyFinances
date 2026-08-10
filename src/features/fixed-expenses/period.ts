@@ -1,4 +1,19 @@
 import { parseISO, startOfMonth } from 'date-fns'
+import type { FixedExpense } from './api'
+
+/**
+ * De todos los fijos de la cuenta, cuáles corresponden al período dado — un fijo cargado a mitad de
+ * año no aplica a meses anteriores a `starts_on`, y uno dado de baja no aplica a partir de `ends_on`.
+ * Compartido entre Fijos (navega mes a mes) y Hoy (siempre mes en curso), así ambas pantallas
+ * calculan "cuántos fijos faltan pagar" exactamente igual.
+ */
+export function eligibleFixedExpenses(fixedExpenses: FixedExpense[], periodStart: Date, periodEnd: Date): FixedExpense[] {
+  return fixedExpenses.filter((fe) => {
+    if (new Date(fe.starts_on) > periodEnd) return false
+    if (fe.ends_on && new Date(fe.ends_on) < periodStart) return false
+    return true
+  })
+}
 
 /**
  * Decide si marcar un fijo como pagado en `period` debe actualizar el importe de la plantilla.

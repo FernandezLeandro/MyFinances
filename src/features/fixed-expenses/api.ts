@@ -154,6 +154,22 @@ export function useUpdateFixedExpense() {
   })
 }
 
+export function useDeleteFixedExpense() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // `fixed_expense_payments.fixed_expense_id` es `on delete cascade` (borra el historial) y
+      // `transactions.fixed_expense_payment_id` es `on delete set null` (los movimientos quedan).
+      const { error } = await supabase.from('fixed_expenses').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateAll(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo eliminar el gasto fijo. Probá de nuevo.' },
+  })
+}
+
 export function useMarkFixedExpensePaid() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
