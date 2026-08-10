@@ -41,8 +41,21 @@ function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Cu
 }
 
 /** Cantidad neta de un activo, tipografiada según corresponda: `Money` para ARS, cantidad + símbolo para el resto. */
-function NetAmount({ net, asset, tone = 'dim' }: { net: AssetNet; asset: Asset; tone?: 'dim' | 'chalk' | 'coral' | 'acid' }) {
-  if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} />
+function NetAmount({
+  net,
+  asset,
+  tone = 'dim',
+  hidden = false,
+}: {
+  net: AssetNet
+  asset: Asset
+  tone?: 'dim' | 'chalk' | 'coral' | 'acid'
+  hidden?: boolean
+}) {
+  if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} hidden={hidden} />
+  if (hidden) {
+    return <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>•••• {asset.symbol}</span>
+  }
   return (
     <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>
       {formatQuantity(net.quantityUnits, asset.decimals)} {asset.symbol}
@@ -53,12 +66,14 @@ function NetAmount({ net, asset, tone = 'dim' }: { net: AssetNet; asset: Asset; 
 function BucketCard({
   summary,
   assets,
+  globalHidden,
   onEdit,
   onOpenDetail,
   onQuickEntry,
 }: {
   summary: BucketSummary
   assets: Asset[]
+  globalHidden: boolean
   onEdit: (b: SavingsBucket) => void
   onOpenDetail: (b: SavingsBucket) => void
   onQuickEntry: (b: SavingsBucket) => void
@@ -66,6 +81,8 @@ function BucketCard({
   const { bucket, nets, valueCents } = summary
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   const heldNets = nets.filter((n) => n.quantityUnits !== 0)
+  const [itemHidden, toggleItemHidden] = useHiddenBalance(`patrimonio-item-${bucket.id}`)
+  const hidden = globalHidden || itemHidden
 
   return (
     <Panel className="flex flex-col p-5">
@@ -78,25 +95,28 @@ function BucketCard({
           {valueCents == null ? (
             <p className="mt-1.5 text-[13px] text-chalk-faint">Cotización no disponible</p>
           ) : (
-            <Money cents={valueCents} tone="chalk" size="figure" className="mt-1" />
+            <Money cents={valueCents} tone="chalk" size="figure" className="mt-1" hidden={hidden} />
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => onEdit(bucket)}
-          aria-label={`Editar ${bucket.name}`}
-          className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-        >
-          <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-            <path
-              d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <EyeToggle hidden={hidden} onToggle={toggleItemHidden} label={bucket.name} disabled={globalHidden} />
+          <button
+            type="button"
+            onClick={() => onEdit(bucket)}
+            aria-label={`Editar ${bucket.name}`}
+            className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+          >
+            <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
+              <path
+                d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {heldNets.length > 0 && (
@@ -108,7 +128,7 @@ function BucketCard({
               <div key={net.assetId} className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">{asset.symbol}</dt>
                 <dd>
-                  <NetAmount net={net} asset={asset} />
+                  <NetAmount net={net} asset={asset} hidden={hidden} />
                 </dd>
               </div>
             )
@@ -232,6 +252,7 @@ export function Patrimonio() {
                   key={summary.bucket.id}
                   summary={summary}
                   assets={assets ?? []}
+                  globalHidden={balanceHidden}
                   onEdit={openEditBucket}
                   onOpenDetail={setDetailBucket}
                   onQuickEntry={setQuickEntryBucket}

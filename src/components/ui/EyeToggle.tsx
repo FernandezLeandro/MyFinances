@@ -2,18 +2,22 @@ interface EyeToggleProps {
   hidden: boolean
   onToggle: () => void
   label?: string
+  /** Para cuando un toggle general (ej. Patrimonio entero) ya fuerza el ocultamiento — el
+   *  individual queda visualmente inerte en vez de dar un click que no cambia nada. */
+  disabled?: boolean
 }
 
 /** Botón "ojo" para el toggle de ocultar/mostrar saldo — mismo ícono tachado que un campo de
  *  contraseña, así el gesto es reconocible sin necesitar texto. */
-export function EyeToggle({ hidden, onToggle, label = 'saldo' }: EyeToggleProps) {
+export function EyeToggle({ hidden, onToggle, label = 'saldo', disabled = false }: EyeToggleProps) {
   return (
     <button
       type="button"
       onClick={onToggle}
+      disabled={disabled}
       aria-label={hidden ? `Mostrar ${label}` : `Ocultar ${label}`}
       aria-pressed={hidden}
-      className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+      className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk disabled:pointer-events-none disabled:opacity-40"
     >
       {hidden ? (
         <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
