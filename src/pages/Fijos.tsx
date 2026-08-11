@@ -135,6 +135,7 @@ export function Fijos() {
     () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
     [cards, installments, savings, cardPayments],
   )
+  const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
 
   const eligible = useMemo(
     () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
@@ -317,20 +318,22 @@ export function Fijos() {
                   <Money cents={currentBalance ?? 0} tone="dim" hidden={balanceHidden} />
                 </dd>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Fijos por pagar ({pending.length})</dt>
-                <dd>
-                  <Money cents={-pendingTotal} tone="coral" hidden={balanceHidden} />
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">
-                  Tarjetas por pagar ({creditsSummary.perCard.filter((c) => !c.paid).length})
-                </dt>
-                <dd>
-                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
-                </dd>
-              </div>
+              {pending.length > 0 && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-chalk-faint">Fijos por pagar ({pending.length})</dt>
+                  <dd>
+                    <Money cents={-pendingTotal} tone="coral" hidden={balanceHidden} />
+                  </dd>
+                </div>
+              )}
+              {unpaidCardsCount > 0 && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-chalk-faint">Tarjetas por pagar ({unpaidCardsCount})</dt>
+                  <dd>
+                    <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
+                  </dd>
+                </div>
+              )}
             </dl>
           </Panel>
 
