@@ -54,6 +54,7 @@ export function Hoy() {
     return eligible.filter((fe) => fe.is_active && !paidIds.has(fe.id))
   }, [fixedExpenses, fixedPayments])
   const pendingFixedTotal = pendingFixed.reduce((acc, fe) => acc + fe.cents, 0)
+  const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
 
   return (
     <div className="flex flex-col gap-12">
@@ -113,37 +114,43 @@ export function Hoy() {
         </div>
       </header>
 
-      <Panel className="p-6 ring-1 ring-acid/15">
-        <p className="eyebrow">Saldo proyectado a fin de mes</p>
-        {isProjectedPending ? (
-          <Skeleton className="mt-2 h-9 w-32" />
-        ) : (
-          <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
-        )}
+      {/* Si no hay nada pendiente de fijos ni tarjetas, el saldo proyectado coincide con el actual
+          — mostrar el panel sería redundante con el hero de arriba, que ya cubre ese caso. */}
+      {(isProjectedPending || pendingFixed.length > 0 || unpaidCardsCount > 0) && (
+        <Panel className="p-6 ring-1 ring-acid/15">
+          <p className="eyebrow">Saldo proyectado a fin de mes</p>
+          {isProjectedPending ? (
+            <Skeleton className="mt-2 h-9 w-32" />
+          ) : (
+            <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
+          )}
 
-        <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
-          <div className="flex justify-between gap-4">
-            <dt className="text-chalk-faint">Saldo actual</dt>
-            <dd>
-              <Money cents={balance.data ?? 0} tone="dim" hidden={balanceHidden} />
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-chalk-faint">Fijos por pagar ({pendingFixed.length})</dt>
-            <dd>
-              <Money cents={-pendingFixedTotal} tone="coral" hidden={balanceHidden} />
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-chalk-faint">
-              Tarjetas por pagar ({creditsSummary.perCard.filter((c) => !c.paid).length})
-            </dt>
-            <dd>
-              <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
-            </dd>
-          </div>
-        </dl>
-      </Panel>
+          <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
+            <div className="flex justify-between gap-4">
+              <dt className="text-chalk-faint">Saldo actual</dt>
+              <dd>
+                <Money cents={balance.data ?? 0} tone="dim" hidden={balanceHidden} />
+              </dd>
+            </div>
+            {pendingFixed.length > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-chalk-faint">Fijos por pagar ({pendingFixed.length})</dt>
+                <dd>
+                  <Money cents={-pendingFixedTotal} tone="coral" hidden={balanceHidden} />
+                </dd>
+              </div>
+            )}
+            {unpaidCardsCount > 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-chalk-faint">Tarjetas por pagar ({unpaidCardsCount})</dt>
+                <dd>
+                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
+                </dd>
+              </div>
+            )}
+          </dl>
+        </Panel>
+      )}
 
       <Panel>
         <PanelHeader
