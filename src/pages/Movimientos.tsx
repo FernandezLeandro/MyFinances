@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
-import { addMonths, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { addMonths, format, parseISO, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
@@ -13,25 +13,33 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { useCategories } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
-import { useTransactions, type Transaction, type TransactionType } from '@/features/transactions/api'
+import { TRANSACTIONS_ROW_LIMIT, useTransactions, type Transaction } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
+import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
+import {
+  MOVEMENT_PERIOD_PRESET_LABELS,
+  defaultMovementPeriod,
+  periodLabel,
+  periodRange,
+} from '@/features/transactions/movementPeriod'
 import { centsToNumeric } from '@/lib/money'
 import { downloadCsv } from '@/lib/csv'
-
-type Filter = 'all' | TransactionType
 
 export function Movimientos() {
   // Llega acá desde el drill-down de Análisis con una categoría pre-elegida.
   const location = useLocation()
   const incomingCategoryId = (location.state as { categoryId?: string } | null)?.categoryId ?? null
 
-  const [month, setMonth] = useState(() => new Date())
-  const [filter, setFilter] = useState<Filter>('all')
-  const [categoryId, setCategoryId] = useState<string | null>(incomingCategoryId)
+  const [filters, setFilters] = useState<MovementFilters>(() => ({
+    period: defaultMovementPeriod(),
+    type: 'all',
+    categoryIds: incomingCategoryId ? [incomingCategoryId] : [],
+  }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   useEffect(() => {
@@ -39,14 +47,14 @@ export function Movimientos() {
     return () => clearTimeout(id)
   }, [searchInput])
 
-  const from = format(startOfMonth(month), 'yyyy-MM-dd')
-  const to = format(endOfMonth(month), 'yyyy-MM-dd')
+  const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
+  const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
     to,
-    type: filter === 'all' ? undefined : filter,
-    categoryId: categoryId ?? undefined,
+    type: filters.type === 'all' ? undefined : filters.type,
+    categoryIds,
     text: search || undefined,
   })
   const { data: categories } = useCategories(true)
@@ -85,38 +93,66 @@ export function Movimientos() {
         centsToNumeric(tx.type === 'income' ? tx.cents : -tx.cents),
       ]),
     ]
-    downloadCsv(`movimientos-${format(month, 'yyyy-MM')}.csv`, rows)
+    const filename =
+      filters.period.preset === 'month'
+        ? `movimientos-${filters.period.anchor.slice(0, 7)}.csv`
+        : `movimientos-${from}_${to}.csv`
+    downloadCsv(filename, rows)
   }
 
-  const hasFilters = filter !== 'all' || categoryId !== null || search !== ''
+  function shiftMonth(delta: number) {
+    setFilters((f) => ({
+      ...f,
+      period: {
+        ...f.period,
+        anchor: format(
+          delta > 0 ? addMonths(parseISO(f.period.anchor), delta) : subMonths(parseISO(f.period.anchor), -delta),
+          'yyyy-MM-dd',
+        ),
+      },
+    }))
+  }
+
+  function clearAll() {
+    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [] })
+    setSearchInput('')
+  }
+
+  const activeCount =
+    (filters.period.preset !== 'month' ? 1 : 0) + (filters.type !== 'all' ? 1 : 0) + filters.categoryIds.length
+  const hasFilters = activeCount > 0 || search !== ''
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setMonth((m) => subMonths(m, 1))}
-              aria-label="Mes anterior"
-              className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-            >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <p className="eyebrow">{format(month, 'MMMM yyyy', { locale: es })}</p>
-            <button
-              type="button"
-              onClick={() => setMonth((m) => addMonths(m, 1))}
-              aria-label="Mes siguiente"
-              className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-            >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
+          {filters.period.preset === 'month' ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => shiftMonth(-1)}
+                aria-label="Mes anterior"
+                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+              >
+                <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
+                  <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <p className="eyebrow">{format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}</p>
+              <button
+                type="button"
+                onClick={() => shiftMonth(1)}
+                aria-label="Mes siguiente"
+                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+              >
+                <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
+                  <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <p className="eyebrow">{periodLabel(filters.period)}</p>
+          )}
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -132,37 +168,74 @@ export function Movimientos() {
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Buscar por descripción…"
-          className="h-9 max-w-[220px] text-[13px]"
-        />
-        <div className="flex flex-wrap gap-1.5">
-          <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
-            Todos
-          </Chip>
-          <Chip active={filter === 'income'} onClick={() => setFilter('income')}>
-            Ingresos
-          </Chip>
-          <Chip active={filter === 'expense'} onClick={() => setFilter('expense')}>
-            Gastos
-          </Chip>
-          <span aria-hidden className="mx-1.5 w-px bg-ink-800" />
-          {(categories ?? [])
-            .filter((c) => !c.is_archived)
-            .map((category) => (
-              <Chip
-                key={category.id}
-                color={category.color}
-                active={categoryId === category.id}
-                onClick={() => setCategoryId(categoryId === category.id ? null : category.id)}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por descripción…"
+            className="h-9 max-w-[220px] text-[13px]"
+          />
+          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
+            <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
+              <path d="M2 3.5h10M4 7h6M5.5 10.5h3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            Filtros
+            {activeCount > 0 && (
+              <span
+                aria-hidden
+                className="ml-0.5 grid size-4 place-items-center rounded-full bg-acid text-[11px] font-semibold text-ink-950"
               >
-                {category.name}
-              </Chip>
-            ))}
+                {activeCount}
+              </span>
+            )}
+          </Button>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearAll}>
+              Limpiar todo
+            </Button>
+          )}
         </div>
+
+        {activeCount > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {filters.period.preset !== 'month' && (
+              <Chip
+                ariaLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
+                onClick={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
+              >
+                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}{' '}
+                <span aria-hidden className="text-chalk-faint">
+                  ✕
+                </span>
+              </Chip>
+            )}
+            {filters.type !== 'all' && (
+              <Chip
+                ariaLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
+                onClick={() => setFilters((f) => ({ ...f, type: 'all' }))}
+              >
+                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}{' '}
+                <span aria-hidden className="text-chalk-faint">
+                  ✕
+                </span>
+              </Chip>
+            )}
+            {filters.categoryIds.map((id) => {
+              const category = categoryById.get(id)
+              return (
+                <Chip
+                  key={id}
+                  color={category?.color}
+                  ariaLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
+                  onClick={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
+                >
+                  {category?.name ?? 'Categoría'} <span aria-hidden className="text-chalk-faint">✕</span>
+                </Chip>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {isError ? (
@@ -185,19 +258,11 @@ export function Movimientos() {
         <Panel>
           <EmptyState
             glyph="∅"
-            title={hasFilters ? 'No hay movimientos con esos filtros' : 'Nada cargado este mes'}
-            hint={hasFilters ? 'Probá sacando algún filtro.' : 'Cargá tu primer movimiento del mes.'}
+            title={hasFilters ? 'No hay movimientos con esos filtros' : 'Nada cargado en este período'}
+            hint={hasFilters ? 'Probá sacando algún filtro.' : 'Cargá tu primer movimiento.'}
             action={
               hasFilters ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFilter('all')
-                    setCategoryId(null)
-                    setSearchInput('')
-                  }}
-                >
+                <Button variant="outline" size="sm" onClick={clearAll}>
                   Limpiar filtros
                 </Button>
               ) : (
@@ -208,6 +273,11 @@ export function Movimientos() {
         </Panel>
       ) : (
         <div className="flex flex-col gap-5">
+          {transactions?.length === TRANSACTIONS_ROW_LIMIT && (
+            <p className="text-[12px] text-chalk-faint">
+              Mostrando los primeros {TRANSACTIONS_ROW_LIMIT} movimientos — acotá el período.
+            </p>
+          )}
           {byDay.map(([day, items]) => {
             const total = items.reduce((acc, t) => acc + (t.type === 'income' ? t.cents : -t.cents), 0)
             return (
@@ -236,6 +306,15 @@ export function Movimientos() {
         <TransactionFormDialog open={formOpen} onClose={() => setFormOpen(false)} transaction={editingTx} />
       )}
       {categoriesOpen && <CategoryManagerDialog open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />}
+      {filtersOpen && (
+        <TransactionFiltersDialog
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          value={filters}
+          onApply={setFilters}
+          categories={categories ?? []}
+        />
+      )}
     </div>
   )
 }
