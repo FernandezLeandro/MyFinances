@@ -8,13 +8,15 @@ interface ChipProps {
   active?: boolean
   onClick?: () => void
   className?: string
+  /** Para chips cuya acción no es obvia por el texto visible (ej. quitar un filtro con una ✕ decorativa). */
+  ariaLabel?: string
 }
 
 /**
  * Etiqueta densa de 4px de radio: categorías y filtros. El color de la categoría entra por un punto,
  * no pintando todo el fondo — así diez chips juntos no convierten la pantalla en un semáforo.
  */
-export function Chip({ children, color, active = false, onClick, className }: ChipProps) {
+export function Chip({ children, color, active = false, onClick, className, ariaLabel }: ChipProps) {
   const interactive = typeof onClick === 'function'
   const Tag = interactive ? 'button' : 'span'
 
@@ -22,6 +24,7 @@ export function Chip({ children, color, active = false, onClick, className }: Ch
     <Tag
       type={interactive ? 'button' : undefined}
       onClick={onClick}
+      aria-label={ariaLabel}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-chip px-2 py-1 text-[12px] leading-none whitespace-nowrap',
         'transition-colors duration-150',

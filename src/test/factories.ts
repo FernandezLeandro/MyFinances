@@ -8,7 +8,7 @@ import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 import type { CreditCard, CreditCardPayment, CreditCardSaving, CreditInstallment } from '@/features/credits/api'
-import type { BalanceLocation } from '@/features/reconciliation/api'
+import type { BalanceLocation, Receivable } from '@/features/reconciliation/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
 
@@ -105,6 +105,17 @@ export function makeLocation(p: Partial<BalanceLocation> & Pick<BalanceLocation,
     id: `location-${Math.random().toString(36).slice(2)}`,
     user_id: 'user-1',
     name: 'Efectivo',
+    updated_at: FIXED_DATE,
+    created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeReceivable(p: Partial<Receivable> & Pick<Receivable, 'amountCents'>): Receivable {
+  return {
+    id: `receivable-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    name: 'Juan',
     updated_at: FIXED_DATE,
     created_at: FIXED_DATE,
     ...p,

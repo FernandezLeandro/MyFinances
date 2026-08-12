@@ -15,9 +15,12 @@ export interface TransactionFilters {
   from: string
   to: string
   type?: TransactionType
-  categoryId?: string
+  categoryIds?: string[]
   text?: string
 }
+
+/** Tope explícito de PostgREST (por defecto corta en 1000 filas en silencio). */
+export const TRANSACTIONS_ROW_LIMIT = 1000
 
 function toTransaction(row: TransactionRowRaw): Transaction {
   const { amount, ...rest } = row
@@ -38,9 +41,10 @@ export function useTransactions(filters: TransactionFilters) {
         .lte('occurred_on', filters.to)
         .order('occurred_on', { ascending: false })
         .order('created_at', { ascending: false })
+        .limit(TRANSACTIONS_ROW_LIMIT)
 
       if (filters.type) query = query.eq('type', filters.type)
-      if (filters.categoryId) query = query.eq('category_id', filters.categoryId)
+      if (filters.categoryIds?.length) query = query.in('category_id', filters.categoryIds)
       if (filters.text) query = query.ilike('description', `%${filters.text}%`)
 
       const { data, error } = await query
