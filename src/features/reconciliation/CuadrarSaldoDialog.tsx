@@ -11,9 +11,14 @@ import { TransactionFormDialog } from '@/features/transactions/TransactionFormDi
 import {
   useBalanceLocations,
   useCreateBalanceLocation,
+  useCreateReceivable,
   useDeleteBalanceLocation,
+  useDeleteReceivable,
+  useReceivables,
   useUpdateBalanceLocation,
+  useUpdateReceivable,
   type BalanceLocation,
+  type Receivable,
 } from '@/features/reconciliation/api'
 import { reconciliar } from '@/features/reconciliation/aggregate'
 
@@ -22,22 +27,40 @@ interface CuadrarSaldoDialogProps {
   onClose: () => void
 }
 
-function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocus?: boolean }) {
-  const [name, setName] = useState(location.name)
-  const [amountInput, setAmountInput] = useState(() => centsToInputText(location.amountCents))
-  const updateLocation = useUpdateBalanceLocation()
-  const deleteLocation = useDeleteBalanceLocation()
+/** Fila editable de nombre + monto, sin "Guardar" aparte: cada campo persiste solo al perder foco.
+ *  Compartida entre "Dónde tenés la plata" y "Te deben" — son la misma forma con destino distinto. */
+function EditableAmountRow({
+  name: initialName,
+  amountCents: initialAmountCents,
+  placeholder,
+  autoFocus,
+  onSaveName,
+  onSaveAmount,
+  onDelete,
+  deleteLabel,
+}: {
+  name: string
+  amountCents: number
+  placeholder: string
+  autoFocus?: boolean
+  onSaveName: (name: string) => void
+  onSaveAmount: (cents: number) => void
+  onDelete: () => void
+  deleteLabel: string
+}) {
+  const [name, setName] = useState(initialName)
+  const [amountInput, setAmountInput] = useState(() => centsToInputText(initialAmountCents))
 
   function saveName() {
     const trimmed = name.trim()
-    if (trimmed === location.name) return
-    updateLocation.mutate({ id: location.id, name: trimmed })
+    if (trimmed === initialName) return
+    onSaveName(trimmed)
   }
 
   function saveAmount() {
     const cents = parseAmountToCents(amountInput) ?? 0
-    if (cents === location.amountCents) return
-    updateLocation.mutate({ id: location.id, cents })
+    if (cents === initialAmountCents) return
+    onSaveAmount(cents)
     setAmountInput(centsToInputText(cents))
   }
 
@@ -52,7 +75,7 @@ function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocu
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
           autoFocus={autoFocus}
-          placeholder="Efectivo, Mercado Pago…"
+          placeholder={placeholder}
           className="h-10 text-[14px]"
         />
       </div>
@@ -67,8 +90,8 @@ function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocu
       </div>
       <button
         type="button"
-        onClick={() => deleteLocation.mutate(location.id)}
-        aria-label={`Eliminar ${location.name || 'lugar'}`}
+        onClick={onDelete}
+        aria-label={deleteLabel}
         className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-coral"
       >
         <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
@@ -79,11 +102,51 @@ function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocu
   )
 }
 
+function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocus?: boolean }) {
+  const updateLocation = useUpdateBalanceLocation()
+  const deleteLocation = useDeleteBalanceLocation()
+
+  return (
+    <EditableAmountRow
+      name={location.name}
+      amountCents={location.amountCents}
+      placeholder="Efectivo, Mercado Pago…"
+      autoFocus={autoFocus}
+      onSaveName={(name) => updateLocation.mutate({ id: location.id, name })}
+      onSaveAmount={(cents) => updateLocation.mutate({ id: location.id, cents })}
+      onDelete={() => deleteLocation.mutate(location.id)}
+      deleteLabel={`Eliminar ${location.name || 'lugar'}`}
+    />
+  )
+}
+
+function DeudaRow({ receivable, autoFocus }: { receivable: Receivable; autoFocus?: boolean }) {
+  const updateReceivable = useUpdateReceivable()
+  const deleteReceivable = useDeleteReceivable()
+
+  return (
+    <EditableAmountRow
+      name={receivable.name}
+      amountCents={receivable.amountCents}
+      placeholder="Juan, mi hermana…"
+      autoFocus={autoFocus}
+      onSaveName={(name) => updateReceivable.mutate({ id: receivable.id, name })}
+      onSaveAmount={(cents) => updateReceivable.mutate({ id: receivable.id, cents })}
+      onDelete={() => deleteReceivable.mutate(receivable.id)}
+      deleteLabel={`Eliminar ${receivable.name || 'deuda'}`}
+    />
+  )
+}
+
 /**
  * Reemplaza al viejo "Ajustar saldo" de un solo campo: acá se desglosa dónde está la plata
  * (efectivo, cada plataforma) en vez de tener que sumarlo de memoria antes de escribir un único
  * número. La comparación sigue siendo contra `useCurrentBalance` — el mismo dato del héroe de Hoy —
  * y las dos salidas (ajustar directo / registrar como movimiento) son las que ya existían.
+ *
+ * "Te deben" suma del lado de "Tenés": prestar plata no genera un movimiento (no es un gasto, va a
+ * volver), así que `rpc_current_balance` ya la cuenta — sin esto, el cuadre marca una diferencia
+ * falsa. Ver el comentario de la migración `receivables` para el porqué completo.
  *
  * Sin diálogos anidados para el flujo principal: cada fila se edita y persiste sola (`onBlur`), sin
  * un "Guardar" aparte — cerrar a mitad de camino no pierde nada. La única excepción es "Registrar
@@ -93,14 +156,22 @@ function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocu
 export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   const { data: currentBalanceCents, isPending: isBalancePending } = useCurrentBalance()
   const { data: locations, isPending: isLocationsPending } = useBalanceLocations()
+  const { data: receivables, isPending: isReceivablesPending } = useReceivables()
   const createLocation = useCreateBalanceLocation()
+  const createReceivable = useCreateReceivable()
   const createTx = useCreateTransaction()
   const [registerPrompt, setRegisterPrompt] = useState<{ type: TransactionType; cents: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [lastAddedId, setLastAddedId] = useState<string | null>(null)
+  const [lastAddedLocationId, setLastAddedLocationId] = useState<string | null>(null)
+  const [lastAddedReceivableId, setLastAddedReceivableId] = useState<string | null>(null)
 
-  const rec = useMemo(() => reconciliar(locations ?? [], currentBalanceCents ?? 0), [locations, currentBalanceCents])
+  const rec = useMemo(
+    () => reconciliar(locations ?? [], receivables ?? [], currentBalanceCents ?? 0),
+    [locations, receivables, currentBalanceCents],
+  )
   const hasLocations = (locations ?? []).length > 0
+  const hasReceivables = (receivables ?? []).length > 0
+  const hasAnyRow = hasLocations || hasReceivables
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir el alta de movimiento encima). Sin este filtro, pasar
@@ -112,12 +183,18 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   async function handleAddLocation() {
     setError(null)
     const created = await createLocation.mutateAsync({ name: '', cents: 0 })
-    setLastAddedId(created.id)
+    setLastAddedLocationId(created.id)
+  }
+
+  async function handleAddReceivable() {
+    setError(null)
+    const created = await createReceivable.mutateAsync({ name: '', cents: 0 })
+    setLastAddedReceivableId(created.id)
   }
 
   function validateDiff(): number | null {
-    if (!hasLocations) {
-      setError('Cargá al menos un lugar')
+    if (!hasAnyRow) {
+      setError('Cargá al menos un lugar o una deuda')
       return null
     }
     if (rec.cuadrado) {
@@ -159,10 +236,10 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             <Button variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button variant="outline" onClick={handleRegisterInstead} disabled={!hasLocations || createTx.isPending}>
+            <Button variant="outline" onClick={handleRegisterInstead} disabled={!hasAnyRow || createTx.isPending}>
               Registrar como movimiento
             </Button>
-            <Button onClick={handleAdjustOnly} disabled={!hasLocations || createTx.isPending}>
+            <Button onClick={handleAdjustOnly} disabled={!hasAnyRow || createTx.isPending}>
               {createTx.isPending ? 'Ajustando…' : 'Sólo ajustar'}
             </Button>
           </>
@@ -188,7 +265,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             ) : (
               <div className="flex flex-col gap-2">
                 {(locations ?? []).map((location) => (
-                  <LugarRow key={location.id} location={location} autoFocus={location.id === lastAddedId} />
+                  <LugarRow key={location.id} location={location} autoFocus={location.id === lastAddedLocationId} />
                 ))}
               </div>
             )}
@@ -202,14 +279,59 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             </button>
           </div>
 
+          <div className="border-t border-ink-800 pt-5">
+            <p className="eyebrow mb-2">Te deben</p>
+            {isReceivablesPending ? (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : (
+              hasReceivables && (
+                <div className="flex flex-col gap-2">
+                  {(receivables ?? []).map((receivable) => (
+                    <DeudaRow key={receivable.id} receivable={receivable} autoFocus={receivable.id === lastAddedReceivableId} />
+                  ))}
+                </div>
+              )
+            )}
+            <button
+              type="button"
+              onClick={handleAddReceivable}
+              disabled={createReceivable.isPending}
+              className="mt-2 text-[12px] font-medium text-acid hover:underline"
+            >
+              + Agregar deuda
+            </button>
+            <p className="mt-2 text-[12px] text-chalk-faint">
+              Al prestar no cargues un gasto: esa plata sigue siendo tuya. Cuando te paguen, borrá la fila y sumá el
+              monto en el lugar donde entró.
+            </p>
+          </div>
+
           <dl className="space-y-2 border-t border-ink-800 pt-4 text-[13px]">
+            {hasReceivables && (
+              <>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-chalk-faint">En tus lugares</dt>
+                  <dd>
+                    <Money cents={rec.locationsCents} tone="dim" />
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-chalk-faint">Te deben</dt>
+                  <dd>
+                    <Money cents={rec.receivablesCents} tone="acid" />
+                  </dd>
+                </div>
+              </>
+            )}
             <div className="flex justify-between gap-4">
               <dt className="text-chalk-faint">Tenés</dt>
               <dd>
                 <Money cents={rec.totalCents} tone="dim" />
               </dd>
             </div>
-            {hasLocations && !rec.cuadrado && (
+            {hasAnyRow && !rec.cuadrado && (
               <div className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">Diferencia</dt>
                 <dd>
