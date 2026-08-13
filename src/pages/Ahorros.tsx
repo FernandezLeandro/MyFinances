@@ -19,7 +19,7 @@ import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
 import { BucketDetailDialog } from '@/features/savings/BucketDetailDialog'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
 
-/** Todo el estado interno de Patrimonio vive en ARS — esto sólo convierte para MOSTRAR. */
+/** Todo el estado interno de Ahorros vive en ARS — esto sólo convierte para MOSTRAR. */
 function toDisplayCents(arsCents: number | null, currency: Currency, usdRateCents: number | null): number | null {
   if (arsCents == null) return null
   if (currency === 'ARS') return arsCents
@@ -81,7 +81,7 @@ function BucketCard({
   const { bucket, nets, valueCents } = summary
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   const heldNets = nets.filter((n) => n.quantityUnits !== 0)
-  const [itemHidden, toggleItemHidden] = useHiddenBalance(`patrimonio-item-${bucket.id}`)
+  const [itemHidden, toggleItemHidden] = useHiddenBalance(`ahorros-item-${bucket.id}`)
   const hidden = globalHidden || itemHidden
 
   return (
@@ -148,7 +148,7 @@ function BucketCard({
   )
 }
 
-export function Patrimonio() {
+export function Ahorros() {
   const { data: buckets, isPending: isBucketsPending, isError, refetch } = useSavingsBuckets()
   const { data: entries, isPending: isEntriesPending } = useSavingsEntries()
   const { data: assets, isPending: isAssetsPending } = useAssets()
@@ -164,7 +164,7 @@ export function Patrimonio() {
   const [detailBucket, setDetailBucket] = useState<SavingsBucket | null>(null)
   const [quickEntryBucket, setQuickEntryBucket] = useState<SavingsBucket | null>(null)
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('ARS')
-  const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('patrimonio-total')
+  const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('ahorros-total')
 
   const portfolio = useMemo(
     () => summarizePortfolio(buckets ?? [], entries ?? [], assets ?? [], prices),
@@ -188,7 +188,7 @@ export function Patrimonio() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Patrimonio</p>
+          <p className="eyebrow">Ahorros</p>
           <h1 className="mt-2 font-display text-figure font-semibold">Lo que tenés guardado</h1>
           <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
             Fondo de emergencia, ahorros y jubilación — aparte del saldo del mes, no afecta a Hoy ni a Análisis.
@@ -214,7 +214,7 @@ export function Patrimonio() {
       ) : (buckets ?? []).length === 0 ? (
         <EmptyState
           glyph="◈"
-          title="Todavía no tenés ítems de Patrimonio"
+          title="Todavía no tenés ítems de Ahorros"
           hint="Fondo de emergencia, ahorros, jubilación… lo que tenés guardado y no se toca."
           action={<Button onClick={openNewBucket}>Nuevo ítem</Button>}
         />
@@ -224,8 +224,8 @@ export function Patrimonio() {
             <Panel className="p-6 ring-1 ring-acid/15">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <p className="eyebrow">Total de Patrimonio</p>
-                  <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="patrimonio" />
+                  <p className="eyebrow">Total de Ahorros</p>
+                  <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="ahorros" />
                 </div>
                 <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
               </div>

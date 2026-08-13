@@ -55,7 +55,7 @@ interface AccountDrawerProps {
   email: string | null
   showAjustes: boolean
   /** Secciones que no entran en la tab bar de mobile (ver `overflowNavItems` en `nav.tsx`) — hoy
-   *  sólo Patrimonio. Vacío en admin, y ese grupo directamente no se renderiza. */
+   *  sólo Ahorros. Vacío en admin, y ese grupo directamente no se renderiza. */
   overflowItems: NavItem[]
 }
 

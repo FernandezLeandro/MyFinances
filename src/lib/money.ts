@@ -10,7 +10,7 @@ export const CURRENCY = 'ARS'
 const LOCALE = 'es-AR'
 
 /**
- * Monedas soportadas en Patrimonio. El resto de la app (movimientos, fijos, saldo) sigue
+ * Monedas soportadas en Ahorros. El resto de la app (movimientos, fijos, saldo) sigue
  * exclusivamente en ARS — esto no las vuelve multi-moneda, sólo le da a `Money` un segundo símbolo
  * para poder mostrar los aportes en USD sin tocar ningún call site existente.
  */

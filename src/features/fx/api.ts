@@ -36,9 +36,9 @@ export interface UsdRate {
 }
 
 /**
- * Cotización del dólar para valuar Patrimonio en ARS. Si `fx_source` del perfil es una casa de
+ * Cotización del dólar para valuar Ahorros en ARS. Si `fx_source` del perfil es una casa de
  * dolarapi.com, la trae en vivo; si falla o la fuente es 'manual', cae al valor que el usuario cargó
- * en Ajustes. Nunca lanza — un dólar desactualizado es preferible a romper la pantalla de Patrimonio.
+ * en Ajustes. Nunca lanza — un dólar desactualizado es preferible a romper la pantalla de Ahorros.
  */
 export function useUsdRate() {
   const { data: profile } = useProfile()
@@ -107,8 +107,8 @@ export function useAssetPrices() {
   })
 
   // Memoizado: sin esto, `prices` es un Map con identidad nueva en CADA render, lo que rompe
-  // cualquier `useMemo` que dependa de él más arriba (p.ej. `summarizePortfolio` en Patrimonio.tsx
-  // recalcula todo el agregado del patrimonio en cada render en vez de cachear). Las dependencias
+  // cualquier `useMemo` que dependa de él más arriba (p.ej. `summarizePortfolio` en Ahorros.tsx
+  // recalcula todo el agregado de ahorros en cada render en vez de cachear). Las dependencias
   // usan los campos primitivos de `usdRate`, no el objeto entero — `useUsdRate()` devuelve un
   // literal nuevo por render, así que depender de él completo también invalidaría el memo siempre.
   return useMemo(() => {

@@ -2,7 +2,7 @@ interface EyeToggleProps {
   hidden: boolean
   onToggle: () => void
   label?: string
-  /** Para cuando un toggle general (ej. Patrimonio entero) ya fuerza el ocultamiento — el
+  /** Para cuando un toggle general (ej. Ahorros entero) ya fuerza el ocultamiento — el
    *  individual queda visualmente inerte en vez de dar un click que no cambia nada. */
   disabled?: boolean
 }

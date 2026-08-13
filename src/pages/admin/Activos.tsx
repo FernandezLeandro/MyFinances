@@ -70,7 +70,7 @@ export function Activos() {
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Activos</h1>
         <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
-          El catálogo completo de Patrimonio: nombre, clase y moneda de cotización. Cada cuenta sigue cargando su propio precio de referencia por separado.
+          El catálogo completo de Ahorros: nombre, clase y moneda de cotización. Cada cuenta sigue cargando su propio precio de referencia por separado.
         </p>
       </header>
 

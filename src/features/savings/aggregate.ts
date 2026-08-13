@@ -1,5 +1,5 @@
 /**
- * Agregación de Patrimonio — funciones puras, separadas de la capa de red a propósito: el cálculo
+ * Agregación de Ahorros — funciones puras, separadas de la capa de red a propósito: el cálculo
  * depende de la cotización en vivo (`fx/api.ts`) y de los aportes (`savings/api.ts`), y así se puede
  * verificar con números a mano sin levantar la app.
  *

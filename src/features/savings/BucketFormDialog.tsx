@@ -71,7 +71,7 @@ export function BucketFormDialog({ open, onClose, bucket }: BucketFormDialogProp
     <Dialog
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Editar ítem' : 'Nuevo ítem de Patrimonio'}
+      title={isEditing ? 'Editar ítem' : 'Nuevo ítem de Ahorros'}
       footer={
         <>
           {isEditing && (
@@ -104,7 +104,7 @@ export function BucketFormDialog({ open, onClose, bucket }: BucketFormDialogProp
           </div>
         </Field>
 
-        <Field label="Total de Patrimonio" hint="Si lo sacás, este ítem sigue viéndose como tarjeta, pero no suma en el total ni en la ganancia general">
+        <Field label="Total de Ahorros" hint="Si lo sacás, este ítem sigue viéndose como tarjeta, pero no suma en el total ni en la ganancia general">
           <div className="flex gap-1.5">
             <Chip active={includeInTotal} onClick={() => setValue('includeInTotal', true)}>
               Cuenta en el total

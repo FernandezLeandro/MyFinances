@@ -10,7 +10,7 @@ interface MoneyProps {
   size?: Size
   /** Antepone "+" a los importes positivos. Para listas donde conviven ingresos y gastos. */
   signed?: boolean
-  /** ARS por default — el resto de la app nunca la toca; Patrimonio es lo único que usa USD. */
+  /** ARS por default — el resto de la app nunca la toca; Ahorros es lo único que usa USD. */
   currency?: Currency
   /** Enmascara la cifra (para el toggle de ocultar saldo) sin dejar de anunciar el símbolo. */
   hidden?: boolean
