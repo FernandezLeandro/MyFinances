@@ -76,11 +76,33 @@
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 
   --animate-sheet-in: sheet-in 240ms var(--ease-out-quint);
+  --animate-drawer-in: drawer-in 220ms var(--ease-out-quint);
+  --animate-menu-in: menu-in 140ms var(--ease-out-quint);
 
   @keyframes sheet-in {
     from {
       opacity: 0;
       transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
