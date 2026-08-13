@@ -12,13 +12,15 @@ interface AccountMenuItemsProps {
   showAjustes: boolean
   /** Cierra el popover/drawer que contiene este menú, antes de navegar o cerrar sesión. */
   onNavigate: () => void
+  /** `md` en el drawer de mobile, `sm` (default) en el popover de desktop — ver `MenuItem`. */
+  size?: 'sm' | 'md'
 }
 
 /**
  * Las opciones de cuenta en un solo lugar: las consume tanto el popover de desktop (`Menu`) como el
  * drawer de mobile (`Drawer`), para no tener dos definiciones de "qué hay en el menú de cuenta".
  */
-export function AccountMenuItems({ showAjustes, onNavigate }: AccountMenuItemsProps) {
+export function AccountMenuItems({ showAjustes, onNavigate, size = 'sm' }: AccountMenuItemsProps) {
   const navigate = useNavigate()
 
   function goToAjustes() {
@@ -34,11 +36,11 @@ export function AccountMenuItems({ showAjustes, onNavigate }: AccountMenuItemsPr
   return (
     <>
       {showAjustes && (
-        <MenuItem onClick={goToAjustes} icon={gearIcon}>
+        <MenuItem onClick={goToAjustes} icon={gearIcon} size={size}>
           Ajustes
         </MenuItem>
       )}
-      <MenuItem onClick={signOut} tone="danger" icon={logoutIcon}>
+      <MenuItem onClick={signOut} tone="danger" icon={logoutIcon} size={size}>
         Cerrar sesión
       </MenuItem>
     </>
@@ -72,7 +74,7 @@ export function AccountDrawer({
 }: AccountDrawerProps) {
   return (
     <Drawer open={open} onClose={onClose}>
-      <div className="flex items-center gap-3 px-5 pb-6">
+      <div className="flex items-center gap-3 px-5 pb-4">
         <Avatar initials={initials} size="md" />
         <div className="min-w-0">
           <p className="truncate text-[14px] font-medium text-chalk">{displayName ?? email ?? 'Cuenta'}</p>
@@ -90,7 +92,7 @@ export function AccountDrawer({
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2.5 rounded-control px-3.5 py-2 text-[13px] transition-colors duration-150',
+                  'flex items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px] transition-colors duration-150',
                   isActive ? 'bg-ink-850 text-chalk' : 'text-chalk-dim hover:bg-ink-800 hover:text-chalk',
                 )
               }
@@ -103,7 +105,7 @@ export function AccountDrawer({
       )}
 
       <div className="mt-auto border-t border-ink-850 px-2 pt-2">
-        <AccountMenuItems showAjustes={showAjustes} onNavigate={onClose} />
+        <AccountMenuItems showAjustes={showAjustes} onNavigate={onClose} size="md" />
       </div>
     </Drawer>
   )

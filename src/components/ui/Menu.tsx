@@ -70,15 +70,19 @@ interface MenuItemProps {
   children: ReactNode
   tone?: 'default' | 'danger'
   icon?: ReactNode
+  /** `md` para el drawer de mobile (más texto, más tap target); `sm` es el default para el popover
+   *  de desktop, donde un menú chico al lado del mouse tiene más sentido. */
+  size?: 'sm' | 'md'
 }
 
-export function MenuItem({ onClick, children, tone = 'default', icon }: MenuItemProps) {
+export function MenuItem({ onClick, children, tone = 'default', icon, size = 'sm' }: MenuItemProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] transition-colors duration-150',
+        'flex w-full items-center gap-2.5 text-left transition-colors duration-150',
+        size === 'md' ? 'px-3.5 py-2.5 text-[15px]' : 'px-3.5 py-2 text-[13px]',
         tone === 'danger' ? 'text-chalk-dim hover:bg-ink-800 hover:text-coral' : 'text-chalk-dim hover:bg-ink-800 hover:text-chalk',
       )}
     >
