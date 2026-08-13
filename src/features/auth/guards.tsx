@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
 
 /**
- * Protege /hoy, /movimientos, /fijos, /analisis, /patrimonio, /ajustes: hace falta sesión Y perfil.
+ * Protege /hoy, /movimientos, /fijos, /analisis, /ahorros, /ajustes: hace falta sesión Y perfil.
  * Sin perfil, la cuenta nunca redimió una invitación (alta interrumpida, o un `signUp()` llamado
  * directo sin pasar por el formulario) — no hay nada propio que mostrar todavía. Una cuenta admin
  * tampoco entra acá: no tiene nada que hacer en lo financiero, se la manda a /admin.

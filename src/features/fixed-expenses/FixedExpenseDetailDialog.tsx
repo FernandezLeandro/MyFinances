@@ -16,7 +16,7 @@ interface FixedExpenseDetailDialogProps {
 }
 
 /** Historial de pagos de un fijo, con edición de la plantilla on-demand. Mismo patrón que
- *  BucketDetailDialog en Patrimonio: el detalle abierto, y desde ahí se entra a editar. */
+ *  BucketDetailDialog en Ahorros: el detalle abierto, y desde ahí se entra a editar. */
 export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedExpenseDetailDialogProps) {
   const [formOpen, setFormOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -26,7 +26,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir "Editar" encima, porque `open` de este Dialog baja a
   // false). Sin este filtro, editar cerraba todo el historial de un tirón — mismo gotcha que ya
-  // apareció en Patrimonio y en Ajustar saldo.
+  // apareció en Ahorros y en Ajustar saldo.
   function handleDetailClose() {
     if (!formOpen && !confirmingDelete) onClose()
   }

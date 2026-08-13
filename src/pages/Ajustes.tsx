@@ -38,7 +38,7 @@ function FxPanel() {
 
   return (
     <Panel>
-      <PanelHeader title="Moneda y cotización" hint="ARS es la moneda principal — la que usa Patrimonio para el total" />
+      <PanelHeader title="Moneda y cotización" hint="ARS es la moneda principal — la que usa Ahorros para el total" />
 
       {isPending ? (
         <div className="px-6 pb-6">

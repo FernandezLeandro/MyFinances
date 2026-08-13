@@ -14,7 +14,7 @@ interface CompositionViewProps {
 
 /**
  * Donut + porcentaje por activo, igual que la composición por categoría de Análisis — se usa tanto
- * para el patrimonio total como para un ítem individual, sólo cambian los `nets` que se le pasan.
+ * para el total de ahorros como para un ítem individual, sólo cambian los `nets` que se le pasan.
  * Muestra el % del VALOR (lo que vale hoy en ARS), no la cantidad de unidades — eso ya se ve en la
  * tarjeta de cada ítem.
  */
@@ -41,7 +41,7 @@ export function CompositionView({ nets, assets, prices }: CompositionViewProps) 
     }))
 
   return (
-    // Apilado, no lado a lado: los dos lugares que usan esto (la barra lateral de Patrimonio y el
+    // Apilado, no lado a lado: los dos lugares que usan esto (la barra lateral de Ahorros y el
     // historial de un ítem) son angostos — a diferencia del panel ancho de Análisis, un grid a dos
     // columnas quedaría apretado.
     <div className="flex flex-col gap-5">

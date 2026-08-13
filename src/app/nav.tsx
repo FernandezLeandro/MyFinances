@@ -50,12 +50,16 @@ const allNavItems: NavItem[] = [
     ),
   },
   {
-    to: '/patrimonio',
-    label: 'Patrimonio',
+    to: '/ahorros',
+    label: 'Ahorros',
     icon: (
       <svg viewBox="0 0 20 20" className={navIconClass} aria-hidden>
-        <path d="M10 3.5 16.5 7 10 10.5 3.5 7z" {...navIconStroke} strokeLinejoin="round" />
-        <path d="M3.5 7v6.5L10 17l6.5-3.5V7" {...navIconStroke} strokeLinejoin="round" />
+        <ellipse cx="11" cy="10.5" rx="5.5" ry="4" {...navIconStroke} />
+        <circle cx="4.8" cy="11" r="1.6" {...navIconStroke} />
+        <path d="M11.5 7 13 6.4" {...navIconStroke} />
+        <path d="M7 6.7 8 4.8" {...navIconStroke} />
+        <path d="M8.5 14.3v2.2" {...navIconStroke} />
+        <path d="M14 14.3v2.2" {...navIconStroke} />
       </svg>
     ),
   },
@@ -64,11 +68,11 @@ const allNavItems: NavItem[] = [
 /** Sidebar de desktop: las 5 secciones — ahí sobra ancho para no tener que recortar nada. */
 export const sidebarNavItems: NavItem[] = allNavItems
 
-/** Tab bar de mobile: 4 secciones + el tab "Más" (ver `MobileTabBar`). Patrimonio se muda al drawer. */
-export const tabBarNavItems: NavItem[] = allNavItems.filter((item) => item.to !== '/patrimonio')
+/** Tab bar de mobile: 4 secciones + el tab "Más" (ver `MobileTabBar`). Ahorros se muda al drawer. */
+export const tabBarNavItems: NavItem[] = allNavItems.filter((item) => item.to !== '/ahorros')
 
 /** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta. */
-export const overflowNavItems: NavItem[] = allNavItems.filter((item) => item.to === '/patrimonio')
+export const overflowNavItems: NavItem[] = allNavItems.filter((item) => item.to === '/ahorros')
 
 /** Íconos sueltos, consumidos fuera del sidebar/tab bar: `AccountMenu` (ajustes, cerrar sesión) y
  *  `MobileTabBar` (el tab "Más"). Valores JSX, no componentes — igual que los íconos de `allNavItems`
