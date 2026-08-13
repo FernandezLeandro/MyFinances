@@ -105,6 +105,7 @@ export function Fijos() {
   const [markingPaid, setMarkingPaid] = useState<FixedExpense | null>(null)
   const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
   const [showPaused, setShowPaused] = useState(false)
+  const [paidExpanded, setPaidExpanded] = useState(false)
 
   const period = format(startOfMonth(month), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(month, new Date())
@@ -206,7 +207,10 @@ export function Fijos() {
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
+        {/* En mobile el saldo proyectado va primero (order-1) para no tener que scrollear pasando
+            toda la lista de fijos sólo para verlo — en desktop (lg:) vuelve a su lugar a la derecha
+            de la lista, sin tocar el layout de dos columnas. */}
+        <Panel className="order-2 lg:order-1 lg:col-span-2">
           <PanelHeader title="Del mes" hint="Ordenados por día de vencimiento" />
           {isError ? (
             <ErrorState onRetry={() => refetch()} />
@@ -230,6 +234,9 @@ export function Fijos() {
             />
           ) : (
             <>
+              {pending.length === 0 && (
+                <p className="px-6 pt-2 pb-4 text-[13px] text-chalk-faint">No tenés nada por pagar este mes.</p>
+              )}
               <ul className="pb-3">
                 {pending.map((fe) => (
                   <FixedExpenseRow
@@ -248,22 +255,38 @@ export function Fijos() {
 
               {paidItems.length > 0 && (
                 <div className="border-t border-ink-850 pt-1 pb-3">
-                  <p className="eyebrow px-6 pt-3 pb-1">Pagados ({paidItems.length})</p>
-                  <ul>
-                    {paidItems.map((fe) => (
-                      <FixedExpenseRow
-                        key={fe.id}
-                        fe={fe}
-                        payment={paymentByFixedId.get(fe.id)}
-                        categoryColor={categoryById.get(fe.category_id ?? '')?.color}
-                        vencido={false}
-                        busy={unmarkPaid.isPending}
-                        hidden={balanceHidden}
-                        onTogglePaid={() => togglePaid(fe)}
-                        onOpenDetail={() => setDetailFixed(fe)}
-                      />
-                    ))}
-                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setPaidExpanded((v) => !v)}
+                    aria-expanded={paidExpanded}
+                    className="eyebrow flex w-full items-center gap-1.5 px-6 pt-3 pb-1 text-left transition-colors duration-150 hover:text-chalk"
+                  >
+                    <svg
+                      viewBox="0 0 12 12"
+                      className={cn('size-2.5 shrink-0 transition-transform duration-150', paidExpanded && 'rotate-90')}
+                      aria-hidden
+                    >
+                      <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Pagados ({paidItems.length})
+                  </button>
+                  {paidExpanded && (
+                    <ul>
+                      {paidItems.map((fe) => (
+                        <FixedExpenseRow
+                          key={fe.id}
+                          fe={fe}
+                          payment={paymentByFixedId.get(fe.id)}
+                          categoryColor={categoryById.get(fe.category_id ?? '')?.color}
+                          vencido={false}
+                          busy={unmarkPaid.isPending}
+                          hidden={balanceHidden}
+                          onTogglePaid={() => togglePaid(fe)}
+                          onOpenDetail={() => setDetailFixed(fe)}
+                        />
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
@@ -302,7 +325,7 @@ export function Fijos() {
           )}
         </Panel>
 
-        <div className="flex flex-col gap-6">
+        <div className="order-1 flex flex-col gap-6 lg:order-2">
           <Panel className="p-6 ring-1 ring-acid/15">
             <p className="eyebrow">Saldo proyectado a fin de mes</p>
             {isProjectedPending ? (
@@ -335,6 +358,10 @@ export function Fijos() {
                 </div>
               )}
             </dl>
+
+            {pending.length === 0 && unpaidCardsCount === 0 && (
+              <p className="mt-3 text-[12px] text-chalk-faint">No tenés fijos ni tarjetas pendientes este mes.</p>
+            )}
           </Panel>
 
           {pending.length > 0 && (
