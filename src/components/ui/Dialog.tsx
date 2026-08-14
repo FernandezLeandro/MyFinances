@@ -108,9 +108,13 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
       onKeyDown={handleKeyDown}
       aria-labelledby="dialog-title"
       className={cn(
-        'mx-0 mt-auto mb-0 flex max-h-[85dvh] w-full max-w-none flex-col overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
+        // `vh`, no `dvh`: algunos navegadores mobile resuelven mal las unidades de viewport
+        // dinámico dentro del "top layer" (donde vive un <dialog> abierto con showModal()) — en el
+        // peor caso lo calculan en 0, y el diálogo abre con altura cero: invisible, pero con el
+        // scroll del body ya bloqueado (bug reportado: "pantalla trabada, el popup nunca aparece").
+        'mx-0 mt-auto mb-0 flex max-h-[85vh] w-full max-w-none flex-col overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
         'overscroll-contain animate-sheet-in backdrop:bg-ink-950/75',
-        'sm:m-auto sm:max-h-[80dvh] sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
+        'sm:m-auto sm:max-h-[80vh] sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,
       )}
     >
