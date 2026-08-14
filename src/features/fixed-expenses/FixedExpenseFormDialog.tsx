@@ -154,7 +154,11 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
           </Field>
         </div>
 
-        <Field label="De baja desde" htmlFor="endsOn" hint="Opcional — para cuando cancelás algo">
+        <Field
+          label="De baja desde"
+          htmlFor="endsOn"
+          hint="Opcional — para cuando cancelás algo. No se borra: el fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha."
+        >
           <Input id="endsOn" type="date" {...register('endsOn')} />
         </Field>
 
