@@ -9,6 +9,7 @@ import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 import type { CreditCard, CreditCardPayment, CreditCardSaving, CreditInstallment } from '@/features/credits/api'
 import type { BalanceLocation, Receivable } from '@/features/reconciliation/api'
+import type { FixedExpense, FixedExpensePayment } from '@/features/fixed-expenses/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
 
@@ -118,6 +119,37 @@ export function makeReceivable(p: Partial<Receivable> & Pick<Receivable, 'amount
     name: 'Juan',
     updated_at: FIXED_DATE,
     created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeFixedExpense(p: Partial<FixedExpense> & Pick<FixedExpense, 'id'>): FixedExpense {
+  return {
+    user_id: 'user-1',
+    name: 'Fijo de test',
+    cents: 10_000_00,
+    category_id: null,
+    due_day: 10,
+    is_active: true,
+    is_recurring: false,
+    starts_on: '2026-01-01',
+    ends_on: null,
+    notes: null,
+    created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeFixedExpensePayment(
+  p: Partial<FixedExpensePayment> & Pick<FixedExpensePayment, 'fixed_expense_id' | 'amountPaidCents'>,
+): FixedExpensePayment {
+  return {
+    id: `fe-payment-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    period: '2026-08-01',
+    paid_at: FIXED_DATE,
+    transaction_id: null,
+    is_recurring: false,
     ...p,
   }
 }
