@@ -13,12 +13,33 @@ interface DialogProps {
   className?: string
 }
 
+// showModal() no bloquea por sí solo el scroll del <body> en mobile — el contenido de atrás
+// sigue siendo "arrastrable" salvo que se lo bloqueemos a mano. Contador global en vez de un
+// simple booleano: si algún día hay dos <dialog> abiertos a la vez, el que se cierra primero no
+// debe destrabar el fondo mientras el otro lo sigue necesitando.
+let lockCount = 0
+function lockBodyScroll() {
+  if (lockCount++ === 0) document.body.style.overflow = 'hidden'
+}
+function unlockBodyScroll() {
+  if (--lockCount <= 0) {
+    lockCount = 0
+    document.body.style.overflow = ''
+  }
+}
+
 /**
  * Sobre `<dialog>` nativo: trae gratis el foco atrapado y el `::backdrop`.
  * En mobile entra como bottom sheet — un modal centrado en un celular siempre queda peor.
  * Cierra sólo por la X o los botones del footer — ni Escape ni un click afuera lo cierran (ver
  * `handleCancel`), a propósito: perder una carga en curso por un click sin querer es peor que la
  * comodidad de cerrar rápido.
+ *
+ * Altura acotada + sólo el cuerpo scrollea (header y footer quedan fijos): sin esto, un contenido
+ * más alto que la pantalla quedaba cortado por el `overflow-hidden` de más abajo, y al no haber
+ * ninguna zona scrolleable adentro del diálogo, deslizar el dedo sobre el popup terminaba
+ * scrolleando la página de atrás en vez del contenido — el bug reportado en Cuadrar saldo y en
+ * los formularios largos.
  */
 export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -30,9 +51,24 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    if (open && !el.open) el.showModal()
-    else if (!open && el.open) el.close()
+    if (open && !el.open) {
+      el.showModal()
+      lockBodyScroll()
+    } else if (!open && el.open) {
+      el.close()
+      unlockBodyScroll()
+    }
   }, [open])
+
+  // Si el componente se desmonta con el diálogo todavía abierto (navegación en medio de una
+  // carga), el `useEffect` de arriba no llega a correr con `open: false` — sin este cleanup el
+  // contador quedaría trabado y el scroll del body no volvería nunca.
+  useEffect(() => {
+    const el = ref.current
+    return () => {
+      if (el?.open) unlockBodyScroll()
+    }
+  }, [])
 
   // "cancel" es el evento que dispara Escape antes de cerrar — bloquearlo con preventDefault no
   // toca "close" (que sigue disparando onClose para el cierre programático de la X/footer).
@@ -72,14 +108,14 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
       onKeyDown={handleKeyDown}
       aria-labelledby="dialog-title"
       className={cn(
-        'mx-0 mt-auto mb-0 w-full max-w-none overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
-        'animate-sheet-in backdrop:bg-ink-950/75',
-        'sm:m-auto sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
+        'mx-0 mt-auto mb-0 flex max-h-[85dvh] w-full max-w-none flex-col overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
+        'overscroll-contain animate-sheet-in backdrop:bg-ink-950/75',
+        'sm:m-auto sm:max-h-[80dvh] sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,
       )}
     >
-      <div className="relative">
-        <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-2">
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-between gap-4 px-6 pt-6 pb-2">
           <h2 id="dialog-title" className="font-display text-lg font-semibold">
             {title}
           </h2>
@@ -95,10 +131,10 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
           </button>
         </div>
 
-        <div className="px-6 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
 
         {footer && (
-          <div className="flex justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="flex shrink-0 justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}
