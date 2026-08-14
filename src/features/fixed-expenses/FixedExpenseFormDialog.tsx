@@ -159,7 +159,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
           label="De baja desde"
           htmlFor="endsOn"
           labelAddon={
-            <InfoTooltip text="No se borra: el fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha." />
+            <InfoTooltip text="No se borra: el gasto fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha." />
           }
           hint="Opcional — para cuando cancelás algo"
         >
