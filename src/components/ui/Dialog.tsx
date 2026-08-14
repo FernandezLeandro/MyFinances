@@ -52,7 +52,12 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
     const el = ref.current
     if (!el) return
     if (open && !el.open) {
-      el.showModal()
+      // `showModal` no existe antes de iOS 15.4 — sin este fallback la llamada tira TypeError y el
+      // diálogo no abre nunca. Con `open` a mano no hay top layer ni focus-trap nativo, pero el
+      // `position: fixed` + `z-50` de arriba y el focus-trap propio de `handleKeyDown` ya cubren
+      // ambas cosas.
+      if (typeof el.showModal === 'function') el.showModal()
+      else el.setAttribute('open', '')
       lockBodyScroll()
     } else if (!open && el.open) {
       el.close()
@@ -108,17 +113,24 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
       onKeyDown={handleKeyDown}
       aria-labelledby="dialog-title"
       className={cn(
-        // `vh`, no `dvh`: algunos navegadores mobile resuelven mal las unidades de viewport
-        // dinámico dentro del "top layer" (donde vive un <dialog> abierto con showModal()) — en el
-        // peor caso lo calculan en 0, y el diálogo abre con altura cero: invisible, pero con el
-        // scroll del body ya bloqueado (bug reportado: "pantalla trabada, el popup nunca aparece").
-        'mx-0 mt-auto mb-0 flex max-h-[85vh] w-full max-w-none flex-col overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
+        // Posicionamiento EXPLÍCITO, sin depender de los defaults que cada navegador le da a un
+        // `dialog:modal`. La versión anterior centraba/anclaba con `margin:auto`, que sólo funciona
+        // si el navegador además fija `inset: 0` en su hoja de estilos; Safari de iOS no lo resuelve
+        // igual que Chrome de escritorio, y el diálogo terminaba fuera de la pantalla — abierto y
+        // bloqueando la página (el backdrop sí se pinta), pero invisible. Como la rama mobile es la
+        // única que usaba `mt-auto`, en escritorio nunca se notó.
+        //
+        // Ojo también con las clases de `display` (flex/grid) acá: pisan la regla
+        // `dialog:not([open]) { display: none }` del navegador. El layout de columna va en el
+        // wrapper de adentro. `vh` y no `dvh`: las unidades dinámicas se resuelven de forma
+        // inconsistente dentro del top layer en mobile.
+        'fixed inset-x-0 top-auto bottom-0 z-50 m-0 w-full max-w-none overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
         'overscroll-contain animate-sheet-in backdrop:bg-ink-950/75',
-        'sm:m-auto sm:max-h-[80vh] sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
+        'sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,
       )}
     >
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative flex max-h-[85vh] flex-col sm:max-h-[80vh]">
         <div className="flex shrink-0 items-center justify-between gap-4 px-6 pt-6 pb-2">
           <h2 id="dialog-title" className="font-display text-lg font-semibold">
             {title}
