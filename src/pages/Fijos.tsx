@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Check, ChevronLeft, ChevronRight, Pause, Plus } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
@@ -60,9 +61,7 @@ function FixedExpenseRow({
           aria-label={`${fe.name}: registrar carga`}
           className="grid size-5 shrink-0 place-items-center rounded-chip bg-ink-800 text-chalk-faint transition-colors duration-150 hover:bg-ink-700 hover:text-chalk"
         >
-          <svg viewBox="0 0 12 12" className="size-2.5" aria-hidden>
-            <path d="M6 2.2v7.6M2.2 6h7.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <Plus className="size-2.5" strokeWidth={1.5} aria-hidden />
         </button>
       ) : (
         <button
@@ -76,16 +75,7 @@ function FixedExpenseRow({
             done ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
           )}
         >
-          <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-            <path
-              d="M2.5 6.2 5 8.6l4.5-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Check className="size-3" strokeWidth={1.8} aria-hidden />
         </button>
       )}
 
@@ -217,9 +207,7 @@ export function Fijos() {
               aria-label="Mes anterior"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
             <p className="eyebrow">{format(month, 'MMMM yyyy', { locale: es })}</p>
             <button
@@ -228,9 +216,7 @@ export function Fijos() {
               aria-label="Mes siguiente"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
           </div>
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
@@ -251,10 +237,7 @@ export function Fijos() {
                 : 'border-ink-800 bg-transparent text-chalk-faint hover:border-ink-700 hover:text-chalk-dim',
             )}
           >
-            <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-              <rect x="3" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
-              <rect x="7" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
-            </svg>
+            <Pause className="size-3" fill="currentColor" aria-hidden />
             Pausados
           </button>
           <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
@@ -317,13 +300,11 @@ export function Fijos() {
                     aria-expanded={paidExpanded}
                     className="eyebrow flex w-full items-center gap-1.5 px-6 pt-3 pb-1 text-left transition-colors duration-150 hover:text-chalk"
                   >
-                    <svg
-                      viewBox="0 0 12 12"
+                    <ChevronRight
                       className={cn('size-2.5 shrink-0 transition-transform duration-150', paidExpanded && 'rotate-90')}
+                      strokeWidth={1.5}
                       aria-hidden
-                    >
-                      <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    />
                     Pagados ({paidItems.length})
                   </button>
                   {paidExpanded && (

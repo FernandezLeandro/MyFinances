@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -141,9 +142,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             aria-label="Cerrar"
             className="-mr-1.5 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
           >
-            <svg viewBox="0 0 14 14" className="size-4" aria-hidden>
-              <path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <X className="size-4" strokeWidth={1.5} aria-hidden />
           </button>
         </div>
 

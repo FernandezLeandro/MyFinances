@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
 import { addMonths, format, parseISO, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -134,9 +135,7 @@ export function Movimientos() {
                 aria-label="Mes anterior"
                 className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
               >
-                <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                  <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
               </button>
               <p className="eyebrow">{format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}</p>
               <button
@@ -145,9 +144,7 @@ export function Movimientos() {
                 aria-label="Mes siguiente"
                 className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
               >
-                <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                  <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
               </button>
             </div>
           ) : (
@@ -177,9 +174,7 @@ export function Movimientos() {
             className="h-9 max-w-[220px] text-[13px]"
           />
           <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
-            <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
-              <path d="M2 3.5h10M4 7h6M5.5 10.5h3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
             Filtros
             {activeCount > 0 && (
               <span

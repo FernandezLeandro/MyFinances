@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Pencil } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -106,15 +107,7 @@ function BucketCard({
             aria-label={`Editar ${bucket.name}`}
             className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
           >
-            <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-              <path
-                d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
           </button>
         </div>
       </div>

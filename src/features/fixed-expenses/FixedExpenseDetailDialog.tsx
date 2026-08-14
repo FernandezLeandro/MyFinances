@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
@@ -133,9 +134,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                         aria-label="Quitar esta carga"
                         className="grid size-6 shrink-0 place-items-center rounded-chip text-chalk-faint transition-colors duration-150 hover:bg-ink-800 hover:text-coral disabled:opacity-40"
                       >
-                        <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-                          <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
+                        <X className="size-3" strokeWidth={1.5} aria-hidden />
                       </button>
                     </li>
                   ))}

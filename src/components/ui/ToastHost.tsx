@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { dismissToast, getToasts, subscribeToasts, type Toast } from '@/lib/toast'
 
@@ -19,9 +20,7 @@ function ToastItem({ toast }: { toast: Toast }) {
         aria-label="Cerrar aviso"
         className="-mr-1 shrink-0 rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
       >
-        <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
-          <path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+        <X className="size-3.5" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   )
