@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -94,9 +95,7 @@ function EditableAmountRow({
         aria-label={deleteLabel}
         className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-coral"
       >
-        <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
-          <path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+        <X className="size-3.5" strokeWidth={1.5} aria-hidden />
       </button>
     </div>
   )

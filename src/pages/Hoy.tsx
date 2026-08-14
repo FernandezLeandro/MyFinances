@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { endOfMonth, format, startOfMonth } from 'date-fns'
+import { format, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
@@ -20,7 +20,7 @@ import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog
 import { summarizeCredits } from '@/features/credits/aggregate'
 import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
 import { useFixedExpensePayments, useFixedExpenses, useProjectedBalance } from '@/features/fixed-expenses/api'
-import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
+import { summarizeFixedExpenses } from '@/features/fixed-expenses/aggregate'
 import { Link } from 'react-router'
 
 export function Hoy() {
@@ -48,13 +48,12 @@ export function Hoy() {
     () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
     [cards, installments, savings, cardPayments],
   )
-  const pendingFixed = useMemo(() => {
-    const now = new Date()
-    const eligible = eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(now), endOfMonth(now))
-    const paidIds = new Set((fixedPayments ?? []).map((p) => p.fixed_expense_id))
-    return eligible.filter((fe) => fe.is_active && !paidIds.has(fe.id))
-  }, [fixedExpenses, fixedPayments])
-  const pendingFixedTotal = pendingFixed.reduce((acc, fe) => acc + fe.cents, 0)
+  // Misma función que Fijos.tsx: así "cuántos fijos faltan pagar" cuenta exactamente igual en las
+  // dos pantallas, bolsas a medio gastar incluidas.
+  const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], new Date(), new Date()),
+    [fixedExpenses, fixedPayments],
+  )
   const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
 
   return (

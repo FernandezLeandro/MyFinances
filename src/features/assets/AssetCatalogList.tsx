@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
@@ -82,9 +83,7 @@ function AssetRow({
           aria-label={`Editar ${asset.symbol}`}
           className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
         >
-          <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-            <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-          </svg>
+          <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
       )}
 
@@ -96,16 +95,7 @@ function AssetRow({
           aria-label={`Eliminar ${asset.symbol}`}
           className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
         >
-          <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-            <path
-              d="M4 4.5h8M6.5 4.5v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M5 4.5l.5 8.5a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1l.5-8.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Trash2 className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
       )}
 

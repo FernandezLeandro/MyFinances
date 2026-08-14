@@ -4,6 +4,9 @@ import { cn } from '@/lib/cn'
 
 interface FieldProps {
   label: string
+  /** Al lado del label, no del hint — para un `InfoTooltip` u otro adorno chiquito que tenga que
+   *  quedar pegado al título del campo en vez de perdido debajo del control. */
+  labelAddon?: ReactNode
   hint?: string
   error?: string
   htmlFor?: string
@@ -12,12 +15,15 @@ interface FieldProps {
 }
 
 /** Etiqueta + control + error. La etiqueta va en eyebrow: chiquita, en mayúsculas y fuera del campo. */
-export function Field({ label, hint, error, htmlFor, children, className }: FieldProps) {
+export function Field({ label, labelAddon, hint, error, htmlFor, children, className }: FieldProps) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label htmlFor={htmlFor} className="eyebrow">
-        {label}
-      </label>
+      <div className="flex items-center gap-1.5">
+        <label htmlFor={htmlFor} className="eyebrow">
+          {label}
+        </label>
+        {labelAddon}
+      </div>
       {children}
       {error ? (
         <p className="text-[12px] text-coral">{error}</p>

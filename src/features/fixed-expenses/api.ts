@@ -70,6 +70,9 @@ export function useFixedExpensePaymentHistory(fixedExpenseId: string | null) {
         .select('*')
         .eq('fixed_expense_id', fixedExpenseId!)
         .order('period', { ascending: false })
+        // Orden secundario: una bolsa puede tener varias cargas en el mismo período, y sin esto
+        // quedarían en el orden que Postgres devuelva, que no es necesariamente el de pago.
+        .order('paid_at', { ascending: false })
       if (error) throw error
       return data.map(toPayment)
     },
@@ -96,6 +99,9 @@ export interface FixedExpenseInput {
   categoryId: string | null
   dueDay: number
   isActive: boolean
+  /** Bolsa mensual: `cents` pasa a ser el presupuesto del mes, y se puede marcar varias veces
+   *  (ver `useMarkFixedExpensePaid`/`aggregate.ts`) en vez de una sola. */
+  isRecurring: boolean
   endsOn: string | null
 }
 
@@ -123,6 +129,7 @@ export function useCreateFixedExpense() {
         category_id: input.categoryId,
         due_day: input.dueDay,
         is_active: input.isActive,
+        is_recurring: input.isRecurring,
         ends_on: input.endsOn,
       })
       if (error) throw error
@@ -145,6 +152,7 @@ export function useUpdateFixedExpense() {
           category_id: input.categoryId,
           due_day: input.dueDay,
           is_active: input.isActive,
+          is_recurring: input.isRecurring,
           ends_on: input.endsOn,
         })
         .eq('id', id)
@@ -198,16 +206,15 @@ export function useMarkFixedExpensePaid() {
   })
 }
 
-export function useUnmarkFixedExpensePaid() {
+export function useUnmarkFixedExpensePayment() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ fixedExpenseId, period }: { fixedExpenseId: string; period: string }) => {
-      const { error } = await supabase.rpc('rpc_unmark_fixed_expense_paid', {
-        p_fixed_expense_id: fixedExpenseId,
-        p_period: period,
-      })
+    // Por id de pago, no por (fijo, período): una bolsa puede tener varias filas en el mismo
+    // período, así que "el pago de tal fijo en tal mes" ya no identifica una sola fila.
+    mutationFn: async ({ paymentId }: { paymentId: string }) => {
+      const { error } = await supabase.rpc('rpc_unmark_fixed_expense_payment', { p_payment_id: paymentId })
       if (error) throw error
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),

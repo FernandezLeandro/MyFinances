@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { addMonths, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
@@ -56,9 +57,7 @@ function CardCard({
           aria-label={`Editar ${card.name}`}
           className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
         >
-          <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
-            <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-          </svg>
+          <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
       </div>
 
@@ -141,9 +140,7 @@ export function Creditos() {
               aria-label="Mes anterior"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
             <p className="eyebrow">{format(month, 'MMMM yyyy', { locale: es })}</p>
             <button
@@ -152,9 +149,7 @@ export function Creditos() {
               aria-label="Mes siguiente"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
           </div>
           <h1 className="mt-2 font-display text-figure font-semibold">Créditos</h1>

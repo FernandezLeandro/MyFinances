@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { Select } from '@/components/ui/Select'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
@@ -23,6 +24,7 @@ const schema = z.object({
   categoryId: z.string().min(1, 'Elegí una categoría'),
   dueDay: z.string().refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 31, '1 a 31'),
   isActive: z.boolean(),
+  isRecurring: z.boolean(),
   endsOn: z.string().optional(),
 })
 
@@ -49,10 +51,11 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { isActive: true },
+    defaultValues: { isActive: true, isRecurring: false },
   })
 
   const isActive = watch('isActive')
+  const isRecurring = watch('isRecurring')
   const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
 
   useEffect(() => {
@@ -65,9 +68,10 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
             categoryId: fixedExpense.category_id ?? '',
             dueDay: String(fixedExpense.due_day),
             isActive: fixedExpense.is_active,
+            isRecurring: fixedExpense.is_recurring,
             endsOn: fixedExpense.ends_on ?? '',
           }
-        : { name: '', amount: '', categoryId: '', dueDay: '10', isActive: true, endsOn: '' },
+        : { name: '', amount: '', categoryId: '', dueDay: '10', isActive: true, isRecurring: false, endsOn: '' },
     )
   }, [open, fixedExpense, reset])
 
@@ -78,6 +82,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
       categoryId: values.categoryId,
       dueDay: Number(values.dueDay),
       isActive: values.isActive,
+      isRecurring: values.isRecurring,
       endsOn: values.endsOn?.trim() || null,
     }
 
@@ -106,12 +111,26 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        <Field label="Importe" error={errors.amount?.message}>
+        <div className="flex gap-1.5">
+          <Chip active={!isRecurring} onClick={() => setValue('isRecurring', false)}>
+            Una vez al mes
+          </Chip>
+          <Chip active={isRecurring} onClick={() => setValue('isRecurring', true)}>
+            Recurrente
+          </Chip>
+        </div>
+
+        <Field label={isRecurring ? 'Presupuesto mensual' : 'Importe'} error={errors.amount?.message}>
           <AmountInput invalid={!!errors.amount} {...register('amount')} />
         </Field>
 
         <Field label="Nombre" htmlFor="name" error={errors.name?.message}>
-          <Input id="name" placeholder="Internet, prepaga, alquiler…" invalid={!!errors.name} {...register('name')} />
+          <Input
+            id="name"
+            placeholder={isRecurring ? 'Nafta, mercadería de mamá…' : 'Internet, prepaga, alquiler…'}
+            invalid={!!errors.name}
+            {...register('name')}
+          />
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
@@ -126,12 +145,24 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
             </Select>
           </Field>
 
-          <Field label="Día de vencimiento" htmlFor="dueDay" hint="1 a 31" error={errors.dueDay?.message}>
+          <Field
+            label="Día de vencimiento"
+            htmlFor="dueDay"
+            hint={isRecurring ? 'Sólo para ordenar la lista' : '1 a 31'}
+            error={errors.dueDay?.message}
+          >
             <Input id="dueDay" type="number" min={1} max={31} {...register('dueDay')} />
           </Field>
         </div>
 
-        <Field label="De baja desde" htmlFor="endsOn" hint="Opcional — para cuando cancelás algo">
+        <Field
+          label="De baja desde"
+          htmlFor="endsOn"
+          labelAddon={
+            <InfoTooltip text="No se borra: el gasto fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha." />
+          }
+          hint="Opcional — para cuando cancelás algo"
+        >
           <Input id="endsOn" type="date" {...register('endsOn')} />
         </Field>
 

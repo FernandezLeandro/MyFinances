@@ -11,6 +11,7 @@ function fe(overrides: Partial<FixedExpense>): FixedExpense {
     category_id: null,
     due_day: 10,
     is_active: true,
+    is_recurring: false,
     starts_on: '2026-01-01',
     ends_on: null,
     notes: null,

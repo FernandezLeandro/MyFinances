@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -72,9 +73,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                 aria-label={`Editar ${c.name}`}
                 className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
               >
-                <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
-                  <path d="M11 2.5 13.5 5 6 12.5 3 13l.5-3z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-                </svg>
+                <Pencil className="size-3.5" strokeWidth={1.3} aria-hidden />
               </button>
               <button
                 type="button"
@@ -82,15 +81,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                 aria-label={`Archivar ${c.name}`}
                 className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
               >
-                <svg viewBox="0 0 14 14" className="size-3.5" aria-hidden>
-                  <path
-                    d="M3 3l8 8M11 3l-8 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <X className="size-3.5" strokeWidth={1.5} aria-hidden />
               </button>
             </li>
           ))}

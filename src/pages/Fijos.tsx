@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Check, ChevronLeft, ChevronRight, Pause, Plus } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
@@ -16,11 +17,11 @@ import {
   useFixedExpensePayments,
   useFixedExpenses,
   useProjectedBalance,
-  useUnmarkFixedExpensePaid,
+  useUnmarkFixedExpensePayment,
   type FixedExpense,
-  type FixedExpensePayment,
 } from '@/features/fixed-expenses/api'
 import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
+import { summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
@@ -29,50 +30,54 @@ import { summarizeCredits } from '@/features/credits/aggregate'
 import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
 
 function FixedExpenseRow({
-  fe,
-  payment,
+  status,
   categoryColor,
   vencido,
   busy,
   hidden,
-  onTogglePaid,
+  onPrimaryAction,
   onOpenDetail,
 }: {
-  fe: FixedExpense
-  payment: FixedExpensePayment | undefined
+  status: FixedExpenseStatus
   categoryColor: string | undefined
   vencido: boolean
   busy: boolean
   hidden: boolean
-  onTogglePaid: () => void
+  onPrimaryAction: () => void
   onOpenDetail: () => void
 }) {
-  const paid = !!payment
+  const { fe, paidCents, remainingCents, done, overspentCents } = status
+  const overspent = overspentCents > 0
 
   return (
     <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850">
-      <button
-        type="button"
-        disabled={busy}
-        onClick={onTogglePaid}
-        aria-pressed={paid}
-        aria-label={paid ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
-        className={cn(
-          'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
-          paid ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
-        )}
-      >
-        <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-          <path
-            d="M2.5 6.2 5 8.6l4.5-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+      {fe.is_recurring ? (
+        // Una bolsa no se "tilda" — cada carga es un pago suelto, así que el control siempre agrega
+        // una carga nueva (incluso ya completa: se puede seguir cargando nafta pasado el
+        // presupuesto, sólo que no descuenta más del proyectado). Lo terminado se ve en la barra.
+        <button
+          type="button"
+          onClick={onPrimaryAction}
+          aria-label={`${fe.name}: registrar carga`}
+          className="grid size-5 shrink-0 place-items-center rounded-chip bg-ink-800 text-chalk-faint transition-colors duration-150 hover:bg-ink-700 hover:text-chalk"
+        >
+          <Plus className="size-2.5" strokeWidth={1.5} aria-hidden />
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onPrimaryAction}
+          aria-pressed={done}
+          aria-label={done ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
+          className={cn(
+            'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
+            done ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
+          )}
+        >
+          <Check className="size-3" strokeWidth={1.8} aria-hidden />
+        </button>
+      )}
 
       <button
         type="button"
@@ -82,19 +87,42 @@ function FixedExpenseRow({
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
         <div className="min-w-0 flex-1">
-          <p className={cn('truncate text-[14px]', paid ? 'text-chalk-faint' : 'text-chalk')}>{fe.name}</p>
-          <p className="mt-0.5 text-[12px]">
-            <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
-              {vencido ? `Venció el ${fe.due_day}` : `Vence el ${fe.due_day}`}
-            </span>
-          </p>
+          <p className={cn('truncate text-[14px]', done && !overspent ? 'text-chalk-faint' : 'text-chalk')}>{fe.name}</p>
+
+          {fe.is_recurring ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-ink-800">
+                <div
+                  className={cn('h-full rounded-full', overspent ? 'bg-coral' : done ? 'bg-acid' : 'bg-chalk-dim')}
+                  style={{ width: `${fe.cents > 0 ? Math.min((paidCents / fe.cents) * 100, 100) : 0}%` }}
+                />
+              </div>
+              {overspent ? (
+                <span className="text-[12px] text-coral">
+                  Te pasaste <Money cents={overspentCents} tone="coral" hidden={hidden} />
+                </span>
+              ) : done ? (
+                <span className="text-[12px] text-chalk-faint">Completo</span>
+              ) : (
+                <span className="text-[12px] text-chalk-faint">
+                  <Money cents={paidCents} tone="dim" hidden={hidden} /> de <Money cents={fe.cents} tone="dim" hidden={hidden} />
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-0.5 text-[12px]">
+              <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
+                {vencido ? `Venció el ${fe.due_day}` : `Vence el ${fe.due_day}`}
+              </span>
+            </p>
+          )}
         </div>
       </button>
 
-      {/* Pagado: se muestra lo que realmente salió (amountPaidCents), no la plantilla — con un mes
-          en curso ambos suelen coincidir (el pago actualiza la plantilla), pero en un mes pasado o
-          si el pago no tocó la plantilla, pueden diferir. */}
-      <Money cents={payment ? payment.amountPaidCents : fe.cents} tone={paid ? 'dim' : 'chalk'} hidden={hidden} />
+      {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
+          curso ambos suelen coincidir, pero en un mes pasado pueden diferir. Bolsa: lo que resta
+          mientras falte, lo cargado una vez completa (el excedente ya se ve en la línea de arriba). */}
+      <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'chalk'} hidden={hidden} />
     </li>
   )
 }
@@ -102,7 +130,7 @@ function FixedExpenseRow({
 export function Fijos() {
   const [month, setMonth] = useState(() => new Date())
   const [formOpen, setFormOpen] = useState(false)
-  const [markingPaid, setMarkingPaid] = useState<FixedExpense | null>(null)
+  const [markingPaid, setMarkingPaid] = useState<FixedExpenseStatus | null>(null)
   const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
   const [showPaused, setShowPaused] = useState(false)
   const [paidExpanded, setPaidExpanded] = useState(false)
@@ -116,7 +144,7 @@ export function Fijos() {
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
   const { data: categories } = useCategories(true)
-  const unmarkPaid = useUnmarkFixedExpensePaid()
+  const unmarkPayment = useUnmarkFixedExpensePayment()
 
   const { data: cards } = useCreditCards()
   const { data: installments } = useCreditInstallments(period)
@@ -128,39 +156,43 @@ export function Fijos() {
   const [balanceHidden] = useHiddenBalance('saldo-actual')
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
-  const paymentByFixedId = useMemo(
-    () => new Map((payments ?? []).map((p) => [p.fixed_expense_id, p])),
-    [payments],
-  )
   const creditsSummary = useMemo(
     () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
     [cards, installments, savings, cardPayments],
   )
   const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
 
-  const eligible = useMemo(
+  // Todo lo elegible del período, activo o pausado — se usa para el estado vacío general y para la
+  // sección de pausados. `summarizeFixedExpenses` hace este mismo filtro puertas adentro, pero sólo
+  // para los activos: acá hace falta la lista completa.
+  const eligibleAll = useMemo(
     () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
     [fixedExpenses, month],
   )
+  const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort((a, b) => a.due_day - b.due_day)
 
-  const sorted = [...eligible].sort((a, b) => a.due_day - b.due_day)
-  const active = sorted.filter((fe) => fe.is_active)
-  const pending = active.filter((fe) => !paymentByFixedId.has(fe.id))
-  const paidItems = active.filter((fe) => paymentByFixedId.has(fe.id))
-  const pausedItems = sorted.filter((fe) => !fe.is_active)
-  const pendingTotal = pending.reduce((acc, fe) => acc + fe.cents, 0)
+  const { pending, done: paidItems, pendingTotalCents } = useMemo(
+    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date()),
+    [fixedExpenses, payments, month],
+  )
 
   function openNew() {
     setFormOpen(true)
   }
 
-  function togglePaid(fe: FixedExpense) {
-    if (paymentByFixedId.has(fe.id)) {
+  function handlePrimaryAction(status: FixedExpenseStatus) {
+    if (status.fe.is_recurring) {
+      // Siempre suma una carga nueva — nunca "desmarca" (para eso está el botón de quitar en el
+      // historial de detalle, que sí sabe cuál de varias cargas sacar).
+      setMarkingPaid(status)
+      return
+    }
+    if (status.payments.length > 0) {
       // Desmarcar sigue siendo un toque, sin diálogo: es reversible y es el control más usado de
       // la pantalla. Sólo el camino "no pagado → pagado" necesita preguntar el importe.
-      unmarkPaid.mutate({ fixedExpenseId: fe.id, period })
+      unmarkPayment.mutate({ paymentId: status.payments[0].id })
     } else {
-      setMarkingPaid(fe)
+      setMarkingPaid(status)
     }
   }
 
@@ -175,9 +207,7 @@ export function Fijos() {
               aria-label="Mes anterior"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
             <p className="eyebrow">{format(month, 'MMMM yyyy', { locale: es })}</p>
             <button
@@ -186,9 +216,7 @@ export function Fijos() {
               aria-label="Mes siguiente"
               className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
             >
-              <svg viewBox="0 0 12 12" className="size-3.5" aria-hidden>
-                <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
             </button>
           </div>
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
@@ -209,10 +237,7 @@ export function Fijos() {
                 : 'border-ink-800 bg-transparent text-chalk-faint hover:border-ink-700 hover:text-chalk-dim',
             )}
           >
-            <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
-              <rect x="3" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
-              <rect x="7" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
-            </svg>
+            <Pause className="size-3" fill="currentColor" aria-hidden />
             Pausados
           </button>
           <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
@@ -240,7 +265,7 @@ export function Fijos() {
                 </li>
               ))}
             </ul>
-          ) : sorted.length === 0 ? (
+          ) : eligibleAll.length === 0 ? (
             <EmptyState
               glyph="◷"
               title="Todavía no cargaste gastos fijos"
@@ -253,17 +278,16 @@ export function Fijos() {
                 <p className="px-6 pt-2 pb-4 text-[13px] text-chalk-faint">No tenés nada por pagar este mes.</p>
               )}
               <ul className="pb-3">
-                {pending.map((fe) => (
+                {pending.map((status) => (
                   <FixedExpenseRow
-                    key={fe.id}
-                    fe={fe}
-                    payment={paymentByFixedId.get(fe.id)}
-                    categoryColor={categoryById.get(fe.category_id ?? '')?.color}
-                    vencido={isCurrentMonth && fe.due_day < todayDay}
-                    busy={unmarkPaid.isPending}
+                    key={status.fe.id}
+                    status={status}
+                    categoryColor={categoryById.get(status.fe.category_id ?? '')?.color}
+                    vencido={isCurrentMonth && status.fe.due_day < todayDay}
+                    busy={unmarkPayment.isPending}
                     hidden={balanceHidden}
-                    onTogglePaid={() => togglePaid(fe)}
-                    onOpenDetail={() => setDetailFixed(fe)}
+                    onPrimaryAction={() => handlePrimaryAction(status)}
+                    onOpenDetail={() => setDetailFixed(status.fe)}
                   />
                 ))}
               </ul>
@@ -276,28 +300,25 @@ export function Fijos() {
                     aria-expanded={paidExpanded}
                     className="eyebrow flex w-full items-center gap-1.5 px-6 pt-3 pb-1 text-left transition-colors duration-150 hover:text-chalk"
                   >
-                    <svg
-                      viewBox="0 0 12 12"
+                    <ChevronRight
                       className={cn('size-2.5 shrink-0 transition-transform duration-150', paidExpanded && 'rotate-90')}
+                      strokeWidth={1.5}
                       aria-hidden
-                    >
-                      <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    />
                     Pagados ({paidItems.length})
                   </button>
                   {paidExpanded && (
                     <ul>
-                      {paidItems.map((fe) => (
+                      {paidItems.map((status) => (
                         <FixedExpenseRow
-                          key={fe.id}
-                          fe={fe}
-                          payment={paymentByFixedId.get(fe.id)}
-                          categoryColor={categoryById.get(fe.category_id ?? '')?.color}
+                          key={status.fe.id}
+                          status={status}
+                          categoryColor={categoryById.get(status.fe.category_id ?? '')?.color}
                           vencido={false}
-                          busy={unmarkPaid.isPending}
+                          busy={unmarkPayment.isPending}
                           hidden={balanceHidden}
-                          onTogglePaid={() => togglePaid(fe)}
-                          onOpenDetail={() => setDetailFixed(fe)}
+                          onPrimaryAction={() => handlePrimaryAction(status)}
+                          onOpenDetail={() => setDetailFixed(status.fe)}
                         />
                       ))}
                     </ul>
@@ -327,7 +348,9 @@ export function Fijos() {
                           />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-[14px] text-chalk-faint">{fe.name}</p>
-                            <p className="mt-0.5 text-[12px] text-chalk-faint">Pausado · vence el {fe.due_day}</p>
+                            <p className="mt-0.5 text-[12px] text-chalk-faint">
+                              Pausado · {fe.is_recurring ? 'bolsa mensual' : `vence el ${fe.due_day}`}
+                            </p>
                           </div>
                         </button>
                         <Money cents={fe.cents} tone="dim" hidden={balanceHidden} />
@@ -347,7 +370,7 @@ export function Fijos() {
             isPending={isProjectedPending}
             currentBalanceCents={currentBalance ?? 0}
             pendingFixedCount={pending.length}
-            pendingFixedCents={pendingTotal}
+            pendingFixedCents={pendingTotalCents}
             unpaidCardsCount={unpaidCardsCount}
             unpaidCardsCents={creditsSummary.totalPendingCents}
             hidden={balanceHidden}
@@ -357,16 +380,16 @@ export function Fijos() {
             <Panel tone="flat">
               <PanelHeader title="Fijos pendientes" hint={`${pending.length} sin abonar este mes`} />
               <ul className="px-6 pb-5">
-                {pending.map((fe) => (
-                  <li key={fe.id} className="flex items-center gap-3 border-t border-ink-850 py-2.5 first:border-t-0">
+                {pending.map((status) => (
+                  <li key={status.fe.id} className="flex items-center gap-3 border-t border-ink-850 py-2.5 first:border-t-0">
                     <span
                       aria-hidden
                       className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color }}
+                      style={{ backgroundColor: categoryById.get(status.fe.category_id ?? '')?.color }}
                     />
-                    <span className="min-w-0 flex-1 truncate text-[14px]">{fe.name}</span>
-                    <span className="tnum text-[12px] text-chalk-faint">día {fe.due_day}</span>
-                    <Money cents={fe.cents} tone="dim" hidden={balanceHidden} />
+                    <span className="min-w-0 flex-1 truncate text-[14px]">{status.fe.name}</span>
+                    {!status.fe.is_recurring && <span className="tnum text-[12px] text-chalk-faint">día {status.fe.due_day}</span>}
+                    <Money cents={status.remainingCents} tone="dim" hidden={balanceHidden} />
                   </li>
                 ))}
               </ul>
@@ -377,7 +400,13 @@ export function Fijos() {
 
       {formOpen && <FixedExpenseFormDialog open={formOpen} onClose={() => setFormOpen(false)} />}
       {markingPaid && (
-        <MarkPaidDialog open={!!markingPaid} onClose={() => setMarkingPaid(null)} fixedExpense={markingPaid} period={period} />
+        <MarkPaidDialog
+          open={!!markingPaid}
+          onClose={() => setMarkingPaid(null)}
+          fixedExpense={markingPaid.fe}
+          period={period}
+          alreadyPaidCents={markingPaid.paidCents}
+        />
       )}
       {detailFixed && (
         <FixedExpenseDetailDialog open={!!detailFixed} onClose={() => setDetailFixed(null)} fixedExpense={detailFixed} />
