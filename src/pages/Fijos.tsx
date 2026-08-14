@@ -3,7 +3,6 @@ import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } f
 import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
 import { Money } from '@/components/ui/Money'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -198,9 +197,24 @@ export function Fijos() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Chip active={showPaused} onClick={() => setShowPaused((v) => !v)}>
-            Mostrar pausados
-          </Chip>
+          <button
+            type="button"
+            onClick={() => setShowPaused((v) => !v)}
+            aria-pressed={showPaused}
+            className={cn(
+              'inline-flex h-9 items-center gap-1.5 rounded-control border px-3 text-[13px] font-medium whitespace-nowrap',
+              'transition-colors duration-150',
+              showPaused
+                ? 'border-ink-600 bg-ink-800 text-chalk'
+                : 'border-ink-800 bg-transparent text-chalk-faint hover:border-ink-700 hover:text-chalk-dim',
+            )}
+          >
+            <svg viewBox="0 0 12 12" className="size-3" aria-hidden>
+              <rect x="3" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
+              <rect x="7" y="2" width="2" height="8" rx="0.6" fill="currentColor" />
+            </svg>
+            Pausados
+          </button>
           <Button onClick={openNew} icon={<span className="text-base leading-none">+</span>}>
             Nuevo fijo
           </Button>
