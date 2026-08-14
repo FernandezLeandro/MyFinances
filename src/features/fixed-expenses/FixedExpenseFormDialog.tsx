@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { Select } from '@/components/ui/Select'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
@@ -157,7 +158,10 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
         <Field
           label="De baja desde"
           htmlFor="endsOn"
-          hint="Opcional — para cuando cancelás algo. No se borra: el fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha."
+          labelAddon={
+            <InfoTooltip text="No se borra: el fijo y su historial quedan guardados, sólo deja de contar a partir de esa fecha." />
+          }
+          hint="Opcional — para cuando cancelás algo"
         >
           <Input id="endsOn" type="date" {...register('endsOn')} />
         </Field>
