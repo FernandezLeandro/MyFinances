@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
+import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
@@ -114,43 +115,18 @@ export function Hoy() {
         </div>
       </header>
 
-      {/* Si no hay nada pendiente de fijos ni tarjetas, el saldo proyectado coincide con el actual
-          — mostrar el panel sería redundante con el hero de arriba, que ya cubre ese caso. */}
-      {(isProjectedPending || pendingFixed.length > 0 || unpaidCardsCount > 0) && (
-        <Panel className="p-6 ring-1 ring-acid/15">
-          <p className="eyebrow">Saldo proyectado a fin de mes</p>
-          {isProjectedPending ? (
-            <Skeleton className="mt-2 h-9 w-32" />
-          ) : (
-            <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
-          )}
-
-          <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
-            <div className="flex justify-between gap-4">
-              <dt className="text-chalk-faint">Saldo actual</dt>
-              <dd>
-                <Money cents={balance.data ?? 0} tone="dim" hidden={balanceHidden} />
-              </dd>
-            </div>
-            {pendingFixed.length > 0 && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Fijos por pagar ({pendingFixed.length})</dt>
-                <dd>
-                  <Money cents={-pendingFixedTotal} tone="coral" hidden={balanceHidden} />
-                </dd>
-              </div>
-            )}
-            {unpaidCardsCount > 0 && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Tarjetas por pagar ({unpaidCardsCount})</dt>
-                <dd>
-                  <Money cents={-creditsSummary.totalPendingCents} tone="coral" hidden={balanceHidden} />
-                </dd>
-              </div>
-            )}
-          </dl>
-        </Panel>
-      )}
+      <SaldoProyectadoPanel
+        period={period}
+        projectedCents={projectedBalance}
+        isPending={isProjectedPending}
+        currentBalanceCents={balance.data ?? 0}
+        pendingFixedCount={pendingFixed.length}
+        pendingFixedCents={pendingFixedTotal}
+        unpaidCardsCount={unpaidCardsCount}
+        unpaidCardsCents={creditsSummary.totalPendingCents}
+        hidden={balanceHidden}
+        hideWhenNothingPending
+      />
 
       <Panel>
         <PanelHeader

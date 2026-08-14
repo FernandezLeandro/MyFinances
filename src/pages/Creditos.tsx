@@ -234,7 +234,8 @@ export function Creditos() {
                 <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
               )}
               <p className="mt-3 text-[12px] text-chalk-faint">
-                Ya descuenta los fijos y las tarjetas impagas de este período — el mismo número que ves en Fijos.
+                Ya descuenta los fijos, las tarjetas impagas y el gasto variable estimado de este período — el
+                mismo número que ves en Fijos.
               </p>
             </Panel>
           </div>
