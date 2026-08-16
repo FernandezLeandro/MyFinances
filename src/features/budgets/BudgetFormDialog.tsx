@@ -5,8 +5,10 @@ import { z } from 'zod'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
+import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useDeleteSpendingBudget, useSpendingBudget, useUpsertSpendingBudget } from '@/features/budgets/api'
+import { projectBudget } from '@/features/budgets/aggregate'
 
 const schema = z.object({
   name: z.string().min(1, 'Falta el nombre').max(80),
@@ -35,11 +37,18 @@ export function BudgetFormDialog({ open, onClose }: BudgetFormDialogProps) {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { name: 'Comida', amount: '' },
   })
+
+  // Mismo cálculo que el panel (`projectBudget`), pero en vivo sobre lo que se está tipeando —
+  // así el desglose "por día" queda pegado al campo que lo genera en vez de vivir siempre visible
+  // en el panel principal.
+  const previewCents = parseAmountToCents(watch('amount')) ?? 0
+  const dailyCents = projectBudget(previewCents, new Date(), new Date()).dailyCents
 
   useEffect(() => {
     if (!open) return
@@ -88,9 +97,16 @@ export function BudgetFormDialog({ open, onClose }: BudgetFormDialogProps) {
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          <Field label="Importe mensual" error={errors.amount?.message}>
-            <AmountInput invalid={!!errors.amount} {...register('amount')} />
-          </Field>
+          <div className="flex flex-col gap-1.5">
+            <Field label="Importe mensual" error={errors.amount?.message}>
+              <AmountInput invalid={!!errors.amount} {...register('amount')} />
+            </Field>
+            {previewCents > 0 && (
+              <p className="text-[12px] text-chalk-faint">
+                <Money cents={dailyCents} tone="dim" /> por día · <Money cents={previewCents} tone="dim" /> al mes
+              </p>
+            )}
+          </div>
 
           <Field label="Nombre" htmlFor="name" error={errors.name?.message}>
             <Input id="name" placeholder="Comida" invalid={!!errors.name} {...register('name')} />

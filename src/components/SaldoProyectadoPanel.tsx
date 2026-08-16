@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { parseISO } from 'date-fns'
+import { Pencil } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -86,13 +87,25 @@ export function SaldoProyectadoPanel({
               </dd>
             </div>
           )}
-          {hasBudgetRow && (
+          {!isBudgetPending && (
             <div className="flex justify-between gap-4">
               <dt className="text-chalk-faint">
-                {budget.name} ({projection.remainingDays} días)
+                <button
+                  type="button"
+                  onClick={() => setEditingBudget(true)}
+                  aria-label={budget ? `Editar ${budget.name}` : 'Estimar gasto de comida'}
+                  className="-m-1 inline-flex items-center gap-1 rounded-chip p-1 transition-colors hover:bg-ink-850 hover:text-chalk"
+                >
+                  {budget ? `${budget.name} (${projection.remainingDays} días)` : 'Gasto variable estimado'}
+                  <Pencil className="size-3" strokeWidth={1.5} aria-hidden />
+                </button>
               </dt>
               <dd>
-                <Money cents={-projection.remainingCents} tone="coral" hidden={hidden} />
+                {budget ? (
+                  <Money cents={-projection.remainingCents} tone="coral" hidden={hidden} />
+                ) : (
+                  <span className="text-chalk-faint">—</span>
+                )}
               </dd>
             </div>
           )}
@@ -100,24 +113,6 @@ export function SaldoProyectadoPanel({
 
         {nothingPending && budget && (
           <p className="mt-3 text-[12px] text-chalk-faint">No tenés fijos ni tarjetas pendientes este mes.</p>
-        )}
-
-        {!isBudgetPending && (
-          <p className="mt-3 text-[12px] text-chalk-faint">
-            {budget && (
-              <>
-                <Money cents={projection.dailyCents} tone="dim" hidden={hidden} /> por día ·{' '}
-                <Money cents={budget.cents} tone="dim" hidden={hidden} /> al mes ·{' '}
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setEditingBudget(true)}
-              className="font-medium text-acid hover:underline"
-            >
-              {budget ? 'Editar' : 'Estimar gasto de comida'}
-            </button>
-          </p>
         )}
       </Panel>
 
