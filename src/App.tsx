@@ -27,6 +27,7 @@ const Ahorros = lazy(() => import('@/pages/Ahorros').then((m) => ({ default: m.A
 const Categorias = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
 const Activos = lazy(() => import('@/pages/admin/Activos').then((m) => ({ default: m.Activos })))
 const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones').then((m) => ({ default: m.Invitaciones })))
+const Cuenta = lazy(() => import('@/pages/admin/Cuenta').then((m) => ({ default: m.Cuenta })))
 
 export default function App() {
   return (
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="categorias" element={<Categorias />} />
             <Route path="activos" element={<Activos />} />
             <Route path="invitaciones" element={<Invitaciones />} />
+            <Route path="cuenta" element={<Cuenta />} />
           </Route>
 
           {/* TEMP: preview de TransactionFiltersDialog sin auth, para verificación visual. Revertir. */}

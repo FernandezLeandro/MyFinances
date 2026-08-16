@@ -9,6 +9,7 @@ import { parseAmountToCents } from '@/lib/money'
 import { useProfile, useUpdateProfile, type FxSource } from '@/features/profile/api'
 import { useUsdRate } from '@/features/fx/api'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
+import { ChangePasswordPanel } from '@/features/auth/ChangePasswordPanel'
 
 const fxSources: { value: FxSource; label: string }[] = [
   { value: 'oficial', label: 'Oficial' },
@@ -109,6 +110,7 @@ export function Ajustes() {
       <div className="flex flex-col gap-6">
         <FxPanel />
         <AssetsPanel />
+        <ChangePasswordPanel />
       </div>
     </div>
   )
