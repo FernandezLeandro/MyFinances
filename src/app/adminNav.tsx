@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Box, LayoutGrid, Mail } from 'lucide-react'
+import { Box, KeyRound, LayoutGrid, Mail } from 'lucide-react'
 import { navIconClass } from '@/app/nav'
 
 export interface AdminNavItem {
@@ -25,5 +25,10 @@ export const adminNavItems: AdminNavItem[] = [
     to: '/admin/invitaciones',
     label: 'Invitaciones',
     icon: <Mail className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
+  {
+    to: '/admin/cuenta',
+    label: 'Cuenta',
+    icon: <KeyRound className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
   },
 ]
