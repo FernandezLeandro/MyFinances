@@ -3,8 +3,8 @@ import type { FixedExpense, FixedExpensePayment } from './api'
 import { eligibleFixedExpenses } from './period'
 
 /**
- * Función pura, separada de la red a propósito — mismo criterio que `budgets/aggregate.ts` y
- * `credits/aggregate.ts`: se verifica con números a mano sin levantar la app. Reproduce EXACTAMENTE
+ * Función pura, separada de la red a propósito — mismo criterio que `credits/aggregate.ts`: se
+ * verifica con números a mano sin levantar la app. Reproduce EXACTAMENTE
  * la lógica del segundo término de `rpc_projected_balance` (ver la migración
  * `20260814020001_projected_balance_con_bolsas.sql`) para que el número grande del panel y el
  * desglose de esta pantalla nunca se desincronicen. `today` entra por parámetro, no `new Date()`

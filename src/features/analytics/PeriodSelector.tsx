@@ -10,7 +10,7 @@ export function PeriodSelector({ value, onChange }: { value: Period; onChange: (
       onChange({ ...value, preset: 'custom' })
       return
     }
-    onChange({ preset, ...presetToRange(preset) })
+    onChange({ ...value, preset, ...presetToRange(preset, value.anchor) })
   }
 
   return (

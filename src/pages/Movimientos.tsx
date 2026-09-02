@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
 import { addMonths, format, parseISO, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
+import { MonthNav } from '@/components/ui/MonthNav'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
@@ -22,19 +23,20 @@ import {
   defaultMovementPeriod,
   periodLabel,
   periodRange,
+  type MovementPeriod,
 } from '@/features/transactions/movementPeriod'
 import { centsToNumeric } from '@/lib/money'
 import { downloadCsv } from '@/lib/csv'
 
 export function Movimientos() {
-  // Llega acá desde el drill-down de Análisis con una categoría pre-elegida.
+  // Llega acá desde el drill-down de Análisis con una categoría y un período pre-elegidos.
   const location = useLocation()
-  const incomingCategoryId = (location.state as { categoryId?: string } | null)?.categoryId ?? null
+  const incoming = location.state as { categoryId?: string; period?: MovementPeriod } | null
 
   const [filters, setFilters] = useState<MovementFilters>(() => ({
-    period: defaultMovementPeriod(),
+    period: incoming?.period ?? defaultMovementPeriod(),
     type: 'all',
-    categoryIds: incomingCategoryId ? [incomingCategoryId] : [],
+    categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
   }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -128,25 +130,11 @@ export function Movimientos() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           {filters.period.preset === 'month' ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => shiftMonth(-1)}
-                aria-label="Mes anterior"
-                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-              >
-                <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
-              </button>
-              <p className="eyebrow">{format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}</p>
-              <button
-                type="button"
-                onClick={() => shiftMonth(1)}
-                aria-label="Mes siguiente"
-                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-              >
-                <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
-              </button>
-            </div>
+            <MonthNav
+              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
+              onPrev={() => shiftMonth(-1)}
+              onNext={() => shiftMonth(1)}
+            />
           ) : (
             <p className="eyebrow">{periodLabel(filters.period)}</p>
           )}

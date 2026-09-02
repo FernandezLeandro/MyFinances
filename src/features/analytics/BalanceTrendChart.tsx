@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -25,7 +25,14 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
-export function BalanceTrendChart({ data }: { data: MonthlyPoint[] }) {
+interface BalanceTrendChartProps {
+  data: MonthlyPoint[]
+  /** `yyyy-MM-dd` (primer día del mes) del mes elegido en Análisis — se marca con una línea
+   *  punteada para ubicarlo dentro de la ventana fija de 12 meses. */
+  highlightPeriod?: string
+}
+
+export function BalanceTrendChart({ data, highlightPeriod }: BalanceTrendChartProps) {
   const gradientId = useId()
 
   return (
@@ -58,6 +65,9 @@ export function BalanceTrendChart({ data }: { data: MonthlyPoint[] }) {
             domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]}
           />
           <Tooltip content={CustomTooltip} cursor={{ stroke: chartColors.acid, strokeWidth: 1 }} />
+          {highlightPeriod && (
+            <ReferenceLine x={highlightPeriod} stroke={chartColors.chalkFaint} strokeDasharray="3 3" />
+          )}
           <Area
             type="monotone"
             dataKey="runningBalanceCents"

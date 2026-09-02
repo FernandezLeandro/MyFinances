@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { format, parseISO, startOfMonth } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { MonthNav } from '@/components/ui/MonthNav'
 import { useSpendByCategory } from '@/features/transactions/api'
+import { movementPeriodFromRange } from '@/features/transactions/movementPeriod'
 import { useMonthlySeries, useTopCategoriesComparison } from '@/features/analytics/api'
 import { PeriodSelector } from '@/features/analytics/PeriodSelector'
-import { defaultPeriod } from '@/features/analytics/period'
+import { defaultPeriod, periodRangeLabel, seriesRange, shiftPeriodMonth } from '@/features/analytics/period'
 import { CategoryDonut } from '@/features/analytics/CategoryDonut'
 import { MonthlyEvolutionChart } from '@/features/analytics/MonthlyEvolutionChart'
 import { BalanceTrendChart } from '@/features/analytics/BalanceTrendChart'
@@ -19,22 +23,32 @@ export function Analisis() {
   const navigate = useNavigate()
 
   const spendQuery = useSpendByCategory(period.from, period.to)
-  const seriesQuery = useMonthlySeries(period.from, period.to)
+  const seriesRangeValue = seriesRange(period.anchor)
+  const seriesQuery = useMonthlySeries(seriesRangeValue.from, seriesRangeValue.to)
   const comparisonQuery = useTopCategoriesComparison(period.from, period.to)
   const { data: spend } = spendQuery
   const { data: series } = seriesQuery
   const { data: comparison } = comparisonQuery
 
   const total = (spend ?? []).reduce((acc, s) => acc + s.cents, 0)
+  const highlightPeriod = format(startOfMonth(parseISO(period.anchor)), 'yyyy-MM-dd')
 
   function goToCategory(categoryId: string) {
-    navigate('/movimientos', { state: { categoryId } })
+    navigate('/movimientos', { state: { categoryId, period: movementPeriodFromRange(period.from, period.to) } })
   }
 
   return (
     <div className="flex flex-col gap-8">
       <header>
-        <p className="eyebrow">Análisis</p>
+        {period.preset === 'month' ? (
+          <MonthNav
+            label={format(parseISO(period.anchor), 'MMMM yyyy', { locale: es })}
+            onPrev={() => setPeriod((p) => shiftPeriodMonth(p, -1))}
+            onNext={() => setPeriod((p) => shiftPeriodMonth(p, 1))}
+          />
+        ) : (
+          <p className="eyebrow">{periodRangeLabel(period)}</p>
+        )}
         <h1 className="mt-2 font-display text-figure font-semibold">Análisis</h1>
       </header>
 
@@ -112,14 +126,14 @@ export function Analisis() {
       </div>
 
       <Panel>
-        <PanelHeader title="Evolución mensual" hint="Ingresos y gastos, mes a mes" />
+        <PanelHeader title="Evolución mensual" hint="Ingresos y gastos, últimos 12 meses" />
         <div className="px-4 pb-5">
           {seriesQuery.isError ? (
             <ErrorState onRetry={() => seriesQuery.refetch()} />
           ) : seriesQuery.isPending ? (
             <Skeleton className="h-64 w-full" />
           ) : series && series.length > 0 ? (
-            <MonthlyEvolutionChart data={series} />
+            <MonthlyEvolutionChart data={series} highlightPeriod={highlightPeriod} />
           ) : (
             <EmptyState glyph="▤" title="Todavía no hay datos" className="py-8" />
           )}
@@ -127,14 +141,14 @@ export function Analisis() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Tendencia de saldo" hint="Saldo acumulado al cierre de cada mes" />
+        <PanelHeader title="Tendencia de saldo" hint="Saldo acumulado al cierre de cada mes, últimos 12 meses" />
         <div className="px-4 pb-5">
           {seriesQuery.isError ? (
             <ErrorState onRetry={() => seriesQuery.refetch()} />
           ) : seriesQuery.isPending ? (
             <Skeleton className="h-64 w-full" />
           ) : series && series.length > 0 ? (
-            <BalanceTrendChart data={series} />
+            <BalanceTrendChart data={series} highlightPeriod={highlightPeriod} />
           ) : (
             <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
           )}

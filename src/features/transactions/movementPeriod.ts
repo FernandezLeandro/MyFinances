@@ -82,3 +82,14 @@ export function periodLabel(p: MovementPeriod): string {
 export function defaultMovementPeriod(): MovementPeriod {
   return { preset: 'month', anchor: iso(new Date()), from: '', to: '' }
 }
+
+/** Traduce un rango de Análisis (`Period.from/to`) al modelo de Movimientos, para el drill-down por
+ *  categoría: si el rango es exactamente un mes calendario, un 'month' anclado ahí — así las
+ *  flechas del header de Movimientos siguen funcionando; si no (3m/6m/12m/custom), un 'custom' con
+ *  el rango tal cual. */
+export function movementPeriodFromRange(from: string, to: string): MovementPeriod {
+  const fromDate = parseISO(from)
+  const isCalendarMonth = iso(startOfMonth(fromDate)) === from && iso(endOfMonth(fromDate)) === to
+  if (isCalendarMonth) return { preset: 'month', anchor: from, from: '', to: '' }
+  return { preset: 'custom', anchor: from, from, to }
+}
