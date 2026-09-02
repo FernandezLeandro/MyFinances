@@ -26,7 +26,7 @@ import { summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixe
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
-import { ObligacionesTabs } from '@/features/credits/ObligacionesTabs'
+import { PendientesTabs } from '@/components/PendientesTabs'
 import { summarizeCredits } from '@/features/credits/aggregate'
 import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
 
@@ -208,7 +208,7 @@ export function Fijos() {
           />
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
           <div className="mt-3">
-            <ObligacionesTabs />
+            <PendientesTabs />
           </div>
         </div>
         <div className="flex items-center gap-2">

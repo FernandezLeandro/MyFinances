@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { reconciliar } from './aggregate'
-import { makeLocation, makeReceivable } from '@/test/factories'
+import { makeLocation, makeReceivableSummary } from '@/test/factories'
 
 describe('reconciliar', () => {
   it('sin lugares ni deudas → todo en 0 y diferencia igual al saldo entero, sin romper', () => {
@@ -48,7 +48,7 @@ describe('reconciliar', () => {
   })
 
   it('una deuda sola, sin lugares → suma igual que un lugar, no rompe', () => {
-    const receivables = [makeReceivable({ amountCents: 10_000_00 })]
+    const receivables = [makeReceivableSummary({ pendingCents: 10_000_00 })]
     const r = reconciliar([], receivables, 0)
     expect(r.locationsCents).toBe(0)
     expect(r.receivablesCents).toBe(10_000_00)
@@ -60,7 +60,7 @@ describe('reconciliar', () => {
     // El saldo de la app sigue contando esos $10.000 (no hubo gasto real), así que sin la deuda
     // cargada el cuadre marcaría -$10.000 de diferencia — el caso que motiva esta función.
     const locations = [makeLocation({ amountCents: 140_000 })]
-    const receivables = [makeReceivable({ amountCents: 10_000 })]
+    const receivables = [makeReceivableSummary({ pendingCents: 10_000 })]
     const r = reconciliar(locations, receivables, 150_000)
     expect(r.diffCents).toBe(0)
     expect(r.cuadrado).toBe(true)
@@ -68,11 +68,65 @@ describe('reconciliar', () => {
 
   it('lugares y deudas combinados → cada suma se reporta por separado además del total', () => {
     const locations = [makeLocation({ amountCents: 50_000 }), makeLocation({ amountCents: 20_000 })]
-    const receivables = [makeReceivable({ amountCents: 5_000 }), makeReceivable({ amountCents: 3_000 })]
+    const receivables = [makeReceivableSummary({ pendingCents: 5_000 }), makeReceivableSummary({ pendingCents: 3_000 })]
     const r = reconciliar(locations, receivables, 70_000)
     expect(r.locationsCents).toBe(70_000)
     expect(r.receivablesCents).toBe(8_000)
     expect(r.totalCents).toBe(78_000)
     expect(r.diffCents).toBe(8_000)
+  })
+
+  it('deuda con already_expensed no suma en el cuadre, pero se reporta en expensedPendingCents', () => {
+    const receivables = [makeReceivableSummary({ pendingCents: 10_000_00, alreadyExpensed: true })]
+    const r = reconciliar([], receivables, 0)
+    expect(r.receivablesCents).toBe(0)
+    expect(r.expensedPendingCents).toBe(10_000_00)
+    expect(r.totalCents).toBe(0)
+  })
+
+  it('mezcla de flags → sólo la que no está ya gastada entra en totalCents', () => {
+    const locations = [makeLocation({ amountCents: 100_000 })]
+    const receivables = [
+      makeReceivableSummary({ pendingCents: 20_000, alreadyExpensed: false }),
+      makeReceivableSummary({ pendingCents: 30_000, alreadyExpensed: true }),
+    ]
+    const r = reconciliar(locations, receivables, 120_000)
+    expect(r.receivablesCents).toBe(20_000)
+    expect(r.expensedPendingCents).toBe(30_000)
+    expect(r.totalCents).toBe(120_000)
+    expect(r.diffCents).toBe(0)
+  })
+
+  it('deuda con abono parcial suma sólo lo pendiente, no el total original', () => {
+    const receivables = [makeReceivableSummary({ pendingCents: 30_000 })]
+    const r = reconciliar([], receivables, 30_000)
+    expect(r.receivablesCents).toBe(30_000)
+    expect(r.cuadrado).toBe(true)
+  })
+
+  it('deuda ya cobrada no suma en ningún campo', () => {
+    const receivables = [makeReceivableSummary({ pendingCents: 0, cobrada: true })]
+    const r = reconciliar([], receivables, 0)
+    expect(r.receivablesCents).toBe(0)
+    expect(r.expensedPendingCents).toBe(0)
+    expect(r.cuadrado).toBe(true)
+  })
+
+  it('caso doctrinal: pagaste $10.000 con débito por un tercero y cargaste el gasto → el cuadre da 0 sin sumar la deuda', () => {
+    // Si `receivablesCents` sumara acá, el cuadre marcaría +$10.000 de excedente falso — la plata
+    // ya salió del saldo cuando se cargó el gasto, no está en ningún lado más.
+    const locations = [makeLocation({ amountCents: 140_000 })]
+    const receivables = [makeReceivableSummary({ pendingCents: 10_000, alreadyExpensed: true })]
+    const r = reconciliar(locations, receivables, 140_000)
+    expect(r.diffCents).toBe(0)
+    expect(r.cuadrado).toBe(true)
+  })
+
+  it('expensedPendingCents nunca afecta diffCents', () => {
+    const locations = [makeLocation({ amountCents: 50_000 })]
+    const a = reconciliar(locations, [], 50_000)
+    const b = reconciliar(locations, [makeReceivableSummary({ pendingCents: 999_999, alreadyExpensed: true })], 50_000)
+    expect(a.diffCents).toBe(b.diffCents)
+    expect(b.diffCents).toBe(0)
   })
 })
