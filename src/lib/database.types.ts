@@ -435,6 +435,9 @@ export interface Database {
           user_id: string
           name: string
           amount: string
+          expected_period: string | null
+          already_expensed: boolean
+          note: string | null
           updated_at: string
           created_at: string
         }
@@ -443,9 +446,43 @@ export interface Database {
           user_id: string
           name: string
           amount?: number | string
+          expected_period?: string | null
+          already_expensed?: boolean
+          note?: string | null
           updated_at?: string
         }
-        Update: Partial<{ name: string; amount: number | string; updated_at: string }>
+        Update: Partial<{
+          name: string
+          amount: number | string
+          expected_period: string | null
+          already_expensed: boolean
+          note: string | null
+          updated_at: string
+        }>
+        Relationships: []
+      }
+      receivable_payments: {
+        Row: {
+          id: string
+          user_id: string
+          receivable_id: string
+          amount: string
+          occurred_on: string
+          transaction_id: string | null
+          created_at: string
+        }
+        // Insert/Update quedan sin uso real: los abonos siempre entran y salen por RPC (ver
+        // rpc_register_receivable_payment / rpc_delete_receivable_payment). Se declaran igual para
+        // que el tipo de la tabla sea completo y `.from('receivable_payments').select()` tipe bien.
+        Insert: {
+          id?: string
+          user_id: string
+          receivable_id: string
+          amount: number | string
+          occurred_on?: string
+          transaction_id?: string | null
+        }
+        Update: Record<string, never>
         Relationships: []
       }
     }
@@ -534,6 +571,19 @@ export interface Database {
       }
       rpc_unmark_credit_card_paid: {
         Args: { p_card_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_register_receivable_payment: {
+        Args: {
+          p_receivable_id: string
+          p_amount: number | string
+          p_occurred_on?: string | null
+          p_category_id?: string | null
+        }
+        Returns: undefined
+      }
+      rpc_delete_receivable_payment: {
+        Args: { p_payment_id: string }
         Returns: undefined
       }
     }

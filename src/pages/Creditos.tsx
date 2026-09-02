@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
-import { ObligacionesTabs } from '@/features/credits/ObligacionesTabs'
+import { PendientesTabs } from '@/components/PendientesTabs'
 import { ProgresoGuardado } from '@/features/credits/ProgresoGuardado'
 import { summarizeCredits, type CardSummary } from '@/features/credits/aggregate'
 import {
@@ -141,7 +141,7 @@ export function Creditos() {
           />
           <h1 className="mt-2 font-display text-figure font-semibold">Créditos</h1>
           <div className="mt-3">
-            <ObligacionesTabs />
+            <PendientesTabs />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

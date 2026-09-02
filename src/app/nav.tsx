@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ArrowDownUp, Calendar, ChartNoAxesColumn, Clock, Ellipsis, LogOut, PiggyBank, Settings } from 'lucide-react'
+import { ArrowDownUp, Calendar, ChartNoAxesColumn, Clock, Ellipsis, HandCoins, LogOut, PiggyBank, Settings } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -38,11 +38,19 @@ const allNavItems: NavItem[] = [
     label: 'Ahorros',
     icon: <PiggyBank className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
   },
+  {
+    to: '/deudas',
+    label: 'Deudas',
+    icon: <HandCoins className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
 ]
 
 /** Secciones que no se consultan seguido: se mudan al drawer de cuenta en mobile en vez de ocupar
- *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). */
-const OVERFLOW_ROUTES = ['/analisis', '/ahorros']
+ *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Deudas entra acá por el
+ *  mismo motivo que Análisis/Ahorros: sobra lugar en el sidebar de desktop (6 ítems verticales),
+ *  pero sumarla al tab bar de mobile rompería el constraint de 360px que ya documenta
+ *  `PendientesTabs` — "Movimientos" pasa a wrappear en dos líneas con 4 tabs + "Más". */
+const OVERFLOW_ROUTES = ['/analisis', '/ahorros', '/deudas']
 
 /** Sidebar de desktop: las 5 secciones — ahí sobra ancho para no tener que recortar nada. */
 export const sidebarNavItems: NavItem[] = allNavItems

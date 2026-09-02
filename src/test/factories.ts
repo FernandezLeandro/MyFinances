@@ -8,7 +8,9 @@ import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 import type { CreditCard, CreditCardPayment, CreditCardSaving, CreditInstallment } from '@/features/credits/api'
-import type { BalanceLocation, Receivable } from '@/features/reconciliation/api'
+import type { BalanceLocation } from '@/features/reconciliation/api'
+import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
+import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import type { FixedExpense, FixedExpensePayment } from '@/features/fixed-expenses/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
@@ -117,9 +119,50 @@ export function makeReceivable(p: Partial<Receivable> & Pick<Receivable, 'amount
     id: `receivable-${Math.random().toString(36).slice(2)}`,
     user_id: 'user-1',
     name: 'Juan',
+    // Valores del backfill: una deuda de antes de "deudas a favor" es "me deben, no sé cuándo,
+    // presté efectivo" — exactamente lo que dejaba `alter table ... add column ... default`.
+    expected_period: null,
+    already_expensed: false,
+    note: null,
     updated_at: FIXED_DATE,
     created_at: FIXED_DATE,
     ...p,
+  }
+}
+
+export function makeReceivablePayment(
+  p: Partial<ReceivablePayment> & Pick<ReceivablePayment, 'receivable_id' | 'amountCents'>,
+): ReceivablePayment {
+  return {
+    id: `receivable-payment-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    occurred_on: '2026-01-01',
+    transaction_id: null,
+    created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+/** Summary armado a mano, para los tests de `reconciliar()`: ahí lo único que importa es
+ *  `pendingCents` + el flag, no cómo se llegó a ese pendiente (eso lo cubre
+ *  `receivables/aggregate.test.ts`). Evita que los tests del cuadre tengan que construir abonos. */
+export function makeReceivableSummary(p: {
+  pendingCents: number
+  alreadyExpensed?: boolean
+  cobrada?: boolean
+  receivable?: Partial<Receivable>
+}): ReceivableSummary {
+  const alreadyExpensed = p.alreadyExpensed ?? false
+  const cobrada = p.cobrada ?? false
+  return {
+    receivable: makeReceivable({ amountCents: p.pendingCents, already_expensed: alreadyExpensed, ...p.receivable }),
+    payments: [],
+    paidCents: 0,
+    pendingCents: p.pendingCents,
+    overpaidCents: 0,
+    cobrada,
+    vencida: false,
+    cuentaEnCuadre: !alreadyExpensed && !cobrada,
   }
 }
 

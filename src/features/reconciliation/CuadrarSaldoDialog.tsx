@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { Link } from 'react-router'
 import { X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
@@ -12,15 +14,14 @@ import { TransactionFormDialog } from '@/features/transactions/TransactionFormDi
 import {
   useBalanceLocations,
   useCreateBalanceLocation,
-  useCreateReceivable,
   useDeleteBalanceLocation,
-  useDeleteReceivable,
-  useReceivables,
   useUpdateBalanceLocation,
-  useUpdateReceivable,
   type BalanceLocation,
-  type Receivable,
 } from '@/features/reconciliation/api'
+import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
+import { summarizeReceivables, type ReceivableSummary } from '@/features/receivables/aggregate'
+import { ReceivableFormDialog } from '@/features/receivables/ReceivableFormDialog'
+import { ReceivableDetailDialog } from '@/features/receivables/ReceivableDetailDialog'
 import { reconciliar } from '@/features/reconciliation/aggregate'
 
 interface CuadrarSaldoDialogProps {
@@ -29,7 +30,8 @@ interface CuadrarSaldoDialogProps {
 }
 
 /** Fila editable de nombre + monto, sin "Guardar" aparte: cada campo persiste solo al perder foco.
- *  Compartida entre "Dónde tenés la plata" y "Te deben" — son la misma forma con destino distinto. */
+ *  Sólo la usa `LugarRow` — las deudas dejaron de editarse acá (ver el comentario del componente
+ *  principal, más abajo, sobre por qué). */
 function EditableAmountRow({
   name: initialName,
   amountCents: initialAmountCents,
@@ -119,21 +121,28 @@ function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocu
   )
 }
 
-function DeudaRow({ receivable, autoFocus }: { receivable: Receivable; autoFocus?: boolean }) {
-  const updateReceivable = useUpdateReceivable()
-  const deleteReceivable = useDeleteReceivable()
-
+/** Fila de deuda, read-only: a diferencia de `LugarRow`, acá el "monto" es lo pendiente — un
+ *  derivado de total menos abonos — y no hay dónde escribirlo directo sin contradecir en silencio
+ *  los abonos ya registrados. Tocarla abre el detalle completo (editar, ver abonos, registrar uno
+ *  nuevo). */
+function DeudaRow({ summary, onOpenDetail }: { summary: ReceivableSummary; onOpenDetail: () => void }) {
+  const { receivable, pendingCents } = summary
   return (
-    <EditableAmountRow
-      name={receivable.name}
-      amountCents={receivable.amountCents}
-      placeholder="Juan, mi hermana…"
-      autoFocus={autoFocus}
-      onSaveName={(name) => updateReceivable.mutate({ id: receivable.id, name })}
-      onSaveAmount={(cents) => updateReceivable.mutate({ id: receivable.id, cents })}
-      onDelete={() => deleteReceivable.mutate(receivable.id)}
-      deleteLabel={`Eliminar ${receivable.name || 'deuda'}`}
-    />
+    <button
+      type="button"
+      onClick={onOpenDetail}
+      className="flex items-center gap-3 rounded-control px-1 py-1.5 text-left transition-colors hover:bg-ink-850"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] text-chalk">{receivable.name}</p>
+        <p className="text-[12px] text-chalk-faint">
+          {receivable.expected_period
+            ? format(parseISO(receivable.expected_period), 'MMM yyyy', { locale: es })
+            : 'Sin fecha'}
+        </p>
+      </div>
+      <Money cents={pendingCents} tone="acid" />
+    </button>
   )
 }
 
@@ -143,52 +152,74 @@ function DeudaRow({ receivable, autoFocus }: { receivable: Receivable; autoFocus
  * número. La comparación sigue siendo contra `useCurrentBalance` — el mismo dato del héroe de Hoy —
  * y las dos salidas (ajustar directo / registrar como movimiento) son las que ya existían.
  *
- * "Te deben" suma del lado de "Tenés": prestar plata no genera un movimiento (no es un gasto, va a
- * volver), así que `rpc_current_balance` ya la cuenta — sin esto, el cuadre marca una diferencia
- * falsa. Ver el comentario de la migración `receivables` para el porqué completo.
+ * "Te deben" suma del lado de "Tenés" — pero sólo lo que todavía cuenta como plata tuya (ver
+ * `ReceivableSummary.cuentaEnCuadre`): prestar efectivo no genera un movimiento (no es un gasto, va
+ * a volver), así que `rpc_current_balance` ya la cuenta. Las deudas con "ya lo cargué como gasto" NO
+ * suman acá — esa plata ya salió del saldo cuando se cargó el gasto real, y sumarla otra vez
+ * marcaría un excedente falso — se muestran aparte, atenuadas, para que no parezca que la app se
+ * las comió. Ver el comentario de la migración `receivables_deudas_a_favor` para el porqué completo.
  *
- * Sin diálogos anidados para el flujo principal: cada fila se edita y persiste sola (`onBlur`), sin
- * un "Guardar" aparte — cerrar a mitad de camino no pierde nada. La única excepción es "Registrar
- * como movimiento", que sí abre `TransactionFormDialog` encima, con el mismo guard de
- * `open && !registerPrompt` que ya usaba este diálogo antes de este cambio.
+ * Las deudas dejaron de editarse inline acá (a diferencia de los lugares): con abonos parciales,
+ * el "monto" de una fila es ambiguo — si es el total, tocarlo contradice en silencio los abonos ya
+ * registrados; si es lo pendiente, no hay dónde escribirlo, es derivado. El botón "+ Agregar deuda"
+ * sigue en el mismo lugar, pero abre el alta completa (`ReceivableFormDialog`) en vez de crear una
+ * fila vacía — la captura rápida se mantiene, sólo que con un campo más para completar.
+ *
+ * Sin diálogos anidados para el flujo principal de lugares: cada fila se edita y persiste sola
+ * (`onBlur`), sin un "Guardar" aparte. Las deudas SÍ anidan (alta, detalle, "Registrar como
+ * movimiento"), con el mismo guard de `open && !anidado` que ya usaba este diálogo antes de este
+ * cambio, ahora con tres banderas en vez de una.
  */
 export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   const { data: currentBalanceCents, isPending: isBalancePending } = useCurrentBalance()
   const { data: locations, isPending: isLocationsPending } = useBalanceLocations()
   const { data: receivables, isPending: isReceivablesPending } = useReceivables()
+  const { data: receivablePayments, isPending: isPaymentsPending } = useReceivablePayments()
   const createLocation = useCreateBalanceLocation()
-  const createReceivable = useCreateReceivable()
   const createTx = useCreateTransaction()
   const [registerPrompt, setRegisterPrompt] = useState<{ type: TransactionType; cents: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastAddedLocationId, setLastAddedLocationId] = useState<string | null>(null)
-  const [lastAddedReceivableId, setLastAddedReceivableId] = useState<string | null>(null)
+  const [receivableFormOpen, setReceivableFormOpen] = useState(false)
+  const [detailSummary, setDetailSummary] = useState<ReceivableSummary | null>(null)
 
-  const rec = useMemo(
-    () => reconciliar(locations ?? [], receivables ?? [], currentBalanceCents ?? 0),
-    [locations, receivables, currentBalanceCents],
+  const isReceivablesLoadingAny = isReceivablesPending || isPaymentsPending
+  const receivablesSummary = useMemo(
+    () => summarizeReceivables(receivables ?? [], receivablePayments ?? [], new Date()),
+    [receivables, receivablePayments],
   )
+  // `reconciliar` filtra por `cuentaEnCuadre` puertas adentro — se le pasan todas (pendientes y
+  // cobradas), así el contrato no depende de qué lista exacta le mandaste.
+  const allReceivableSummaries = useMemo(
+    () => [...receivablesSummary.pendientes, ...receivablesSummary.cobradas],
+    [receivablesSummary],
+  )
+  const rec = useMemo(
+    () => reconciliar(locations ?? [], allReceivableSummaries, currentBalanceCents ?? 0),
+    [locations, allReceivableSummaries, currentBalanceCents],
+  )
+  // Las pendientes ya filtran `!cobrada`, así que "ya la cargué como gasto" alcanza para separar
+  // las que suman (normalReceivables) de las que no (expensedReceivables) — ver el comentario de
+  // cabecera de este componente.
+  const normalReceivables = receivablesSummary.pendientes.filter((r) => !r.receivable.already_expensed)
+  const expensedReceivables = receivablesSummary.pendientes.filter((r) => r.receivable.already_expensed)
+
   const hasLocations = (locations ?? []).length > 0
-  const hasReceivables = (receivables ?? []).length > 0
+  const hasReceivables = normalReceivables.length > 0 || expensedReceivables.length > 0
   const hasAnyRow = hasLocations || hasReceivables
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
-  // cierra vía `.close()` (acá pasa al abrir el alta de movimiento encima). Sin este filtro, pasar
-  // a "Registrar como movimiento" cerraba todo el flujo de un tirón.
+  // cierra vía `.close()` (acá pasa al abrir el alta de movimiento o de deuda encima, o el detalle
+  // de una deuda). Sin este filtro, pasar a cualquiera de esos tres cerraba todo el flujo de un
+  // tirón.
   function handleDialogClose() {
-    if (!registerPrompt) onClose()
+    if (!registerPrompt && !receivableFormOpen && !detailSummary) onClose()
   }
 
   async function handleAddLocation() {
     setError(null)
     const created = await createLocation.mutateAsync({ name: '', cents: 0 })
     setLastAddedLocationId(created.id)
-  }
-
-  async function handleAddReceivable() {
-    setError(null)
-    const created = await createReceivable.mutateAsync({ name: '', cents: 0 })
-    setLastAddedReceivableId(created.id)
   }
 
   function validateDiff(): number | null {
@@ -227,7 +258,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   return (
     <>
       <Dialog
-        open={open && !registerPrompt}
+        open={open && !registerPrompt && !receivableFormOpen && !detailSummary}
         onClose={handleDialogClose}
         title="Cuadrar saldo"
         footer={
@@ -280,30 +311,47 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
 
           <div className="border-t border-ink-800 pt-5">
             <p className="eyebrow mb-2">Te deben</p>
-            {isReceivablesPending ? (
+            {isReceivablesLoadingAny ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : (
-              hasReceivables && (
-                <div className="flex flex-col gap-2">
-                  {(receivables ?? []).map((receivable) => (
-                    <DeudaRow key={receivable.id} receivable={receivable} autoFocus={receivable.id === lastAddedReceivableId} />
+              normalReceivables.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {normalReceivables.map((item) => (
+                    <DeudaRow key={item.receivable.id} summary={item} onOpenDetail={() => setDetailSummary(item)} />
                   ))}
                 </div>
               )
             )}
             <button
               type="button"
-              onClick={handleAddReceivable}
-              disabled={createReceivable.isPending}
+              onClick={() => setReceivableFormOpen(true)}
               className="mt-2 text-[12px] font-medium text-acid hover:underline"
             >
               + Agregar deuda
             </button>
-            <p className="mt-2 text-[12px] text-chalk-faint">
-              Al prestar no cargues un gasto: esa plata sigue siendo tuya. Cuando te paguen, borrá la fila y sumá el
-              monto en el lugar donde entró.
+
+            {expensedReceivables.length > 0 && (
+              <div className="mt-4 border-t border-ink-850 pt-3">
+                <p className="eyebrow mb-2">Ya lo cargaste como gasto</p>
+                <div className="flex flex-col gap-1 opacity-60">
+                  {expensedReceivables.map((item) => (
+                    <DeudaRow key={item.receivable.id} summary={item} onOpenDetail={() => setDetailSummary(item)} />
+                  ))}
+                </div>
+                <p className="mt-2 text-[12px] text-chalk-faint">
+                  Esta plata ya salió del saldo cuando registraste el gasto, así que no suma acá.
+                </p>
+              </div>
+            )}
+
+            <p className="mt-3 text-[12px] text-chalk-faint">
+              Al prestar efectivo no cargues un gasto: esa plata sigue siendo tuya. Cuando te devuelvan,
+              registrá el abono desde la deuda y sumá el monto en el lugar donde entró.{' '}
+              <Link to="/deudas" className="font-medium text-acid hover:underline">
+                Ver todas en Deudas →
+              </Link>
             </p>
           </div>
 
@@ -322,6 +370,14 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                     <Money cents={rec.receivablesCents} tone="acid" />
                   </dd>
                 </div>
+                {rec.expensedPendingCents > 0 && (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-chalk-faint">Ya lo cargaste como gasto</dt>
+                    <dd>
+                      <Money cents={rec.expensedPendingCents} tone="dim" />
+                    </dd>
+                  </div>
+                )}
               </>
             )}
             <div className="flex justify-between gap-4">
@@ -361,6 +417,18 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
           }}
           prefill={registerPrompt}
         />
+      )}
+
+      {receivableFormOpen && (
+        <ReceivableFormDialog
+          open={receivableFormOpen}
+          onClose={() => setReceivableFormOpen(false)}
+          defaultAlreadyExpensed={false}
+        />
+      )}
+
+      {detailSummary && (
+        <ReceivableDetailDialog open={!!detailSummary} onClose={() => setDetailSummary(null)} summary={detailSummary} />
       )}
     </>
   )
