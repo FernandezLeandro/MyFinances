@@ -3,7 +3,7 @@ import { summarizeFixedExpenses } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
-// mismo gotcha documentado en `permiteActualizarPlantilla`/`projectBudget`.
+// mismo gotcha documentado en `permiteActualizarPlantilla`.
 const AGOSTO = new Date(2026, 7, 1)
 const HOY_EN_AGOSTO = new Date(2026, 7, 20)
 

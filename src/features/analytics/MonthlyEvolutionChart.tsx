@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -31,7 +31,16 @@ function CustomTooltip({ active, payload }: TooltipContentProps) {
   )
 }
 
-export function MonthlyEvolutionChart({ data }: { data: MonthlyPoint[] }) {
+interface MonthlyEvolutionChartProps {
+  data: MonthlyPoint[]
+  /** `yyyy-MM-dd` (primer día del mes) del mes elegido en Análisis — sus barras quedan a opacidad
+   *  plena, el resto de la ventana de 12 meses se atenúa para no competir con el mes en foco. */
+  highlightPeriod?: string
+}
+
+export function MonthlyEvolutionChart({ data, highlightPeriod }: MonthlyEvolutionChartProps) {
+  const opacityFor = (period: string) => (!highlightPeriod || period === highlightPeriod ? 1 : 0.35)
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -52,8 +61,16 @@ export function MonthlyEvolutionChart({ data }: { data: MonthlyPoint[] }) {
             width={44}
           />
           <Tooltip content={CustomTooltip} cursor={{ fill: chartColors.inkGrid }} />
-          <Bar dataKey="incomeCents" fill={chartColors.acid} radius={[3, 3, 0, 0]} maxBarSize={18} />
-          <Bar dataKey="expenseCents" fill={chartColors.coral} radius={[3, 3, 0, 0]} maxBarSize={18} />
+          <Bar dataKey="incomeCents" fill={chartColors.acid} radius={[3, 3, 0, 0]} maxBarSize={18}>
+            {data.map((d) => (
+              <Cell key={d.period} fillOpacity={opacityFor(d.period)} />
+            ))}
+          </Bar>
+          <Bar dataKey="expenseCents" fill={chartColors.coral} radius={[3, 3, 0, 0]} maxBarSize={18}>
+            {data.map((d) => (
+              <Cell key={d.period} fillOpacity={opacityFor(d.period)} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

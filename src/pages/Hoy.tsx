@@ -115,7 +115,6 @@ export function Hoy() {
       </header>
 
       <SaldoProyectadoPanel
-        period={period}
         projectedCents={projectedBalance}
         isPending={isProjectedPending}
         currentBalanceCents={balance.data ?? 0}

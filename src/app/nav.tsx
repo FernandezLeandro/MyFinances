@@ -40,14 +40,19 @@ const allNavItems: NavItem[] = [
   },
 ]
 
+/** Secciones que no se consultan seguido: se mudan al drawer de cuenta en mobile en vez de ocupar
+ *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). */
+const OVERFLOW_ROUTES = ['/analisis', '/ahorros']
+
 /** Sidebar de desktop: las 5 secciones — ahí sobra ancho para no tener que recortar nada. */
 export const sidebarNavItems: NavItem[] = allNavItems
 
-/** Tab bar de mobile: 4 secciones + el tab "Más" (ver `MobileTabBar`). Ahorros se muda al drawer. */
-export const tabBarNavItems: NavItem[] = allNavItems.filter((item) => item.to !== '/ahorros')
+/** Tab bar de mobile: 3 secciones + el tab "Más" (ver `MobileTabBar`). Análisis y Ahorros se mudan
+ *  al drawer. */
+export const tabBarNavItems: NavItem[] = allNavItems.filter((item) => !OVERFLOW_ROUTES.includes(item.to))
 
 /** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta. */
-export const overflowNavItems: NavItem[] = allNavItems.filter((item) => item.to === '/ahorros')
+export const overflowNavItems: NavItem[] = allNavItems.filter((item) => OVERFLOW_ROUTES.includes(item.to))
 
 /** Íconos sueltos, consumidos fuera del sidebar/tab bar: `AccountMenu` (ajustes, cerrar sesión) y
  *  `MobileTabBar` (el tab "Más"). Valores JSX, no componentes — igual que los íconos de `allNavItems`

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, ChevronLeft, ChevronRight, Pause, Plus } from 'lucide-react'
+import { Check, ChevronRight, Pause, Plus } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
+import { MonthNav } from '@/components/ui/MonthNav'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -200,25 +201,11 @@ export function Fijos() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setMonth((m) => subMonths(m, 1))}
-              aria-label="Mes anterior"
-              className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-            >
-              <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
-            </button>
-            <p className="eyebrow">{format(month, 'MMMM yyyy', { locale: es })}</p>
-            <button
-              type="button"
-              onClick={() => setMonth((m) => addMonths(m, 1))}
-              aria-label="Mes siguiente"
-              className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
-            >
-              <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
-            </button>
-          </div>
+          <MonthNav
+            label={format(month, 'MMMM yyyy', { locale: es })}
+            onPrev={() => setMonth((m) => subMonths(m, 1))}
+            onNext={() => setMonth((m) => addMonths(m, 1))}
+          />
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
           <div className="mt-3">
             <ObligacionesTabs />
@@ -365,7 +352,6 @@ export function Fijos() {
 
         <div className="order-1 flex flex-col gap-6 lg:order-2">
           <SaldoProyectadoPanel
-            period={period}
             projectedCents={projectedBalance}
             isPending={isProjectedPending}
             currentBalanceCents={currentBalance ?? 0}
