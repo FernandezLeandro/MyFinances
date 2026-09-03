@@ -22,7 +22,7 @@ import {
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
 import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
-import { summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
+import { compareFixedExpenses, summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
@@ -113,7 +113,7 @@ function FixedExpenseRow({
           ) : (
             <p className="mt-0.5 text-[12px]">
               <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
-                {vencido ? `Venció el ${fe.due_day}` : `Vence el ${fe.due_day}`}
+                {vencido ? `Venció el ${fe.due_day ?? '—'}` : `Vence el ${fe.due_day ?? '—'}`}
               </span>
             </p>
           )}
@@ -170,7 +170,7 @@ export function Fijos() {
     () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
     [fixedExpenses, month],
   )
-  const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort((a, b) => a.due_day - b.due_day)
+  const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort(compareFixedExpenses)
 
   const { pending, done: paidItems, pendingTotalCents } = useMemo(
     () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date()),
@@ -238,7 +238,7 @@ export function Fijos() {
             toda la lista de fijos sólo para verlo — en desktop (lg:) vuelve a su lugar a la derecha
             de la lista, sin tocar el layout de dos columnas. */}
         <Panel className="order-2 lg:order-1 lg:col-span-2">
-          <PanelHeader title="Del mes" hint="Ordenados por día de vencimiento" />
+          <PanelHeader title="Del mes" hint="Recurrentes primero, después por vencimiento" />
           {isError ? (
             <ErrorState onRetry={() => refetch()} />
           ) : isPending ? (
@@ -270,7 +270,7 @@ export function Fijos() {
                     key={status.fe.id}
                     status={status}
                     categoryColor={categoryById.get(status.fe.category_id ?? '')?.color}
-                    vencido={isCurrentMonth && status.fe.due_day < todayDay}
+                    vencido={isCurrentMonth && status.fe.due_day != null && status.fe.due_day < todayDay}
                     busy={unmarkPayment.isPending}
                     hidden={balanceHidden}
                     onPrimaryAction={() => handlePrimaryAction(status)}
@@ -336,7 +336,7 @@ export function Fijos() {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-[14px] text-chalk-faint">{fe.name}</p>
                             <p className="mt-0.5 text-[12px] text-chalk-faint">
-                              Pausado · {fe.is_recurring ? 'bolsa mensual' : `vence el ${fe.due_day}`}
+                              Pausado · {fe.due_day != null ? `vence el ${fe.due_day}` : 'bolsa mensual'}
                             </p>
                           </div>
                         </button>
@@ -374,7 +374,7 @@ export function Fijos() {
                       style={{ backgroundColor: categoryById.get(status.fe.category_id ?? '')?.color }}
                     />
                     <span className="min-w-0 flex-1 truncate text-[14px]">{status.fe.name}</span>
-                    {!status.fe.is_recurring && <span className="tnum text-[12px] text-chalk-faint">día {status.fe.due_day}</span>}
+                    {status.fe.due_day != null && <span className="tnum text-[12px] text-chalk-faint">día {status.fe.due_day}</span>}
                     <Money cents={status.remainingCents} tone="dim" hidden={balanceHidden} />
                   </li>
                 ))}

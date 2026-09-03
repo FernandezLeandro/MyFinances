@@ -98,7 +98,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
         <div className="mb-5 border-b border-ink-850 pb-5">
           <p className="eyebrow">{fixedExpense.is_recurring ? 'Presupuesto mensual' : 'Importe actual'}</p>
           <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
-          {!fixedExpense.is_recurring && <p className="mt-2 text-[12px] text-chalk-faint">Vence el {fixedExpense.due_day}</p>}
+          {fixedExpense.due_day != null && <p className="mt-2 text-[12px] text-chalk-faint">Vence el {fixedExpense.due_day}</p>}
         </div>
 
         <p className="eyebrow mb-3">Historial de pagos</p>
@@ -125,6 +125,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                     <li key={payment.id} className="flex items-center gap-3 px-6 py-1.5 pl-9">
                       <p className="min-w-0 flex-1 truncate text-[12px] text-chalk-faint">
                         {format(parseISO(payment.paid_at), "d 'de' MMMM", { locale: es })}
+                        {payment.note ? ` · ${payment.note}` : ''}
                       </p>
                       <Money cents={payment.amountPaidCents} tone="dim" size="inline" />
                       <button

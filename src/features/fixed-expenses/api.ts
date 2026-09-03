@@ -32,7 +32,7 @@ export function useFixedExpenses(includeInactive = false) {
     queryKey: ['fixed-expenses', user?.id, includeInactive],
     enabled: !!user,
     queryFn: async () => {
-      let query = supabase.from('fixed_expenses').select('*').order('due_day')
+      let query = supabase.from('fixed_expenses').select('*').order('is_recurring', { ascending: false }).order('due_day')
       if (!includeInactive) query = query.eq('is_active', true)
       const { data, error } = await query
       if (error) throw error
@@ -97,7 +97,8 @@ export interface FixedExpenseInput {
   name: string
   cents: number
   categoryId: string | null
-  dueDay: number
+  /** `null` en recurrentes: una bolsa no vence, así que no tiene sentido pedir un día. */
+  dueDay: number | null
   isActive: boolean
   /** Bolsa mensual: `cents` pasa a ser el presupuesto del mes, y se puede marcar varias veces
    *  (ver `useMarkFixedExpensePaid`/`aggregate.ts`) en vez de una sola. */
@@ -187,17 +188,23 @@ export function useMarkFixedExpensePaid() {
       fixedExpenseId,
       period,
       cents,
+      note,
     }: {
       fixedExpenseId: string
       period: string
       /** Importe realmente pagado — puede diferir del importe de la plantilla (aumentos, ajustes).
        *  El RPC decide solo si con esto actualiza la plantilla (sólo mes en curso o futuro). */
       cents: number
+      /** Sólo bolsas: detalle de esta carga puntual ("Chino del barrio"). Pasa a ser la descripción
+       *  del movimiento en vez del nombre del fijo — sin esto, todas las cargas de una bolsa se ven
+       *  igual en /movimientos. */
+      note?: string | null
     }) => {
       const { error } = await supabase.rpc('rpc_mark_fixed_expense_paid', {
         p_fixed_expense_id: fixedExpenseId,
         p_period: period,
         p_amount: centsToNumeric(cents),
+        p_note: note ?? null,
       })
       if (error) throw error
     },

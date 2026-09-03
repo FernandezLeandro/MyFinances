@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeFixedExpenses } from './aggregate'
+import { compareFixedExpenses, summarizeFixedExpenses } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
@@ -91,15 +91,15 @@ describe('summarizeFixedExpenses — bolsa (is_recurring)', () => {
 })
 
 describe('summarizeFixedExpenses — mezcla', () => {
-  it('pendingTotalCents suma el remanente de fijos y bolsas por igual, ordenado por día de vencimiento', () => {
+  it('pendingTotalCents suma el remanente de fijos y bolsas por igual, recurrentes primero', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
-    const nafta = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true, due_day: 10 })
+    const nafta = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true, due_day: null })
     const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 15 })
     const payments = [makeFixedExpensePayment({ fixed_expense_id: 'nafta', amountPaidCents: 18_000_00 })]
 
     const s = summarizeFixedExpenses([internet, nafta, alquiler], payments, AGOSTO, HOY_EN_AGOSTO)
 
-    expect(s.pending.map((p) => p.fe.id)).toEqual(['alquiler', 'nafta', 'internet'])
+    expect(s.pending.map((p) => p.fe.id)).toEqual(['nafta', 'alquiler', 'internet'])
     expect(s.pendingTotalCents).toBe(450_000_00 + 42_000_00 + 35_000_00)
   })
 
@@ -108,5 +108,18 @@ describe('summarizeFixedExpenses — mezcla', () => {
     const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
     expect(s.pending).toHaveLength(0)
     expect(s.done).toHaveLength(0)
+  })
+})
+
+describe('compareFixedExpenses', () => {
+  it('pone todos los recurrentes antes que los de una sola vez', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', due_day: 5 })
+    const internet = makeFixedExpense({ id: 'internet', due_day: 1 })
+    const nafta = makeFixedExpense({ id: 'nafta', is_recurring: true, due_day: null, name: 'Nafta' })
+    const comida = makeFixedExpense({ id: 'comida', is_recurring: true, due_day: null, name: 'Comida' })
+
+    const sorted = [alquiler, internet, nafta, comida].sort(compareFixedExpenses)
+
+    expect(sorted.map((fe) => fe.id)).toEqual(['comida', 'nafta', 'internet', 'alquiler'])
   })
 })

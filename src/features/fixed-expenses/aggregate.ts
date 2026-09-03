@@ -49,6 +49,16 @@ function statusFor(fe: FixedExpense, payments: FixedExpensePayment[], period: Da
   return { fe, payments: fePayments, paidCents, remainingCents, done, overspentCents }
 }
 
+/** Recurrentes primero (no tienen vencimiento: son una bolsa que se va llenando todo el mes, no una
+ *  fecha que llega), después los de una sola vez por día de vencimiento. Entre recurrentes, alfabético
+ *  — sin `due_day` no hay criterio natural y el orden de la query no es determinístico. Es el orden
+ *  efectivo de toda la pantalla de Fijos (pendientes, pagados y pausados usan este comparador). */
+export function compareFixedExpenses(a: FixedExpense, b: FixedExpense): number {
+  if (a.is_recurring !== b.is_recurring) return a.is_recurring ? -1 : 1
+  if (a.is_recurring) return a.name.localeCompare(b.name, 'es')
+  return (a.due_day ?? 32) - (b.due_day ?? 32)
+}
+
 export interface FixedExpensesSummary {
   pending: FixedExpenseStatus[]
   done: FixedExpenseStatus[]
@@ -69,7 +79,7 @@ export function summarizeFixedExpenses(
   const eligible = eligibleFixedExpenses(expenses, startOfMonth(period), endOfMonth(period)).filter((fe) => fe.is_active)
   const statuses = eligible
     .map((fe) => statusFor(fe, payments, period, today))
-    .sort((a, b) => a.fe.due_day - b.fe.due_day)
+    .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
 
   return {
     pending: statuses.filter((s) => !s.done),
