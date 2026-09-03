@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { addMonths, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Pencil } from 'lucide-react'
-import { Panel } from '@/components/ui/Panel'
+import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -11,19 +11,25 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
 import { PendientesTabs } from '@/components/PendientesTabs'
 import { ProgresoGuardado } from '@/features/credits/ProgresoGuardado'
-import { summarizeCredits, type CardSummary } from '@/features/credits/aggregate'
+import { summarizeMisDeudas, type CardSummary } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
   useCreditCardSavings,
   useCreditCards,
   useCreditInstallments,
+  useCreditPurchasePayments,
+  useStandalonePurchases,
+  useUnmarkCreditPurchasePaid,
   type CreditCard,
+  type CreditPurchase,
 } from '@/features/credits/api'
 import { useProjectedBalance } from '@/features/fixed-expenses/api'
 import { CreditCardFormDialog } from '@/features/credits/CreditCardFormDialog'
 import { PurchaseFormDialog } from '@/features/credits/PurchaseFormDialog'
 import { CardPeriodDetailDialog } from '@/features/credits/CardPeriodDetailDialog'
 import { MarkCardPaidDialog } from '@/features/credits/MarkCardPaidDialog'
+import { StandalonePurchaseRow } from '@/features/credits/StandalonePurchaseRow'
+import { MarkPurchasePaidDialog } from '@/features/credits/MarkPurchasePaidDialog'
 
 function CardCard({
   summary,
@@ -91,34 +97,55 @@ function CardCard({
   )
 }
 
-export function Creditos() {
+export function MisDeudas() {
   const [month, setMonth] = useState(() => new Date())
   const [cardFormOpen, setCardFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false)
+  const [editingPurchase, setEditingPurchase] = useState<CreditPurchase | null>(null)
   const [detailCard, setDetailCard] = useState<CreditCard | null>(null)
   const [markPaidCard, setMarkPaidCard] = useState<CreditCard | null>(null)
+  const [markPaidPurchase, setMarkPaidPurchase] = useState<CreditPurchase | null>(null)
 
   const period = format(startOfMonth(month), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(month, new Date())
 
   const { data: cards, isPending: isCardsPending, isError, refetch } = useCreditCards()
+  const { data: standalonePurchases, isPending: isStandalonePending } = useStandalonePurchases()
   const { data: installments, isPending: isInstallmentsPending } = useCreditInstallments(period)
   const { data: savings, isPending: isSavingsPending } = useCreditCardSavings(period)
   const { data: payments, isPending: isPaymentsPending } = useCreditCardPayments(period)
+  const { data: purchasePayments, isPending: isPurchasePaymentsPending } = useCreditPurchasePayments(period)
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
+  const unmarkPurchasePaid = useUnmarkCreditPurchasePaid()
 
-  const isPending = isCardsPending || isInstallmentsPending || isSavingsPending || isPaymentsPending
+  const isPending =
+    isCardsPending || isStandalonePending || isInstallmentsPending || isSavingsPending || isPaymentsPending || isPurchasePaymentsPending
 
   const summary = useMemo(
-    () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], payments ?? []),
-    [cards, installments, savings, payments],
+    () =>
+      summarizeMisDeudas(
+        cards ?? [],
+        standalonePurchases ?? [],
+        installments ?? [],
+        savings ?? [],
+        payments ?? [],
+        purchasePayments ?? [],
+      ),
+    [cards, standalonePurchases, installments, savings, payments, purchasePayments],
   )
 
   // Aparte del desglose por categoría en Análisis, esto responde directo "cuánto pagué de tarjeta
   // este mes" — la tarjeta pagada no suma a totalPendingCents (ya salió como movimiento), así que
-  // sin esto ese gasto quedaría sin ningún lugar visible dentro de Créditos.
-  const totalPaidCents = useMemo(() => (payments ?? []).reduce((sum, p) => sum + p.amountPaidCents, 0), [payments])
+  // sin esto ese gasto quedaría sin ningún lugar visible dentro de Mis Deudas.
+  const totalPaidCents = useMemo(
+    () =>
+      (payments ?? []).reduce((sum, p) => sum + p.amountPaidCents, 0) +
+      (purchasePayments ?? []).reduce((sum, p) => sum + p.amountPaidCents, 0),
+    [payments, purchasePayments],
+  )
+
+  const hasAny = (cards ?? []).length > 0 || (standalonePurchases ?? []).length > 0
 
   function openNewCard() {
     setEditingCard(null)
@@ -130,6 +157,16 @@ export function Creditos() {
     setCardFormOpen(true)
   }
 
+  function openNewPurchase() {
+    setEditingPurchase(null)
+    setPurchaseFormOpen(true)
+  }
+
+  function openEditStandalonePurchase(purchase: CreditPurchase) {
+    setEditingPurchase(purchase)
+    setPurchaseFormOpen(true)
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -139,7 +176,7 @@ export function Creditos() {
             onPrev={() => setMonth((m) => subMonths(m, 1))}
             onNext={() => setMonth((m) => addMonths(m, 1))}
           />
-          <h1 className="mt-2 font-display text-figure font-semibold">Créditos</h1>
+          <h1 className="mt-2 font-display text-figure font-semibold">Mis Deudas</h1>
           <div className="mt-3">
             <PendientesTabs />
           </div>
@@ -148,11 +185,7 @@ export function Creditos() {
           <Button variant="outline" onClick={openNewCard}>
             Nueva tarjeta
           </Button>
-          <Button
-            icon={<span className="text-base leading-none">+</span>}
-            onClick={() => setPurchaseFormOpen(true)}
-            disabled={(cards ?? []).length === 0}
-          >
+          <Button icon={<span className="text-base leading-none">+</span>} onClick={openNewPurchase}>
             Nueva compra
           </Button>
         </div>
@@ -173,12 +206,19 @@ export function Creditos() {
             ))}
           </div>
         </div>
-      ) : (cards ?? []).length === 0 ? (
+      ) : !hasAny ? (
         <EmptyState
           glyph="▤"
-          title="Todavía no cargaste ninguna tarjeta"
-          hint="Cargá tu tarjeta de crédito para anotar las compras en cuotas y saber cuánto debés cada mes."
-          action={<Button onClick={openNewCard}>Nueva tarjeta</Button>}
+          title="Todavía no cargaste ninguna deuda"
+          hint="Cargá tu tarjeta de crédito para anotar las compras en cuotas, o una compra suelta si no tenés tarjeta de por medio."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={openNewCard}>
+                Nueva tarjeta
+              </Button>
+              <Button onClick={openNewPurchase}>Nueva compra</Button>
+            </div>
+          }
         />
       ) : (
         <div className="flex flex-col gap-6">
@@ -200,7 +240,7 @@ export function Creditos() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Pagado en tarjetas</dt>
+                  <dt className="text-chalk-faint">Pagado este mes</dt>
                   <dd>
                     <Money cents={totalPaidCents} tone="dim" />
                   </dd>
@@ -216,24 +256,43 @@ export function Creditos() {
                 <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
               )}
               <p className="mt-3 text-[12px] text-chalk-faint">
-                Ya descuenta los fijos y las tarjetas impagas de este período — el
-                mismo número que ves en Fijos.
+                Ya descuenta los fijos y las deudas impagas de este período — el mismo número que ves en Fijos.
               </p>
             </Panel>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {summary.perCard.map((cardSummary) => (
-              <CardCard
-                key={cardSummary.card.id}
-                summary={cardSummary}
-                isCurrentMonth={isCurrentMonth}
-                onEdit={openEditCard}
-                onOpenDetail={setDetailCard}
-                onMarkPaid={setMarkPaidCard}
-              />
-            ))}
-          </div>
+          {summary.perCard.length > 0 && (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {summary.perCard.map((cardSummary) => (
+                <CardCard
+                  key={cardSummary.card.id}
+                  summary={cardSummary}
+                  isCurrentMonth={isCurrentMonth}
+                  onEdit={openEditCard}
+                  onOpenDetail={setDetailCard}
+                  onMarkPaid={setMarkPaidCard}
+                />
+              ))}
+            </div>
+          )}
+
+          {summary.standalone.length > 0 && (
+            <Panel>
+              <PanelHeader title="Compras sin tarjeta" hint="Cuotas de este mes" />
+              <ul>
+                {summary.standalone.map((s) => (
+                  <StandalonePurchaseRow
+                    key={s.purchase.id}
+                    summary={s}
+                    isCurrentMonth={isCurrentMonth}
+                    onEdit={() => openEditStandalonePurchase(s.purchase)}
+                    onMarkPaid={() => setMarkPaidPurchase(s.purchase)}
+                    onUnmarkPaid={() => unmarkPurchasePaid.mutate({ purchaseId: s.purchase.id, period })}
+                  />
+                ))}
+              </ul>
+            </Panel>
+          )}
         </div>
       )}
 
@@ -241,7 +300,12 @@ export function Creditos() {
         <CreditCardFormDialog open={cardFormOpen} onClose={() => setCardFormOpen(false)} card={editingCard} />
       )}
       {purchaseFormOpen && (
-        <PurchaseFormDialog open={purchaseFormOpen} onClose={() => setPurchaseFormOpen(false)} cards={cards ?? []} />
+        <PurchaseFormDialog
+          open={purchaseFormOpen}
+          onClose={() => setPurchaseFormOpen(false)}
+          cards={cards ?? []}
+          purchase={editingPurchase}
+        />
       )}
       {detailCard && (
         <CardPeriodDetailDialog
@@ -261,6 +325,22 @@ export function Creditos() {
           summary={summary.perCard.find((c) => c.card.id === markPaidCard.id) ?? null}
         />
       )}
+      {markPaidPurchase &&
+        (() => {
+          const s = summary.standalone.find((s) => s.purchase.id === markPaidPurchase.id)
+          if (!s) return null
+          return (
+            <MarkPurchasePaidDialog
+              open={!!markPaidPurchase}
+              onClose={() => setMarkPaidPurchase(null)}
+              purchase={markPaidPurchase}
+              period={period}
+              installmentNo={s.item.installment_no}
+              installments={s.item.installments}
+              totalCents={s.totalCents}
+            />
+          )
+        })()}
     </div>
   )
 }

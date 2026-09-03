@@ -315,24 +315,26 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          card_id: string
+          card_id: string | null
           description: string
           installment_amount: string
           installments: number
           first_period: string
           category_id: string | null
+          due_day: number | null
           notes: string | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          card_id: string
+          card_id?: string | null
           description: string
           installment_amount: number | string
           installments: number
           first_period: string
           category_id?: string | null
+          due_day?: number | null
           notes?: string | null
         }
         Update: Partial<{
@@ -341,6 +343,7 @@ export interface Database {
           installments: number
           first_period: string
           category_id: string | null
+          due_day: number | null
           notes: string | null
         }>
         Relationships: []
@@ -410,6 +413,27 @@ export interface Database {
           transaction_id?: string | null
         }
         Update: Partial<{ description: string; transaction_id: string | null }>
+        Relationships: []
+      }
+      credit_purchase_payments: {
+        Row: {
+          id: string
+          user_id: string
+          purchase_id: string
+          period: string
+          paid_at: string
+          amount_paid: string
+          transaction_id: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          purchase_id: string
+          period: string
+          amount_paid: number | string
+          transaction_id?: string | null
+        }
+        Update: Record<string, never>
         Relationships: []
       }
       balance_locations: {
@@ -558,7 +582,7 @@ export interface Database {
       v_credit_installments: {
         Args: { p_period: string }
         Returns: {
-          card_id: string
+          card_id: string | null
           purchase_id: string
           description: string
           installment_no: number
@@ -573,6 +597,14 @@ export interface Database {
       }
       rpc_unmark_credit_card_paid: {
         Args: { p_card_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_mark_credit_purchase_paid: {
+        Args: { p_purchase_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_unmark_credit_purchase_paid: {
+        Args: { p_purchase_id: string; p_period: string }
         Returns: undefined
       }
       rpc_register_receivable_payment: {

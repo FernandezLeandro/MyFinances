@@ -27,8 +27,15 @@ import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpense
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 import { PendientesTabs } from '@/components/PendientesTabs'
-import { summarizeCredits } from '@/features/credits/aggregate'
-import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
+import { summarizeMisDeudas } from '@/features/credits/aggregate'
+import {
+  useCreditCardPayments,
+  useCreditCardSavings,
+  useCreditCards,
+  useCreditInstallments,
+  useCreditPurchasePayments,
+  useStandalonePurchases,
+} from '@/features/credits/api'
 
 function FixedExpenseRow({
   status,
@@ -148,20 +155,31 @@ export function Fijos() {
   const unmarkPayment = useUnmarkFixedExpensePayment()
 
   const { data: cards } = useCreditCards()
+  const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallments(period)
   const { data: savings } = useCreditCardSavings(period)
   const { data: cardPayments } = useCreditCardPayments(period)
+  const { data: purchasePayments } = useCreditPurchasePayments(period)
 
   // Sin botón propio acá: el toggle vive en Hoy y comparte clave, así que ocultar el saldo ahí
   // también enmascara los importes de esta pantalla — un solo control, no uno por pantalla.
   const [balanceHidden] = useHiddenBalance('saldo-actual')
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
-  const creditsSummary = useMemo(
-    () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
-    [cards, installments, savings, cardPayments],
+  const misDeudasSummary = useMemo(
+    () =>
+      summarizeMisDeudas(
+        cards ?? [],
+        standalonePurchases ?? [],
+        installments ?? [],
+        savings ?? [],
+        cardPayments ?? [],
+        purchasePayments ?? [],
+      ),
+    [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
-  const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
+  const unpaidDebtsCount =
+    misDeudasSummary.perCard.filter((c) => !c.paid).length + misDeudasSummary.standalone.filter((s) => !s.paid).length
 
   // Todo lo elegible del período, activo o pausado — se usa para el estado vacío general y para la
   // sección de pausados. `summarizeFixedExpenses` hace este mismo filtro puertas adentro, pero sólo
@@ -357,8 +375,8 @@ export function Fijos() {
             currentBalanceCents={currentBalance ?? 0}
             pendingFixedCount={pending.length}
             pendingFixedCents={pendingTotalCents}
-            unpaidCardsCount={unpaidCardsCount}
-            unpaidCardsCents={creditsSummary.totalPendingCents}
+            unpaidDebtsCount={unpaidDebtsCount}
+            unpaidDebtsCents={misDeudasSummary.totalPendingCents}
             hidden={balanceHidden}
           />
 

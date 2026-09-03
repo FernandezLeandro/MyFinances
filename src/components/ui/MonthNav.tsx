@@ -8,7 +8,7 @@ interface MonthNavProps {
 }
 
 /**
- * Header "‹ mes › " compartido por Movimientos, Fijos, Créditos y Análisis — antes era el mismo
+ * Header "‹ mes › " compartido por Movimientos, Fijos, Mis Deudas y Análisis — antes era el mismo
  * markup copiado en cada página. Cada pantalla guarda el mes a su manera (string `anchor` vs.
  * `Date`), así que este componente es puramente presentacional: recibe el label ya formateado y
  * dos callbacks.

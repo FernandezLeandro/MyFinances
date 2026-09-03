@@ -146,7 +146,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
   // El primer término de rpc_projected_balance es el saldo histórico completo (sin tope de fecha) —
   // cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto, el saldo
-  // proyectado de Fijos/Créditos queda desactualizado hasta el próximo refetch por otra causa.
+  // proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra causa.
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
 }
 

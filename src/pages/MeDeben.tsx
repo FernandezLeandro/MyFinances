@@ -70,13 +70,13 @@ function ReceivableRow({
 }
 
 /**
- * A diferencia de Fijos y Créditos, esta pantalla NO navega por mes con `MonthNav`. Esas dos
+ * A diferencia de Fijos y Mis Deudas, esta pantalla NO navega por mes con `MonthNav`. Esas dos
  * responden "qué debo ESTE mes" — la obligación nace y muere en el período. Una deuda a favor es
  * un ítem abierto que cruza meses: si la pantalla estuviera anclada a septiembre, la deuda que te
  * pagan en noviembre no se vería, y una vencida de agosto desaparecería justo cuando más importa.
  * El eje temporal se muestra AGRUPANDO por mes esperado, no navegando.
  */
-export function Deudas() {
+export function MeDeben() {
   const [formOpen, setFormOpen] = useState(false)
   const [detailSummary, setDetailSummary] = useState<ReceivableSummary | null>(null)
   const [abonoSummary, setAbonoSummary] = useState<ReceivableSummary | null>(null)

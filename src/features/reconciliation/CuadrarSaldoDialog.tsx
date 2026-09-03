@@ -349,8 +349,8 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             <p className="mt-3 text-[12px] text-chalk-faint">
               Al prestar efectivo no cargues un gasto: esa plata sigue siendo tuya. Cuando te devuelvan,
               registrá el abono desde la deuda y sumá el monto en el lugar donde entró.{' '}
-              <Link to="/deudas" className="font-medium text-acid hover:underline">
-                Ver todas en Deudas →
+              <Link to="/me-deben" className="font-medium text-acid hover:underline">
+                Ver todas en Me Deben →
               </Link>
             </p>
           </div>

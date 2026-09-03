@@ -62,7 +62,7 @@ export interface ReceivablesSummary {
    *  fecha es más accionable que una sin fecha, aunque sea más vieja). */
   pendientes: ReceivableSummary[]
   cobradas: ReceivableSummary[]
-  /** Todo lo que te deben, sin importar el flag — el número grande de /deudas. */
+  /** Todo lo que te deben, sin importar el flag — el número grande de /me-deben. */
   totalPendingCents: number
   /** Sólo `!already_expensed`: lo que suma en Cuadrar Saldo. */
   contadoEnSaldoCents: number

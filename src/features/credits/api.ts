@@ -44,6 +44,17 @@ function toCreditCardPaymentItem(row: CreditCardPaymentItemRowRaw): CreditCardPa
   return { ...rest, amountCents: centsFromNumeric(amount) }
 }
 
+/** Pago de una compra suelta (sin tarjeta) en un período — existencia de fila = "pagada", mismo
+ *  contrato que CreditCardPayment. */
+type CreditPurchasePaymentRowRaw = Database['public']['Tables']['credit_purchase_payments']['Row']
+export interface CreditPurchasePayment extends Omit<CreditPurchasePaymentRowRaw, 'amount_paid'> {
+  amountPaidCents: number
+}
+function toCreditPurchasePayment(row: CreditPurchasePaymentRowRaw): CreditPurchasePayment {
+  const { amount_paid, ...rest } = row
+  return { ...rest, amountPaidCents: centsFromNumeric(amount_paid) }
+}
+
 /** Fila de `v_credit_installments`: qué cuota de qué compra cae en un período dado. */
 type CreditInstallmentRaw = Database['public']['Functions']['v_credit_installments']['Returns'][number]
 export interface CreditInstallment extends Omit<CreditInstallmentRaw, 'amount'> {
@@ -137,6 +148,42 @@ export function useCreditPurchases(cardId: string | null) {
   })
 }
 
+/** Compras a crédito sin tarjeta (`card_id` null) — para la sección "Compras sin tarjeta" de Mis
+ *  Deudas. A diferencia de `useCreditPurchases`, no está acotada a una tarjeta. */
+export function useStandalonePurchases() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['standalone-purchases', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('credit_purchases')
+        .select('*')
+        .is('card_id', null)
+        .order('first_period', { ascending: false })
+      if (error) throw error
+      return data.map(toCreditPurchase)
+    },
+  })
+}
+
+/** Qué compras sueltas ya están pagadas en `period` — la existencia de la fila ES el estado
+ *  "pagada", mismo contrato que `useCreditCardPayments`. */
+export function useCreditPurchasePayments(period: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['credit-purchase-payments', user?.id, period],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('credit_purchase_payments').select('*').eq('period', period)
+      if (error) throw error
+      return data.map(toCreditPurchasePayment)
+    },
+  })
+}
+
 /** Snapshot de lo que se abonó en un pago ya cerrado — sobrevive aunque la compra original se
  *  edite o se borre después (ver `credit_card_payment_items` en la migración). */
 export function useCreditCardPaymentItems(paymentId: string | null) {
@@ -167,9 +214,11 @@ export function useCreditCardPaymentItems(paymentId: string | null) {
 function invalidarCreditos(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['credit-cards', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-purchases', userId] })
+  queryClient.invalidateQueries({ queryKey: ['standalone-purchases', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-installments', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-savings', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-payments', userId] })
+  queryClient.invalidateQueries({ queryKey: ['credit-purchase-payments', userId] })
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
 }
 
@@ -235,12 +284,14 @@ export function useDeleteCreditCard() {
 }
 
 export interface PurchaseInput {
-  cardId: string
+  /** `null` = compra sin tarjeta; ahí `dueDay` pasa a ser obligatorio (ver `PurchaseFormDialog`). */
+  cardId: string | null
   description: string
   installmentCents: number
   installments: number
   firstPeriod: string
   categoryId: string | null
+  dueDay: number | null
 }
 
 export function useCreatePurchase() {
@@ -258,6 +309,7 @@ export function useCreatePurchase() {
         installments: input.installments,
         first_period: input.firstPeriod,
         category_id: input.categoryId,
+        due_day: input.dueDay,
       })
       if (error) throw error
     },
@@ -279,6 +331,7 @@ export function useUpdatePurchase() {
           installments: input.installments,
           first_period: input.firstPeriod,
           category_id: input.categoryId,
+          due_day: input.dueDay,
         })
         .eq('id', id)
       if (error) throw error
@@ -342,6 +395,35 @@ export function useUnmarkCreditCardPaid() {
   return useMutation({
     mutationFn: async ({ cardId, period }: { cardId: string; period: string }) => {
       const { error } = await supabase.rpc('rpc_unmark_credit_card_paid', { p_card_id: cardId, p_period: period })
+      if (error) throw error
+    },
+    onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
+  })
+}
+
+/** Sin importe manual: el RPC toma el monto de la cuota de este período (`v_credit_installments`),
+ *  igual que las tarjetas. */
+export function useMarkCreditPurchasePaid() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ purchaseId, period }: { purchaseId: string; period: string }) => {
+      const { error } = await supabase.rpc('rpc_mark_credit_purchase_paid', { p_purchase_id: purchaseId, p_period: period })
+      if (error) throw error
+    },
+    onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo marcar la compra como pagada. Probá de nuevo.' },
+  })
+}
+
+export function useUnmarkCreditPurchasePaid() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ purchaseId, period }: { purchaseId: string; period: string }) => {
+      const { error } = await supabase.rpc('rpc_unmark_credit_purchase_paid', { p_purchase_id: purchaseId, p_period: period })
       if (error) throw error
     },
     onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
