@@ -193,6 +193,7 @@ export function makeFixedExpensePayment(
     paid_at: FIXED_DATE,
     transaction_id: null,
     is_recurring: false,
+    note: null,
     ...p,
   }
 }

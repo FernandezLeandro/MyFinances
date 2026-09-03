@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { Select } from '@/components/ui/Select'
+import { cn } from '@/lib/cn'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import {
@@ -16,17 +17,26 @@ import {
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
 
-const schema = z.object({
-  name: z.string().min(1, 'Falta el nombre').max(80),
-  amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
-    message: 'Ingresá un importe válido',
-  }),
-  categoryId: z.string().min(1, 'Elegí una categoría'),
-  dueDay: z.string().refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 31, '1 a 31'),
-  isActive: z.boolean(),
-  isRecurring: z.boolean(),
-  endsOn: z.string().optional(),
-})
+const schema = z
+  .object({
+    name: z.string().min(1, 'Falta el nombre').max(80),
+    amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
+      message: 'Ingresá un importe válido',
+    }),
+    categoryId: z.string().min(1, 'Elegí una categoría'),
+    // Sólo aplica a "una vez al mes" — una bolsa no vence, así que no tiene día que pedir.
+    dueDay: z.string(),
+    isActive: z.boolean(),
+    isRecurring: z.boolean(),
+    endsOn: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.isRecurring) return
+    const n = Number(values.dueDay)
+    if (!Number.isInteger(n) || n < 1 || n > 31) {
+      ctx.addIssue({ code: 'custom', message: '1 a 31', path: ['dueDay'] })
+    }
+  })
 
 type FormValues = z.infer<typeof schema>
 
@@ -66,7 +76,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
             name: fixedExpense.name,
             amount: centsToInputText(fixedExpense.cents),
             categoryId: fixedExpense.category_id ?? '',
-            dueDay: String(fixedExpense.due_day),
+            dueDay: fixedExpense.due_day != null ? String(fixedExpense.due_day) : '',
             isActive: fixedExpense.is_active,
             isRecurring: fixedExpense.is_recurring,
             endsOn: fixedExpense.ends_on ?? '',
@@ -80,7 +90,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
       name: values.name.trim(),
       cents: parseAmountToCents(values.amount)!,
       categoryId: values.categoryId,
-      dueDay: Number(values.dueDay),
+      dueDay: values.isRecurring ? null : Number(values.dueDay),
       isActive: values.isActive,
       isRecurring: values.isRecurring,
       endsOn: values.endsOn?.trim() || null,
@@ -133,7 +143,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className={cn('grid gap-4', !isRecurring && 'grid-cols-2')}>
           <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}>
             <Select id="categoryId" invalid={!!errors.categoryId} {...register('categoryId')}>
               <option value="">Elegir…</option>
@@ -145,14 +155,11 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
             </Select>
           </Field>
 
-          <Field
-            label="Día de vencimiento"
-            htmlFor="dueDay"
-            hint={isRecurring ? 'Sólo para ordenar la lista' : '1 a 31'}
-            error={errors.dueDay?.message}
-          >
-            <Input id="dueDay" type="number" min={1} max={31} {...register('dueDay')} />
-          </Field>
+          {!isRecurring && (
+            <Field label="Día de vencimiento" htmlFor="dueDay" hint="1 a 31" error={errors.dueDay?.message}>
+              <Input id="dueDay" type="number" min={1} max={31} {...register('dueDay')} />
+            </Field>
+          )}
         </div>
 
         <Field

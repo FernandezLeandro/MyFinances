@@ -235,7 +235,7 @@ export interface Database {
           name: string
           amount: string
           category_id: string | null
-          due_day: number
+          due_day: number | null
           is_active: boolean
           is_recurring: boolean
           starts_on: string
@@ -249,7 +249,7 @@ export interface Database {
           name: string
           amount: number | string
           category_id?: string | null
-          due_day: number
+          due_day?: number | null
           is_active?: boolean
           is_recurring?: boolean
           starts_on?: string
@@ -260,7 +260,7 @@ export interface Database {
           name: string
           amount: number | string
           category_id: string | null
-          due_day: number
+          due_day: number | null
           is_active: boolean
           is_recurring: boolean
           starts_on: string
@@ -279,6 +279,7 @@ export interface Database {
           amount_paid: string
           transaction_id: string | null
           is_recurring: boolean
+          note: string | null
         }
         Insert: {
           id?: string
@@ -288,8 +289,9 @@ export interface Database {
           amount_paid: number | string
           transaction_id?: string | null
           is_recurring?: boolean
+          note?: string | null
         }
-        Update: Partial<{ transaction_id: string | null }>
+        Update: Partial<{ transaction_id: string | null; note: string | null }>
         Relationships: []
       }
       credit_cards: {
@@ -515,7 +517,7 @@ export interface Database {
         }[]
       }
       rpc_mark_fixed_expense_paid: {
-        Args: { p_fixed_expense_id: string; p_period: string; p_amount?: number | string | null }
+        Args: { p_fixed_expense_id: string; p_period: string; p_amount?: number | string | null; p_note?: string | null }
         Returns: undefined
       }
       rpc_unmark_fixed_expense_payment: {

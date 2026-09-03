@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Field, AmountInput } from '@/components/ui/Input'
+import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
@@ -35,6 +35,7 @@ interface MarkPaidDialogProps {
 export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPaidCents = 0 }: MarkPaidDialogProps) {
   const isRecurring = fixedExpense.is_recurring
   const [input, setInput] = useState(() => (isRecurring ? '' : centsToInputText(fixedExpense.cents)))
+  const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
 
@@ -48,7 +49,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
       setError('Ingresá un importe válido')
       return
     }
-    await markPaid.mutateAsync({ fixedExpenseId: fixedExpense.id, period, cents })
+    await markPaid.mutateAsync({ fixedExpenseId: fixedExpense.id, period, cents, note: note.trim() || null })
     onClose()
   }
 
@@ -91,6 +92,17 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
             autoFocus={isRecurring}
           />
         </Field>
+
+        {isRecurring && (
+          <Field label="Detalle" hint="Opcional — es lo que se ve en el movimiento">
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Chino del barrio, súper…"
+              maxLength={80}
+            />
+          </Field>
+        )}
 
         {isRecurring && cents != null && cents > 0 && (
           <p className="text-[12px] text-chalk-faint">
