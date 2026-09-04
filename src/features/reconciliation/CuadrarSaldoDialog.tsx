@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
-import { ChevronRight, X } from 'lucide-react'
-import { cn } from '@/lib/cn'
+import { X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -135,7 +134,7 @@ function DeudaRow({
 }: {
   summary: ReceivableSummary
   onOpenDetail: () => void
-  /** Ausente para las ya descontadas (`expensedReceivables`): no hay nada que descontar de nuevo. */
+  /** Ausente cuando no tiene sentido descontar de nuevo (p.ej. ya está `already_expensed`). */
   onExpense?: () => void
 }) {
   const { receivable, pendingCents } = summary
@@ -171,8 +170,14 @@ function DeudaRow({
  * `ReceivableSummary.cuentaEnCuadre`): prestar efectivo no genera un movimiento (no es un gasto, va
  * a volver), así que `rpc_current_balance` ya la cuenta. Las deudas con "ya lo cargué como gasto" NO
  * suman acá — esa plata ya salió del saldo cuando se cargó el gasto real, y sumarla otra vez
- * marcaría un excedente falso — se muestran aparte, atenuadas, para que no parezca que la app se
- * las comió. Ver el comentario de la migración `receivables_deudas_a_favor` para el porqué completo.
+ * marcaría un excedente falso. Ver el comentario de la migración `receivables_deudas_a_favor` para
+ * el porqué completo.
+ *
+ * Esta pantalla sólo LISTA lo que espera cobrarse este mes (`particionarPorHorizonte`, filtrado a
+ * `esteMes`) y nunca las `already_expensed` — son plata que vuelve en un tiempo indeterminado y el
+ * usuario prefiere gestionarlas desde Me Deben, no acá. Ese filtro es sólo de presentación: la suma
+ * de `rec` sigue contando TODO lo que `cuentaEnCuadre`, esté o no visible en esta lista — ver el
+ * comentario junto a `normalReceivables`/`receivablesEsteMes` más abajo.
  *
  * Las deudas dejaron de editarse inline acá (a diferencia de los lugares): con abonos parciales,
  * el "monto" de una fila es ambiguo — si es el total, tocarlo contradice en silencio los abonos ya
@@ -196,9 +201,13 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [lastAddedLocationId, setLastAddedLocationId] = useState<string | null>(null)
   const [receivableFormOpen, setReceivableFormOpen] = useState(false)
-  const [detailSummary, setDetailSummary] = useState<ReceivableSummary | null>(null)
-  const [expenseSummary, setExpenseSummary] = useState<ReceivableSummary | null>(null)
-  const [otrasExpanded, setOtrasExpanded] = useState(false)
+  // Ids, no el objeto: `receivablesSummary` se recalcula en cada render con datos frescos de la
+  // query, pero un `ReceivableSummary` guardado tal cual en el estado queda pegado al momento del
+  // click — después de pagar/descontar, el detalle seguía mostrando el estado de antes y dejaba
+  // repetir la acción porque renderizaba ese objeto viejo en vez de volver a buscarlo. Derivar por
+  // id en cada render lo evita (mismo fix que en `MeDeben.tsx`).
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [expenseId, setExpenseId] = useState<string | null>(null)
 
   const isReceivablesLoadingAny = isReceivablesPending || isPaymentsPending
   const receivablesSummary = useMemo(
@@ -215,23 +224,32 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
     () => reconciliar(locations ?? [], allReceivableSummaries, currentBalanceCents ?? 0),
     [locations, allReceivableSummaries, currentBalanceCents],
   )
-  // Las pendientes ya filtran `!cobrada`, así que "ya la cargué como gasto" alcanza para separar
-  // las que suman (normalReceivables) de las que no (expensedReceivables) — ver el comentario de
-  // cabecera de este componente.
+  const detailSummary = useMemo(
+    () => allReceivableSummaries.find((s) => s.receivable.id === detailId) ?? null,
+    [allReceivableSummaries, detailId],
+  )
+  const expenseSummary = useMemo(
+    () => allReceivableSummaries.find((s) => s.receivable.id === expenseId) ?? null,
+    [allReceivableSummaries, expenseId],
+  )
+  // Las pendientes ya filtran `!cobrada`; "ya la cargué como gasto" alcanza para sacar del todo esas
+  // deudas de esta pantalla — son plata que vuelve en un tiempo indeterminado y el usuario prefiere
+  // gestionarlas desde Me Deben. Siguen sumando en `rec` de todos modos vía `allReceivableSummaries`
+  // de arriba (`cuentaEnCuadre` las excluye solo si `already_expensed`, que es justamente 0 acá) —
+  // ver el comentario de cabecera de este componente.
   const normalReceivables = receivablesSummary.pendientes.filter((r) => !r.receivable.already_expensed)
-  const expensedReceivables = receivablesSummary.pendientes.filter((r) => r.receivable.already_expensed)
-  // Partición sólo de presentación: "entra este mes" arriba, expandido; el resto colapsado bajo
-  // "Otras". Las dos partes siguen sumando en `rec.receivablesCents` y en "Tenés" de más abajo —
-  // sacar una deuda de la SUMA (no sólo de la vista) fabricaría un faltante falso que empujaría a
-  // un ajuste que no existe. Ver el comentario de `particionarPorHorizonte`.
-  const { esteMes: receivablesEsteMes, masAdelante: receivablesOtras } = useMemo(
+  // Partición sólo de presentación: acá sólo importa "entra este mes" — lo demás (sin fecha o más
+  // adelante) no se muestra en absoluto en esta pantalla. Sigue sumando en `rec.receivablesCents` y
+  // en "Tenés" de más abajo igual: sacar una deuda de la SUMA (no sólo de la vista) fabricaría un
+  // faltante falso que empujaría a un ajuste que no existe. Ver el comentario de
+  // `particionarPorHorizonte`.
+  const { esteMes: receivablesEsteMes } = useMemo(
     () => particionarPorHorizonte(normalReceivables, new Date()),
     [normalReceivables],
   )
-  const otrasTotalCents = useMemo(() => receivablesOtras.reduce((sum, r) => sum + r.pendingCents, 0), [receivablesOtras])
 
   const hasLocations = (locations ?? []).length > 0
-  const hasReceivables = normalReceivables.length > 0 || expensedReceivables.length > 0
+  const hasReceivables = normalReceivables.length > 0
   const hasAnyRow = hasLocations || hasReceivables
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
@@ -342,56 +360,18 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : (
-              <>
-                {receivablesEsteMes.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <p className="text-[11px] font-medium text-chalk-faint">Entra este mes</p>
-                    {receivablesEsteMes.map((item) => (
-                      <DeudaRow
-                        key={item.receivable.id}
-                        summary={item}
-                        onOpenDetail={() => setDetailSummary(item)}
-                        onExpense={() => setExpenseSummary(item)}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Colapsado por default: son las que "no sé cuándo cobro" o caen más adelante — el
-                    usuario pidió no verlas de entrada acá. Siguen sumando en `rec.receivablesCents`
-                    de todos modos (ver el comentario de más arriba): esconderlas de la SUMA fabricaría
-                    un faltante falso, esconderlas de la VISTA no. */}
-                {receivablesOtras.length > 0 && (
-                  <div className={receivablesEsteMes.length > 0 ? 'mt-3' : undefined}>
-                    <button
-                      type="button"
-                      onClick={() => setOtrasExpanded((v) => !v)}
-                      aria-expanded={otrasExpanded}
-                      className="flex w-full items-center gap-1.5 rounded-control px-1 py-1 text-left text-[13px] text-chalk-dim transition-colors hover:text-chalk"
-                    >
-                      <ChevronRight
-                        className={cn('size-2.5 shrink-0 transition-transform duration-150', otrasExpanded && 'rotate-90')}
-                        strokeWidth={1.5}
-                        aria-hidden
-                      />
-                      <span className="flex-1">Otras ({receivablesOtras.length})</span>
-                      <Money cents={otrasTotalCents} tone="dim" size="inline" />
-                    </button>
-                    {otrasExpanded && (
-                      <div className="mt-1 flex flex-col gap-1">
-                        {receivablesOtras.map((item) => (
-                          <DeudaRow
-                            key={item.receivable.id}
-                            summary={item}
-                            onOpenDetail={() => setDetailSummary(item)}
-                            onExpense={() => setExpenseSummary(item)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
+              receivablesEsteMes.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {receivablesEsteMes.map((item) => (
+                    <DeudaRow
+                      key={item.receivable.id}
+                      summary={item}
+                      onOpenDetail={() => setDetailId(item.receivable.id)}
+                      onExpense={() => setExpenseId(item.receivable.id)}
+                    />
+                  ))}
+                </div>
+              )
             )}
             <button
               type="button"
@@ -401,24 +381,10 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
               + Agregar deuda
             </button>
 
-            {expensedReceivables.length > 0 && (
-              <div className="mt-4 border-t border-ink-850 pt-3">
-                <p className="eyebrow mb-2">Ya lo cargaste como gasto</p>
-                <div className="flex flex-col gap-1 opacity-60">
-                  {expensedReceivables.map((item) => (
-                    <DeudaRow key={item.receivable.id} summary={item} onOpenDetail={() => setDetailSummary(item)} />
-                  ))}
-                </div>
-                <p className="mt-2 text-[12px] text-chalk-faint">
-                  Esta plata ya salió del saldo cuando registraste el gasto, así que no suma acá.
-                </p>
-              </div>
-            )}
-
             <p className="mt-3 text-[12px] text-chalk-faint">
-              Al prestar efectivo no cargues un gasto: esa plata sigue siendo tuya. Cuando te devuelvan,
-              registrá el abono desde la deuda y sumá el monto en el lugar donde entró. Si querés que
-              deje de contar como tuya ahora, usá "Descontar".{' '}
+              Acá sólo se muestran las que esperás cobrar este mes. Al prestar efectivo no cargues un
+              gasto: esa plata sigue siendo tuya. Cuando te devuelvan, registrá el abono desde la deuda
+              y sumá el monto en el lugar donde entró.{' '}
               <Link to="/me-deben" className="font-medium text-acid hover:underline">
                 Ver todas en Me Deben →
               </Link>
@@ -440,14 +406,6 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                     <Money cents={rec.receivablesCents} tone="acid" />
                   </dd>
                 </div>
-                {rec.expensedPendingCents > 0 && (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-chalk-faint">Ya lo cargaste como gasto</dt>
-                    <dd>
-                      <Money cents={rec.expensedPendingCents} tone="dim" />
-                    </dd>
-                  </div>
-                )}
               </>
             )}
             <div className="flex justify-between gap-4">
@@ -498,11 +456,11 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
       )}
 
       {detailSummary && (
-        <ReceivableDetailDialog open={!!detailSummary} onClose={() => setDetailSummary(null)} summary={detailSummary} />
+        <ReceivableDetailDialog open={!!detailSummary} onClose={() => setDetailId(null)} summary={detailSummary} />
       )}
 
       {expenseSummary && (
-        <ExpenseReceivableDialog open={!!expenseSummary} onClose={() => setExpenseSummary(null)} summary={expenseSummary} />
+        <ExpenseReceivableDialog open={!!expenseSummary} onClose={() => setExpenseId(null)} summary={expenseSummary} />
       )}
     </>
   )

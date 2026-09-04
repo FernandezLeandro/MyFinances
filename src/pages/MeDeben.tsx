@@ -82,8 +82,12 @@ function ReceivableRow({
  */
 export function MeDeben() {
   const [formOpen, setFormOpen] = useState(false)
-  const [detailSummary, setDetailSummary] = useState<ReceivableSummary | null>(null)
-  const [abonoSummary, setAbonoSummary] = useState<ReceivableSummary | null>(null)
+  // Ids, no el objeto: `summary` se recalcula en cada render con datos frescos de la query, pero un
+  // `ReceivableSummary` guardado tal cual en el estado queda pegado al momento del click — después
+  // de pagar un abono, el detalle seguía mostrando "Pendiente" y dejaba pagarlo dos veces porque
+  // renderizaba ese objeto viejo en vez de volver a buscarlo. Derivar por id en cada render lo evita.
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [abonoId, setAbonoId] = useState<string | null>(null)
   const [cobradasExpanded, setCobradasExpanded] = useState(false)
 
   const { data: receivables, isPending: isReceivablesPending, isError, refetch } = useReceivables()
@@ -96,6 +100,16 @@ export function MeDeben() {
   )
   const groups = useMemo(() => agruparPorMesEsperado(summary.pendientes), [summary.pendientes])
   const hasAny = summary.pendientes.length > 0 || summary.cobradas.length > 0
+
+  const allSummaries = useMemo(() => [...summary.pendientes, ...summary.cobradas], [summary])
+  const detailSummary = useMemo(
+    () => allSummaries.find((s) => s.receivable.id === detailId) ?? null,
+    [allSummaries, detailId],
+  )
+  const abonoSummary = useMemo(
+    () => allSummaries.find((s) => s.receivable.id === abonoId) ?? null,
+    [allSummaries, abonoId],
+  )
 
   function openNew() {
     setFormOpen(true)
@@ -184,8 +198,8 @@ export function MeDeben() {
                         <ReceivableRow
                           key={item.receivable.id}
                           summary={item}
-                          onOpenDetail={() => setDetailSummary(item)}
-                          onRegisterPayment={() => setAbonoSummary(item)}
+                          onOpenDetail={() => setDetailId(item.receivable.id)}
+                          onRegisterPayment={() => setAbonoId(item.receivable.id)}
                         />
                       ))}
                     </ul>
@@ -219,7 +233,7 @@ export function MeDeben() {
                     >
                       <button
                         type="button"
-                        onClick={() => setDetailSummary(item)}
+                        onClick={() => setDetailId(item.receivable.id)}
                         aria-label={`${item.receivable.name}: ver detalle`}
                         className="min-w-0 flex-1 text-left"
                       >
@@ -237,10 +251,10 @@ export function MeDeben() {
 
       {formOpen && <ReceivableFormDialog open={formOpen} onClose={() => setFormOpen(false)} />}
       {detailSummary && (
-        <ReceivableDetailDialog open={!!detailSummary} onClose={() => setDetailSummary(null)} summary={detailSummary} />
+        <ReceivableDetailDialog open={!!detailSummary} onClose={() => setDetailId(null)} summary={detailSummary} />
       )}
       {abonoSummary && (
-        <RegistrarAbonoDialog open={!!abonoSummary} onClose={() => setAbonoSummary(null)} summary={abonoSummary} />
+        <RegistrarAbonoDialog open={!!abonoSummary} onClose={() => setAbonoId(null)} summary={abonoSummary} />
       )}
     </div>
   )
