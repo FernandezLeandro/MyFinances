@@ -8,8 +8,9 @@ interface SaldoProyectadoPanelProps {
   currentBalanceCents: number
   pendingFixedCount: number
   pendingFixedCents: number
-  unpaidCardsCount: number
-  unpaidCardsCents: number
+  /** Tarjetas + compras sueltas impagas de este período (ver `summarizeMisDeudas`). */
+  unpaidDebtsCount: number
+  unpaidDebtsCents: number
   hidden: boolean
   /** Hoy oculta el panel entero cuando no hay nada que descontar (redundante con el hero de
    *  arriba); Fijos lo deja siempre visible con una línea aclaratoria. */
@@ -19,7 +20,7 @@ interface SaldoProyectadoPanelProps {
 /**
  * Panel compartido entre Hoy y Fijos (antes ~35 líneas duplicadas en cada página): el desglose de
  * los términos que `rpc_projected_balance` descuenta del saldo actual — fijos pendientes (bolsas
- * mensuales incluidas) y tarjetas impagas.
+ * mensuales incluidas) y deudas impagas (tarjetas y compras sueltas).
  */
 export function SaldoProyectadoPanel({
   projectedCents,
@@ -27,12 +28,12 @@ export function SaldoProyectadoPanel({
   currentBalanceCents,
   pendingFixedCount,
   pendingFixedCents,
-  unpaidCardsCount,
-  unpaidCardsCents,
+  unpaidDebtsCount,
+  unpaidDebtsCents,
   hidden,
   hideWhenNothingPending = false,
 }: SaldoProyectadoPanelProps) {
-  const nothingPending = pendingFixedCount === 0 && unpaidCardsCount === 0
+  const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
 
   return (
@@ -59,18 +60,18 @@ export function SaldoProyectadoPanel({
             </dd>
           </div>
         )}
-        {unpaidCardsCount > 0 && (
+        {unpaidDebtsCount > 0 && (
           <div className="flex justify-between gap-4">
-            <dt className="text-chalk-faint">Tarjetas por pagar ({unpaidCardsCount})</dt>
+            <dt className="text-chalk-faint">Deudas por pagar ({unpaidDebtsCount})</dt>
             <dd>
-              <Money cents={-unpaidCardsCents} tone="coral" hidden={hidden} />
+              <Money cents={-unpaidDebtsCents} tone="coral" hidden={hidden} />
             </dd>
           </div>
         )}
       </dl>
 
       {nothingPending && (
-        <p className="mt-3 text-[12px] text-chalk-faint">No tenés fijos ni tarjetas pendientes este mes.</p>
+        <p className="mt-3 text-[12px] text-chalk-faint">No tenés fijos ni deudas pendientes este mes.</p>
       )}
     </Panel>
   )

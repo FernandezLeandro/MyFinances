@@ -39,18 +39,18 @@ const allNavItems: NavItem[] = [
     icon: <PiggyBank className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
   },
   {
-    to: '/deudas',
-    label: 'Deudas',
+    to: '/me-deben',
+    label: 'Me Deben',
     icon: <HandCoins className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
   },
 ]
 
 /** Secciones que no se consultan seguido: se mudan al drawer de cuenta en mobile en vez de ocupar
- *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Deudas entra acá por el
+ *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Me Deben entra acá por el
  *  mismo motivo que Análisis/Ahorros: sobra lugar en el sidebar de desktop (6 ítems verticales),
  *  pero sumarla al tab bar de mobile rompería el constraint de 360px que ya documenta
  *  `PendientesTabs` — "Movimientos" pasa a wrappear en dos líneas con 4 tabs + "Más". */
-const OVERFLOW_ROUTES = ['/analisis', '/ahorros', '/deudas']
+const OVERFLOW_ROUTES = ['/analisis', '/ahorros', '/me-deben']
 
 /** Sidebar de desktop: las 5 secciones — ahí sobra ancho para no tener que recortar nada. */
 export const sidebarNavItems: NavItem[] = allNavItems

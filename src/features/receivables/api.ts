@@ -45,7 +45,7 @@ export function useReceivables() {
   })
 }
 
-/** Todos los abonos de todas las deudas del usuario — son pocas decenas de filas, y tanto /deudas
+/** Todos los abonos de todas las deudas del usuario — son pocas decenas de filas, y tanto /me-deben
  *  como Cuadrar Saldo necesitan el set completo para calcular lo pendiente de cada una (ver
  *  `summarizeReceivables`). Un hook por deuda daría N queries en la lista. */
 export function useReceivablePayments() {
@@ -76,11 +76,14 @@ export interface ReceivableInput {
   expectedPeriod: string | null
   alreadyExpensed: boolean
   note: string | null
+  /** Si viene, `rpc_create_receivable` crea además un gasto por este monto en el mismo paso — ver
+   *  el comentario de la migración `deudas_flujo_movimientos` para los dos usos (descontar del
+   *  saldo vs. gasto compartido) y por qué los montos difieren entre uno y otro. */
+  expense?: { cents: number; categoryId: string | null; occurredOn: string; description: string | null } | null
 }
 
-/** Alta/edición/borrado de deudas: no toca `transactions` ni el saldo por sí sola — cargar que
- *  alguien te debe no es un movimiento (ver el comentario de la migración `receivables`). Sólo los
- *  abonos (abajo) pueden generar o borrar una transacción. */
+/** Editar/borrar una deuda no toca `transactions` ni el saldo por sí sola — sólo el ALTA puede
+ *  (cuando trae `expense`), y los abonos y el descuento (abajo). */
 function invalidarDeudas(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['receivables', userId] })
   queryClient.invalidateQueries({ queryKey: ['receivable-payments', userId] })
@@ -98,29 +101,32 @@ function invalidarDeudasYPlata(queryClient: ReturnType<typeof useQueryClient>, u
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
 }
 
+/** Alta de deuda, vía RPC porque puede tener que crear el gasto asociado atómicamente (ver
+ *  `ReceivableInput.expense`) — dos escrituras sueltas desde el cliente podrían cortarse a la
+ *  mitad (PWA) y dejar un gasto huérfano. Invalida también el saldo: a diferencia de antes, un alta
+ *  con `expense` sí lo mueve. */
 export function useCreateReceivable() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (input: ReceivableInput) => {
-      if (!user) throw new Error('No autenticado')
-      const { data, error } = await supabase
-        .from('receivables')
-        .insert({
-          user_id: user.id,
-          name: input.name,
-          amount: centsToNumeric(input.cents),
-          expected_period: input.expectedPeriod,
-          already_expensed: input.alreadyExpensed,
-          note: input.note,
-        })
-        .select()
-        .single()
+      const { data, error } = await supabase.rpc('rpc_create_receivable', {
+        p_name: input.name,
+        p_amount: centsToNumeric(input.cents),
+        p_expected_period: input.expectedPeriod,
+        p_note: input.note,
+        p_already_expensed: input.alreadyExpensed,
+        p_expense_amount: input.expense ? centsToNumeric(input.expense.cents) : null,
+        p_expense_category_id: input.expense?.categoryId ?? null,
+        p_expense_occurred_on: input.expense?.occurredOn ?? null,
+        p_expense_description: input.expense?.description ?? null,
+      })
       if (error) throw error
-      return toReceivable(data)
+      return data
     },
-    onSuccess: () => invalidarDeudas(queryClient, user?.id),
+    onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo guardar la deuda. Probá de nuevo.' },
   })
 }
 
@@ -177,22 +183,71 @@ export function useRegisterReceivablePayment() {
       cents,
       occurredOn,
       categoryId,
+      createIncome,
     }: {
       receivableId: string
       cents: number
       occurredOn?: string
       categoryId?: string | null
+      /** `null`/`undefined` deja que el RPC derive de `already_expensed` (comportamiento de
+       *  siempre); `true`/`false` explícito pisa esa derivación — ver el toggle de
+       *  `RegistrarAbonoDialog`. */
+      createIncome?: boolean | null
     }) => {
       const { error } = await supabase.rpc('rpc_register_receivable_payment', {
         p_receivable_id: receivableId,
         p_amount: centsToNumeric(cents),
         p_occurred_on: occurredOn ?? null,
         p_category_id: categoryId ?? null,
+        p_create_income: createIncome ?? null,
       })
       if (error) throw error
     },
     onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
     meta: { errorMessage: 'No se pudo registrar el abono. Probá de nuevo.' },
+  })
+}
+
+/** "Descontala ahora" sobre una deuda que se había cargado como "sigue en mi saldo": genera el
+ *  gasto que faltaba por lo pendiente y prende `already_expensed`. Ver `rpc_expense_receivable`. */
+export function useExpenseReceivable() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      receivableId,
+      categoryId,
+      occurredOn,
+    }: {
+      receivableId: string
+      categoryId?: string | null
+      occurredOn?: string
+    }) => {
+      const { error } = await supabase.rpc('rpc_expense_receivable', {
+        p_receivable_id: receivableId,
+        p_category_id: categoryId ?? null,
+        p_occurred_on: occurredOn ?? null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo descontar la deuda de tu saldo. Probá de nuevo.' },
+  })
+}
+
+/** Revert de `useExpenseReceivable`. El RPC se niega si ya hubo un abono que generó un ingreso. */
+export function useUnexpenseReceivable() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (receivableId: string) => {
+      const { error } = await supabase.rpc('rpc_unexpense_receivable', { p_receivable_id: receivableId })
+      if (error) throw error
+    },
+    onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo deshacer el descuento. Probá de nuevo.' },
   })
 }
 

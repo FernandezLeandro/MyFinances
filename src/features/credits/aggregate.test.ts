@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeCard, summarizeCredits } from './aggregate'
-import { makeCard, makeInstallment, makePayment, makeSaving } from '@/test/factories'
+import { summarizeCard, summarizeMisDeudas, summarizePurchase } from './aggregate'
+import { makeCard, makeInstallment, makePayment, makePurchase, makePurchasePayment, makeSaving } from '@/test/factories'
 
 describe('summarizeCard', () => {
   it('tarjeta sin cuotas este mes → total 0 y porcentaje 0, no NaN', () => {
@@ -60,7 +60,32 @@ describe('summarizeCard', () => {
   })
 })
 
-describe('summarizeCredits', () => {
+describe('summarizePurchase', () => {
+  it('compra con cuota este período → totalCents de la cuota, no pagada', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const items = [makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 8_000 })]
+    const s = summarizePurchase(purchase, items, [])
+    expect(s.item).not.toBeNull()
+    expect(s.totalCents).toBe(8_000)
+    expect(s.paid).toBe(false)
+  })
+
+  it('compra sin cuota este período (ya se apagó o no arrancó) → item null y total 0', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const s = summarizePurchase(purchase, [], [])
+    expect(s.item).toBeNull()
+    expect(s.totalCents).toBe(0)
+  })
+
+  it('compra con pago registrado este período → paid true', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const payments = [makePurchasePayment({ purchase_id: 'p1' })]
+    const s = summarizePurchase(purchase, [], payments)
+    expect(s.paid).toBe(true)
+  })
+})
+
+describe('summarizeMisDeudas', () => {
   it('pendiente y guardado suman sólo tarjetas no pagadas — lo guardado de una ya pagada no cuenta', () => {
     const cardA = makeCard({ id: 'a' })
     const cardB = makeCard({ id: 'b' })
@@ -71,7 +96,7 @@ describe('summarizeCredits', () => {
     const savings = [makeSaving({ card_id: 'a', amountCents: 4_000 }), makeSaving({ card_id: 'b', amountCents: 6_000 })]
     const payments = [makePayment({ card_id: 'b' })] // b ya está pagada
 
-    const summary = summarizeCredits([cardA, cardB], items, savings, payments)
+    const summary = summarizeMisDeudas([cardA, cardB], [], items, savings, payments, [])
 
     // Sólo la deuda de A (no pagada) cuenta como pendiente — B ya salió del saldo vía la transacción.
     expect(summary.totalPendingCents).toBe(10_000)
@@ -88,15 +113,40 @@ describe('summarizeCredits', () => {
     const cardA = makeCard({ id: 'a' })
     const items = [makeInstallment({ card_id: 'a', amountCents: 5_000 })]
     const savings = [makeSaving({ card_id: 'a', amountCents: 9_000 })]
-    const summary = summarizeCredits([cardA], items, savings, [])
+    const summary = summarizeMisDeudas([cardA], [], items, savings, [], [])
     expect(summary.totalMissingCents).toBe(0)
   })
 
-  it('sin tarjetas → resumen vacío sin romper', () => {
-    const summary = summarizeCredits([], [], [], [])
+  it('sin tarjetas ni compras sueltas → resumen vacío sin romper', () => {
+    const summary = summarizeMisDeudas([], [], [], [], [], [])
     expect(summary.perCard).toEqual([])
+    expect(summary.standalone).toEqual([])
     expect(summary.totalPendingCents).toBe(0)
     expect(summary.totalSavedCents).toBe(0)
     expect(summary.totalMissingCents).toBe(0)
+  })
+
+  it('compras sueltas pendientes suman al total, sin aportar a lo guardado', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const items = [makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 7_000 })]
+
+    const summary = summarizeMisDeudas([], [purchase], items, [], [], [])
+
+    expect(summary.standalone).toHaveLength(1)
+    expect(summary.totalPendingCents).toBe(7_000)
+    expect(summary.totalSavedCents).toBe(0)
+    expect(summary.totalMissingCents).toBe(7_000)
+  })
+
+  it('compra suelta ya pagada no suma al pendiente, y una sin cuota este mes no aparece en la lista', () => {
+    const paid = makePurchase({ id: 'p1' })
+    const noItemThisMonth = makePurchase({ id: 'p2' })
+    const items = [makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 3_000 })]
+    const payments = [makePurchasePayment({ purchase_id: 'p1' })]
+
+    const summary = summarizeMisDeudas([], [paid, noItemThisMonth], items, [], [], payments)
+
+    expect(summary.standalone).toHaveLength(1)
+    expect(summary.totalPendingCents).toBe(0)
   })
 })

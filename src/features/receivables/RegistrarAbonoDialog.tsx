@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Money } from '@/components/ui/Money'
@@ -21,8 +22,10 @@ interface RegistrarAbonoDialogProps {
  * caso dominante — te pagan todo de una — sin ramificar el código; un pago único es simplemente un
  * solo abono por el total. No anida ningún otro diálogo, mismo criterio que `MarkPaidDialog`.
  *
- * Sólo cuando la deuda tiene `already_expensed` el RPC genera un ingreso — acá se le pide categoría
- * y se explica por qué; en el caso normal (prestaste efectivo) se aclara que no se toca el saldo.
+ * "Registrar un ingreso" arranca en `already_expensed` (lo que el RPC haría solo si no se manda
+ * nada) pero es editable con un toque, mismo patrón de `Chip` que el resto de la app: cubre el caso
+ * de "ya cargué el ingreso a mano en Movimientos, no lo dupliques" o al revés. Tocarlo lejos del
+ * default muestra una advertencia — la decisión sigue siendo del usuario, pero informada.
  */
 export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoDialogProps) {
   const { receivable, pendingCents } = summary
@@ -33,6 +36,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
   const [amountInput, setAmountInput] = useState(() => centsToInputText(pendingCents))
   const [occurredOn, setOccurredOn] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [categoryId, setCategoryId] = useState('')
+  const [createIncome, setCreateIncome] = useState(alreadyExpensed)
   const [error, setError] = useState<string | null>(null)
   const registerPayment = useRegisterReceivablePayment()
 
@@ -48,7 +52,8 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
       receivableId: receivable.id,
       cents,
       occurredOn,
-      categoryId: alreadyExpensed ? categoryId || null : null,
+      categoryId: createIncome ? categoryId || null : null,
+      createIncome,
     })
     onClose()
   }
@@ -93,7 +98,19 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
           <Input id="occurredOn" type="date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} />
         </Field>
 
-        {alreadyExpensed && (
+        <div>
+          <p className="eyebrow mb-2">Registrar un ingreso por este monto</p>
+          <div className="flex gap-1.5">
+            <Chip active={createIncome} onClick={() => setCreateIncome(true)}>
+              Sí
+            </Chip>
+            <Chip active={!createIncome} onClick={() => setCreateIncome(false)}>
+              No
+            </Chip>
+          </div>
+        </div>
+
+        {createIncome && (
           <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
             <Select id="categoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
               <option value="">Elegir…</option>
@@ -106,11 +123,19 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
           </Field>
         )}
 
-        <p className="text-[12px] text-chalk-faint">
-          {alreadyExpensed
-            ? 'Se registra un ingreso por este monto — esa plata había salido de tu saldo cuando cargaste el gasto.'
-            : 'No se registra ningún movimiento: esa plata nunca salió de tu saldo. Sumala en el lugar donde entró desde Cuadrar saldo.'}
-        </p>
+        {createIncome !== alreadyExpensed ? (
+          <p className="text-[12px] text-coral">
+            {createIncome
+              ? 'Esta plata nunca salió de tu saldo. Registrar un ingreso la va a contar dos veces.'
+              : 'Esa plata había salido de tu saldo como gasto. Si no registrás el ingreso, el saldo va a quedar corto — desactivalo sólo si ya lo cargaste a mano.'}
+          </p>
+        ) : (
+          <p className="text-[12px] text-chalk-faint">
+            {createIncome
+              ? 'Se registra un ingreso por este monto — esa plata había salido de tu saldo cuando cargaste el gasto.'
+              : 'No se registra ningún movimiento: esa plata nunca salió de tu saldo. Sumala en el lugar donde entró desde Cuadrar saldo.'}
+          </p>
+        )}
 
         {completa && <p className="text-[12px] text-chalk-faint">Con este abono la deuda queda saldada.</p>}
       </div>

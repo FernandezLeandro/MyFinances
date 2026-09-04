@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { agruparPorMesEsperado, summarizeReceivables } from './aggregate'
-import { makeReceivable, makeReceivablePayment } from '@/test/factories'
+import { agruparPorMesEsperado, particionarPorHorizonte, summarizeReceivables } from './aggregate'
+import { makeReceivable, makeReceivablePayment, makeReceivableSummary } from '@/test/factories'
 
 const TODAY = new Date('2026-09-15T12:00:00')
 
@@ -120,6 +120,53 @@ describe('summarizeReceivables', () => {
     const s = summarizeReceivables([r], payments, TODAY)
     expect(s.cobradas[0].vencida).toBe(false)
     expect(s.vencidasCount).toBe(0)
+  })
+})
+
+describe('particionarPorHorizonte', () => {
+  it('lista vacía → las dos partes vacías, sin romper', () => {
+    const { esteMes, masAdelante } = particionarPorHorizonte([], TODAY)
+    expect(esteMes).toEqual([])
+    expect(masAdelante).toEqual([])
+  })
+
+  it('mes esperado = mes actual → esteMes', () => {
+    const s = makeReceivableSummary({ pendingCents: 10_000_00, receivable: { expected_period: '2026-09-01' } })
+    const { esteMes, masAdelante } = particionarPorHorizonte([s], TODAY)
+    expect(esteMes).toEqual([s])
+    expect(masAdelante).toEqual([])
+  })
+
+  it('mes esperado pasado (vencida) → esteMes: es lo más accionable que hay, no "más adelante"', () => {
+    const s = makeReceivableSummary({ pendingCents: 10_000_00, receivable: { expected_period: '2026-07-01' } })
+    const { esteMes } = particionarPorHorizonte([s], TODAY)
+    expect(esteMes).toEqual([s])
+  })
+
+  it('mes esperado futuro → masAdelante', () => {
+    const s = makeReceivableSummary({ pendingCents: 10_000_00, receivable: { expected_period: '2026-11-01' } })
+    const { esteMes, masAdelante } = particionarPorHorizonte([s], TODAY)
+    expect(esteMes).toEqual([])
+    expect(masAdelante).toEqual([s])
+  })
+
+  it('sin fecha esperada → masAdelante: "no sé cuándo" no es "este mes"', () => {
+    const s = makeReceivableSummary({ pendingCents: 10_000_00, receivable: { expected_period: null } })
+    const { esteMes, masAdelante } = particionarPorHorizonte([s], TODAY)
+    expect(esteMes).toEqual([])
+    expect(masAdelante).toEqual([s])
+  })
+
+  it('no altera la lista de entrada: esteMes + masAdelante cubren todo, sin perder ni duplicar', () => {
+    const items = [
+      makeReceivableSummary({ pendingCents: 1_000, receivable: { expected_period: '2026-07-01' } }),
+      makeReceivableSummary({ pendingCents: 2_000, receivable: { expected_period: '2026-09-01' } }),
+      makeReceivableSummary({ pendingCents: 3_000, receivable: { expected_period: '2026-12-01' } }),
+      makeReceivableSummary({ pendingCents: 4_000, receivable: { expected_period: null } }),
+    ]
+    const { esteMes, masAdelante } = particionarPorHorizonte(items, TODAY)
+    expect(esteMes.length + masAdelante.length).toBe(items.length)
+    expect([...esteMes, ...masAdelante].reduce((sum, s) => sum + s.pendingCents, 0)).toBe(10_000)
   })
 })
 

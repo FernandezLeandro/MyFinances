@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { supabase } from '@/lib/supabase'
@@ -22,16 +23,30 @@ import {
   type CreditPurchase,
 } from '@/features/credits/api'
 
-const schema = z.object({
-  cardId: z.string().min(1, 'Elegí una tarjeta'),
-  description: z.string().min(1, 'Falta la descripción').max(140),
-  installmentAmount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
-    message: 'Ingresá un importe válido',
-  }),
-  installments: z.string().refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 120, '1 a 120'),
-  firstPeriod: z.string().min(1, 'Falta el mes de la primera cuota'),
-  categoryId: z.string().min(1, 'Elegí una categoría'),
-})
+const schema = z
+  .object({
+    mode: z.enum(['card', 'standalone']),
+    cardId: z.string(),
+    dueDay: z.string(),
+    description: z.string().min(1, 'Falta la descripción').max(140),
+    installmentAmount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
+      message: 'Ingresá un importe válido',
+    }),
+    installments: z.string().refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 120, '1 a 120'),
+    firstPeriod: z.string().min(1, 'Falta el mes de la primera cuota'),
+    categoryId: z.string().min(1, 'Elegí una categoría'),
+  })
+  .superRefine((values, ctx) => {
+    if (values.mode === 'card' && !values.cardId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cardId'], message: 'Elegí una tarjeta' })
+    }
+    if (values.mode === 'standalone') {
+      const n = Number(values.dueDay)
+      if (!values.dueDay || !Number.isInteger(n) || n < 1 || n > 31) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['dueDay'], message: 'Ingresá un día entre 1 y 31' })
+      }
+    }
+  })
 
 type FormValues = z.infer<typeof schema>
 
@@ -44,9 +59,15 @@ interface PurchaseFormDialogProps {
   defaultCardId?: string
 }
 
-/** Alta/edición de una compra en cuotas. La validación de "mes ya pagado" es un chequeo barato del
- *  lado del cliente (una consulta puntual a `credit_card_payments`), no un trigger — evita la cuota
- *  fantasma en un mes que ya se cerró, sin bloquear al usuario con nada más pesado. */
+/** Alta/edición de una compra en cuotas, con o sin tarjeta. La validación de "mes ya pagado" es un
+ *  chequeo barato del lado del cliente (una consulta puntual a `credit_card_payments`), no un
+ *  trigger — evita la cuota fantasma en un mes que ya se cerró, sin bloquear al usuario con nada
+ *  más pesado; sólo aplica a compras de tarjeta, una compra suelta nueva no tiene con qué colisionar.
+ *
+ *  El toggle "Con tarjeta"/"Sin tarjeta" sólo aparece al cargar una compra nueva sin un
+ *  `defaultCardId` fijo (i.e. no se abrió desde el detalle de una tarjeta puntual) y habiendo al
+ *  menos una tarjeta cargada — si no hay ninguna, se arranca directo en modo suelto sin mostrar el
+ *  toggle. El modo no se puede cambiar al editar. */
 export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCardId }: PurchaseFormDialogProps) {
   const isEditing = !!purchase
   const { user } = useAuth()
@@ -60,6 +81,7 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     setError,
     clearErrors,
@@ -70,20 +92,34 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
     // campos en `undefined` — y el `useMemo` de la preview, que corre en CADA render incluido el
     // primero, le pasa ese `undefined` a `parseAmountToCents` y explota. Mismo criterio que
     // `BucketFormDialog`: todos los campos arrancan con su string vacío, nunca `undefined`.
-    defaultValues: { cardId: '', description: '', installmentAmount: '', installments: '1', firstPeriod: '', categoryId: '' },
+    defaultValues: {
+      mode: 'card',
+      cardId: '',
+      dueDay: '',
+      description: '',
+      installmentAmount: '',
+      installments: '1',
+      firstPeriod: '',
+      categoryId: '',
+    },
   })
 
+  const mode = watch('mode')
   const cardId = watch('cardId')
   const installmentAmount = watch('installmentAmount')
   const installments = watch('installments')
   const firstPeriod = watch('firstPeriod')
+
+  const canToggleMode = !isEditing && !defaultCardId && cards.length > 0
 
   useEffect(() => {
     if (!open) return
     reset(
       purchase
         ? {
-            cardId: purchase.card_id,
+            mode: purchase.card_id ? 'card' : 'standalone',
+            cardId: purchase.card_id ?? '',
+            dueDay: purchase.due_day != null ? String(purchase.due_day) : '',
             description: purchase.description,
             installmentAmount: centsToInputText(purchase.installmentAmountCents),
             installments: String(purchase.installments),
@@ -91,7 +127,9 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
             categoryId: purchase.category_id ?? '',
           }
         : {
+            mode: defaultCardId || cards.length > 0 ? 'card' : 'standalone',
             cardId: defaultCardId ?? cards[0]?.id ?? '',
+            dueDay: '',
             description: '',
             installmentAmount: '',
             installments: '1',
@@ -105,9 +143,10 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
 
   // Chequeo puntual, no una lista completa: sólo importa si ESE período de ESA tarjeta ya se pagó.
   // Al editar una compra existente no se revalida (su firstPeriod original ya pasó ese filtro antes).
+  // Sólo aplica en modo tarjeta: una compra suelta nueva no tiene pagos previos con los que chocar.
   const { data: alreadyPaid } = useQuery({
     queryKey: ['credit-payment-exists', user?.id, cardId, firstPeriodDate],
-    enabled: !!user && !!cardId && !!firstPeriodDate && !isEditing,
+    enabled: !!user && mode === 'card' && !!cardId && !!firstPeriodDate && !isEditing,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('credit_card_payments')
@@ -140,19 +179,19 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
       return
     }
 
-    const payload = {
-      cardId: values.cardId,
+    const basePayload = {
       description: values.description.trim(),
       installmentCents: parseAmountToCents(values.installmentAmount)!,
       installments: Number(values.installments),
       firstPeriod: `${values.firstPeriod}-01`,
       categoryId: values.categoryId,
+      dueDay: values.mode === 'standalone' ? Number(values.dueDay) : null,
     }
 
     if (isEditing) {
-      await updatePurchase.mutateAsync({ id: purchase.id, ...payload })
+      await updatePurchase.mutateAsync({ id: purchase.id, ...basePayload })
     } else {
-      await createPurchase.mutateAsync(payload)
+      await createPurchase.mutateAsync({ ...basePayload, cardId: values.mode === 'card' ? values.cardId : null })
     }
     onClose()
   }
@@ -185,15 +224,32 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        {cards.length > 1 && (
-          <Field label="Tarjeta" htmlFor="cardId" error={errors.cardId?.message}>
-            <Select id="cardId" invalid={!!errors.cardId} {...register('cardId')}>
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+        {canToggleMode && (
+          <div className="flex gap-1.5">
+            <Chip active={mode === 'card'} onClick={() => setValue('mode', 'card')}>
+              Con tarjeta
+            </Chip>
+            <Chip active={mode === 'standalone'} onClick={() => setValue('mode', 'standalone')}>
+              Sin tarjeta
+            </Chip>
+          </div>
+        )}
+
+        {mode === 'card' ? (
+          cards.length > 1 && (
+            <Field label="Tarjeta" htmlFor="cardId" error={errors.cardId?.message}>
+              <Select id="cardId" invalid={!!errors.cardId} {...register('cardId')}>
+                {cards.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )
+        ) : (
+          <Field label="Día de vencimiento" htmlFor="dueDay" hint="1 a 31" error={errors.dueDay?.message}>
+            <Input id="dueDay" type="number" min={1} max={31} invalid={!!errors.dueDay} {...register('dueDay')} />
           </Field>
         )}
 

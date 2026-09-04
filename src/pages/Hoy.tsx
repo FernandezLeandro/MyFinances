@@ -17,8 +17,15 @@ import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
-import { summarizeCredits } from '@/features/credits/aggregate'
-import { useCreditCardPayments, useCreditCardSavings, useCreditCards, useCreditInstallments } from '@/features/credits/api'
+import { summarizeMisDeudas } from '@/features/credits/aggregate'
+import {
+  useCreditCardPayments,
+  useCreditCardSavings,
+  useCreditCards,
+  useCreditInstallments,
+  useCreditPurchasePayments,
+  useStandalonePurchases,
+} from '@/features/credits/api'
 import { useFixedExpensePayments, useFixedExpenses, useProjectedBalance } from '@/features/fixed-expenses/api'
 import { summarizeFixedExpenses } from '@/features/fixed-expenses/aggregate'
 import { Link } from 'react-router'
@@ -38,15 +45,25 @@ export function Hoy() {
   const { data: fixedExpenses } = useFixedExpenses()
   const { data: fixedPayments } = useFixedExpensePayments(period)
   const { data: cards } = useCreditCards()
+  const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallments(period)
   const { data: savings } = useCreditCardSavings(period)
   const { data: cardPayments } = useCreditCardPayments(period)
+  const { data: purchasePayments } = useCreditPurchasePayments(period)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const animatedBalance = useCountUp(balance.data ?? 0)
-  const creditsSummary = useMemo(
-    () => summarizeCredits(cards ?? [], installments ?? [], savings ?? [], cardPayments ?? []),
-    [cards, installments, savings, cardPayments],
+  const misDeudasSummary = useMemo(
+    () =>
+      summarizeMisDeudas(
+        cards ?? [],
+        standalonePurchases ?? [],
+        installments ?? [],
+        savings ?? [],
+        cardPayments ?? [],
+        purchasePayments ?? [],
+      ),
+    [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
   // Misma función que Fijos.tsx: así "cuántos fijos faltan pagar" cuenta exactamente igual en las
   // dos pantallas, bolsas a medio gastar incluidas.
@@ -54,7 +71,8 @@ export function Hoy() {
     () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], new Date(), new Date()),
     [fixedExpenses, fixedPayments],
   )
-  const unpaidCardsCount = creditsSummary.perCard.filter((c) => !c.paid).length
+  const unpaidDebtsCount =
+    misDeudasSummary.perCard.filter((c) => !c.paid).length + misDeudasSummary.standalone.filter((s) => !s.paid).length
 
   return (
     <div className="flex flex-col gap-12">
@@ -120,8 +138,8 @@ export function Hoy() {
         currentBalanceCents={balance.data ?? 0}
         pendingFixedCount={pendingFixed.length}
         pendingFixedCents={pendingFixedTotal}
-        unpaidCardsCount={unpaidCardsCount}
-        unpaidCardsCents={creditsSummary.totalPendingCents}
+        unpaidDebtsCount={unpaidDebtsCount}
+        unpaidDebtsCents={misDeudasSummary.totalPendingCents}
         hidden={balanceHidden}
         hideWhenNothingPending
       />

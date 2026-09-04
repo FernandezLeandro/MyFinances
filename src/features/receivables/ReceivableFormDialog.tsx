@@ -2,13 +2,21 @@ import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { format } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
+import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable, useUpdateReceivable, type Receivable } from '@/features/receivables/api'
+import { PersonNameInput } from '@/features/receivables/PersonNameInput'
+
+/** Las tres respuestas a "¿qué pasa con tu saldo?" — `descontar` es la única que además dispara un
+ *  gasto; las otras dos mapean 1:1 a los dos valores de `already_expensed` que ya existían. */
+type SaldoOption = 'sigue' | 'descontar' | 'ya_gastado'
 
 const schema = z.object({
   amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
@@ -16,29 +24,40 @@ const schema = z.object({
   }),
   name: z.string().min(1, 'Falta el nombre').max(80),
   expectedPeriod: z.string().optional(),
-  alreadyExpensed: z.boolean(),
+  saldoOption: z.enum(['sigue', 'descontar', 'ya_gastado']),
+  expenseCategoryId: z.string().optional(),
+  expenseOccurredOn: z.string().optional(),
   note: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
 
+function saldoOptionFromReceivable(receivable: Receivable): SaldoOption {
+  // Una deuda ya editada no distingue "descontala ahora" de "ya cargué el gasto" — las dos dejan
+  // `already_expensed = true` y no guardan por qué se llegó ahí si no hay `expense_transaction_id`
+  // (filas de antes de esta migración). Al editar, ambas caen en "ya cargué el gasto": no hay forma
+  // de volver a generar el gasto sin duplicarlo, así que no se ofrece la opción "descontar" en edición.
+  return receivable.already_expensed ? 'ya_gastado' : 'sigue'
+}
+
 interface ReceivableFormDialogProps {
   open: boolean
   onClose: () => void
   receivable?: Receivable | null
-  /** `already_expensed` en alta arranca en `false`: el caso que trae al alta rápida desde Cuadrar
-   *  Saldo es por definición "presté efectivo y el cuadre no da". */
+  /** En alta rápida desde Cuadrar Saldo arranca en "sigue en mi saldo": el caso que trae a esa
+   *  pantalla es por definición "presté efectivo y el cuadre no da". */
   defaultAlreadyExpensed?: boolean
-  /** Si la deuda ya tiene abonos registrados, el flag no se puede tocar más — ver el comentario
-   *  del chip de abajo. */
+  /** Si la deuda ya tiene abonos registrados, la respuesta a "¿qué pasa con tu saldo?" no se puede
+   *  tocar más — ver el comentario de los chips de abajo. */
   hasPayments?: boolean
 }
 
 /**
- * Alta/edición de una deuda a favor. `already_expensed` decide si prestar cuenta como plata tuya
- * en Cuadrar Saldo o si ya salió del saldo como un gasto real (ver el comentario de la migración
- * `receivables_deudas_a_favor` para el porqué completo) — es la única decisión de la que depende
- * `reconciliar()`, así que se pide con dos `Chip` bien visibles en vez de un checkbox chico.
+ * Alta/edición de una deuda a favor. "¿Qué pasa con tu saldo?" es la única decisión de la que
+ * depende `reconciliar()` (ver `receivables_deudas_a_favor` y `deudas_flujo_movimientos` para el
+ * porqué completo), así que se pide con `Chip`s bien visibles en vez de un checkbox chico. La
+ * tercera opción, "descontala ahora", dispara además la creación del gasto en el mismo paso — ver
+ * `ReceivableInput.expense`.
  */
 export function ReceivableFormDialog({
   open,
@@ -48,8 +67,16 @@ export function ReceivableFormDialog({
   hasPayments = false,
 }: ReceivableFormDialogProps) {
   const isEditing = !!receivable
+  // Si "descontala ahora" ya generó un gasto real, este form (un `update` directo, no un RPC) no
+  // puede tocar `already_expensed` sin dejar ese gasto huérfano: volver a "sigue en mi saldo" desde
+  // acá contaría esa plata dos veces (el gasto real en Movimientos Y la deuda de nuevo en Cuadrar
+  // Saldo). El único camino de vuelta es "Deshacer descuento" en el detalle, que sí borra el gasto.
+  const lockedByExpense = isEditing && receivable.expense_transaction_id != null
+  const locked = hasPayments || lockedByExpense
   const createReceivable = useCreateReceivable()
   const updateReceivable = useUpdateReceivable()
+  const { data: categories } = useCategories()
+  const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
 
   const {
     register,
@@ -60,10 +87,18 @@ export function ReceivableFormDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { amount: '', name: '', expectedPeriod: '', alreadyExpensed: defaultAlreadyExpensed, note: '' },
+    defaultValues: {
+      amount: '',
+      name: '',
+      expectedPeriod: '',
+      saldoOption: defaultAlreadyExpensed ? 'ya_gastado' : 'sigue',
+      expenseCategoryId: '',
+      expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
+      note: '',
+    },
   })
 
-  const alreadyExpensed = watch('alreadyExpensed')
+  const saldoOption = watch('saldoOption')
 
   useEffect(() => {
     if (!open) return
@@ -73,20 +108,40 @@ export function ReceivableFormDialog({
             amount: centsToInputText(receivable.amountCents),
             name: receivable.name,
             expectedPeriod: receivable.expected_period?.slice(0, 7) ?? '',
-            alreadyExpensed: receivable.already_expensed,
+            saldoOption: saldoOptionFromReceivable(receivable),
+            expenseCategoryId: '',
+            expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
             note: receivable.note ?? '',
           }
-        : { amount: '', name: '', expectedPeriod: '', alreadyExpensed: defaultAlreadyExpensed, note: '' },
+        : {
+            amount: '',
+            name: '',
+            expectedPeriod: '',
+            saldoOption: defaultAlreadyExpensed ? 'ya_gastado' : 'sigue',
+            expenseCategoryId: '',
+            expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
+            note: '',
+          },
     )
   }, [open, receivable, defaultAlreadyExpensed, reset])
 
   async function onSubmit(values: FormValues) {
+    const cents = parseAmountToCents(values.amount)!
     const payload = {
       name: values.name.trim(),
-      cents: parseAmountToCents(values.amount)!,
+      cents,
       expectedPeriod: values.expectedPeriod ? `${values.expectedPeriod}-01` : null,
-      alreadyExpensed: values.alreadyExpensed,
+      alreadyExpensed: values.saldoOption !== 'sigue',
       note: values.note?.trim() || null,
+      expense:
+        values.saldoOption === 'descontar'
+          ? {
+              cents,
+              categoryId: values.expenseCategoryId || null,
+              occurredOn: values.expenseOccurredOn || format(new Date(), 'yyyy-MM-dd'),
+              description: `Descontado: ${values.name.trim()}`,
+            }
+          : null,
     }
 
     if (isEditing) {
@@ -119,7 +174,7 @@ export function ReceivableFormDialog({
         </Field>
 
         <Field label="Quién te debe" htmlFor="name" error={errors.name?.message}>
-          <Input id="name" placeholder="Juan, mi hermana…" invalid={!!errors.name} {...register('name')} />
+          <PersonNameInput id="name" placeholder="Juan, mi hermana…" invalid={!!errors.name} {...register('name')} />
         </Field>
 
         <Field label="Cuándo lo cobrás" htmlFor="expectedPeriod" hint="Opcional — para no olvidarte">
@@ -128,29 +183,65 @@ export function ReceivableFormDialog({
 
         <div>
           <div className="mb-2 flex items-center gap-1.5">
-            <span className="eyebrow">Cómo se la prestaste</span>
-            <InfoTooltip text="Si pagaste algo ajeno con tarjeta o débito y ya cargaste el gasto, esa plata ya salió de tu saldo. Cuando te la devuelvan se registra como un ingreso. Si le diste efectivo, esa plata sigue siendo tuya hasta que te la devuelvan." />
+            <span className="eyebrow">¿Qué pasa con tu saldo?</span>
+            <InfoTooltip text="Si le diste efectivo, esa plata sigue siendo tuya hasta que te la devuelvan. Si querés descontarla ahora, la app carga el gasto en el momento. Si ya cargaste ese gasto vos mismo en otro lado, esa plata ya salió de tu saldo — cuando te la devuelvan se registra como un ingreso." />
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             <Chip
-              active={!alreadyExpensed}
-              onClick={hasPayments ? undefined : () => setValue('alreadyExpensed', false)}
-              className={hasPayments ? 'opacity-50' : undefined}
+              active={saldoOption === 'sigue'}
+              onClick={locked ? undefined : () => setValue('saldoOption', 'sigue')}
+              className={locked ? 'opacity-50' : undefined}
             >
-              Le presté efectivo
+              Sigue en mi saldo
             </Chip>
+            {/* Sólo en alta: editar no puede generar el gasto de forma atómica con el resto del
+                patch (`useUpdateReceivable` es un update directo, no un RPC) — para descontar una
+                deuda ya cargada existe el botón dedicado del detalle (`useExpenseReceivable`). */}
+            {!isEditing && (
+              <Chip
+                active={saldoOption === 'descontar'}
+                onClick={locked ? undefined : () => setValue('saldoOption', 'descontar')}
+                className={locked ? 'opacity-50' : undefined}
+              >
+                Descontala ahora
+              </Chip>
+            )}
             <Chip
-              active={alreadyExpensed}
-              onClick={hasPayments ? undefined : () => setValue('alreadyExpensed', true)}
-              className={hasPayments ? 'opacity-50' : undefined}
+              active={saldoOption === 'ya_gastado'}
+              onClick={locked ? undefined : () => setValue('saldoOption', 'ya_gastado')}
+              className={locked ? 'opacity-50' : undefined}
             >
-              Ya lo cargué como gasto
+              Ya cargué el gasto
             </Chip>
           </div>
           {hasPayments && (
             <p className="mt-2 text-[12px] text-chalk-faint">
               No se puede cambiar: ya registraste abonos con este criterio.
             </p>
+          )}
+          {lockedByExpense && !hasPayments && (
+            <p className="mt-2 text-[12px] text-chalk-faint">
+              No se puede cambiar acá: "Descontala ahora" ya generó un gasto real. Para deshacerlo, usá
+              "Deshacer descuento" en el detalle de la deuda.
+            </p>
+          )}
+
+          {saldoOption === 'descontar' && (
+            <div className="mt-3 flex flex-col gap-3 rounded-control bg-ink-850 p-3">
+              <Field label="Categoría del gasto" htmlFor="expenseCategoryId" hint="Opcional">
+                <Select id="expenseCategoryId" {...register('expenseCategoryId')}>
+                  <option value="">Elegir…</option>
+                  {expenseCategories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Fecha del gasto" htmlFor="expenseOccurredOn">
+                <Input id="expenseOccurredOn" type="date" {...register('expenseOccurredOn')} />
+              </Field>
+            </div>
           )}
         </div>
 

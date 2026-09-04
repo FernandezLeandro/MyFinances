@@ -7,7 +7,14 @@
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
-import type { CreditCard, CreditCardPayment, CreditCardSaving, CreditInstallment } from '@/features/credits/api'
+import type {
+  CreditCard,
+  CreditCardPayment,
+  CreditCardSaving,
+  CreditInstallment,
+  CreditPurchase,
+  CreditPurchasePayment,
+} from '@/features/credits/api'
 import type { BalanceLocation } from '@/features/reconciliation/api'
 import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
@@ -103,6 +110,36 @@ export function makePayment(p: Partial<CreditCardPayment> & Pick<CreditCardPayme
   }
 }
 
+export function makePurchase(p: Partial<CreditPurchase> & Pick<CreditPurchase, 'id'>): CreditPurchase {
+  return {
+    user_id: 'user-1',
+    card_id: null,
+    description: 'Compra suelta de test',
+    installments: 1,
+    first_period: '2026-08-01',
+    category_id: null,
+    due_day: 10,
+    notes: null,
+    created_at: FIXED_DATE,
+    installmentAmountCents: 0,
+    ...p,
+  }
+}
+
+export function makePurchasePayment(
+  p: Partial<CreditPurchasePayment> & Pick<CreditPurchasePayment, 'purchase_id'>,
+): CreditPurchasePayment {
+  return {
+    id: `purchase-payment-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    period: '2026-08-01',
+    paid_at: FIXED_DATE,
+    amountPaidCents: 0,
+    transaction_id: null,
+    ...p,
+  }
+}
+
 export function makeLocation(p: Partial<BalanceLocation> & Pick<BalanceLocation, 'amountCents'>): BalanceLocation {
   return {
     id: `location-${Math.random().toString(36).slice(2)}`,
@@ -124,6 +161,7 @@ export function makeReceivable(p: Partial<Receivable> & Pick<Receivable, 'amount
     expected_period: null,
     already_expensed: false,
     note: null,
+    expense_transaction_id: null,
     updated_at: FIXED_DATE,
     created_at: FIXED_DATE,
     ...p,

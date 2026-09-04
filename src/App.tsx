@@ -10,8 +10,8 @@ import { ToastHost } from '@/components/ui/ToastHost'
 import { Hoy } from '@/pages/Hoy'
 import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
-import { Creditos } from '@/pages/Creditos'
-import { Deudas } from '@/pages/Deudas'
+import { MisDeudas } from '@/pages/MisDeudas'
+import { MeDeben } from '@/pages/MeDeben'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -67,14 +67,16 @@ export default function App() {
             <Route path="hoy" element={<Hoy />} />
             <Route path="movimientos" element={<Movimientos />} />
             <Route path="fijos" element={<Fijos />} />
-            <Route path="creditos" element={<Creditos />} />
-            <Route path="deudas" element={<Deudas />} />
+            <Route path="mis-deudas" element={<MisDeudas />} />
+            <Route path="me-deben" element={<MeDeben />} />
             <Route path="analisis" element={<Analisis />} />
             <Route path="ahorros" element={<Ahorros />} />
             <Route path="ajustes" element={<Ajustes />} />
             {/* Rutas viejas: por si alguien tiene el link guardado. */}
             <Route path="invitaciones" element={<Navigate to="/ajustes" replace />} />
             <Route path="patrimonio" element={<Navigate to="/ahorros" replace />} />
+            <Route path="creditos" element={<Navigate to="/mis-deudas" replace />} />
+            <Route path="deudas" element={<Navigate to="/me-deben" replace />} />
           </Route>
 
           <Route
