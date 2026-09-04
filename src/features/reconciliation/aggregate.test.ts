@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { reconciliar } from './aggregate'
+import { particionarPorHorizonte } from '@/features/receivables/aggregate'
 import { makeLocation, makeReceivableSummary } from '@/test/factories'
 
 describe('reconciliar', () => {
@@ -128,5 +129,23 @@ describe('reconciliar', () => {
     const b = reconciliar(locations, [makeReceivableSummary({ pendingCents: 999_999, alreadyExpensed: true })], 50_000)
     expect(a.diffCents).toBe(b.diffCents)
     expect(b.diffCents).toBe(0)
+  })
+
+  it('particionarPorHorizonte (Cuadrar Saldo) es sólo presentación: no cambia receivablesCents ni diffCents', () => {
+    // "Otras" arranca colapsada en el diálogo, pero sigue sumando en el cuadre — si no fuera así,
+    // esconder una deuda de la vista fabricaría un faltante falso. Esta prueba es la garantía de que
+    // partir la lista para mostrarla en dos grupos no le resta nada a la suma real.
+    const receivables = [
+      makeReceivableSummary({ pendingCents: 12_000, receivable: { expected_period: '2026-09-01' } }),
+      makeReceivableSummary({ pendingCents: 30_000, receivable: { expected_period: null } }),
+    ]
+    const withoutSplit = reconciliar([], receivables, 0)
+
+    const { esteMes, masAdelante } = particionarPorHorizonte(receivables, new Date('2026-09-15T12:00:00'))
+    const withSplit = reconciliar([], [...esteMes, ...masAdelante], 0)
+
+    expect(withSplit.receivablesCents).toBe(withoutSplit.receivablesCents)
+    expect(withSplit.diffCents).toBe(withoutSplit.diffCents)
+    expect(withoutSplit.receivablesCents).toBe(42_000)
   })
 })

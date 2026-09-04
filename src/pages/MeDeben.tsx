@@ -40,7 +40,11 @@ function ReceivableRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-[14px] text-chalk">{receivable.name}</p>
-            {receivable.already_expensed && <Chip className="shrink-0">Ya cargado como gasto</Chip>}
+            {receivable.already_expensed && (
+              <Chip className="shrink-0">
+                {receivable.expense_transaction_id != null ? 'Descontado' : 'Ya cargado como gasto'}
+              </Chip>
+            )}
           </div>
 
           {hasPartialPayments ? (

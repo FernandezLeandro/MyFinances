@@ -464,9 +464,13 @@ export interface Database {
           expected_period: string | null
           already_expensed: boolean
           note: string | null
+          expense_transaction_id: string | null
           updated_at: string
           created_at: string
         }
+        // Insert queda sin uso real: el alta pasa por rpc_create_receivable (puede tener que crear
+        // el gasto asociado atómicamente). Se declara igual para que el tipo de la tabla sea
+        // completo y `.from('receivables').select()` tipe bien.
         Insert: {
           id?: string
           user_id: string
@@ -475,6 +479,7 @@ export interface Database {
           expected_period?: string | null
           already_expensed?: boolean
           note?: string | null
+          expense_transaction_id?: string | null
           updated_at?: string
         }
         Update: Partial<{
@@ -483,6 +488,7 @@ export interface Database {
           expected_period: string | null
           already_expensed: boolean
           note: string | null
+          expense_transaction_id: string | null
           updated_at: string
         }>
         Relationships: []
@@ -613,11 +619,34 @@ export interface Database {
           p_amount: number | string
           p_occurred_on?: string | null
           p_category_id?: string | null
+          p_create_income?: boolean | null
         }
         Returns: undefined
       }
       rpc_delete_receivable_payment: {
         Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      rpc_create_receivable: {
+        Args: {
+          p_name: string
+          p_amount: number | string
+          p_expected_period?: string | null
+          p_note?: string | null
+          p_already_expensed?: boolean
+          p_expense_amount?: number | string | null
+          p_expense_category_id?: string | null
+          p_expense_occurred_on?: string | null
+          p_expense_description?: string | null
+        }
+        Returns: string
+      }
+      rpc_expense_receivable: {
+        Args: { p_receivable_id: string; p_category_id?: string | null; p_occurred_on?: string | null }
+        Returns: undefined
+      }
+      rpc_unexpense_receivable: {
+        Args: { p_receivable_id: string }
         Returns: undefined
       }
     }

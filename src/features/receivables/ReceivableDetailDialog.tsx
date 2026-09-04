@@ -6,10 +6,11 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { useDeleteReceivable, useDeleteReceivablePayment } from '@/features/receivables/api'
+import { useDeleteReceivable, useDeleteReceivablePayment, useUnexpenseReceivable } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import { ReceivableFormDialog } from '@/features/receivables/ReceivableFormDialog'
 import { RegistrarAbonoDialog } from '@/features/receivables/RegistrarAbonoDialog'
+import { ExpenseReceivableDialog } from '@/features/receivables/ExpenseReceivableDialog'
 
 interface ReceivableDetailDialogProps {
   open: boolean
@@ -23,15 +24,18 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
   const { receivable, payments, pendingCents, cobrada, vencida } = summary
   const [formOpen, setFormOpen] = useState(false)
   const [abonoOpen, setAbonoOpen] = useState(false)
+  const [expenseOpen, setExpenseOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const deleteReceivable = useDeleteReceivable()
   const deletePayment = useDeleteReceivablePayment()
+  const unexpenseReceivable = useUnexpenseReceivable()
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
-  // cierra vía `.close()` (acá pasa al abrir "Editar"/"Registrar abono" encima). Sin este filtro,
-  // cualquiera de los dos cerraba todo el detalle de un tirón — mismo gotcha que en Fijos/Ahorros.
+  // cierra vía `.close()` (acá pasa al abrir "Editar"/"Registrar abono"/"Descontar" encima). Sin
+  // este filtro, cualquiera de los cuatro cerraba todo el detalle de un tirón — mismo gotcha que en
+  // Fijos/Ahorros.
   function handleDetailClose() {
-    if (!formOpen && !abonoOpen && !confirmingDelete) onClose()
+    if (!formOpen && !abonoOpen && !expenseOpen && !confirmingDelete) onClose()
   }
 
   function handleConfirmDelete() {
@@ -41,7 +45,7 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
   return (
     <>
       <Dialog
-        open={open && !formOpen && !abonoOpen && !confirmingDelete}
+        open={open && !formOpen && !abonoOpen && !expenseOpen && !confirmingDelete}
         onClose={handleDetailClose}
         title={receivable.name}
         footer={
@@ -77,9 +81,38 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
                 : 'Sin fecha esperada'}
             </span>
             <span className="text-chalk-faint">
-              {receivable.already_expensed ? 'Ya lo cargaste como gasto' : 'Le prestaste efectivo'}
+              {!receivable.already_expensed
+                ? 'Le prestaste efectivo'
+                : receivable.expense_transaction_id != null
+                  ? 'Descontado de tu saldo'
+                  : 'Ya lo cargaste como gasto'}
             </span>
           </div>
+
+          {/* Link de texto y no un botón más en el footer: ya tiene tres (Eliminar/Cerrar/Editar +
+              Registrar abono) y un quinto ahí desborda en mobile. Mismo patrón que "+ Agregar lugar"
+              de Cuadrar Saldo. */}
+          {!cobrada &&
+            (!receivable.already_expensed ? (
+              <button
+                type="button"
+                onClick={() => setExpenseOpen(true)}
+                className="self-start text-[12px] font-medium text-acid hover:underline"
+              >
+                Descontar de mi saldo
+              </button>
+            ) : (
+              receivable.expense_transaction_id != null && (
+                <button
+                  type="button"
+                  onClick={() => unexpenseReceivable.mutate(receivable.id)}
+                  disabled={unexpenseReceivable.isPending}
+                  className="self-start text-[12px] font-medium text-acid hover:underline disabled:opacity-40"
+                >
+                  {unexpenseReceivable.isPending ? 'Deshaciendo…' : 'Deshacer descuento'}
+                </button>
+              )
+            ))}
 
           {receivable.note && <p className="text-[13px] text-chalk-dim">{receivable.note}</p>}
         </div>
@@ -121,6 +154,10 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
       )}
 
       {abonoOpen && <RegistrarAbonoDialog open={abonoOpen} onClose={() => setAbonoOpen(false)} summary={summary} />}
+
+      {expenseOpen && (
+        <ExpenseReceivableDialog open={expenseOpen} onClose={() => setExpenseOpen(false)} summary={summary} />
+      )}
 
       {confirmingDelete && (
         <Dialog

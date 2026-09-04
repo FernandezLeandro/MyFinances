@@ -110,6 +110,35 @@ export interface MesGroup {
   totalPendingCents: number
 }
 
+export interface HorizonteReceivables {
+  /** Se esperan cobrar este mes o antes (incluye vencidas — venció en agosto y estamos en
+   *  septiembre es, si acaso, más accionable que una del mes que viene). */
+  esteMes: ReceivableSummary[]
+  /** Mes que viene en adelante, o sin fecha esperada — "no sé cuándo" no es "este mes". */
+  masAdelante: ReceivableSummary[]
+}
+
+/** Parte una lista de deudas (ya filtradas por lo que le importa a cada pantalla — Cuadrar Saldo le
+ *  pasa sólo `cuentaEnCuadre`) según si entran este mes o no. Es sólo presentación: la suma de las
+ *  dos partes es la lista de entrada completa, así que no cambia ningún total ya calculado en
+ *  `reconciliar()` — filtrar la suma en sí sería fabricar un faltante falso en el cuadre (ver el
+ *  comentario de `reconciliation/aggregate.ts`). `today` por parámetro, nunca `new Date()` adentro,
+ *  mismo criterio que `summarizeReceivables`. */
+export function particionarPorHorizonte(items: ReceivableSummary[], today: Date): HorizonteReceivables {
+  const limite = startOfMonth(today)
+  const esteMes: ReceivableSummary[] = []
+  const masAdelante: ReceivableSummary[] = []
+  for (const item of items) {
+    const period = item.receivable.expected_period
+    if (period != null && startOfMonth(parseISO(period)) <= limite) {
+      esteMes.push(item)
+    } else {
+      masAdelante.push(item)
+    }
+  }
+  return { esteMes, masAdelante }
+}
+
 /** Agrupa las pendientes por mes esperado preservando el orden de entrada (ya viene ordenado por
  *  `summarizeReceivables`) — mismo patrón que `groupByPeriod` en `FixedExpenseDetailDialog`. */
 export function agruparPorMesEsperado(items: ReceivableSummary[]): MesGroup[] {
