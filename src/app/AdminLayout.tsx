@@ -51,12 +51,7 @@ export function AdminLayout() {
         </div>
       </main>
 
-      <MobileTabBar
-        items={adminNavItems}
-        accent="chalk"
-        drawerOpen={drawerOpen}
-        onOpenDrawer={() => setDrawerOpen(true)}
-      />
+      <MobileTabBar items={adminNavItems} drawerOpen={drawerOpen} onOpenDrawer={() => setDrawerOpen(true)} />
 
       <AccountDrawer
         open={drawerOpen}
