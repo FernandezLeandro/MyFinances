@@ -1,3 +1,8 @@
+/// <reference types="node" />
+// El resto de `src/` compila bajo `tsconfig.app.json`, cuyo `types` es sólo `["vite/client"]` a
+// propósito — no queremos que el código de browser vea globals de Node por accidente. Este test sí
+// corre en Node (vitest) y necesita `fs`/`url` para leer `theme.css` del disco; la referencia de
+// arriba le da los tipos SÓLO acá, sin tocar el resto del proyecto.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'

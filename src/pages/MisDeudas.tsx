@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
-import { SummaryPanel } from '@/components/ui/SummaryPanel'
 import { PendientesTabs } from '@/components/PendientesTabs'
 import { ProgresoGuardado } from '@/features/credits/ProgresoGuardado'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
@@ -73,7 +72,7 @@ function CardCard({
       </div>
 
       <div className="mt-3">
-        <Money cents={totalCents} tone={paid ? 'dim' : 'chalk'} size="figure" />
+        <Money cents={totalCents} tone={paid ? 'dim' : 'chalk'} size="figure" hidden={hidden} />
         {paid && <p className="mt-1 text-[12px] font-medium text-acid">Pagada este mes</p>}
       </div>
 
@@ -81,8 +80,8 @@ function CardCard({
         <div className="mt-4">
           <ProgresoGuardado percent={savedPercent} />
           <p className="mt-1.5 text-[12px] text-chalk-faint">
-            Guardaste <Money cents={savedCents} tone="dim" /> · faltan{' '}
-            <Money cents={missingCents} tone={missingCents > 0 ? 'coral' : 'dim'} />
+            Guardaste <Money cents={savedCents} tone="dim" hidden={hidden} /> · faltan{' '}
+            <Money cents={missingCents} tone={missingCents > 0 ? 'coral' : 'dim'} hidden={hidden} />
           </p>
         </div>
       )}
@@ -102,6 +101,9 @@ function CardCard({
 }
 
 export function MisDeudas() {
+  // Sólo lectura, mismo criterio que Fijos: el toggle vive en Hoy, acá se respeta la misma
+  // preferencia — es el mismo saldo, ocultarlo en un lado y no en otro sería inconsistente.
+  const [balanceHidden] = useHiddenBalance('saldo-actual')
   const [month, setMonth] = useState(() => new Date())
   const [cardFormOpen, setCardFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
@@ -229,24 +231,24 @@ export function MisDeudas() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Panel className="p-6 ring-1 ring-acid/15 lg:col-span-1">
               <p className="eyebrow">Total a pagar este mes</p>
-              <Money cents={summary.totalPendingCents} tone="chalk" size="figure" className="mt-2" />
+              <Money cents={summary.totalPendingCents} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
               <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
                 <div className="flex justify-between gap-4">
                   <dt className="text-chalk-faint">Guardado</dt>
                   <dd>
-                    <Money cents={summary.totalSavedCents} tone="dim" />
+                    <Money cents={summary.totalSavedCents} tone="dim" hidden={balanceHidden} />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-chalk-faint">Falta</dt>
                   <dd>
-                    <Money cents={summary.totalMissingCents} tone={summary.totalMissingCents > 0 ? 'coral' : 'dim'} />
+                    <Money cents={summary.totalMissingCents} tone={summary.totalMissingCents > 0 ? 'coral' : 'dim'} hidden={balanceHidden} />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-chalk-faint">Pagado este mes</dt>
                   <dd>
-                    <Money cents={totalPaidCents} tone="dim" />
+                    <Money cents={totalPaidCents} tone="dim" hidden={balanceHidden} />
                   </dd>
                 </div>
               </dl>
@@ -257,7 +259,7 @@ export function MisDeudas() {
               {isProjectedPending ? (
                 <Skeleton className="mt-2 h-9 w-32" />
               ) : (
-                <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" />
+                <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
               )}
               <p className="mt-3 text-[12px] text-chalk-faint">
                 Ya descuenta los fijos y las deudas impagas de este período — el mismo número que ves en Fijos.
@@ -272,6 +274,7 @@ export function MisDeudas() {
                   key={cardSummary.card.id}
                   summary={cardSummary}
                   isCurrentMonth={isCurrentMonth}
+                  hidden={balanceHidden}
                   onEdit={openEditCard}
                   onOpenDetail={setDetailCard}
                   onMarkPaid={setMarkPaidCard}
