@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router'
-import { Chip } from '@/components/ui/Chip'
+import { PillTab, PillTabs } from '@/components/ui/PillTabs'
 
 /**
  * Fijos, Mis Deudas y Me Deben comparten header: son las tres pantallas de plata que todavía no se
@@ -18,16 +18,16 @@ export function PendientesTabs() {
   const location = useLocation()
 
   return (
-    <div className="flex gap-1.5">
-      <Chip active={location.pathname === '/fijos'} onClick={() => navigate('/fijos')}>
+    <PillTabs>
+      <PillTab active={location.pathname === '/fijos'} onClick={() => navigate('/fijos')}>
         Fijos
-      </Chip>
-      <Chip active={location.pathname === '/mis-deudas'} onClick={() => navigate('/mis-deudas')}>
+      </PillTab>
+      <PillTab active={location.pathname === '/mis-deudas'} onClick={() => navigate('/mis-deudas')}>
         Mis Deudas
-      </Chip>
-      <Chip active={location.pathname === '/me-deben'} onClick={() => navigate('/me-deben')}>
+      </PillTab>
+      <PillTab active={location.pathname === '/me-deben'} onClick={() => navigate('/me-deben')}>
         Me Deben
-      </Chip>
-    </div>
+      </PillTab>
+    </PillTabs>
   )
 }

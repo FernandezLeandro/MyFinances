@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
 import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, ChevronRight, Pause, Plus } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { Check, Pause, Plus } from 'lucide-react'
+import { Panel, CardHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { MonthNav } from '@/components/ui/MonthNav'
+import { IconSquare } from '@/components/ui/IconSquare'
+import { MiniProgress } from '@/components/ui/MiniProgress'
+import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -56,6 +59,7 @@ function FixedExpenseRow({
 }) {
   const { fe, paidCents, remainingCents, done, overspentCents } = status
   const overspent = overspentCents > 0
+  const pct = fe.cents > 0 ? (paidCents / fe.cents) * 100 : 0
 
   return (
     <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850">
@@ -63,28 +67,19 @@ function FixedExpenseRow({
         // Una bolsa no se "tilda" — cada carga es un pago suelto, así que el control siempre agrega
         // una carga nueva (incluso ya completa: se puede seguir cargando nafta pasado el
         // presupuesto, sólo que no descuenta más del proyectado). Lo terminado se ve en la barra.
-        <button
-          type="button"
-          onClick={onPrimaryAction}
-          aria-label={`${fe.name}: registrar carga`}
-          className="grid size-5 shrink-0 place-items-center rounded-chip bg-ink-800 text-chalk-faint transition-colors duration-150 hover:bg-ink-700 hover:text-chalk"
-        >
+        <IconSquare onClick={onPrimaryAction} aria-label={`${fe.name}: registrar carga`}>
           <Plus className="size-2.5" strokeWidth={1.5} aria-hidden />
-        </button>
+        </IconSquare>
       ) : (
-        <button
-          type="button"
+        <IconSquare
+          active={done}
           disabled={busy}
           onClick={onPrimaryAction}
           aria-pressed={done}
           aria-label={done ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
-          className={cn(
-            'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
-            done ? 'bg-acid text-on-accent' : 'bg-ink-800 text-transparent hover:bg-ink-700',
-          )}
         >
-          <Check className="size-3" strokeWidth={1.8} aria-hidden />
-        </button>
+          {done && <Check className="size-3" strokeWidth={1.8} aria-hidden />}
+        </IconSquare>
       )}
 
       <button
@@ -95,16 +90,13 @@ function FixedExpenseRow({
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
         <div className="min-w-0 flex-1">
-          <p className={cn('truncate text-[14px]', done && !overspent ? 'text-chalk-faint' : 'text-chalk')}>{fe.name}</p>
+          <p className={cn('truncate text-[13.5px] font-semibold', done && !overspent ? 'text-chalk-faint' : 'text-chalk')}>
+            {fe.name}
+          </p>
 
           {fe.is_recurring ? (
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1 w-14 shrink-0 overflow-hidden rounded-full bg-ink-800">
-                <div
-                  className={cn('h-full rounded-full', overspent ? 'bg-coral' : done ? 'bg-acid' : 'bg-chalk-dim')}
-                  style={{ width: `${fe.cents > 0 ? Math.min((paidCents / fe.cents) * 100, 100) : 0}%` }}
-                />
-              </div>
+              <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} />
               {overspent ? (
                 <span className="text-[12px] text-coral">
                   Te pasaste <Money cents={overspentCents} tone="coral" hidden={hidden} />
@@ -130,7 +122,7 @@ function FixedExpenseRow({
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
           curso ambos suelen coincidir, pero en un mes pasado pueden diferir. Bolsa: lo que resta
           mientras falte, lo cargado una vez completa (el excedente ya se ve en la línea de arriba). */}
-      <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'chalk'} hidden={hidden} />
+      <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'chalk'} size="row" hidden={hidden} />
     </li>
   )
 }
@@ -251,12 +243,15 @@ export function Fijos() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
         {/* En mobile el saldo proyectado va primero (order-1) para no tener que scrollear pasando
             toda la lista de fijos sólo para verlo — en desktop (lg:) vuelve a su lugar a la derecha
             de la lista, sin tocar el layout de dos columnas. */}
-        <Panel className="order-2 lg:order-1 lg:col-span-2">
-          <PanelHeader title="Del mes" hint="Recurrentes primero, después por vencimiento" />
+        <Panel className="order-2 lg:order-1">
+          <CardHeader
+            title="Del mes"
+            action={<span className="text-[12.5px] text-fg-muted">Recurrentes primero, después por vencimiento</span>}
+          />
           {isError ? (
             <ErrorState onRetry={() => refetch()} />
           ) : isPending ? (
@@ -298,20 +293,13 @@ export function Fijos() {
               </ul>
 
               {paidItems.length > 0 && (
-                <div className="border-t border-ink-850 pt-1 pb-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaidExpanded((v) => !v)}
-                    aria-expanded={paidExpanded}
-                    className="eyebrow flex w-full items-center gap-1.5 px-6 pt-3 pb-1 text-left transition-colors duration-150 hover:text-chalk"
-                  >
-                    <ChevronRight
-                      className={cn('size-2.5 shrink-0 transition-transform duration-150', paidExpanded && 'rotate-90')}
-                      strokeWidth={1.5}
-                      aria-hidden
-                    />
-                    Pagados ({paidItems.length})
-                  </button>
+                <div className="border-t border-divider pt-1 pb-3">
+                  <AccordionHeader
+                    label={`Pagados (${paidItems.length})`}
+                    expanded={paidExpanded}
+                    onToggle={() => setPaidExpanded((v) => !v)}
+                    className="px-6 pt-3 pb-1"
+                  />
                   {paidExpanded && (
                     <ul>
                       {paidItems.map((status) => (
@@ -332,7 +320,7 @@ export function Fijos() {
               )}
 
               {showPaused && pausedItems.length > 0 && (
-                <div className="border-t border-ink-850 pt-1 pb-3">
+                <div className="border-t border-divider pt-1 pb-3">
                   <p className="eyebrow px-6 pt-3 pb-1">Pausados ({pausedItems.length})</p>
                   <ul>
                     {pausedItems.map((fe) => (
@@ -368,7 +356,7 @@ export function Fijos() {
           )}
         </Panel>
 
-        <div className="order-1 flex flex-col gap-6 lg:order-2">
+        <div className="order-1 flex flex-col gap-4 lg:order-2">
           <SaldoProyectadoPanel
             projectedCents={projectedBalance}
             isPending={isProjectedPending}
@@ -381,19 +369,19 @@ export function Fijos() {
           />
 
           {pending.length > 0 && (
-            <Panel tone="flat">
-              <PanelHeader title="Fijos pendientes" hint={`${pending.length} sin abonar este mes`} />
+            <Panel>
+              <CardHeader title="Fijos pendientes" action={<span className="text-[12.5px] text-fg-muted">{pending.length} sin abonar</span>} />
               <ul className="px-6 pb-5">
                 {pending.map((status) => (
-                  <li key={status.fe.id} className="flex items-center gap-3 border-t border-ink-850 py-2.5 first:border-t-0">
+                  <li key={status.fe.id} className="flex items-center gap-3 border-t border-divider py-2.5 first:border-t-0">
                     <span
                       aria-hidden
                       className="size-2 shrink-0 rounded-full"
                       style={{ backgroundColor: categoryById.get(status.fe.category_id ?? '')?.color }}
                     />
-                    <span className="min-w-0 flex-1 truncate text-[14px]">{status.fe.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px]">{status.fe.name}</span>
                     {status.fe.due_day != null && <span className="tnum text-[12px] text-chalk-faint">día {status.fe.due_day}</span>}
-                    <Money cents={status.remainingCents} tone="dim" hidden={balanceHidden} />
+                    <Money cents={status.remainingCents} tone="dim" size="row" hidden={balanceHidden} />
                   </li>
                 ))}
               </ul>
