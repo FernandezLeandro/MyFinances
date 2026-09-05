@@ -6,7 +6,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { useCreateTransaction, useCurrentBalance, type TransactionType } from '@/features/transactions/api'
+import { UNASSIGNED_ACCOUNT_ID, useCreateTransaction, useCurrentBalance, type TransactionType } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { useAccountBalances, useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { CuentaRow } from '@/features/reconciliation/CuentaRow'
@@ -351,7 +351,19 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
               <div className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">
                   Sin asignar ·{' '}
-                  <Link to="/movimientos" className="underline">
+                  {/* Antes mandaba a Movimientos sin ningún filtro — un `<Link to="/movimientos">`
+                      a secas caía en "este mes" (el período por defecto) sin filtrar por cuenta,
+                      así que en la práctica nunca mostraba estos movimientos. Con `state`, "Sin
+                      cuenta" ya viene marcado y el período es todo el historial, no sólo el mes
+                      actual — se ven sin importar cuándo se cargaron. */}
+                  <Link
+                    to="/movimientos"
+                    state={{
+                      accountIds: [UNASSIGNED_ACCOUNT_ID],
+                      period: { preset: 'custom', anchor: format(new Date(), 'yyyy-MM-dd'), from: '2000-01-01', to: format(new Date(), 'yyyy-MM-dd') },
+                    }}
+                    className="underline"
+                  >
                     ver
                   </Link>
                 </dt>

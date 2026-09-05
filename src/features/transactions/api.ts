@@ -20,6 +20,10 @@ export interface TransactionFilters {
   text?: string
 }
 
+/** Sentinel para "sin cuenta" adentro de `accountIds` — un id de cuenta real nunca es `''`, así que
+ *  conviven en el mismo array sin ambigüedad (ej. "Efectivo" + "Sin cuenta" a la vez). */
+export const UNASSIGNED_ACCOUNT_ID = ''
+
 /** Tope explícito de PostgREST (por defecto corta en 1000 filas en silencio). */
 export const TRANSACTIONS_ROW_LIMIT = 1000
 
@@ -46,7 +50,19 @@ export function useTransactions(filters: TransactionFilters) {
 
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.categoryIds?.length) query = query.in('category_id', filters.categoryIds)
-      if (filters.accountIds?.length) query = query.in('account_id', filters.accountIds)
+      if (filters.accountIds?.length) {
+        const realIds = filters.accountIds.filter((id) => id !== UNASSIGNED_ACCOUNT_ID)
+        const wantsUnassigned = filters.accountIds.includes(UNASSIGNED_ACCOUNT_ID)
+        // `.in()` no matchea NULL — "sin cuenta" (account_id IS NULL) necesita su propia rama, y
+        // si se combinan las dos, un `.or()` con ambas condiciones.
+        if (wantsUnassigned && realIds.length) {
+          query = query.or(`account_id.is.null,account_id.in.(${realIds.join(',')})`)
+        } else if (wantsUnassigned) {
+          query = query.is('account_id', null)
+        } else {
+          query = query.in('account_id', realIds)
+        }
+      }
       if (filters.text) query = query.ilike('description', `%${filters.text}%`)
 
       const { data, error } = await query

@@ -16,7 +16,7 @@ import { TransactionRow } from '@/components/TransactionRow'
 import { useCategories } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations } from '@/features/reconciliation/api'
-import { TRANSACTIONS_ROW_LIMIT, useTransactions, type Transaction } from '@/features/transactions/api'
+import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
 import {
@@ -30,15 +30,17 @@ import { centsToNumeric } from '@/lib/money'
 import { downloadCsv } from '@/lib/csv'
 
 export function Movimientos() {
-  // Llega acá desde el drill-down de Análisis con una categoría y un período pre-elegidos.
+  // Llega acá desde el drill-down de Análisis (categoría + período) o desde el "ver" de "Sin
+  // asignar" en Cuadrar Saldo (el filtro de cuenta en sí, con un período bien amplio para no
+  // limitarlo al mes actual).
   const location = useLocation()
-  const incoming = location.state as { categoryId?: string; period?: MovementPeriod } | null
+  const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
 
   const [filters, setFilters] = useState<MovementFilters>(() => ({
     period: incoming?.period ?? defaultMovementPeriod(),
     type: 'all',
     categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
-    accountIds: [],
+    accountIds: incoming?.accountIds ?? [],
   }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -227,14 +229,15 @@ export function Movimientos() {
               )
             })}
             {filters.accountIds.map((id) => {
-              const account = accountById.get(id)
+              const isUnassigned = id === UNASSIGNED_ACCOUNT_ID
+              const label = isUnassigned ? 'Sin cuenta' : accountById.get(id)?.name || '(sin nombre)'
               return (
                 <Chip
-                  key={id}
-                  ariaLabel={`Quitar filtro de cuenta: ${account?.name ?? 'cuenta'}`}
+                  key={id || 'unassigned'}
+                  ariaLabel={`Quitar filtro de cuenta: ${label}`}
                   onClick={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
                 >
-                  {account?.name || '(sin nombre)'} <span aria-hidden className="text-chalk-faint">✕</span>
+                  {label} <span aria-hidden className="text-chalk-faint">✕</span>
                 </Chip>
               )
             })}

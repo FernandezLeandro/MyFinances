@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 import type { Category } from '@/features/categories/api'
-import type { TransactionType } from '@/features/transactions/api'
+import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
 import type { BalanceLocation } from '@/features/reconciliation/api'
 import {
   MOVEMENT_PERIOD_PRESETS,
@@ -230,6 +230,12 @@ export function TransactionFiltersDialog({
             <div className="flex flex-col gap-2">
               <p className="eyebrow">Cuenta</p>
               <div className="flex flex-wrap gap-1.5">
+                <Chip
+                  active={draft.accountIds.includes(UNASSIGNED_ACCOUNT_ID)}
+                  onClick={() => toggleAccount(UNASSIGNED_ACCOUNT_ID)}
+                >
+                  Sin cuenta
+                </Chip>
                 {accounts.map((a) => (
                   <Chip key={a.id} active={draft.accountIds.includes(a.id)} onClick={() => toggleAccount(a.id)}>
                     {a.name || '(sin nombre)'}
