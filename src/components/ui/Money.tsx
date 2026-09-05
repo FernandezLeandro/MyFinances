@@ -1,8 +1,17 @@
 import { cn } from '@/lib/cn'
 import { splitMoney, type Currency } from '@/lib/money'
 
-export type MoneyTone = 'acid' | 'coral' | 'chalk' | 'dim'
-type Size = 'hero' | 'figure' | 'compact' | 'inline'
+export type MoneyTone =
+  | 'acid'
+  | 'coral'
+  | 'chalk'
+  | 'dim'
+  // Texto sobre una tarjeta invertida (fondo oscuro fijo, ver `Panel` tone="inverse") — siempre claro,
+  // a diferencia de `chalk`/`dim` que resuelven distinto según el tema de la app.
+  | 'onInverse'
+  | 'onInverseSecondary'
+  | 'negativeOnInverse'
+type Size = 'hero' | 'figure' | 'compact' | 'inline' | 'row'
 
 interface MoneyProps {
   cents: number
@@ -22,6 +31,9 @@ const tones: Record<MoneyTone, string> = {
   coral: 'text-coral',
   chalk: 'text-chalk',
   dim: 'text-chalk-dim',
+  onInverse: 'text-on-inverse',
+  onInverseSecondary: 'text-on-inverse-secondary',
+  negativeOnInverse: 'text-negative-on-inverse',
 }
 
 const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = {
@@ -45,6 +57,13 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
     root: 'font-sans font-medium text-[15px]',
     symbol: 'mr-[0.25em] text-chalk-faint',
     fraction: 'text-[0.82em] mt-[0.15em] ml-[0.05em]',
+  },
+  // Importe de una fila de lista (`TransactionRow` y afines) — más chico y semibold que `inline`,
+  // no sólo `inline` con otro tamaño: el peso también cambia (600, no 500).
+  row: {
+    root: 'font-sans font-semibold text-[14px]',
+    symbol: 'mr-[0.2em] text-chalk-faint',
+    fraction: 'text-[0.82em] mt-[0.12em] ml-[0.05em]',
   },
 }
 
@@ -91,7 +110,7 @@ export function Money({
       </span>
       <span aria-hidden>{whole}</span>
       <span className={s.fraction} aria-hidden>
-        {size === 'inline' ? `,${fraction}` : fraction}
+        ,{fraction}
       </span>
     </span>
   )

@@ -21,6 +21,10 @@ interface SaldoProyectadoPanelProps {
  * mensuales incluidas) y deudas impagas (tarjetas y compras sueltas). El markup en sí vive en
  * `SummaryPanel`, compartido a su vez con los paneles de resumen de Mis Deudas y Me Deben — acá
  * sólo queda la lógica de dominio: qué filas mostrar y cuándo esconder el panel entero.
+ *
+ * Siempre `inverse`: en el sistema Bento esta es la única tarjeta oscura fija de la app (Hoy y
+ * Fijos), a diferencia de los totales de Mis Deudas/Me Deben, que se distinguen con el ring de
+ * acento (`accent`) sobre una tarjeta normal.
  */
 export function SaldoProyectadoPanel({
   projectedCents,
@@ -36,12 +40,12 @@ export function SaldoProyectadoPanel({
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
 
-  const rows: SummaryRow[] = [{ label: 'Saldo actual', cents: currentBalanceCents, tone: 'dim' }]
+  const rows: SummaryRow[] = [{ label: 'Saldo actual', cents: currentBalanceCents }]
   if (pendingFixedCount > 0) {
-    rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'coral' })
+    rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'negativeOnInverse' })
   }
   if (unpaidDebtsCount > 0) {
-    rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'coral' })
+    rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'negativeOnInverse' })
   }
 
   return (
@@ -50,7 +54,7 @@ export function SaldoProyectadoPanel({
       cents={projectedCents}
       isPending={isPending}
       hidden={hidden}
-      accent
+      inverse
       rows={rows}
       footnote={nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined}
     />

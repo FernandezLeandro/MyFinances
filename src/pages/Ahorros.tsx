@@ -8,12 +8,12 @@ import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { cn } from '@/lib/cn'
-import { formatQuantity, type Currency } from '@/lib/money'
+import { type Currency } from '@/lib/money'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useSavingsBuckets, useSavingsEntries, type SavingsBucket } from '@/features/savings/api'
-import { summarizePortfolio, type AssetNet, type BucketSummary } from '@/features/savings/aggregate'
+import { summarizePortfolio, type BucketSummary } from '@/features/savings/aggregate'
 import { CompositionView } from '@/features/savings/CompositionView'
+import { NetAmount } from '@/features/savings/NetAmount'
 import { useAssets, type Asset } from '@/features/assets/api'
 import { useAssetPrices } from '@/features/fx/api'
 import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
@@ -38,29 +38,6 @@ function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Cu
         USD
       </Chip>
     </div>
-  )
-}
-
-/** Cantidad neta de un activo, tipografiada según corresponda: `Money` para ARS, cantidad + símbolo para el resto. */
-function NetAmount({
-  net,
-  asset,
-  tone = 'dim',
-  hidden = false,
-}: {
-  net: AssetNet
-  asset: Asset
-  tone?: 'dim' | 'chalk' | 'coral' | 'acid'
-  hidden?: boolean
-}) {
-  if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} hidden={hidden} />
-  if (hidden) {
-    return <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>•••• {asset.symbol}</span>
-  }
-  return (
-    <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>
-      {formatQuantity(net.quantityUnits, asset.decimals)} {asset.symbol}
-    </span>
   )
 }
 
