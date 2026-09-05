@@ -1,12 +1,12 @@
 import { cn } from '@/lib/cn'
 import { splitMoney, type Currency } from '@/lib/money'
 
-type Tone = 'acid' | 'coral' | 'chalk' | 'dim'
+export type MoneyTone = 'acid' | 'coral' | 'chalk' | 'dim'
 type Size = 'hero' | 'figure' | 'compact' | 'inline'
 
 interface MoneyProps {
   cents: number
-  tone?: Tone
+  tone?: MoneyTone
   size?: Size
   /** Antepone "+" a los importes positivos. Para listas donde conviven ingresos y gastos. */
   signed?: boolean
@@ -17,7 +17,7 @@ interface MoneyProps {
   className?: string
 }
 
-const tones: Record<Tone, string> = {
+const tones: Record<MoneyTone, string> = {
   acid: 'text-acid',
   coral: 'text-coral',
   chalk: 'text-chalk',
