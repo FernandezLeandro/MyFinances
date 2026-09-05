@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -13,6 +13,8 @@ import { parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useBalanceLocations } from '@/features/reconciliation/api'
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -33,6 +35,7 @@ const schema = z
     categoryId: z.string().min(1, 'Elegí una categoría'),
     occurredOn: z.string().min(1, 'Falta la fecha'),
     description: z.string().max(140).optional(),
+    accountId: z.string().optional(),
     compartido: z.boolean(),
     personName: z.string().max(80).optional(),
     splitMode: z.enum(['50', 'percent', 'amount']),
@@ -96,6 +99,8 @@ const emptySplitDefaults = {
 export function TransactionFormDialog({ open, onClose, transaction, prefill }: TransactionFormDialogProps) {
   const isEditing = !!transaction
   const { data: categories } = useCategories()
+  const { data: locations } = useBalanceLocations()
+  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
   const createTx = useCreateTransaction()
   const updateTx = useUpdateTransaction()
   const deleteTx = useDeleteTransaction()
@@ -107,7 +112,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
     watch,
     setValue,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -116,6 +121,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       categoryId: '',
       occurredOn: format(new Date(), 'yyyy-MM-dd'),
       description: '',
+      accountId: '',
       ...emptySplitDefaults,
     },
   })
@@ -126,8 +132,25 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   const amount = watch('amount')
   const occurredOn = watch('occurredOn')
 
+  // `didResetRef`: sin esto, `<StrictMode>` (activo en `main.tsx`) vuelve a invocar este efecto una
+  // segunda vez en desarrollo apenas monta (mount → efectos → "desmonta" cleanups → remonta →
+  // efectos de nuevo, aunque nada de las deps haya cambiado). Cuando `defaultAccountId` YA estaba
+  // en caché al abrir (típico: recién marcaste una cuenta predeterminada en Cuentas y volviste a
+  // Hoy), esa segunda pasada de ESTE reset llegaba DESPUÉS de que el efecto de abajo ya hubiera
+  // precargado la cuenta, y la volvía a pisar con `accountId: ''` — el guard de ese efecto no lo
+  // evitaba porque, desde su propio punto de vista, ya había hecho su trabajo una vez. Detectado
+  // reproduciendo a mano el reporte de un usuario ("marco la ★ y en Nuevo movimiento sigue en 'Sin
+  // asignar'"): con la cuenta recién creada la query ya estaba resuelta al montar, así que las dos
+  // pasadas de Strict Mode caían las dos ANTES de que hubiera ninguna causa real para reabrir el
+  // diálogo — un caso de laboratorio perfecto para este bug.
+  const didResetRef = useRef(false)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      didResetRef.current = false
+      return
+    }
+    if (didResetRef.current) return
+    didResetRef.current = true
     reset(
       transaction
         ? {
@@ -136,6 +159,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             categoryId: transaction.category_id ?? '',
             occurredOn: transaction.occurred_on,
             description: transaction.description ?? '',
+            accountId: transaction.account_id ?? '',
             ...emptySplitDefaults,
           }
         : {
@@ -144,10 +168,27 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             categoryId: '',
             occurredOn: format(new Date(), 'yyyy-MM-dd'),
             description: '',
+            accountId: '',
             ...emptySplitDefaults,
           },
     )
   }, [open, transaction, prefill, reset])
+
+  // Precarga la cuenta predeterminada en un alta nueva — sólo escribe el campo `accountId`, nunca
+  // el resto del form, y sólo mientras el usuario no lo haya tocado (`dirtyFields`, que `setValue`
+  // sin `shouldDirty` no marca) ni ya se haya aplicado una vez en esta apertura del diálogo. Así, si
+  // `locations` resuelve después de que el usuario ya eligió una cuenta a mano (incluida "Sin
+  // asignar", que también vale ''), esa elección no se pisa.
+  const appliedDefaultAccountRef = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      appliedDefaultAccountRef.current = false
+      return
+    }
+    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId) return
+    setValue('accountId', defaultAccountId)
+    appliedDefaultAccountRef.current = true
+  }, [open, transaction, defaultAccountId, dirtyFields.accountId, setValue])
 
   // El mes esperado de cobro arranca en el mes de la fecha del movimiento — es el caso dominante
   // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en
@@ -185,7 +226,13 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
         // devuelvan (ver la tabla de verificación de `deudas_flujo_movimientos`).
         alreadyExpensed: false,
         note: null,
-        expense: { cents: cents - otro, categoryId: values.categoryId, occurredOn: values.occurredOn, description },
+        expense: {
+          cents: cents - otro,
+          categoryId: values.categoryId,
+          occurredOn: values.occurredOn,
+          description,
+          accountId: values.accountId || null,
+        },
       })
       onClose()
       return
@@ -197,6 +244,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       occurredOn: values.occurredOn,
       categoryId: values.categoryId,
       description,
+      accountId: values.accountId || null,
     }
 
     if (isEditing) {
@@ -267,6 +315,16 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
 
         <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
           <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
+        </Field>
+
+        <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
+          <AccountSelect
+            id="accountId"
+            value={watch('accountId') ?? ''}
+            // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
+            // de la predeterminada pise una elección manual no vería esta elección como manual.
+            onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
+          />
         </Field>
 
         <Field label="Descripción" htmlFor="description" hint="Opcional">

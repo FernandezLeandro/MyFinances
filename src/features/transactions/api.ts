@@ -16,8 +16,13 @@ export interface TransactionFilters {
   to: string
   type?: TransactionType
   categoryIds?: string[]
+  accountIds?: string[]
   text?: string
 }
+
+/** Sentinel para "sin cuenta" adentro de `accountIds` — un id de cuenta real nunca es `''`, así que
+ *  conviven en el mismo array sin ambigüedad (ej. "Efectivo" + "Sin cuenta" a la vez). */
+export const UNASSIGNED_ACCOUNT_ID = ''
 
 /** Tope explícito de PostgREST (por defecto corta en 1000 filas en silencio). */
 export const TRANSACTIONS_ROW_LIMIT = 1000
@@ -45,6 +50,19 @@ export function useTransactions(filters: TransactionFilters) {
 
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.categoryIds?.length) query = query.in('category_id', filters.categoryIds)
+      if (filters.accountIds?.length) {
+        const realIds = filters.accountIds.filter((id) => id !== UNASSIGNED_ACCOUNT_ID)
+        const wantsUnassigned = filters.accountIds.includes(UNASSIGNED_ACCOUNT_ID)
+        // `.in()` no matchea NULL — "sin cuenta" (account_id IS NULL) necesita su propia rama, y
+        // si se combinan las dos, un `.or()` con ambas condiciones.
+        if (wantsUnassigned && realIds.length) {
+          query = query.or(`account_id.is.null,account_id.in.(${realIds.join(',')})`)
+        } else if (wantsUnassigned) {
+          query = query.is('account_id', null)
+        } else {
+          query = query.in('account_id', realIds)
+        }
+      }
       if (filters.text) query = query.ilike('description', `%${filters.text}%`)
 
       const { data, error } = await query
@@ -137,6 +155,9 @@ export interface TransactionInput {
   description: string | null
   /** Movimiento creado por "Ajustar saldo" — sin categoría, afuera de Análisis, pero cuenta para el saldo. */
   isAdjustment?: boolean
+  /** Con qué se pagó — `balance_locations.id`. `null`/`undefined` = "Sin asignar", igual que todo
+   *  el historial anterior a esta columna; ver `rpc_account_balances`. */
+  accountId?: string | null
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
@@ -148,6 +169,9 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   // cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto, el saldo
   // proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra causa.
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  // El saldo derivado por cuenta (`rpc_account_balances`) suma exactamente estas mismas filas —
+  // cualquier alta/edición/borrado con `account_id` lo mueve igual que mueve `balance`.
+  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
 export function useCreateTransaction() {
@@ -165,6 +189,7 @@ export function useCreateTransaction() {
         category_id: input.categoryId,
         description: input.description,
         is_adjustment: input.isAdjustment ?? false,
+        account_id: input.accountId ?? null,
       })
       if (error) throw error
     },
@@ -186,6 +211,7 @@ export function useUpdateTransaction() {
           occurred_on: input.occurredOn,
           category_id: input.categoryId,
           description: input.description,
+          account_id: input.accountId ?? null,
         })
         .eq('id', id)
       if (error) throw error

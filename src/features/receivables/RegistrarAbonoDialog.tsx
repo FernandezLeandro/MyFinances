@@ -10,6 +10,8 @@ import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import { useRegisterReceivablePayment } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 
 interface RegistrarAbonoDialogProps {
   open: boolean
@@ -39,6 +41,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
   const [createIncome, setCreateIncome] = useState(alreadyExpensed)
   const [error, setError] = useState<string | null>(null)
   const registerPayment = useRegisterReceivablePayment()
+  const [accountId, setAccountId] = useDefaultAccountId()
 
   const cents = parseAmountToCents(amountInput)
   const completa = cents != null && cents >= pendingCents
@@ -54,6 +57,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
       occurredOn,
       categoryId: createIncome ? categoryId || null : null,
       createIncome,
+      accountId: createIncome ? accountId || null : null,
     })
     onClose()
   }
@@ -111,16 +115,22 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
         </div>
 
         {createIncome && (
-          <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
-            <Select id="categoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">Elegir…</option>
-              {incomeCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <>
+            <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
+              <Select id="categoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">Elegir…</option>
+                {incomeCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Dónde entró" hint="Opcional">
+              <AccountSelect value={accountId} onChange={setAccountId} />
+            </Field>
+          </>
         )}
 
         {createIncome !== alreadyExpensed ? (

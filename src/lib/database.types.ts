@@ -11,6 +11,7 @@
  */
 
 type Kind = 'income' | 'expense'
+type AccountKind = 'cash' | 'wallet' | 'bank'
 type Role = 'user' | 'admin'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
@@ -205,6 +206,7 @@ export interface Database {
           fixed_expense_payment_id: string | null
           is_adjustment: boolean
           is_credit_card_payment: boolean
+          account_id: string | null
           created_at: string
         }
         Insert: {
@@ -218,6 +220,7 @@ export interface Database {
           fixed_expense_payment_id?: string | null
           is_adjustment?: boolean
           is_credit_card_payment?: boolean
+          account_id?: string | null
         }
         Update: Partial<{
           type: Kind
@@ -225,6 +228,7 @@ export interface Database {
           occurred_on: string
           category_id: string | null
           description: string | null
+          account_id: string | null
         }>
         Relationships: []
       }
@@ -442,6 +446,11 @@ export interface Database {
           user_id: string
           name: string
           amount: string
+          kind: AccountKind
+          opening_amount: string
+          opening_on: string
+          is_default: boolean
+          is_archived: boolean
           updated_at: string
           created_at: string
         }
@@ -450,9 +459,52 @@ export interface Database {
           user_id: string
           name: string
           amount?: number | string
+          kind?: AccountKind
+          opening_amount?: number | string
+          opening_on?: string
+          is_default?: boolean
+          is_archived?: boolean
           updated_at?: string
         }
-        Update: Partial<{ name: string; amount: number | string; updated_at: string }>
+        Update: Partial<{
+          name: string
+          amount: number | string
+          kind: AccountKind
+          opening_amount: number | string
+          opening_on: string
+          is_default: boolean
+          is_archived: boolean
+          updated_at: string
+        }>
+        Relationships: []
+      }
+      account_transfers: {
+        Row: {
+          id: string
+          user_id: string
+          from_account_id: string
+          to_account_id: string
+          amount: string
+          occurred_on: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          from_account_id: string
+          to_account_id: string
+          amount: number | string
+          occurred_on: string
+          description?: string | null
+        }
+        Update: Partial<{
+          from_account_id: string
+          to_account_id: string
+          amount: number | string
+          occurred_on: string
+          description: string | null
+        }>
         Relationships: []
       }
       receivables: {
@@ -536,6 +588,10 @@ export interface Database {
         Args: Record<string, never>
         Returns: number
       }
+      rpc_account_balances: {
+        Args: Record<string, never>
+        Returns: { account_id: string; derived: string }[]
+      }
       rpc_monthly_series: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -547,7 +603,13 @@ export interface Database {
         }[]
       }
       rpc_mark_fixed_expense_paid: {
-        Args: { p_fixed_expense_id: string; p_period: string; p_amount?: number | string | null; p_note?: string | null }
+        Args: {
+          p_fixed_expense_id: string
+          p_period: string
+          p_amount?: number | string | null
+          p_note?: string | null
+          p_account_id?: string | null
+        }
         Returns: undefined
       }
       rpc_unmark_fixed_expense_payment: {
@@ -598,7 +660,7 @@ export interface Database {
         }[]
       }
       rpc_mark_credit_card_paid: {
-        Args: { p_card_id: string; p_period: string }
+        Args: { p_card_id: string; p_period: string; p_account_id?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_card_paid: {
@@ -606,7 +668,7 @@ export interface Database {
         Returns: undefined
       }
       rpc_mark_credit_purchase_paid: {
-        Args: { p_purchase_id: string; p_period: string }
+        Args: { p_purchase_id: string; p_period: string; p_account_id?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_purchase_paid: {
@@ -620,6 +682,7 @@ export interface Database {
           p_occurred_on?: string | null
           p_category_id?: string | null
           p_create_income?: boolean | null
+          p_account_id?: string | null
         }
         Returns: undefined
       }
@@ -638,11 +701,17 @@ export interface Database {
           p_expense_category_id?: string | null
           p_expense_occurred_on?: string | null
           p_expense_description?: string | null
+          p_account_id?: string | null
         }
         Returns: string
       }
       rpc_expense_receivable: {
-        Args: { p_receivable_id: string; p_category_id?: string | null; p_occurred_on?: string | null }
+        Args: {
+          p_receivable_id: string
+          p_category_id?: string | null
+          p_occurred_on?: string | null
+          p_account_id?: string | null
+        }
         Returns: undefined
       }
       rpc_unexpense_receivable: {

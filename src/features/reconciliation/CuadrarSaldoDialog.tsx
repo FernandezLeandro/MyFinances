@@ -2,22 +2,17 @@ import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
-import { X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { centsToInputText, parseAmountToCents } from '@/lib/money'
-import { useCreateTransaction, useCurrentBalance, type TransactionType } from '@/features/transactions/api'
+import { UNASSIGNED_ACCOUNT_ID, useCreateTransaction, useCurrentBalance, type TransactionType } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import {
-  useBalanceLocations,
-  useCreateBalanceLocation,
-  useDeleteBalanceLocation,
-  useUpdateBalanceLocation,
-  type BalanceLocation,
-} from '@/features/reconciliation/api'
+import { useAccountBalances, useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
+import { CuentaRow } from '@/features/reconciliation/CuentaRow'
+import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
+import { TransferDialog } from '@/features/accounts/TransferDialog'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
 import { particionarPorHorizonte, summarizeReceivables, type ReceivableSummary } from '@/features/receivables/aggregate'
 import { ReceivableFormDialog } from '@/features/receivables/ReceivableFormDialog'
@@ -30,99 +25,7 @@ interface CuadrarSaldoDialogProps {
   onClose: () => void
 }
 
-/** Fila editable de nombre + monto, sin "Guardar" aparte: cada campo persiste solo al perder foco.
- *  Sólo la usa `LugarRow` — las deudas dejaron de editarse acá (ver el comentario del componente
- *  principal, más abajo, sobre por qué). */
-function EditableAmountRow({
-  name: initialName,
-  amountCents: initialAmountCents,
-  placeholder,
-  autoFocus,
-  onSaveName,
-  onSaveAmount,
-  onDelete,
-  deleteLabel,
-}: {
-  name: string
-  amountCents: number
-  placeholder: string
-  autoFocus?: boolean
-  onSaveName: (name: string) => void
-  onSaveAmount: (cents: number) => void
-  onDelete: () => void
-  deleteLabel: string
-}) {
-  const [name, setName] = useState(initialName)
-  const [amountInput, setAmountInput] = useState(() => centsToInputText(initialAmountCents))
-
-  function saveName() {
-    const trimmed = name.trim()
-    if (trimmed === initialName) return
-    onSaveName(trimmed)
-  }
-
-  function saveAmount() {
-    const cents = parseAmountToCents(amountInput) ?? 0
-    if (cents === initialAmountCents) return
-    onSaveAmount(cents)
-    setAmountInput(centsToInputText(cents))
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      {/* `Input` trae `w-full` fijo en su className base, y `cn()` acá es un simple join de
-          strings (no tailwind-merge) — pasarle un `w-*` como override no gana de forma
-          confiable contra ese `w-full`. El ancho de cada campo se controla en el wrapper. */}
-      <div className="min-w-0 flex-1">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={saveName}
-          autoFocus={autoFocus}
-          placeholder={placeholder}
-          className="h-10 text-[14px]"
-        />
-      </div>
-      <div className="w-28 shrink-0">
-        <Input
-          value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          onBlur={saveAmount}
-          inputMode="decimal"
-          className="tnum h-10 text-right text-[14px]"
-        />
-      </div>
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={deleteLabel}
-        className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-coral"
-      >
-        <X className="size-3.5" strokeWidth={1.5} aria-hidden />
-      </button>
-    </div>
-  )
-}
-
-function LugarRow({ location, autoFocus }: { location: BalanceLocation; autoFocus?: boolean }) {
-  const updateLocation = useUpdateBalanceLocation()
-  const deleteLocation = useDeleteBalanceLocation()
-
-  return (
-    <EditableAmountRow
-      name={location.name}
-      amountCents={location.amountCents}
-      placeholder="Efectivo, Mercado Pago…"
-      autoFocus={autoFocus}
-      onSaveName={(name) => updateLocation.mutate({ id: location.id, name })}
-      onSaveAmount={(cents) => updateLocation.mutate({ id: location.id, cents })}
-      onDelete={() => deleteLocation.mutate(location.id)}
-      deleteLabel={`Eliminar ${location.name || 'lugar'}`}
-    />
-  )
-}
-
-/** Fila de deuda: a diferencia de `LugarRow`, acá el "monto" es lo pendiente — un derivado de total
+/** Fila de deuda: a diferencia de `CuentaRow`, acá el "monto" es lo pendiente — un derivado de total
  *  menos abonos — y no hay dónde escribirlo directo sin contradecir en silencio los abonos ya
  *  registrados. Tocar el nombre abre el detalle completo (editar, ver abonos, registrar uno nuevo);
  *  "Descontar" es la salida real para sacarla de esta lista sin descuadrar nada (ver el comentario
@@ -161,10 +64,17 @@ function DeudaRow({
 }
 
 /**
- * Reemplaza al viejo "Ajustar saldo" de un solo campo: acá se desglosa dónde está la plata
- * (efectivo, cada plataforma) en vez de tener que sumarlo de memoria antes de escribir un único
- * número. La comparación sigue siendo contra `useCurrentBalance` — el mismo dato del héroe de Hoy —
- * y las dos salidas (ajustar directo / registrar como movimiento) son las que ya existían.
+ * Declara "cuánto tenés realmente" cuenta por cuenta (efectivo, cada plataforma) y genera el ajuste
+ * si no coincide con lo que sabe la app. La comparación sigue siendo contra `useCurrentBalance` — el
+ * mismo dato del héroe de Hoy — y las dos salidas (ajustar directo / registrar como movimiento) son
+ * las que ya existían.
+ *
+ * Desde que existen las cuentas (`account_id` en los movimientos), cada `CuentaRow` también muestra
+ * un derivado — "Según la app" — que es puramente DIAGNÓSTICO: te dice en qué cuenta podría estar el
+ * descuadre. El AJUSTE sigue siendo global (`rec.diffCents`), nunca por cuenta: prestar efectivo no
+ * genera movimiento, así que el derivado de esa cuenta queda por encima del real sin que haya ningún
+ * error que corregir ahí — cuadrar por cuenta fabricaría un ajuste falso en cada préstamo. Ver el
+ * comentario de cabecera de `reconciliar()`.
  *
  * "Te deben" suma del lado de "Tenés" — pero sólo lo que todavía cuenta como plata tuya (ver
  * `ReceivableSummary.cuentaEnCuadre`): prestar efectivo no genera un movimiento (no es un gasto, va
@@ -179,28 +89,30 @@ function DeudaRow({
  * de `rec` sigue contando TODO lo que `cuentaEnCuadre`, esté o no visible en esta lista — ver el
  * comentario junto a `normalReceivables`/`receivablesEsteMes` más abajo.
  *
- * Las deudas dejaron de editarse inline acá (a diferencia de los lugares): con abonos parciales,
+ * Las deudas dejaron de editarse inline acá (a diferencia de las cuentas): con abonos parciales,
  * el "monto" de una fila es ambiguo — si es el total, tocarlo contradice en silencio los abonos ya
  * registrados; si es lo pendiente, no hay dónde escribirlo, es derivado. El botón "+ Agregar deuda"
  * sigue en el mismo lugar, pero abre el alta completa (`ReceivableFormDialog`) en vez de crear una
  * fila vacía — la captura rápida se mantiene, sólo que con un campo más para completar.
  *
- * Sin diálogos anidados para el flujo principal de lugares: cada fila se edita y persiste sola
- * (`onBlur`), sin un "Guardar" aparte. Las deudas SÍ anidan (alta, detalle, "Registrar como
- * movimiento"), con el mismo guard de `open && !anidado` que ya usaba este diálogo antes de este
- * cambio, ahora con tres banderas en vez de una.
+ * Sin diálogos anidados para el flujo principal de cuentas: cada fila se edita y persiste sola
+ * (`onBlur`), sin un "Guardar" aparte — crear/tipar/archivar una cuenta vive en
+ * `CuentasManagerDialog`. Las deudas SÍ anidan (alta, detalle, "Registrar como movimiento"), con el
+ * mismo guard de `open && !anidado` que ya usaba este diálogo, ahora con seis banderas en vez de una.
  */
 export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   const { data: currentBalanceCents, isPending: isBalancePending } = useCurrentBalance()
   const { data: locations, isPending: isLocationsPending } = useBalanceLocations()
+  const { data: accountBalances } = useAccountBalances()
   const { data: receivables, isPending: isReceivablesPending } = useReceivables()
   const { data: receivablePayments, isPending: isPaymentsPending } = useReceivablePayments()
-  const createLocation = useCreateBalanceLocation()
   const createTx = useCreateTransaction()
   const [registerPrompt, setRegisterPrompt] = useState<{ type: TransactionType; cents: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [lastAddedLocationId, setLastAddedLocationId] = useState<string | null>(null)
   const [receivableFormOpen, setReceivableFormOpen] = useState(false)
+  const [cuentasManagerOpen, setCuentasManagerOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [adjustAccountId, setAdjustAccountId] = useState('')
   // Ids, no el objeto: `receivablesSummary` se recalcula en cada render con datos frescos de la
   // query, pero un `ReceivableSummary` guardado tal cual en el estado queda pegado al momento del
   // click — después de pagar/descontar, el detalle seguía mostrando el estado de antes y dejaba
@@ -208,6 +120,8 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   // id en cada render lo evita (mismo fix que en `MeDeben.tsx`).
   const [detailId, setDetailId] = useState<string | null>(null)
   const [expenseId, setExpenseId] = useState<string | null>(null)
+
+  const activeLocations = useMemo(() => (locations ?? []).filter((l: BalanceLocation) => !l.is_archived), [locations])
 
   const isReceivablesLoadingAny = isReceivablesPending || isPaymentsPending
   const receivablesSummary = useMemo(
@@ -221,8 +135,8 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
     [receivablesSummary],
   )
   const rec = useMemo(
-    () => reconciliar(locations ?? [], allReceivableSummaries, currentBalanceCents ?? 0),
-    [locations, allReceivableSummaries, currentBalanceCents],
+    () => reconciliar(activeLocations, allReceivableSummaries, currentBalanceCents ?? 0, accountBalances),
+    [activeLocations, allReceivableSummaries, currentBalanceCents, accountBalances],
   )
   const detailSummary = useMemo(
     () => allReceivableSummaries.find((s) => s.receivable.id === detailId) ?? null,
@@ -248,27 +162,24 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
     [normalReceivables],
   )
 
-  const hasLocations = (locations ?? []).length > 0
+  const hasLocations = activeLocations.length > 0
   const hasReceivables = normalReceivables.length > 0
   const hasAnyRow = hasLocations || hasReceivables
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir el alta de movimiento o de deuda encima, el detalle de
-  // una deuda, o "Descontar"). Sin este filtro, pasar a cualquiera de esos cuatro cerraba todo el
-  // flujo de un tirón.
-  function handleDialogClose() {
-    if (!registerPrompt && !receivableFormOpen && !detailSummary && !expenseSummary) onClose()
-  }
+  // una deuda, "Descontar", o los diálogos de cuentas/transferencias). Sin este filtro, pasar a
+  // cualquiera de esos seis cerraba todo el flujo de un tirón.
+  const anyNestedOpen =
+    !!registerPrompt || receivableFormOpen || !!detailSummary || !!expenseSummary || cuentasManagerOpen || transferOpen
 
-  async function handleAddLocation() {
-    setError(null)
-    const created = await createLocation.mutateAsync({ name: '', cents: 0 })
-    setLastAddedLocationId(created.id)
+  function handleDialogClose() {
+    if (!anyNestedOpen) onClose()
   }
 
   function validateDiff(): number | null {
     if (!hasAnyRow) {
-      setError('Cargá al menos un lugar o una deuda')
+      setError('Cargá al menos una cuenta o una deuda')
       return null
     }
     if (rec.cuadrado) {
@@ -289,6 +200,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
       categoryId: null,
       description: 'Ajuste de saldo',
       isAdjustment: true,
+      accountId: adjustAccountId || null,
     })
     onClose()
   }
@@ -302,7 +214,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   return (
     <>
       <Dialog
-        open={open && !registerPrompt && !receivableFormOpen && !detailSummary && !expenseSummary}
+        open={open && !anyNestedOpen}
         onClose={handleDialogClose}
         title="Cuadrar saldo"
         footer={
@@ -330,27 +242,48 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
           </div>
 
           <div>
-            <p className="eyebrow mb-2">Dónde tenés la plata</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="eyebrow">Tus cuentas</p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTransferOpen(true)}
+                  className="text-[12px] font-medium text-acid hover:underline"
+                >
+                  Transferir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCuentasManagerOpen(true)}
+                  className="text-[12px] font-medium text-acid hover:underline"
+                >
+                  Administrar
+                </button>
+              </div>
+            </div>
             {isLocationsPending ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
               </div>
+            ) : activeLocations.length === 0 ? (
+              <p className="text-[13px] text-chalk-faint">
+                Todavía no cargaste ninguna cuenta.{' '}
+                <button type="button" onClick={() => setCuentasManagerOpen(true)} className="font-medium text-acid hover:underline">
+                  Agregar la primera →
+                </button>
+              </p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {(locations ?? []).map((location) => (
-                  <LugarRow key={location.id} location={location} autoFocus={location.id === lastAddedLocationId} />
+              <div className="flex flex-col gap-1">
+                {activeLocations.map((location) => (
+                  <CuentaRow
+                    key={location.id}
+                    location={location}
+                    derivedCents={accountBalances?.get(location.id) ?? location.openingCents}
+                  />
                 ))}
               </div>
             )}
-            <button
-              type="button"
-              onClick={handleAddLocation}
-              disabled={createLocation.isPending}
-              className="mt-2 text-[12px] font-medium text-acid hover:underline"
-            >
-              + Agregar lugar
-            </button>
           </div>
 
           <div className="border-t border-ink-800 pt-5">
@@ -384,7 +317,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             <p className="mt-3 text-[12px] text-chalk-faint">
               Acá sólo se muestran las que esperás cobrar este mes. Al prestar efectivo no cargues un
               gasto: esa plata sigue siendo tuya. Cuando te devuelvan, registrá el abono desde la deuda
-              y sumá el monto en el lugar donde entró.{' '}
+              y sumá el monto en la cuenta donde entró.{' '}
               <Link to="/me-deben" className="font-medium text-acid hover:underline">
                 Ver todas en Me Deben →
               </Link>
@@ -395,7 +328,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             {hasReceivables && (
               <>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">En tus lugares</dt>
+                  <dt className="text-chalk-faint">En tus cuentas</dt>
                   <dd>
                     <Money cents={rec.locationsCents} tone="dim" />
                   </dd>
@@ -414,6 +347,31 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                 <Money cents={rec.totalCents} tone="dim" />
               </dd>
             </div>
+            {rec.sinAsignarCents !== 0 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-chalk-faint">
+                  Sin asignar ·{' '}
+                  {/* Antes mandaba a Movimientos sin ningún filtro — un `<Link to="/movimientos">`
+                      a secas caía en "este mes" (el período por defecto) sin filtrar por cuenta,
+                      así que en la práctica nunca mostraba estos movimientos. Con `state`, "Sin
+                      cuenta" ya viene marcado y el período es todo el historial, no sólo el mes
+                      actual — se ven sin importar cuándo se cargaron. */}
+                  <Link
+                    to="/movimientos"
+                    state={{
+                      accountIds: [UNASSIGNED_ACCOUNT_ID],
+                      period: { preset: 'custom', anchor: format(new Date(), 'yyyy-MM-dd'), from: '2000-01-01', to: format(new Date(), 'yyyy-MM-dd') },
+                    }}
+                    className="underline"
+                  >
+                    ver
+                  </Link>
+                </dt>
+                <dd>
+                  <Money cents={rec.sinAsignarCents} tone="dim" />
+                </dd>
+              </div>
+            )}
             {hasAnyRow && !rec.cuadrado && (
               <div className="flex justify-between gap-4">
                 <dt className="text-chalk-faint">Diferencia</dt>
@@ -425,11 +383,18 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             )}
           </dl>
 
+          {hasAnyRow && !rec.cuadrado && activeLocations.length > 0 && (
+            <div>
+              <p className="eyebrow mb-2">Imputar el ajuste a</p>
+              <AccountSelect value={adjustAccountId} onChange={setAdjustAccountId} emptyLabel="Sin cuenta (como antes)" />
+            </div>
+          )}
+
           {error && <p className="text-[12px] text-coral">{error}</p>}
 
           <p className="text-[12px] text-chalk-faint">
             "Sólo ajustar" crea el movimiento sin categoría, afuera de Análisis — para cuando no sabés
-            de dónde salió la diferencia, o cuando cerrás el mes dejando todos los lugares en $0. Si
+            de dónde salió la diferencia, o cuando cerrás el mes dejando todas las cuentas en $0. Si
             sabés qué fue, "Registrar como movimiento" lo carga como un gasto o ingreso real, con
             categoría.
           </p>
@@ -462,6 +427,12 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
       {expenseSummary && (
         <ExpenseReceivableDialog open={!!expenseSummary} onClose={() => setExpenseId(null)} summary={expenseSummary} />
       )}
+
+      {cuentasManagerOpen && (
+        <CuentasManagerDialog open={cuentasManagerOpen} onClose={() => setCuentasManagerOpen(false)} />
+      )}
+
+      {transferOpen && <TransferDialog open={transferOpen} onClose={() => setTransferOpen(false)} />}
     </>
   )
 }

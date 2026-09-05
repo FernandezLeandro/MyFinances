@@ -8,6 +8,8 @@ import { Money } from '@/components/ui/Money'
 import { useCategories } from '@/features/categories/api'
 import { useExpenseReceivable } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 
 interface ExpenseReceivableDialogProps {
   open: boolean
@@ -30,12 +32,14 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
   const [categoryId, setCategoryId] = useState('')
   const [occurredOn, setOccurredOn] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const expenseReceivable = useExpenseReceivable()
+  const [accountId, setAccountId] = useDefaultAccountId()
 
   async function handleConfirm() {
     await expenseReceivable.mutateAsync({
       receivableId: receivable.id,
       categoryId: categoryId || null,
       occurredOn,
+      accountId: accountId || null,
     })
     onClose()
   }
@@ -82,6 +86,10 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
             value={occurredOn}
             onChange={(e) => setOccurredOn(e.target.value)}
           />
+        </Field>
+
+        <Field label="Con qué lo pagué" hint="Opcional">
+          <AccountSelect value={accountId} onChange={setAccountId} />
         </Field>
 
         <p className="text-[12px] text-chalk-faint">

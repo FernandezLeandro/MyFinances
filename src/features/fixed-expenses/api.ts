@@ -114,6 +114,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   queryClient.invalidateQueries({ queryKey: ['balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
+  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
 export function useCreateFixedExpense() {
@@ -189,6 +190,7 @@ export function useMarkFixedExpensePaid() {
       period,
       cents,
       note,
+      accountId,
     }: {
       fixedExpenseId: string
       period: string
@@ -199,12 +201,15 @@ export function useMarkFixedExpensePaid() {
        *  del movimiento en vez del nombre del fijo — sin esto, todas las cargas de una bolsa se ven
        *  igual en /movimientos. */
       note?: string | null
+      /** Con qué se pagó — ver `p_account_id` en la migración `cuentas_en_pagos`. */
+      accountId?: string | null
     }) => {
       const { error } = await supabase.rpc('rpc_mark_fixed_expense_paid', {
         p_fixed_expense_id: fixedExpenseId,
         p_period: period,
         p_amount: centsToNumeric(cents),
         p_note: note ?? null,
+        p_account_id: accountId ?? null,
       })
       if (error) throw error
     },

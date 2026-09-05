@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 import type { Category } from '@/features/categories/api'
-import type { TransactionType } from '@/features/transactions/api'
+import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
+import type { BalanceLocation } from '@/features/reconciliation/api'
 import {
   MOVEMENT_PERIOD_PRESETS,
   MOVEMENT_PERIOD_PRESET_LABELS,
@@ -18,6 +19,7 @@ export interface MovementFilters {
   period: MovementPeriod
   type: 'all' | TransactionType
   categoryIds: string[]
+  accountIds: string[]
 }
 
 interface TransactionFiltersDialogProps {
@@ -26,6 +28,9 @@ interface TransactionFiltersDialogProps {
   value: MovementFilters
   onApply: (next: MovementFilters) => void
   categories: Category[]
+  /** Corto a propósito (efectivo, un par de billeteras, un banco) — por eso son chips, no un
+   *  subpanel con búsqueda como el de categorías. */
+  accounts: BalanceLocation[]
 }
 
 type FilterView = 'filters' | 'categories'
@@ -36,6 +41,7 @@ export function TransactionFiltersDialog({
   value,
   onApply,
   categories,
+  accounts,
 }: TransactionFiltersDialogProps) {
   const [draft, setDraft] = useState(value)
   const [view, setView] = useState<FilterView>('filters')
@@ -78,8 +84,15 @@ export function TransactionFiltersDialog({
     }))
   }
 
+  function toggleAccount(id: string) {
+    setDraft((d) => ({
+      ...d,
+      accountIds: d.accountIds.includes(id) ? d.accountIds.filter((a) => a !== id) : [...d.accountIds, id],
+    }))
+  }
+
   function clearDraft() {
-    setDraft({ period: { ...draft.period, preset: 'month' }, type: 'all', categoryIds: [] })
+    setDraft({ period: { ...draft.period, preset: 'month' }, type: 'all', categoryIds: [], accountIds: [] })
   }
 
   function clearCategories() {
@@ -212,6 +225,25 @@ export function TransactionFiltersDialog({
               </svg>
             </button>
           </div>
+
+          {accounts.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="eyebrow">Cuenta</p>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip
+                  active={draft.accountIds.includes(UNASSIGNED_ACCOUNT_ID)}
+                  onClick={() => toggleAccount(UNASSIGNED_ACCOUNT_ID)}
+                >
+                  Sin cuenta
+                </Chip>
+                {accounts.map((a) => (
+                  <Chip key={a.id} active={draft.accountIds.includes(a.id)} onClick={() => toggleAccount(a.id)}>
+                    {a.name || '(sin nombre)'}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-3">

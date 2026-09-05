@@ -15,7 +15,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { useCategories } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
-import { TRANSACTIONS_ROW_LIMIT, useTransactions, type Transaction } from '@/features/transactions/api'
+import { useBalanceLocations } from '@/features/reconciliation/api'
+import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
 import {
@@ -29,14 +30,17 @@ import { centsToNumeric } from '@/lib/money'
 import { downloadCsv } from '@/lib/csv'
 
 export function Movimientos() {
-  // Llega acá desde el drill-down de Análisis con una categoría y un período pre-elegidos.
+  // Llega acá desde el drill-down de Análisis (categoría + período) o desde el "ver" de "Sin
+  // asignar" en Cuadrar Saldo (el filtro de cuenta en sí, con un período bien amplio para no
+  // limitarlo al mes actual).
   const location = useLocation()
-  const incoming = location.state as { categoryId?: string; period?: MovementPeriod } | null
+  const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
 
   const [filters, setFilters] = useState<MovementFilters>(() => ({
     period: incoming?.period ?? defaultMovementPeriod(),
     type: 'all',
     categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
+    accountIds: incoming?.accountIds ?? [],
   }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -52,17 +56,21 @@ export function Movimientos() {
 
   const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
   const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
+  const accountIds = useMemo(() => [...filters.accountIds].sort(), [filters.accountIds])
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
     to,
     type: filters.type === 'all' ? undefined : filters.type,
     categoryIds,
+    accountIds,
     text: search || undefined,
   })
   const { data: categories } = useCategories(true)
+  const { data: locations } = useBalanceLocations()
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
+  const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
 
   const byDay = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -117,12 +125,15 @@ export function Movimientos() {
   }
 
   function clearAll() {
-    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [] })
+    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [], accountIds: [] })
     setSearchInput('')
   }
 
   const activeCount =
-    (filters.period.preset !== 'month' ? 1 : 0) + (filters.type !== 'all' ? 1 : 0) + filters.categoryIds.length
+    (filters.period.preset !== 'month' ? 1 : 0) +
+    (filters.type !== 'all' ? 1 : 0) +
+    filters.categoryIds.length +
+    filters.accountIds.length
   const hasFilters = activeCount > 0 || search !== ''
 
   return (
@@ -217,6 +228,19 @@ export function Movimientos() {
                 </Chip>
               )
             })}
+            {filters.accountIds.map((id) => {
+              const isUnassigned = id === UNASSIGNED_ACCOUNT_ID
+              const label = isUnassigned ? 'Sin cuenta' : accountById.get(id)?.name || '(sin nombre)'
+              return (
+                <Chip
+                  key={id || 'unassigned'}
+                  ariaLabel={`Quitar filtro de cuenta: ${label}`}
+                  onClick={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
+                >
+                  {label} <span aria-hidden className="text-chalk-faint">✕</span>
+                </Chip>
+              )
+            })}
           </div>
         )}
       </div>
@@ -275,6 +299,7 @@ export function Movimientos() {
                       key={tx.id}
                       tx={tx}
                       category={categoryById.get(tx.category_id ?? '')}
+                      account={accountById.get(tx.account_id ?? '')}
                       onClick={() => openEdit(tx)}
                     />
                   ))}
@@ -296,6 +321,7 @@ export function Movimientos() {
           value={filters}
           onApply={setFilters}
           categories={categories ?? []}
+          accounts={locations ?? []}
         />
       )}
     </div>

@@ -1,8 +1,11 @@
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { Field } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { useMarkCreditPurchasePaid, type CreditPurchase } from '@/features/credits/api'
 import { etiquetaCuota } from '@/features/credits/format'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 
 interface MarkPurchasePaidDialogProps {
   open: boolean
@@ -26,9 +29,10 @@ export function MarkPurchasePaidDialog({
   totalCents,
 }: MarkPurchasePaidDialogProps) {
   const markPaid = useMarkCreditPurchasePaid()
+  const [accountId, setAccountId] = useDefaultAccountId()
 
   async function handleConfirm() {
-    await markPaid.mutateAsync({ purchaseId: purchase.id, period })
+    await markPaid.mutateAsync({ purchaseId: purchase.id, period, accountId: accountId || null })
     onClose()
   }
 
@@ -57,6 +61,10 @@ export function MarkPurchasePaidDialog({
         </div>
 
         <p className="text-[12px] text-chalk-faint">Se va a generar un movimiento con este importe.</p>
+
+        <Field label="Con qué lo pagué" hint="Opcional">
+          <AccountSelect value={accountId} onChange={setAccountId} />
+        </Field>
       </div>
     </Dialog>
   )

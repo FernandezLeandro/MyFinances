@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -13,6 +13,8 @@ import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable, useUpdateReceivable, type Receivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
+import { useBalanceLocations } from '@/features/reconciliation/api'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
 
 /** Las tres respuestas a "¿qué pasa con tu saldo?" — `descontar` es la única que además dispara un
  *  gasto; las otras dos mapean 1:1 a los dos valores de `already_expensed` que ya existían. */
@@ -27,6 +29,7 @@ const schema = z.object({
   saldoOption: z.enum(['sigue', 'descontar', 'ya_gastado']),
   expenseCategoryId: z.string().optional(),
   expenseOccurredOn: z.string().optional(),
+  expenseAccountId: z.string().optional(),
   note: z.string().optional(),
 })
 
@@ -77,6 +80,8 @@ export function ReceivableFormDialog({
   const updateReceivable = useUpdateReceivable()
   const { data: categories } = useCategories()
   const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
+  const { data: locations } = useBalanceLocations()
+  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
 
   const {
     register,
@@ -84,7 +89,7 @@ export function ReceivableFormDialog({
     watch,
     setValue,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -94,14 +99,31 @@ export function ReceivableFormDialog({
       saldoOption: defaultAlreadyExpensed ? 'ya_gastado' : 'sigue',
       expenseCategoryId: '',
       expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
+      expenseAccountId: '',
       note: '',
     },
   })
 
   const saldoOption = watch('saldoOption')
 
+  // `defaultAccountId` NO va en las deps de este efecto — mismo bug que en `TransactionFormDialog`:
+  // si `useBalanceLocations()` resuelve después de que el usuario ya empezó a completar el
+  // formulario, re-disparar el `reset` completo por ese cambio le borraría todo lo tipeado. El
+  // prefill de cuenta vive aparte, en el efecto de abajo.
+  //
+  // `didResetRef`: sin esto, `<StrictMode>` vuelve a invocar este efecto una segunda vez en
+  // desarrollo apenas monta, aunque nada de las deps haya cambiado. Si `defaultAccountId` ya
+  // estaba en caché al abrir, esa segunda pasada llegaba DESPUÉS de que el efecto de abajo ya
+  // hubiera precargado la cuenta y la volvía a pisar con `''` — mismo bug encontrado y corregido en
+  // `TransactionFormDialog`, ver el comentario ahí para el porqué completo.
+  const didResetRef = useRef(false)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      didResetRef.current = false
+      return
+    }
+    if (didResetRef.current) return
+    didResetRef.current = true
     reset(
       receivable
         ? {
@@ -111,6 +133,7 @@ export function ReceivableFormDialog({
             saldoOption: saldoOptionFromReceivable(receivable),
             expenseCategoryId: '',
             expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
+            expenseAccountId: '',
             note: receivable.note ?? '',
           }
         : {
@@ -120,10 +143,25 @@ export function ReceivableFormDialog({
             saldoOption: defaultAlreadyExpensed ? 'ya_gastado' : 'sigue',
             expenseCategoryId: '',
             expenseOccurredOn: format(new Date(), 'yyyy-MM-dd'),
+            expenseAccountId: '',
             note: '',
           },
     )
   }, [open, receivable, defaultAlreadyExpensed, reset])
+
+  // Precarga la cuenta predeterminada del gasto de "Descontala ahora" — sólo ese campo, sólo una
+  // vez por apertura, y nunca si el usuario ya la tocó (ver el comentario gemelo en
+  // `TransactionFormDialog`).
+  const appliedDefaultAccountRef = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      appliedDefaultAccountRef.current = false
+      return
+    }
+    if (receivable || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.expenseAccountId) return
+    setValue('expenseAccountId', defaultAccountId)
+    appliedDefaultAccountRef.current = true
+  }, [open, receivable, defaultAccountId, dirtyFields.expenseAccountId, setValue])
 
   async function onSubmit(values: FormValues) {
     const cents = parseAmountToCents(values.amount)!
@@ -140,6 +178,7 @@ export function ReceivableFormDialog({
               categoryId: values.expenseCategoryId || null,
               occurredOn: values.expenseOccurredOn || format(new Date(), 'yyyy-MM-dd'),
               description: `Descontado: ${values.name.trim()}`,
+              accountId: values.expenseAccountId || null,
             }
           : null,
     }
@@ -240,6 +279,13 @@ export function ReceivableFormDialog({
               </Field>
               <Field label="Fecha del gasto" htmlFor="expenseOccurredOn">
                 <Input id="expenseOccurredOn" type="date" {...register('expenseOccurredOn')} />
+              </Field>
+              <Field label="Con qué lo pagué" htmlFor="expenseAccountId" hint="Opcional">
+                <AccountSelect
+                  id="expenseAccountId"
+                  value={watch('expenseAccountId') ?? ''}
+                  onChange={(v) => setValue('expenseAccountId', v, { shouldDirty: true })}
+                />
               </Field>
             </div>
           )}

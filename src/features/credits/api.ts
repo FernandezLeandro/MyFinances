@@ -230,6 +230,7 @@ function invalidarCreditosYPlata(queryClient: ReturnType<typeof useQueryClient>,
   queryClient.invalidateQueries({ queryKey: ['balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
+  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
 export interface CreditCardInput {
@@ -379,8 +380,12 @@ export function useMarkCreditCardPaid() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ cardId, period }: { cardId: string; period: string }) => {
-      const { error } = await supabase.rpc('rpc_mark_credit_card_paid', { p_card_id: cardId, p_period: period })
+    mutationFn: async ({ cardId, period, accountId }: { cardId: string; period: string; accountId?: string | null }) => {
+      const { error } = await supabase.rpc('rpc_mark_credit_card_paid', {
+        p_card_id: cardId,
+        p_period: period,
+        p_account_id: accountId ?? null,
+      })
       if (error) throw error
     },
     onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
@@ -408,8 +413,20 @@ export function useMarkCreditPurchasePaid() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ purchaseId, period }: { purchaseId: string; period: string }) => {
-      const { error } = await supabase.rpc('rpc_mark_credit_purchase_paid', { p_purchase_id: purchaseId, p_period: period })
+    mutationFn: async ({
+      purchaseId,
+      period,
+      accountId,
+    }: {
+      purchaseId: string
+      period: string
+      accountId?: string | null
+    }) => {
+      const { error } = await supabase.rpc('rpc_mark_credit_purchase_paid', {
+        p_purchase_id: purchaseId,
+        p_period: period,
+        p_account_id: accountId ?? null,
+      })
       if (error) throw error
     },
     onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),

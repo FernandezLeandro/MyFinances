@@ -6,6 +6,8 @@ import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
 import { permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 
 interface MarkPaidDialogProps {
   open: boolean
@@ -38,6 +40,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
+  const [accountId, setAccountId] = useDefaultAccountId()
 
   const cents = parseAmountToCents(input)
   const willUpdateTemplate = !isRecurring && permiteActualizarPlantilla(period, new Date())
@@ -49,7 +52,13 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
       setError('Ingresá un importe válido')
       return
     }
-    await markPaid.mutateAsync({ fixedExpenseId: fixedExpense.id, period, cents, note: note.trim() || null })
+    await markPaid.mutateAsync({
+      fixedExpenseId: fixedExpense.id,
+      period,
+      cents,
+      note: note.trim() || null,
+      accountId: accountId || null,
+    })
     onClose()
   }
 
@@ -103,6 +112,10 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
             />
           </Field>
         )}
+
+        <Field label="Con qué lo pagué" hint="Opcional">
+          <AccountSelect value={accountId} onChange={setAccountId} />
+        </Field>
 
         {isRecurring && cents != null && cents > 0 && (
           <p className="text-[12px] text-chalk-faint">
