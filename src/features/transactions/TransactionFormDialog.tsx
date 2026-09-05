@@ -132,14 +132,25 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   const amount = watch('amount')
   const occurredOn = watch('occurredOn')
 
-  // Guarda contra la carrera con `defaultAccountId`: `useBalanceLocations()` puede tardar en
-  // resolver, y ese `false -> true` de más abajo no puede volver a disparar ESTE reset — si lo
-  // hiciera, pisaría de un plumazo cualquier campo que el usuario ya haya tipeado mientras tanto
-  // (probado en carne propia: un E2E que llenaba el formulario más rápido que el fetch de cuentas
-  // veía el importe recién tipeado desaparecer solo). Por eso `defaultAccountId` NO está en las
-  // deps de este efecto — el prefill de cuenta vive aparte, en el efecto de abajo.
+  // `didResetRef`: sin esto, `<StrictMode>` (activo en `main.tsx`) vuelve a invocar este efecto una
+  // segunda vez en desarrollo apenas monta (mount → efectos → "desmonta" cleanups → remonta →
+  // efectos de nuevo, aunque nada de las deps haya cambiado). Cuando `defaultAccountId` YA estaba
+  // en caché al abrir (típico: recién marcaste una cuenta predeterminada en Cuentas y volviste a
+  // Hoy), esa segunda pasada de ESTE reset llegaba DESPUÉS de que el efecto de abajo ya hubiera
+  // precargado la cuenta, y la volvía a pisar con `accountId: ''` — el guard de ese efecto no lo
+  // evitaba porque, desde su propio punto de vista, ya había hecho su trabajo una vez. Detectado
+  // reproduciendo a mano el reporte de un usuario ("marco la ★ y en Nuevo movimiento sigue en 'Sin
+  // asignar'"): con la cuenta recién creada la query ya estaba resuelta al montar, así que las dos
+  // pasadas de Strict Mode caían las dos ANTES de que hubiera ninguna causa real para reabrir el
+  // diálogo — un caso de laboratorio perfecto para este bug.
+  const didResetRef = useRef(false)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      didResetRef.current = false
+      return
+    }
+    if (didResetRef.current) return
+    didResetRef.current = true
     reset(
       transaction
         ? {

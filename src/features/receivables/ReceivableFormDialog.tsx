@@ -110,8 +110,20 @@ export function ReceivableFormDialog({
   // si `useBalanceLocations()` resuelve después de que el usuario ya empezó a completar el
   // formulario, re-disparar el `reset` completo por ese cambio le borraría todo lo tipeado. El
   // prefill de cuenta vive aparte, en el efecto de abajo.
+  //
+  // `didResetRef`: sin esto, `<StrictMode>` vuelve a invocar este efecto una segunda vez en
+  // desarrollo apenas monta, aunque nada de las deps haya cambiado. Si `defaultAccountId` ya
+  // estaba en caché al abrir, esa segunda pasada llegaba DESPUÉS de que el efecto de abajo ya
+  // hubiera precargado la cuenta y la volvía a pisar con `''` — mismo bug encontrado y corregido en
+  // `TransactionFormDialog`, ver el comentario ahí para el porqué completo.
+  const didResetRef = useRef(false)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      didResetRef.current = false
+      return
+    }
+    if (didResetRef.current) return
+    didResetRef.current = true
     reset(
       receivable
         ? {
