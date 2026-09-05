@@ -9,8 +9,10 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
+import { SummaryPanel } from '@/components/ui/SummaryPanel'
 import { PendientesTabs } from '@/components/PendientesTabs'
 import { ProgresoGuardado } from '@/features/credits/ProgresoGuardado'
+import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { summarizeMisDeudas, type CardSummary } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
@@ -34,12 +36,14 @@ import { MarkPurchasePaidDialog } from '@/features/credits/MarkPurchasePaidDialo
 function CardCard({
   summary,
   isCurrentMonth,
+  hidden,
   onEdit,
   onOpenDetail,
   onMarkPaid,
 }: {
   summary: CardSummary
   isCurrentMonth: boolean
+  hidden: boolean
   onEdit: (c: CreditCard) => void
   onOpenDetail: (c: CreditCard) => void
   onMarkPaid: (c: CreditCard) => void
