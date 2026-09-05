@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
-import { addMonths, format, parseISO, subMonths } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { MonthNav } from '@/components/ui/MonthNav'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
-import { Input } from '@/components/ui/Input'
+import { FilterChip } from '@/components/ui/Chip'
+import { SearchInput } from '@/components/ui/SearchInput'
+import { CountBubble } from '@/components/ui/CountBubble'
 import { Money } from '@/components/ui/Money'
+import { GroupHeader } from '@/components/ui/GroupHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -18,16 +20,14 @@ import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDial
 import { useBalanceLocations } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
+import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
+import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
 import {
   MOVEMENT_PERIOD_PRESET_LABELS,
   defaultMovementPeriod,
   periodLabel,
-  periodRange,
   type MovementPeriod,
 } from '@/features/transactions/movementPeriod'
-import { centsToNumeric } from '@/lib/money'
-import { downloadCsv } from '@/lib/csv'
 
 export function Movimientos() {
   // Llega acá desde el drill-down de Análisis (categoría + período) o desde el "ver" de "Sin
@@ -36,27 +36,31 @@ export function Movimientos() {
   const location = useLocation()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
 
-  const [filters, setFilters] = useState<MovementFilters>(() => ({
-    period: incoming?.period ?? defaultMovementPeriod(),
-    type: 'all',
-    categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
-    accountIds: incoming?.accountIds ?? [],
-  }))
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  const {
+    filters,
+    setFilters,
+    searchInput,
+    setSearchInput,
+    search,
+    from,
+    to,
+    categoryIds,
+    accountIds,
+    shiftMonth,
+    clearAll,
+    exportCsv,
+    activeCount,
+    hasFilters,
+  } = useMovimientosFilters({
+    initialPeriod: incoming?.period,
+    initialCategoryId: incoming?.categoryId,
+    initialAccountIds: incoming?.accountIds,
+  })
+
   const [formOpen, setFormOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
-
-  useEffect(() => {
-    const id = setTimeout(() => setSearch(searchInput.trim()), 300)
-    return () => clearTimeout(id)
-  }, [searchInput])
-
-  const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
-  const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
-  const accountIds = useMemo(() => [...filters.accountIds].sort(), [filters.accountIds])
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
@@ -92,52 +96,8 @@ export function Movimientos() {
     setFormOpen(true)
   }
 
-  function handleExport() {
-    if (!transactions || transactions.length === 0) return
-    const rows = [
-      ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Importe'],
-      ...transactions.map((tx) => [
-        tx.occurred_on,
-        tx.type === 'income' ? 'Ingreso' : 'Gasto',
-        categoryById.get(tx.category_id ?? '')?.name ?? '',
-        tx.description ?? '',
-        centsToNumeric(tx.type === 'income' ? tx.cents : -tx.cents),
-      ]),
-    ]
-    const filename =
-      filters.period.preset === 'month'
-        ? `movimientos-${filters.period.anchor.slice(0, 7)}.csv`
-        : `movimientos-${from}_${to}.csv`
-    downloadCsv(filename, rows)
-  }
-
-  function shiftMonth(delta: number) {
-    setFilters((f) => ({
-      ...f,
-      period: {
-        ...f.period,
-        anchor: format(
-          delta > 0 ? addMonths(parseISO(f.period.anchor), delta) : subMonths(parseISO(f.period.anchor), -delta),
-          'yyyy-MM-dd',
-        ),
-      },
-    }))
-  }
-
-  function clearAll() {
-    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [], accountIds: [] })
-    setSearchInput('')
-  }
-
-  const activeCount =
-    (filters.period.preset !== 'month' ? 1 : 0) +
-    (filters.type !== 'all' ? 1 : 0) +
-    filters.categoryIds.length +
-    filters.accountIds.length
-  const hasFilters = activeCount > 0 || search !== ''
-
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           {filters.period.preset === 'month' ? (
@@ -152,7 +112,7 @@ export function Movimientos() {
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={!transactions?.length}>
+          <Button variant="outline" onClick={() => exportCsv(transactions, categoryById)} disabled={!transactions?.length}>
             Exportar CSV
           </Button>
           <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
@@ -164,25 +124,18 @@ export function Movimientos() {
         </div>
       </header>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Input
+          <SearchInput
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar por descripción…"
-            className="h-9 max-w-[220px] text-[13px]"
+            className="max-w-[240px]"
           />
           <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
             <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
             Filtros
-            {activeCount > 0 && (
-              <span
-                aria-hidden
-                className="ml-0.5 grid size-4 place-items-center rounded-full bg-acid text-[11px] font-semibold text-on-accent"
-              >
-                {activeCount}
-              </span>
-            )}
+            {activeCount > 0 && <CountBubble count={activeCount} />}
           </Button>
           {hasFilters && (
             <Button variant="ghost" size="sm" onClick={clearAll}>
@@ -194,51 +147,45 @@ export function Movimientos() {
         {activeCount > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {filters.period.preset !== 'month' && (
-              <Chip
-                ariaLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
-                onClick={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
+              <FilterChip
+                removeLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
+                onRemove={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
               >
-                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}{' '}
-                <span aria-hidden className="text-chalk-faint">
-                  ✕
-                </span>
-              </Chip>
+                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}
+              </FilterChip>
             )}
             {filters.type !== 'all' && (
-              <Chip
-                ariaLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
-                onClick={() => setFilters((f) => ({ ...f, type: 'all' }))}
+              <FilterChip
+                removeLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
+                onRemove={() => setFilters((f) => ({ ...f, type: 'all' }))}
               >
-                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}{' '}
-                <span aria-hidden className="text-chalk-faint">
-                  ✕
-                </span>
-              </Chip>
+                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}
+              </FilterChip>
             )}
             {filters.categoryIds.map((id) => {
               const category = categoryById.get(id)
               return (
-                <Chip
+                <FilterChip
                   key={id}
                   color={category?.color}
-                  ariaLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
-                  onClick={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
+                  removeLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
+                  onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
                 >
-                  {category?.name ?? 'Categoría'} <span aria-hidden className="text-chalk-faint">✕</span>
-                </Chip>
+                  {category?.name ?? 'Categoría'}
+                </FilterChip>
               )
             })}
             {filters.accountIds.map((id) => {
               const isUnassigned = id === UNASSIGNED_ACCOUNT_ID
               const label = isUnassigned ? 'Sin cuenta' : accountById.get(id)?.name || '(sin nombre)'
               return (
-                <Chip
+                <FilterChip
                   key={id || 'unassigned'}
-                  ariaLabel={`Quitar filtro de cuenta: ${label}`}
-                  onClick={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
+                  removeLabel={`Quitar filtro de cuenta: ${label}`}
+                  onRemove={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
                 >
-                  {label} <span aria-hidden className="text-chalk-faint">✕</span>
-                </Chip>
+                  {label}
+                </FilterChip>
               )
             })}
           </div>
@@ -279,7 +226,7 @@ export function Movimientos() {
           />
         </Panel>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {transactions?.length === TRANSACTIONS_ROW_LIMIT && (
             <p className="text-[12px] text-chalk-faint">
               Mostrando los primeros {TRANSACTIONS_ROW_LIMIT} movimientos — acotá el período.
@@ -289,10 +236,11 @@ export function Movimientos() {
             const total = items.reduce((acc, t) => acc + (t.type === 'income' ? t.cents : -t.cents), 0)
             return (
               <Panel key={day}>
-                <div className="flex items-baseline justify-between gap-4 px-6 pt-5 pb-1">
-                  <h2 className="eyebrow">{format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}</h2>
-                  <Money cents={total} tone={total >= 0 ? 'dim' : 'coral'} signed />
-                </div>
+                <GroupHeader
+                  label={format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}
+                  total={<Money cents={total} tone={total >= 0 ? 'dim' : 'coral'} signed />}
+                  className="px-6 pt-5 pb-1"
+                />
                 <ul className="pb-3">
                   {items.map((tx) => (
                     <TransactionRow

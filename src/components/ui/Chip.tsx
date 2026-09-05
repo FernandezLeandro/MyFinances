@@ -44,3 +44,25 @@ export function Chip({ children, color, active = false, onClick, className, aria
     </Tag>
   )
 }
+
+interface FilterChipProps {
+  children: ReactNode
+  color?: string
+  onRemove: () => void
+  /** Describe QUÉ filtro se quita, no sólo "quitar" — el chip en sí ya no lleva más texto que el
+   *  valor del filtro, así que el lector de pantalla necesita este contexto. */
+  removeLabel: string
+}
+
+/** `Chip` con una ✕ de quitar al final — los filtros activos de Movimientos. Antes cada chip
+ *  repetía a mano el `<span aria-hidden>✕</span>`; acá queda en un solo lugar. */
+export function FilterChip({ children, color, onRemove, removeLabel }: FilterChipProps) {
+  return (
+    <Chip color={color} onClick={onRemove} ariaLabel={removeLabel}>
+      {children}{' '}
+      <span aria-hidden className="text-chalk-faint">
+        ✕
+      </span>
+    </Chip>
+  )
+}
