@@ -26,6 +26,7 @@ export function FiltersPreview() {
     period: defaultMovementPeriod(),
     type: 'all',
     categoryIds: [],
+    accountIds: [],
   })
 
   return (
@@ -40,6 +41,7 @@ export function FiltersPreview() {
         value={filters}
         onApply={setFilters}
         categories={MOCK_CATEGORIES}
+        accounts={[]}
       />
     </div>
   )

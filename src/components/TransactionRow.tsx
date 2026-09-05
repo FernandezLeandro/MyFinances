@@ -1,8 +1,20 @@
 import { Money } from '@/components/ui/Money'
 import type { Category } from '@/features/categories/api'
 import type { Transaction } from '@/features/transactions/api'
+import type { BalanceLocation } from '@/features/reconciliation/api'
 
-export function TransactionRow({ tx, category, onClick }: { tx: Transaction; category?: Category; onClick?: () => void }) {
+export function TransactionRow({
+  tx,
+  category,
+  account,
+  onClick,
+}: {
+  tx: Transaction
+  category?: Category
+  /** Cuenta con la que se pagó (`tx.account_id`) — ausente cuando está "Sin asignar". */
+  account?: BalanceLocation
+  onClick?: () => void
+}) {
   const income = tx.type === 'income'
 
   return (
@@ -19,12 +31,13 @@ export function TransactionRow({ tx, category, onClick }: { tx: Transaction; cat
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] text-chalk">{tx.description || category?.name || 'Sin descripción'}</p>
-          <p className="mt-0.5 text-[12px] text-chalk-faint">
+          <p className="mt-0.5 truncate text-[12px] text-chalk-faint">
             {tx.is_adjustment
               ? 'Ajuste de saldo · afuera de Análisis'
               : tx.is_credit_card_payment
                 ? `${category?.name ?? 'Sin categoría'} · Tarjeta`
                 : (category?.name ?? 'Sin categoría')}
+            {account && ` · ${account.name || '(sin nombre)'}`}
           </p>
         </div>
         <Money cents={income ? tx.cents : -tx.cents} tone={income ? 'acid' : 'coral'} signed />

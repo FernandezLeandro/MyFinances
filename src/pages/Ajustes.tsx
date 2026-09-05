@@ -10,6 +10,8 @@ import { useProfile, useUpdateProfile, type FxSource } from '@/features/profile/
 import { useUsdRate } from '@/features/fx/api'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
 import { ChangePasswordPanel } from '@/features/auth/ChangePasswordPanel'
+import { useBalanceLocations } from '@/features/reconciliation/api'
+import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
 
 const fxSources: { value: FxSource; label: string }[] = [
   { value: 'oficial', label: 'Oficial' },
@@ -99,6 +101,31 @@ function AssetsPanel() {
   )
 }
 
+/** Mismo diálogo que abre "Administrar" desde Cuadrar Saldo — acá vive el otro punto de entrada,
+ *  para que crear/tipar/archivar una cuenta no dependa de tener que ir a cuadrar el saldo primero. */
+function AccountsPanel() {
+  const { data: locations } = useBalanceLocations()
+  const [open, setOpen] = useState(false)
+  const active = (locations ?? []).filter((l) => !l.is_archived)
+
+  return (
+    <Panel>
+      <PanelHeader title="Cuentas" hint="Efectivo, billeteras virtuales, bancos — con qué pagás cada movimiento" />
+      <div className="flex flex-col gap-3 px-6 pb-6">
+        <p className="text-[13px] text-chalk-faint">
+          {active.length === 0
+            ? 'Todavía no cargaste ninguna.'
+            : active.map((l) => l.name || '(sin nombre)').join(' · ')}
+        </p>
+        <Button variant="outline" onClick={() => setOpen(true)} className="self-start">
+          Administrar cuentas
+        </Button>
+      </div>
+      {open && <CuentasManagerDialog open={open} onClose={() => setOpen(false)} />}
+    </Panel>
+  )
+}
+
 export function Ajustes() {
   return (
     <div className="flex flex-col gap-8">
@@ -109,6 +136,7 @@ export function Ajustes() {
 
       <div className="flex flex-col gap-6">
         <FxPanel />
+        <AccountsPanel />
         <AssetsPanel />
         <ChangePasswordPanel />
       </div>

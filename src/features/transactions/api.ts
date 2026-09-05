@@ -16,6 +16,7 @@ export interface TransactionFilters {
   to: string
   type?: TransactionType
   categoryIds?: string[]
+  accountIds?: string[]
   text?: string
 }
 
@@ -45,6 +46,7 @@ export function useTransactions(filters: TransactionFilters) {
 
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.categoryIds?.length) query = query.in('category_id', filters.categoryIds)
+      if (filters.accountIds?.length) query = query.in('account_id', filters.accountIds)
       if (filters.text) query = query.ilike('description', `%${filters.text}%`)
 
       const { data, error } = await query
@@ -137,6 +139,9 @@ export interface TransactionInput {
   description: string | null
   /** Movimiento creado por "Ajustar saldo" — sin categoría, afuera de Análisis, pero cuenta para el saldo. */
   isAdjustment?: boolean
+  /** Con qué se pagó — `balance_locations.id`. `null`/`undefined` = "Sin asignar", igual que todo
+   *  el historial anterior a esta columna; ver `rpc_account_balances`. */
+  accountId?: string | null
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
@@ -148,6 +153,9 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   // cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto, el saldo
   // proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra causa.
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  // El saldo derivado por cuenta (`rpc_account_balances`) suma exactamente estas mismas filas —
+  // cualquier alta/edición/borrado con `account_id` lo mueve igual que mueve `balance`.
+  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
 export function useCreateTransaction() {
@@ -165,6 +173,7 @@ export function useCreateTransaction() {
         category_id: input.categoryId,
         description: input.description,
         is_adjustment: input.isAdjustment ?? false,
+        account_id: input.accountId ?? null,
       })
       if (error) throw error
     },
@@ -186,6 +195,7 @@ export function useUpdateTransaction() {
           occurred_on: input.occurredOn,
           category_id: input.categoryId,
           description: input.description,
+          account_id: input.accountId ?? null,
         })
         .eq('id', id)
       if (error) throw error

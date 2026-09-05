@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { Field } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { useCategories } from '@/features/categories/api'
 import { useMarkCreditCardPaid, type CreditCard, type CreditInstallment } from '@/features/credits/api'
 import { etiquetaCuota } from '@/features/credits/format'
 import type { CardSummary } from '@/features/credits/aggregate'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 
 interface MarkCardPaidDialogProps {
   open: boolean
@@ -30,6 +33,7 @@ interface CategoryGroup {
 export function MarkCardPaidDialog({ open, onClose, card, period, summary }: MarkCardPaidDialogProps) {
   const { data: categories } = useCategories()
   const markPaid = useMarkCreditCardPaid()
+  const [accountId, setAccountId] = useDefaultAccountId()
 
   const groups = useMemo<CategoryGroup[]>(() => {
     const items = summary?.items ?? []
@@ -55,7 +59,7 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
   const totalCents = summary?.totalCents ?? 0
 
   async function handleConfirm() {
-    await markPaid.mutateAsync({ cardId: card.id, period })
+    await markPaid.mutateAsync({ cardId: card.id, period, accountId: accountId || null })
     onClose()
   }
 
@@ -110,6 +114,10 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
             ? `Se van a generar ${groups.length} movimientos, uno por categoría.`
             : 'Se va a generar un movimiento con el detalle de lo abonado en la descripción.'}
         </p>
+
+        <Field label="Con qué lo pagué" hint="Opcional — se usa en todos los movimientos que genere">
+          <AccountSelect value={accountId} onChange={setAccountId} />
+        </Field>
       </div>
     </Dialog>
   )

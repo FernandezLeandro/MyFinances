@@ -78,8 +78,9 @@ export interface ReceivableInput {
   note: string | null
   /** Si viene, `rpc_create_receivable` crea además un gasto por este monto en el mismo paso — ver
    *  el comentario de la migración `deudas_flujo_movimientos` para los dos usos (descontar del
-   *  saldo vs. gasto compartido) y por qué los montos difieren entre uno y otro. */
-  expense?: { cents: number; categoryId: string | null; occurredOn: string; description: string | null } | null
+   *  saldo vs. gasto compartido) y por qué los montos difieren entre uno y otro. `accountId` es con
+   *  qué se pagó ESE gasto — se ignora si `expense` no viene. */
+  expense?: { cents: number; categoryId: string | null; occurredOn: string; description: string | null; accountId?: string | null } | null
 }
 
 /** Editar/borrar una deuda no toca `transactions` ni el saldo por sí sola — sólo el ALTA puede
@@ -99,6 +100,7 @@ function invalidarDeudasYPlata(queryClient: ReturnType<typeof useQueryClient>, u
   queryClient.invalidateQueries({ queryKey: ['balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
+  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
 /** Alta de deuda, vía RPC porque puede tener que crear el gasto asociado atómicamente (ver
@@ -121,6 +123,7 @@ export function useCreateReceivable() {
         p_expense_category_id: input.expense?.categoryId ?? null,
         p_expense_occurred_on: input.expense?.occurredOn ?? null,
         p_expense_description: input.expense?.description ?? null,
+        p_account_id: input.expense?.accountId ?? null,
       })
       if (error) throw error
       return data
@@ -184,6 +187,7 @@ export function useRegisterReceivablePayment() {
       occurredOn,
       categoryId,
       createIncome,
+      accountId,
     }: {
       receivableId: string
       cents: number
@@ -193,6 +197,8 @@ export function useRegisterReceivablePayment() {
        *  siempre); `true`/`false` explícito pisa esa derivación — ver el toggle de
        *  `RegistrarAbonoDialog`. */
       createIncome?: boolean | null
+      /** Dónde ENTRÓ la plata cobrada — sólo tiene efecto si el abono termina generando un ingreso. */
+      accountId?: string | null
     }) => {
       const { error } = await supabase.rpc('rpc_register_receivable_payment', {
         p_receivable_id: receivableId,
@@ -200,6 +206,7 @@ export function useRegisterReceivablePayment() {
         p_occurred_on: occurredOn ?? null,
         p_category_id: categoryId ?? null,
         p_create_income: createIncome ?? null,
+        p_account_id: accountId ?? null,
       })
       if (error) throw error
     },
@@ -219,15 +226,18 @@ export function useExpenseReceivable() {
       receivableId,
       categoryId,
       occurredOn,
+      accountId,
     }: {
       receivableId: string
       categoryId?: string | null
       occurredOn?: string
+      accountId?: string | null
     }) => {
       const { error } = await supabase.rpc('rpc_expense_receivable', {
         p_receivable_id: receivableId,
         p_category_id: categoryId ?? null,
         p_occurred_on: occurredOn ?? null,
+        p_account_id: accountId ?? null,
       })
       if (error) throw error
     },

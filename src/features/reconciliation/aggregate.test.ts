@@ -148,4 +148,57 @@ describe('reconciliar', () => {
     expect(withSplit.diffCents).toBe(withoutSplit.diffCents)
     expect(withoutSplit.receivablesCents).toBe(42_000)
   })
+
+  describe('perAccount / sinAsignarCents — diagnóstico por cuenta, nunca afecta el cuadre global', () => {
+    it('sin mapa de derivados, cada cuenta usa su apertura como derivado', () => {
+      const locations = [makeLocation({ amountCents: 50_000, openingCents: 0 })]
+      const r = reconciliar(locations, [], 0)
+      expect(r.perAccount).toEqual([{ accountId: locations[0].id, realCents: 50_000, derivedCents: 0, diffCents: 50_000 }])
+      expect(r.sinAsignarCents).toBe(0)
+    })
+
+    it('cuenta sin movimientos imputados: derivado == apertura, sin diferencia', () => {
+      const locations = [makeLocation({ amountCents: 10_000, openingCents: 10_000 })]
+      const accountBalances = new Map([[locations[0].id, 10_000]])
+      const r = reconciliar(locations, [], 10_000, accountBalances)
+      expect(r.perAccount[0].derivedCents).toBe(10_000)
+      expect(r.perAccount[0].diffCents).toBe(0)
+    })
+
+    it('movimientos sin cuenta asignada → sinAsignarCents refleja sólo lo no imputado, sin tocar diffCents', () => {
+      // Apertura en 0 a propósito: aísla el caso de la apertura (cubierto aparte, más abajo) para
+      // que acá sólo se vea el efecto de un movimiento sin cuenta.
+      const locations = [makeLocation({ amountCents: 50_000, openingCents: 0 })]
+      // $50.000 en gastos YA imputados a esta cuenta (derivado = apertura 0 - 50.000). El saldo
+      // global es -$70.000: los otros $20.000 salieron por un movimiento sin `account_id`.
+      const accountBalances = new Map([[locations[0].id, -50_000]])
+      const r = reconciliar(locations, [], -70_000, accountBalances)
+      expect(r.sinAsignarCents).toBe(-20_000)
+      expect(r.diffCents).toBe(120_000) // el cuadre global es independiente y no lo compensa
+    })
+
+    it('apertura sin movimientos asignados no cuenta como "sin asignar" — el saldo global no sabe de aperturas', () => {
+      // Mismo escenario que rompía antes del fix: una cuenta con apertura > 0 y CERO movimientos
+      // imputados (derivado == apertura). El saldo global es 0 (no hay ningún movimiento real
+      // todavía) — declarar una apertura no puede fabricar un "sin asignar" de la nada.
+      const locations = [makeLocation({ amountCents: 100_000, openingCents: 100_000 })]
+      const accountBalances = new Map([[locations[0].id, 100_000]])
+      const r = reconciliar(locations, [], 0, accountBalances)
+      expect(r.sinAsignarCents).toBe(0)
+    })
+
+    it('caso doctrinal: prestar efectivo deja el derivado de esa cuenta por encima del real, pero el cuadre global sigue en 0', () => {
+      const locations = [makeLocation({ amountCents: 40_000, openingCents: 50_000 })]
+      const receivables = [makeReceivableSummary({ pendingCents: 10_000 })]
+      // El derivado (apertura, sin movimiento por el préstamo) sigue en 50.000 — la app nunca se
+      // enteró de que esa plata se prestó, así que no hay ningún movimiento que lo baje.
+      const accountBalances = new Map([[locations[0].id, 50_000]])
+      const r = reconciliar(locations, receivables, 50_000, accountBalances)
+      expect(r.cuadrado).toBe(true)
+      expect(r.diffCents).toBe(0)
+      // El diagnóstico SÍ marca la diferencia en esa cuenta — pero es informativo, nunca se resta
+      // ni se suma al ajuste global.
+      expect(r.perAccount[0].diffCents).toBe(-10_000)
+    })
+  })
 })

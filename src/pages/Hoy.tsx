@@ -17,6 +17,7 @@ import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
+import { useBalanceLocations } from '@/features/reconciliation/api'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
@@ -39,6 +40,7 @@ export function Hoy() {
   const summary = useMonthlySummary(period)
   const recent = useRecentTransactions(6)
   const { data: categories } = useCategories(true)
+  const { data: locations } = useBalanceLocations()
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
@@ -52,6 +54,7 @@ export function Hoy() {
   const { data: purchasePayments } = useCreditPurchasePayments(period)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
+  const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
   const animatedBalance = useCountUp(balance.data ?? 0)
   const misDeudasSummary = useMemo(
     () =>
@@ -168,7 +171,12 @@ export function Hoy() {
         ) : recent.data && recent.data.length > 0 ? (
           <ul className="pb-3">
             {recent.data.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} category={categoryById.get(tx.category_id ?? '')} />
+              <TransactionRow
+                key={tx.id}
+                tx={tx}
+                category={categoryById.get(tx.category_id ?? '')}
+                account={accountById.get(tx.account_id ?? '')}
+              />
             ))}
           </ul>
         ) : (

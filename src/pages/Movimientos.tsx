@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { useCategories } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
+import { useBalanceLocations } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, useTransactions, type Transaction } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
@@ -37,6 +38,7 @@ export function Movimientos() {
     period: incoming?.period ?? defaultMovementPeriod(),
     type: 'all',
     categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
+    accountIds: [],
   }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -52,17 +54,21 @@ export function Movimientos() {
 
   const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
   const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
+  const accountIds = useMemo(() => [...filters.accountIds].sort(), [filters.accountIds])
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
     to,
     type: filters.type === 'all' ? undefined : filters.type,
     categoryIds,
+    accountIds,
     text: search || undefined,
   })
   const { data: categories } = useCategories(true)
+  const { data: locations } = useBalanceLocations()
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
+  const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
 
   const byDay = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -117,12 +123,15 @@ export function Movimientos() {
   }
 
   function clearAll() {
-    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [] })
+    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [], accountIds: [] })
     setSearchInput('')
   }
 
   const activeCount =
-    (filters.period.preset !== 'month' ? 1 : 0) + (filters.type !== 'all' ? 1 : 0) + filters.categoryIds.length
+    (filters.period.preset !== 'month' ? 1 : 0) +
+    (filters.type !== 'all' ? 1 : 0) +
+    filters.categoryIds.length +
+    filters.accountIds.length
   const hasFilters = activeCount > 0 || search !== ''
 
   return (
@@ -217,6 +226,18 @@ export function Movimientos() {
                 </Chip>
               )
             })}
+            {filters.accountIds.map((id) => {
+              const account = accountById.get(id)
+              return (
+                <Chip
+                  key={id}
+                  ariaLabel={`Quitar filtro de cuenta: ${account?.name ?? 'cuenta'}`}
+                  onClick={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
+                >
+                  {account?.name || '(sin nombre)'} <span aria-hidden className="text-chalk-faint">✕</span>
+                </Chip>
+              )
+            })}
           </div>
         )}
       </div>
@@ -275,6 +296,7 @@ export function Movimientos() {
                       key={tx.id}
                       tx={tx}
                       category={categoryById.get(tx.category_id ?? '')}
+                      account={accountById.get(tx.account_id ?? '')}
                       onClick={() => openEdit(tx)}
                     />
                   ))}
@@ -296,6 +318,7 @@ export function Movimientos() {
           value={filters}
           onApply={setFilters}
           categories={categories ?? []}
+          accounts={locations ?? []}
         />
       )}
     </div>
