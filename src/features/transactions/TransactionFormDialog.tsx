@@ -306,7 +306,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
           <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
         </Field>
 
-        <Field label="Con qué lo pagué" htmlFor="accountId" hint="Opcional">
+        <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
           <AccountSelect
             id="accountId"
             value={watch('accountId') ?? ''}
