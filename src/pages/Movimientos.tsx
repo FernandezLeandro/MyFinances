@@ -178,7 +178,7 @@ export function Movimientos() {
             {activeCount > 0 && (
               <span
                 aria-hidden
-                className="ml-0.5 grid size-4 place-items-center rounded-full bg-acid text-[11px] font-semibold text-ink-950"
+                className="ml-0.5 grid size-4 place-items-center rounded-full bg-acid text-[11px] font-semibold text-on-accent"
               >
                 {activeCount}
               </span>

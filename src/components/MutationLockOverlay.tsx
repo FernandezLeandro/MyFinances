@@ -16,7 +16,7 @@ export function MutationLockOverlay() {
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-ink-950/50 backdrop-blur-[1px]"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-[1px]"
     >
       <div className="flex items-center gap-3 rounded-panel bg-ink-900 px-5 py-3.5 shadow-lift ring-1 ring-ink-800">
         <Spinner className="text-acid" />

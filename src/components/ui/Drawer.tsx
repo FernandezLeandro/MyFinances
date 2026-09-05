@@ -62,7 +62,7 @@ export function Drawer({ open, onClose, children, className }: DrawerProps) {
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={cn(
-        'm-0 h-dvh max-h-none w-[min(20rem,82vw)] max-w-none bg-transparent p-0 backdrop:bg-ink-950/75',
+        'm-0 h-dvh max-h-none w-[min(20rem,82vw)] max-w-none bg-transparent p-0 backdrop:bg-black/75',
       )}
     >
       <div

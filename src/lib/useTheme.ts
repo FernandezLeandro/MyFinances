@@ -1,0 +1,36 @@
+import { useEffect } from 'react'
+import { createPersistedFlag } from '@/lib/persistedFlag'
+
+// `createPersistedFlag` está pensado para una familia de flags bajo el mismo namespace (una key
+// por pantalla, como `useHiddenBalance`) — acá sólo hay un tema para toda la app, así que el hook
+// que devuelve queda envuelto en `useTheme()` con la key fija, para no obligar a cada caller a
+// pasar un string que siempre es el mismo.
+const usePersistedDark = createPersistedFlag('theme')
+
+/**
+ * Preferencia de tema (claro/oscuro), persistida en localStorage bajo `theme:dark`.
+ *
+ * Default `false` (claro): la dirección elegida del handoff es "Bento claro" (3a), con el oscuro
+ * (4a) como variante. `index.html` tiene un script inline que lee esta misma key antes del primer
+ * paint para evitar el flash de claro→oscuro en una sesión que ya eligió oscuro.
+ */
+export function useTheme() {
+  return usePersistedDark('dark')
+}
+
+/**
+ * Aplica el tema activo a `<html data-theme>` (lo que `theme.css` usa para resolver los tokens de
+ * color) y al `<meta name="theme-color">` de la barra del navegador/PWA. Se llama una sola vez,
+ * desde cada layout (`AppLayout`/`AdminLayout`/`AuthLayout`) — no hace falta un provider de React:
+ * el estado ya vive en localStorage vía `useTheme` y cualquier componente puede leerlo/togglearlo
+ * directo, sin prop drilling.
+ */
+export function useSyncThemeToDocument() {
+  const [dark] = useTheme()
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', dark ? '#0f1014' : '#efeee8')
+  }, [dark])
+}

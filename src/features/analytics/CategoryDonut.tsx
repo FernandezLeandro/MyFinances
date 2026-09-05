@@ -1,7 +1,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 import { Money } from '@/components/ui/Money'
-import { chartColors } from '@/lib/chartColors'
+import { useChartColors, type ChartColorSet } from '@/lib/chartColors'
 
 export interface DonutSlice {
   categoryId: string
@@ -11,8 +11,9 @@ export interface DonutSlice {
 }
 
 // Factory en vez de un componente fijo: el tooltip necesita el total para calcular el % de la
-// porción que se está mirando, y ese total depende de `data` (que varía por instancia del donut).
-function makeTooltip(totalCents: number) {
+// porción que se está mirando (depende de `data`, que varía por instancia del donut) y los colores
+// del tema activo — ninguno de los dos está disponible cuando Recharts instancia el tooltip solo.
+function makeTooltip(totalCents: number, colors: ChartColorSet) {
   return function CustomTooltip({ active, payload }: TooltipContentProps) {
     if (!active || !payload?.length) return null
     const slice = payload[0]?.payload as DonutSlice
@@ -20,7 +21,7 @@ function makeTooltip(totalCents: number) {
     return (
       <div
         className="rounded-control px-3 py-2 text-[12px] shadow-lift ring-1"
-        style={{ backgroundColor: chartColors.inkTooltip, borderColor: chartColors.inkTooltipRing }}
+        style={{ backgroundColor: colors.tooltipBg, borderColor: colors.tooltipRing }}
       >
         <p className="mb-0.5 text-chalk">{slice.categoryName}</p>
         <div className="flex items-baseline gap-2">
@@ -38,6 +39,7 @@ interface CategoryDonutProps {
 }
 
 export function CategoryDonut({ data, onSelect }: CategoryDonutProps) {
+  const colors = useChartColors()
   const totalCents = data.reduce((sum, s) => sum + s.cents, 0)
 
   return (
@@ -63,7 +65,7 @@ export function CategoryDonut({ data, onSelect }: CategoryDonutProps) {
               <Cell key={slice.categoryId} fill={slice.color} />
             ))}
           </Pie>
-          <Tooltip content={makeTooltip(totalCents)} />
+          <Tooltip content={makeTooltip(totalCents, colors)} />
         </PieChart>
       </ResponsiveContainer>
     </div>

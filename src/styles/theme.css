@@ -1,76 +1,206 @@
 /*
- * Sistema de diseño de MyFinances — "dark fintech con acento neón".
+ * Sistema de diseño de MyFinances — "Bento": papel cálido claro con azul tinta como único acento,
+ * y su contraparte oscura. Migrado desde la identidad anterior ("dark fintech con acento neón");
+ * ver el handoff en design_handoff_rediseno_my_finances_app/README.md para el diseño de referencia.
  *
  * Reglas que sostienen la identidad y que NO hay que romper:
- *  - El acento ácido se reserva para el dato principal y la serie primaria de un gráfico.
+ *  - El acento se reserva para el dato principal, CTAs y la serie primaria de un gráfico.
  *    Si aparece en todos lados deja de ser acento.
- *  - Las superficies se elevan por luminosidad, no por borde gris de 1px.
- *  - Ingreso = ácido, gasto = coral. Nunca verde/rojo de semáforo.
- *  - Radios mixtos: chico y casi recto en elementos densos, amplio en paneles.
+ *  - Las tarjetas no llevan sombra ni borde: la separación es por color de superficie contra el
+ *    fondo de la app, nada más.
+ *  - Ingreso = acento, gasto = negativo (rojo/coral). Nunca verde/rojo de semáforo.
+ *  - Radios mixtos: chico y casi recto en elementos densos (chips, badges), amplio en tarjetas.
+ *
+ * Paleta cruda en variables normales (claro en :root, oscuro en :root[data-theme="dark"]) y
+ * @theme inline mapeándolas a nombres de utilidad — así una sola clase (bg-surface, text-fg)
+ * resuelve al valor correcto en cualquiera de los dos temas sin tocar el markup.
+ *
+ * Alias de compatibilidad: los nombres de la identidad anterior (ink-*, chalk*, acid*, coral) se
+ * mantienen apuntando a los roles nuevos para no tener que tocar los ~80 archivos que ya los usan
+ * de punta a punta de la migración. Se borran en el bloque de cierre — no agregar usos nuevos de
+ * estos nombres, usar los roles semánticos (surface, fg, accent, negative, …).
  */
 
-@theme {
-  /* Superficies — near-black con tinte frío, no gris neutro */
-  --color-ink-950: #0a0b0e;
-  --color-ink-900: #101218;
-  --color-ink-850: #14161d;
-  --color-ink-800: #191c24;
-  --color-ink-700: #22262f;
-  --color-ink-600: #2f3440;
-  --color-ink-500: #434959;
+:root {
+  color-scheme: light;
 
-  /* Texto — chalk-faint calibrado a ~4.9:1 sobre ink-950 (AA para texto normal exige 4.5:1).
-     El tono original (#676d78) daba 3.78:1: se veía bien pero no pasaba el mínimo, y se usa en
-     texto real (fechas, hints, eyebrow labels), no sólo decorativo. */
-  --color-chalk: #edefea;
-  --color-chalk-dim: #a0a6ae;
-  --color-chalk-faint: #7a818c;
+  /* Superficies — papel cálido, no blanco puro */
+  --c-canvas: #efeee8;
+  --c-surface: #fbfaf6;
+  --c-inverse: #16171b;
 
-  /* Acento único */
-  --color-acid: #c8f751;
-  --color-acid-soft: #dcff8c;
-  --color-acid-deep: #8aab30;
+  /* Texto */
+  --c-fg: #16171b;
+  --c-fg-secondary: #63656d;
+  --c-fg-muted: #82848c;
+  --c-fg-faint: #a3a5ab;
+
+  /* Bordes y divisores */
+  --c-border: #e2e0d7;
+  --c-border-strong: #d6d3c8;
+  --c-divider: #eae8e0;
+  --c-divider-list: #eeece4;
+  --c-fill-subtle: #e5e3da;
+
+  /* Acento único — azul tinta */
+  --c-accent: #2b3fd6;
+  --c-accent-text: #2b3fd6;
+  --c-accent-soft: #e7e9fb;
+  --c-on-accent: #ffffff;
 
   /* Semántica de dinero (no semáforo) */
-  --color-coral: #ff7a66;
-  --color-coral-deep: #b9503f;
-  --color-amber: #ffc46b;
+  --c-negative: #c4402a;
 
-  /* Paleta de categorías — apagada a propósito: convive con el fondo y nunca le compite al ácido,
-     que queda reservado para el saldo y la serie primaria. */
-  --color-cat-coral: #ff7a66;
-  --color-cat-amber: #ffc46b;
-  --color-cat-teal: #5fd3c4;
-  --color-cat-violet: #a892f0;
-  --color-cat-rose: #f2789f;
-  --color-cat-sky: #6fb4f0;
-  --color-cat-sand: #d9c9a3;
-  --color-cat-moss: #9bbf46;
+  /* Texto/bordes sobre una superficie invertida (tarjeta "Proyectado") */
+  --c-on-inverse: #f4f3ef;
+  --c-on-inverse-secondary: #b6b8c0;
+  --c-on-inverse-muted: #9b9da5;
+  --c-inverse-divider: #2a2b31;
+  --c-negative-on-inverse: #ff9d8a;
+
+  /* Categorías — 6 colores saturados, pensados para fondo claro */
+  --c-cat-1: #1d8f7e;
+  --c-cat-2: #c4402a;
+  --c-cat-3: #2f6fb8;
+  --c-cat-4: #6a5bb8;
+  --c-cat-5: #b8862a;
+  --c-cat-6: #6b8f2a;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-canvas: #0f1014;
+  --c-surface: #191b21;
+  --c-inverse: #22253a;
+
+  --c-fg: #f1f0ec;
+  --c-fg-secondary: #a5a7b0;
+  --c-fg-muted: #8b8d96;
+  --c-fg-faint: #7c7e87;
+
+  --c-border: #23252c;
+  --c-border-strong: #33363f;
+  --c-divider: #24262e;
+  --c-divider-list: #23252b;
+  --c-fill-subtle: #262932;
+
+  --c-accent: #4f5eeb;
+  --c-accent-text: #a9b3ff;
+  --c-accent-soft: #23264a;
+  --c-on-accent: #ffffff;
+
+  --c-negative: #ff8f75;
+
+  --c-on-inverse: #f1f0f6;
+  --c-on-inverse-secondary: #c0c3da;
+  --c-on-inverse-muted: #a3a7c4;
+  --c-inverse-divider: #34385180;
+  --c-negative-on-inverse: #ff8f75;
+
+  /* Categorías — mismas 6, versión clara para contrastar sobre fondo oscuro */
+  --c-cat-1: #4fc9b3;
+  --c-cat-2: #ff8f75;
+  --c-cat-3: #6fb4f0;
+  --c-cat-4: #a08ff0;
+  --c-cat-5: #e8b45f;
+  --c-cat-6: #a8d94f;
+}
+
+@theme inline {
+  /* Roles semánticos — usar estos nombres en código nuevo */
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-inverse: var(--c-inverse);
+
+  --color-fg: var(--c-fg);
+  --color-fg-secondary: var(--c-fg-secondary);
+  --color-fg-muted: var(--c-fg-muted);
+  --color-fg-faint: var(--c-fg-faint);
+
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-divider: var(--c-divider);
+  --color-divider-list: var(--c-divider-list);
+  --color-fill-subtle: var(--c-fill-subtle);
+
+  --color-accent: var(--c-accent);
+  --color-accent-text: var(--c-accent-text);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-on-accent: var(--c-on-accent);
+
+  --color-negative: var(--c-negative);
+
+  --color-on-inverse: var(--c-on-inverse);
+  --color-on-inverse-secondary: var(--c-on-inverse-secondary);
+  --color-on-inverse-muted: var(--c-on-inverse-muted);
+  --color-inverse-divider: var(--c-inverse-divider);
+  --color-negative-on-inverse: var(--c-negative-on-inverse);
+
+  --color-cat-1: var(--c-cat-1);
+  --color-cat-2: var(--c-cat-2);
+  --color-cat-3: var(--c-cat-3);
+  --color-cat-4: var(--c-cat-4);
+  --color-cat-5: var(--c-cat-5);
+  --color-cat-6: var(--c-cat-6);
+
+  /* --- Alias de compatibilidad con la identidad anterior — borrar en el bloque de cierre --- */
+  --color-ink-950: var(--c-canvas);
+  --color-ink-900: var(--c-surface);
+  --color-ink-850: var(--c-fill-subtle);
+  --color-ink-800: var(--c-fill-subtle);
+  --color-ink-700: var(--c-border-strong);
+  --color-ink-600: var(--c-border-strong);
+  --color-ink-500: var(--c-border-strong);
+
+  --color-chalk: var(--c-fg);
+  --color-chalk-dim: var(--c-fg-secondary);
+  --color-chalk-faint: var(--c-fg-muted);
+
+  --color-acid: var(--c-accent);
+  --color-acid-soft: var(--c-accent);
+  --color-acid-deep: var(--c-accent);
+
+  --color-coral: var(--c-negative);
+  --color-coral-deep: var(--c-negative);
+  --color-amber: var(--c-cat-5);
+
+  --color-cat-coral: var(--c-cat-2);
+  --color-cat-amber: var(--c-cat-5);
+  --color-cat-teal: var(--c-cat-1);
+  --color-cat-violet: var(--c-cat-4);
+  --color-cat-rose: var(--c-cat-2);
+  --color-cat-sky: var(--c-cat-3);
+  --color-cat-sand: var(--c-cat-5);
+  --color-cat-moss: var(--c-cat-6);
+  /* --- fin alias --- */
 
   /* Tipografía */
-  --font-display: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
-  --font-sans: 'Instrument Sans', system-ui, 'Segoe UI', sans-serif;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
-  /* Escala tipográfica — el salto entre display y UI es deliberadamente brutal */
-  --text-hero: clamp(3.5rem, 12vw, 8rem);
-  --text-hero--line-height: 0.86;
+  /* Escala tipográfica — cifras del sistema Bento (ver README del handoff) */
+  --text-hero: clamp(2.375rem, 7vw, 4rem);
+  --text-hero--line-height: 0.95;
   --text-hero--letter-spacing: -0.045em;
-  --text-figure: clamp(1.75rem, 4.5vw, 2.75rem);
-  --text-figure--line-height: 0.95;
-  --text-figure--letter-spacing: -0.03em;
-  --text-eyebrow: 0.6875rem;
+  --text-figure: clamp(1.5625rem, 3.5vw, 2.0625rem);
+  --text-figure--line-height: 1;
+  --text-figure--letter-spacing: -0.035em;
+  --text-eyebrow: 0.71875rem;
   --text-eyebrow--line-height: 1.1;
-  --text-eyebrow--letter-spacing: 0.14em;
+  --text-eyebrow--letter-spacing: 0.12em;
 
-  /* Radios mixtos */
+  /* Radios */
   --radius-chip: 4px;
   --radius-control: 10px;
-  --radius-panel: 20px;
+  --radius-panel: 18px;
+  --radius-pill: 999px;
 
-  /* Sombras: casi nunca; la elevación es por luminosidad */
-  --shadow-lift: 0 24px 60px -32px rgb(0 0 0 / 0.9);
-  --shadow-glow: 0 0 0 1px rgb(200 247 81 / 0.35), 0 10px 40px -18px rgb(200 247 81 / 0.35);
+  /* Sombras: ninguna sobre tarjetas (la separación es por color de superficie). Se reservan para
+     elementos flotantes de verdad — el FAB mobile y el modal lift. */
+  --shadow-lift: 0 24px 60px -32px rgb(0 0 0 / 0.35);
+  --shadow-fab: 0 10px 24px -8px rgb(43 63 214 / 0.7);
 
   /* Motion */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
@@ -113,23 +243,20 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   body {
-    background-color: var(--color-ink-950);
-    color: var(--color-chalk);
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
     font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.5;
-    /* Halos muy tenues: le sacan el negro plano al fondo sin caer en gradiente decorativo */
-    background-image:
-      radial-gradient(60rem 40rem at 78% -12%, rgb(200 247 81 / 0.055), transparent 60%),
-      radial-gradient(45rem 30rem at 5% 108%, rgb(255 122 102 / 0.045), transparent 60%);
-    background-attachment: fixed;
+    transition:
+      background-color 150ms var(--ease-out-quint),
+      color 150ms var(--ease-out-quint);
   }
 
   /* Todo número que se compara en columna va tabular. Sin excepciones. */
@@ -139,19 +266,19 @@
   }
 
   ::selection {
-    background-color: var(--color-acid);
-    color: var(--color-ink-950);
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-acid);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: 2px;
   }
 
   /* Scrollbar acorde al fondo, no la blanca del sistema */
   * {
-    scrollbar-color: var(--color-ink-600) transparent;
+    scrollbar-color: var(--color-border-strong) transparent;
     scrollbar-width: thin;
   }
 
@@ -170,6 +297,6 @@
   line-height: var(--text-eyebrow--line-height);
   letter-spacing: var(--text-eyebrow--letter-spacing);
   text-transform: uppercase;
-  font-weight: 500;
-  color: var(--color-chalk-faint);
+  font-weight: 600;
+  color: var(--color-fg-muted);
 }

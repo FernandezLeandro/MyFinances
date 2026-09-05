@@ -80,7 +80,7 @@ function FixedExpenseRow({
           aria-label={done ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
           className={cn(
             'grid size-5 shrink-0 place-items-center rounded-chip transition-colors duration-150 disabled:opacity-50',
-            done ? 'bg-acid text-ink-950' : 'bg-ink-800 text-transparent hover:bg-ink-700',
+            done ? 'bg-acid text-on-accent' : 'bg-ink-800 text-transparent hover:bg-ink-700',
           )}
         >
           <Check className="size-3" strokeWidth={1.8} aria-hidden />

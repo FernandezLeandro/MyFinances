@@ -1,6 +1,5 @@
 import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router'
-import { Grain } from '@/components/Grain'
 import { Money } from '@/components/ui/Money'
 import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -14,6 +13,7 @@ import { useProfile } from '@/features/profile/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useSidebarCollapsed } from '@/lib/useSidebarCollapsed'
+import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
 
 /**
@@ -28,6 +28,7 @@ export function AppLayout() {
   const [balanceHidden] = useHiddenBalance('saldo-actual')
   const [collapsed] = useSidebarCollapsed()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  useSyncThemeToDocument()
 
   const displayName = profile?.displayName ?? null
   const email = user?.email ?? null
@@ -35,8 +36,6 @@ export function AppLayout() {
 
   return (
     <>
-      <Grain />
-
       <Sidebar
         accent="acid"
         items={sidebarNavItems}

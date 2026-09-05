@@ -1,6 +1,5 @@
 import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router'
-import { Grain } from '@/components/Grain'
 import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { cn } from '@/lib/cn'
 import { Sidebar } from '@/app/Sidebar'
@@ -9,6 +8,7 @@ import { AccountDrawer } from '@/app/AccountMenu'
 import { adminNavItems } from '@/app/adminNav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useSidebarCollapsed } from '@/lib/useSidebarCollapsed'
+import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
 
 /**
@@ -21,14 +21,13 @@ export function AdminLayout() {
   const { user } = useAuth()
   const [collapsed] = useSidebarCollapsed()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  useSyncThemeToDocument()
 
   const email = user?.email ?? null
   const initials = initialsFrom(null, email)
 
   return (
     <>
-      <Grain />
-
       <Sidebar
         accent="chalk"
         items={adminNavItems}

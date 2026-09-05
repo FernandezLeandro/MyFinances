@@ -1,11 +1,12 @@
 import { Outlet } from 'react-router'
-import { Grain } from '@/components/Grain'
 import { Panel } from '@/components/ui/Panel'
+import { useSyncThemeToDocument } from '@/lib/useTheme'
 
 export function AuthLayout() {
+  useSyncThemeToDocument()
+
   return (
     <div className="flex min-h-dvh items-center justify-center px-5 py-12">
-      <Grain />
       <div className="w-full max-w-[380px]">
         <div className="mb-8 flex items-baseline gap-1.5">
           <span className="font-display text-[22px] leading-none font-extrabold tracking-[-0.04em] text-chalk">

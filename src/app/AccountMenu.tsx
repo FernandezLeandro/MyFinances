@@ -1,11 +1,34 @@
+import { Moon, Sun } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router'
 import { cn } from '@/lib/cn'
 import { MenuItem } from '@/components/ui/Menu'
 import { Drawer } from '@/components/ui/Drawer'
 import { Avatar } from '@/components/ui/Avatar'
-import { gearIcon, logoutIcon } from '@/app/nav'
+import { gearIcon, logoutIcon, navIconClass } from '@/app/nav'
 import type { NavItem } from '@/app/nav'
 import { supabase } from '@/lib/supabase'
+import { useTheme } from '@/lib/useTheme'
+
+/** Toggle de tema, compartido por el popover de desktop y el drawer de mobile — mismo criterio que
+ *  el resto de `AccountMenuItems`: un solo lugar define qué hay en el menú de cuenta. */
+function ThemeMenuItem({ size }: { size?: 'sm' | 'md' }) {
+  const [dark, toggle] = useTheme()
+  return (
+    <MenuItem
+      onClick={toggle}
+      icon={
+        dark ? (
+          <Moon className={navIconClass} strokeWidth={1.6} aria-hidden />
+        ) : (
+          <Sun className={navIconClass} strokeWidth={1.6} aria-hidden />
+        )
+      }
+      size={size}
+    >
+      {dark ? 'Modo oscuro' : 'Modo claro'}
+    </MenuItem>
+  )
+}
 
 interface AccountMenuItemsProps {
   /** El admin no tiene `/ajustes` — ver `RequireAdmin`, que lo saca de la nav financiera por completo. */
@@ -35,6 +58,7 @@ export function AccountMenuItems({ showAjustes, onNavigate, size = 'sm' }: Accou
 
   return (
     <>
+      <ThemeMenuItem size={size} />
       {showAjustes && (
         <MenuItem onClick={goToAjustes} icon={gearIcon} size={size}>
           Ajustes

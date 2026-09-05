@@ -5,24 +5,28 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Money } from '@/components/ui/Money'
 import { formatCompact } from '@/lib/money'
-import { chartColors } from '@/lib/chartColors'
+import { useChartColors, type ChartColorSet } from '@/lib/chartColors'
 import type { MonthlyPoint } from '@/features/analytics/api'
 
 const monthLabel = (period: string) => format(parseISO(period), 'MMM', { locale: es })
 
-function CustomTooltip({ active, payload }: TooltipContentProps) {
-  if (!active || !payload?.length) return null
-  const point = payload[0]?.payload as MonthlyPoint | undefined
-  if (!point) return null
-  return (
-    <div
-      className="rounded-control px-3 py-2.5 text-[12px] shadow-lift ring-1"
-      style={{ backgroundColor: chartColors.inkTooltip, borderColor: chartColors.inkTooltipRing }}
-    >
-      <p className="eyebrow mb-1.5">{format(parseISO(point.period), 'MMMM yyyy', { locale: es })}</p>
-      <Money cents={point.runningBalanceCents} tone="acid" />
-    </div>
-  )
+// Factory, no un componente fijo: el tooltip necesita los colores del tema activo, y Recharts lo
+// instancia internamente sin pasarle props propias — el mismo patrón que `CategoryDonut.makeTooltip`.
+function makeTooltip(colors: ChartColorSet) {
+  return function CustomTooltip({ active, payload }: TooltipContentProps) {
+    if (!active || !payload?.length) return null
+    const point = payload[0]?.payload as MonthlyPoint | undefined
+    if (!point) return null
+    return (
+      <div
+        className="rounded-control px-3 py-2.5 text-[12px] shadow-lift ring-1"
+        style={{ backgroundColor: colors.tooltipBg, borderColor: colors.tooltipRing }}
+      >
+        <p className="eyebrow mb-1.5">{format(parseISO(point.period), 'MMMM yyyy', { locale: es })}</p>
+        <Money cents={point.runningBalanceCents} tone="acid" />
+      </div>
+    )
+  }
 }
 
 interface BalanceTrendChartProps {
@@ -34,6 +38,7 @@ interface BalanceTrendChartProps {
 
 export function BalanceTrendChart({ data, highlightPeriod }: BalanceTrendChartProps) {
   const gradientId = useId()
+  const colors = useChartColors()
 
   return (
     <div className="h-64 w-full">
@@ -41,21 +46,21 @@ export function BalanceTrendChart({ data, highlightPeriod }: BalanceTrendChartPr
         <AreaChart data={data}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={chartColors.acid} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={chartColors.acid} stopOpacity={0} />
+              <stop offset="0%" stopColor={colors.accent} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={colors.accent} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} stroke={chartColors.inkGrid} />
+          <CartesianGrid vertical={false} stroke={colors.grid} />
           <XAxis
             dataKey="period"
             tickFormatter={monthLabel}
-            tick={{ fill: chartColors.chalkFaint, fontSize: 11 }}
-            axisLine={{ stroke: chartColors.inkGrid }}
+            tick={{ fill: colors.fgMuted, fontSize: 11 }}
+            axisLine={{ stroke: colors.grid }}
             tickLine={false}
           />
           <YAxis
             tickFormatter={(v: number) => formatCompact(v)}
-            tick={{ fill: chartColors.chalkFaint, fontSize: 11 }}
+            tick={{ fill: colors.fgMuted, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={44}
@@ -64,14 +69,12 @@ export function BalanceTrendChart({ data, highlightPeriod }: BalanceTrendChartPr
             // mismo valor (p.ej. "-19k" repetido).
             domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]}
           />
-          <Tooltip content={CustomTooltip} cursor={{ stroke: chartColors.acid, strokeWidth: 1 }} />
-          {highlightPeriod && (
-            <ReferenceLine x={highlightPeriod} stroke={chartColors.chalkFaint} strokeDasharray="3 3" />
-          )}
+          <Tooltip content={makeTooltip(colors)} cursor={{ stroke: colors.accent, strokeWidth: 1 }} />
+          {highlightPeriod && <ReferenceLine x={highlightPeriod} stroke={colors.fgMuted} strokeDasharray="3 3" />}
           <Area
             type="monotone"
             dataKey="runningBalanceCents"
-            stroke={chartColors.acid}
+            stroke={colors.accent}
             strokeWidth={2}
             fill={`url(#${gradientId})`}
           />

@@ -4,9 +4,13 @@ export type ButtonVariant = 'primary' | 'ghost' | 'outline' | 'danger'
 export type ButtonSize = 'sm' | 'md'
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-acid text-ink-950 hover:bg-acid-soft active:bg-acid-deep font-semibold',
+  // `text-on-accent`, no `text-ink-950`: con el sistema de tema nuevo el acento es azul en los dos
+  // modos, así que el texto encima tiene que ser blanco fijo, no el color de canvas (que en dark
+  // mode es casi negro y quedaría ilegible sobre el acento). Feedback de hover/active por opacidad,
+  // sin depender de un segundo tono de acento — ver la nota de interacciones del handoff.
+  primary: 'bg-acid text-on-accent hover:opacity-90 active:opacity-80 font-semibold',
   ghost: 'text-chalk-dim hover:text-chalk hover:bg-ink-800',
-  outline: 'text-chalk border border-ink-600 hover:border-ink-500 hover:bg-ink-850',
+  outline: 'text-chalk border border-ink-600 hover:bg-ink-850',
   danger: 'text-coral border border-coral/30 hover:bg-coral/10',
 }
 

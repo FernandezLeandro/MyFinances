@@ -12,6 +12,7 @@ import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
 import { ChangePasswordPanel } from '@/features/auth/ChangePasswordPanel'
 import { useBalanceLocations } from '@/features/reconciliation/api'
 import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
+import { useTheme } from '@/lib/useTheme'
 
 const fxSources: { value: FxSource; label: string }[] = [
   { value: 'oficial', label: 'Oficial' },
@@ -20,6 +21,26 @@ const fxSources: { value: FxSource; label: string }[] = [
   { value: 'cripto', label: 'Cripto' },
   { value: 'manual', label: 'Manual' },
 ]
+
+/** El mismo flag que togglea `AccountMenu` — repetido acá para que el tema también se pueda
+ *  cambiar desde Ajustes, no sólo desde el menú de cuenta. */
+function AppearancePanel() {
+  const [dark, toggle] = useTheme()
+
+  return (
+    <Panel>
+      <PanelHeader title="Apariencia" hint="Claro es la dirección visual por default de la app" />
+      <div className="flex gap-1.5 px-6 pb-6">
+        <Chip active={!dark} onClick={dark ? toggle : undefined}>
+          Claro
+        </Chip>
+        <Chip active={dark} onClick={dark ? undefined : toggle}>
+          Oscuro
+        </Chip>
+      </div>
+    </Panel>
+  )
+}
 
 function FxPanel() {
   const { data: profile, isPending } = useProfile()
@@ -135,6 +156,7 @@ export function Ajustes() {
       </header>
 
       <div className="flex flex-col gap-6">
+        <AppearancePanel />
         <FxPanel />
         <AccountsPanel />
         <AssetsPanel />
