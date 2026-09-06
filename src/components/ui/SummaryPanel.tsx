@@ -22,7 +22,7 @@ interface SummaryPanelProps {
   isPending?: boolean
   /** Enmascara la cifra principal y cada fila con `cents` (no las que usan `value`). */
   hidden?: boolean
-  /** El `ring-1 ring-acid/15` que distingue al panel "cabecera" de un grupo de resúmenes — el total
+  /** El `ring-1 ring-accent/15` que distingue al panel "cabecera" de un grupo de resúmenes — el total
    *  de Mis Deudas y el de Me Deben lo usan; el "Saldo proyectado" secundario de Mis Deudas no. Sin
    *  efecto si `inverse` está activo (esa tarjeta ya se distingue por el fondo, no por un ring). */
   accent?: boolean
@@ -59,7 +59,7 @@ export function SummaryPanel({
       className={cn(
         'flex flex-col p-6',
         inverse && 'justify-between',
-        !inverse && accent && 'ring-1 ring-acid/15',
+        !inverse && accent && 'ring-1 ring-accent/15',
         className,
       )}
     >
@@ -69,7 +69,7 @@ export function SummaryPanel({
       {isPending ? (
         <Skeleton className="mt-2 h-9 w-32" />
       ) : (
-        <Money cents={cents ?? 0} tone={inverse ? 'onInverse' : 'chalk'} size="figure" className="mt-2" hidden={hidden} />
+        <Money cents={cents ?? 0} tone={inverse ? 'onInverse' : 'fg'} size="figure" className="mt-2" hidden={hidden} />
       )}
 
       {rows && rows.length > 0 && (

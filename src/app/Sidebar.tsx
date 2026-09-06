@@ -10,7 +10,7 @@ import { AccountMenuItems } from '@/app/AccountMenu'
 import type { NavItem } from '@/app/nav'
 
 interface SidebarProps {
-  accent: 'acid' | 'chalk'
+  accent: 'accent' | 'fg'
   items: NavItem[]
   /** Slot bajo el wordmark — el saldo actual en la app, el eyebrow "Administración" en admin. Se
    *  oculta colapsado: no hay ancho para una cifra ni para texto. */
@@ -31,12 +31,12 @@ export function Sidebar({ accent, items, header, initials, displayName, email, s
   const [menuOpen, setMenuOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
-  const activeBarClass = accent === 'acid' ? 'bg-acid' : 'bg-chalk'
+  const activeBarClass = accent === 'accent' ? 'bg-accent' : 'bg-fg'
 
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-ink-850 py-7 transition-[width,padding] duration-200 ease-[var(--ease-out-quint)] lg:flex',
+        'fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-fill-subtle py-7 transition-[width,padding] duration-200 ease-[var(--ease-out-quint)] lg:flex',
         collapsed ? 'w-[72px] px-3' : 'w-[228px] px-6',
       )}
     >
@@ -47,7 +47,7 @@ export function Sidebar({ accent, items, header, initials, displayName, email, s
           onClick={toggleCollapsed}
           aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
           aria-expanded={!collapsed}
-          className="grid size-7 shrink-0 place-items-center rounded-control text-chalk-faint transition-colors duration-150 hover:bg-ink-900 hover:text-chalk"
+          className="grid size-7 shrink-0 place-items-center rounded-control text-fg-muted transition-colors duration-150 hover:bg-surface hover:text-fg"
         >
           <svg
             viewBox="0 0 16 16"
@@ -78,7 +78,7 @@ export function Sidebar({ accent, items, header, initials, displayName, email, s
               cn(
                 'group relative flex items-center gap-3 rounded-control py-2.5 text-[14px] transition-colors duration-150',
                 collapsed ? 'justify-center px-0' : 'pr-3 pl-3.5',
-                isActive ? 'bg-ink-850 text-chalk' : 'text-chalk-dim hover:bg-ink-900 hover:text-chalk',
+                isActive ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-surface hover:text-fg',
               )
             }
           >
@@ -98,7 +98,7 @@ export function Sidebar({ accent, items, header, initials, displayName, email, s
         ))}
       </nav>
 
-      <div className="relative mt-auto border-t border-ink-850 pt-4">
+      <div className="relative mt-auto border-t border-fill-subtle pt-4">
         <button
           ref={triggerRef}
           type="button"
@@ -107,14 +107,14 @@ export function Sidebar({ accent, items, header, initials, displayName, email, s
           aria-expanded={menuOpen}
           title={collapsed ? (displayName ?? email ?? 'Cuenta') : undefined}
           className={cn(
-            'flex w-full items-center gap-2.5 rounded-control py-1.5 text-left transition-colors duration-150 hover:bg-ink-900',
+            'flex w-full items-center gap-2.5 rounded-control py-1.5 text-left transition-colors duration-150 hover:bg-surface',
             collapsed ? 'justify-center px-0' : 'px-2',
           )}
         >
           <Avatar initials={initials} />
           <span className={cn('min-w-0 flex-1', collapsed && 'sr-only')}>
-            <span className="block truncate text-[13px] text-chalk">{displayName ?? email ?? 'Cuenta'}</span>
-            {email && <span className="block truncate text-[11px] text-chalk-faint">{email}</span>}
+            <span className="block truncate text-[13px] text-fg">{displayName ?? email ?? 'Cuenta'}</span>
+            {email && <span className="block truncate text-[11px] text-fg-muted">{email}</span>}
           </span>
         </button>
 

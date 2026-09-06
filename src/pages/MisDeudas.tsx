@@ -54,9 +54,9 @@ function CardCard({
     <Panel className="flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] text-chalk-dim">{card.name}</p>
+          <p className="truncate text-[14px] text-fg-secondary">{card.name}</p>
           <p className="mt-0.5 text-[12px]">
-            <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
+            <span className={vencido ? 'text-negative' : 'text-fg-muted'}>
               {vencido ? `Venció el ${card.due_day}` : `Vence el ${card.due_day}`}
             </span>
           </p>
@@ -65,23 +65,23 @@ function CardCard({
           type="button"
           onClick={() => onEdit(card)}
           aria-label={`Editar ${card.name}`}
-          className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+          className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
         >
           <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
       </div>
 
       <div className="mt-3">
-        <Money cents={totalCents} tone={paid ? 'dim' : 'chalk'} size="figure" hidden={hidden} />
-        {paid && <p className="mt-1 text-[12px] font-medium text-acid">Pagada este mes</p>}
+        <Money cents={totalCents} tone={paid ? 'dim' : 'fg'} size="figure" hidden={hidden} />
+        {paid && <p className="mt-1 text-[12px] font-medium text-accent">Pagada este mes</p>}
       </div>
 
       {!paid && totalCents > 0 && (
         <div className="mt-4">
           <ProgresoGuardado percent={savedPercent} />
-          <p className="mt-1.5 text-[12px] text-chalk-faint">
+          <p className="mt-1.5 text-[12px] text-fg-muted">
             Guardaste <Money cents={savedCents} tone="dim" hidden={hidden} /> · faltan{' '}
-            <Money cents={missingCents} tone={missingCents > 0 ? 'coral' : 'dim'} hidden={hidden} />
+            <Money cents={missingCents} tone={missingCents > 0 ? 'negative' : 'dim'} hidden={hidden} />
           </p>
         </div>
       )}
@@ -229,24 +229,24 @@ export function MisDeudas() {
       ) : (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <Panel className="p-6 ring-1 ring-acid/15 lg:col-span-1">
+            <Panel className="p-6 ring-1 ring-accent/15 lg:col-span-1">
               <p className="eyebrow">Total a pagar este mes</p>
-              <Money cents={summary.totalPendingCents} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
-              <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
+              <Money cents={summary.totalPendingCents} tone="fg" size="figure" className="mt-2" hidden={balanceHidden} />
+              <dl className="mt-5 space-y-2 border-t border-fill-subtle pt-4 text-[13px]">
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Guardado</dt>
+                  <dt className="text-fg-muted">Guardado</dt>
                   <dd>
                     <Money cents={summary.totalSavedCents} tone="dim" hidden={balanceHidden} />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Falta</dt>
+                  <dt className="text-fg-muted">Falta</dt>
                   <dd>
-                    <Money cents={summary.totalMissingCents} tone={summary.totalMissingCents > 0 ? 'coral' : 'dim'} hidden={balanceHidden} />
+                    <Money cents={summary.totalMissingCents} tone={summary.totalMissingCents > 0 ? 'negative' : 'dim'} hidden={balanceHidden} />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Pagado este mes</dt>
+                  <dt className="text-fg-muted">Pagado este mes</dt>
                   <dd>
                     <Money cents={totalPaidCents} tone="dim" hidden={balanceHidden} />
                   </dd>
@@ -259,9 +259,9 @@ export function MisDeudas() {
               {isProjectedPending ? (
                 <Skeleton className="mt-2 h-9 w-32" />
               ) : (
-                <Money cents={projectedBalance ?? 0} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
+                <Money cents={projectedBalance ?? 0} tone="fg" size="figure" className="mt-2" hidden={balanceHidden} />
               )}
-              <p className="mt-3 text-[12px] text-chalk-faint">
+              <p className="mt-3 text-[12px] text-fg-muted">
                 Ya descuenta los fijos y las deudas impagas de este período — el mismo número que ves en Fijos.
               </p>
             </Panel>

@@ -23,14 +23,14 @@ export function InfoTooltip({ text, className }: InfoTooltipProps) {
         onBlur={() => setOpen(false)}
         aria-expanded={open}
         aria-label="Más información"
-        className="grid place-items-center text-chalk-faint transition-colors duration-150 hover:text-chalk-dim"
+        className="grid place-items-center text-fg-muted transition-colors duration-150 hover:text-fg-secondary"
       >
         {/* strokeWidth 1.5: matea el rango 1.3-1.8 que ya usan los íconos a mano del resto de la
             app (ver EyeToggle, Dialog, etc.) en vez del 2 que trae la librería por default. */}
         <CircleHelp size={14} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
-        <span className="absolute top-full left-0 z-10 mt-1.5 w-56 rounded-control border border-ink-700 bg-ink-800 p-2.5 text-[12px] leading-snug text-chalk-dim shadow-lg">
+        <span className="absolute top-full left-0 z-10 mt-1.5 w-56 rounded-control border border-border-strong bg-fill-subtle p-2.5 text-[12px] leading-snug text-fg-secondary shadow-lg">
           {text}
         </span>
       )}

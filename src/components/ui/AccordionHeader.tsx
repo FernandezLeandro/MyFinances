@@ -16,7 +16,7 @@ export function AccordionHeader({ label, expanded, onToggle, className }: Accord
       type="button"
       onClick={onToggle}
       aria-expanded={expanded}
-      className={cn('eyebrow flex w-full items-center gap-1.5 text-left transition-colors duration-150 hover:text-chalk', className)}
+      className={cn('eyebrow flex w-full items-center gap-1.5 text-left transition-colors duration-150 hover:text-fg', className)}
     >
       <ChevronRight
         className={cn('size-2.5 shrink-0 transition-transform duration-150', expanded && 'rotate-90')}

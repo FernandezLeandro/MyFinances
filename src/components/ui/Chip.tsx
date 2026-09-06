@@ -28,8 +28,8 @@ export function Chip({ children, color, active = false, onClick, className, aria
       className={cn(
         'inline-flex items-center gap-1.5 rounded-chip px-2 py-1 text-[12px] leading-none whitespace-nowrap',
         'transition-colors duration-150',
-        active ? 'bg-ink-700 text-chalk' : 'bg-ink-850 text-chalk-dim',
-        interactive && 'hover:bg-ink-700 hover:text-chalk',
+        active ? 'bg-border-strong text-fg' : 'bg-fill-subtle text-fg-secondary',
+        interactive && 'hover:bg-border-strong hover:text-fg',
         className,
       )}
     >
@@ -60,7 +60,7 @@ export function FilterChip({ children, color, onRemove, removeLabel }: FilterChi
   return (
     <Chip color={color} onClick={onRemove} ariaLabel={removeLabel}>
       {children}{' '}
-      <span aria-hidden className="text-chalk-faint">
+      <span aria-hidden className="text-fg-muted">
         ✕
       </span>
     </Chip>

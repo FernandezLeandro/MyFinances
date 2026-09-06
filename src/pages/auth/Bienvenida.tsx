@@ -60,7 +60,7 @@ export function Bienvenida() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="font-display text-2xl font-semibold">Un último paso</h1>
-        <p className="mt-1 text-[13px] text-chalk-faint">Contanos quién sos y con qué código entrás.</p>
+        <p className="mt-1 text-[13px] text-fg-muted">Contanos quién sos y con qué código entrás.</p>
       </div>
 
       <Field label="Nombre" htmlFor="displayName" error={errors.displayName?.message}>
@@ -78,7 +78,7 @@ export function Bienvenida() {
       <button
         type="button"
         onClick={() => supabase.auth.signOut()}
-        className="text-center text-[13px] text-chalk-faint hover:text-chalk"
+        className="text-center text-[13px] text-fg-muted hover:text-fg"
       >
         Cerrar sesión
       </button>

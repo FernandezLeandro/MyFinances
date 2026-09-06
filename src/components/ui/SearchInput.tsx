@@ -6,8 +6,8 @@ import { cn } from '@/lib/cn'
 // `pl-9` encima para el ícono compite por la misma propiedad sin que `cn` (sin tailwind-merge)
 // pueda garantizar quién gana. Repetir el resto de `controlBase` acá es más barato que ese riesgo.
 const searchClasses =
-  'w-full rounded-control bg-ink-850 pr-3.5 pl-9 text-chalk placeholder:text-chalk-faint ' +
-  'transition-colors duration-150 outline-none hover:bg-ink-800 focus:bg-ink-800 disabled:opacity-40'
+  'w-full rounded-control bg-fill-subtle pr-3.5 pl-9 text-fg placeholder:text-fg-muted ' +
+  'transition-colors duration-150 outline-none hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
 type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>
 
@@ -16,7 +16,7 @@ export function SearchInput({ className, ...props }: SearchInputProps) {
   return (
     <div className="relative">
       <Search
-        className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-chalk-faint"
+        className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-fg-muted"
         strokeWidth={1.6}
         aria-hidden
       />

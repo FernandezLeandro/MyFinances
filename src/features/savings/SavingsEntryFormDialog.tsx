@@ -251,9 +251,9 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
         )}
 
         {showRate && (
-          <div className="rounded-control bg-ink-850 p-4">
+          <div className="rounded-control bg-fill-subtle p-4">
             <p className="eyebrow">¿No sabés la cotización?</p>
-            <p className="mt-1 text-[12px] text-chalk-faint">
+            <p className="mt-1 text-[12px] text-fg-muted">
               Poné cuánto gastaste en total y la calculamos con la cantidad de arriba.
             </p>
             <div className="mt-3 flex items-end gap-2">
@@ -273,7 +273,7 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
                 Calcular
               </Button>
             </div>
-            {calcHint && <p className="mt-2 text-[12px] text-coral">{calcHint}</p>}
+            {calcHint && <p className="mt-2 text-[12px] text-negative">{calcHint}</p>}
           </div>
         )}
 

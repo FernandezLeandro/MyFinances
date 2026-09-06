@@ -30,10 +30,10 @@ export function ForgotPassword() {
     return (
       <div>
         <h1 className="font-display text-2xl font-semibold">Revisá tu email</h1>
-        <p className="mt-3 text-[14px] text-chalk-dim">
+        <p className="mt-3 text-[14px] text-fg-secondary">
           Si esa dirección tiene una cuenta, te llegó un link para elegir una contraseña nueva.
         </p>
-        <Link to="/login" className="mt-6 inline-block text-[13px] text-chalk hover:underline">
+        <Link to="/login" className="mt-6 inline-block text-[13px] text-fg hover:underline">
           Volver a entrar
         </Link>
       </div>
@@ -44,7 +44,7 @@ export function ForgotPassword() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="font-display text-2xl font-semibold">Recuperar contraseña</h1>
-        <p className="mt-1 text-[13px] text-chalk-faint">Te mandamos un link para elegir una nueva.</p>
+        <p className="mt-1 text-[13px] text-fg-muted">Te mandamos un link para elegir una nueva.</p>
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
@@ -55,8 +55,8 @@ export function ForgotPassword() {
         {isSubmitting ? 'Enviando…' : 'Enviar link'}
       </Button>
 
-      <p className="text-center text-[13px] text-chalk-faint">
-        <Link to="/login" className="text-chalk hover:underline">
+      <p className="text-center text-[13px] text-fg-muted">
+        <Link to="/login" className="text-fg hover:underline">
           Volver a entrar
         </Link>
       </p>

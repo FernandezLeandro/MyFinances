@@ -93,7 +93,7 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
       }
     >
       {!hasEnoughAccounts ? (
-        <p className="text-[13px] text-chalk-faint">Necesitás al menos dos cuentas para transferir entre ellas.</p>
+        <p className="text-[13px] text-fg-muted">Necesitás al menos dos cuentas para transferir entre ellas.</p>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
           <Field label="Desde" htmlFor="fromAccountId" error={errors.fromAccountId?.message}>

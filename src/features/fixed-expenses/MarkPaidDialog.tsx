@@ -82,7 +82,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
         <div>
           <p className="eyebrow">{fixedExpense.name}</p>
           {isRecurring ? (
-            <p className="mt-1 text-[13px] text-chalk-faint">
+            <p className="mt-1 text-[13px] text-fg-muted">
               <Money cents={alreadyPaidCents} tone="dim" /> de <Money cents={fixedExpense.cents} tone="dim" /> este mes
             </p>
           ) : (
@@ -118,7 +118,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
         </Field>
 
         {isRecurring && cents != null && cents > 0 && (
-          <p className="text-[12px] text-chalk-faint">
+          <p className="text-[12px] text-fg-muted">
             {remainingAfter > 0 ? (
               <>
                 Después de esta carga, falta <Money cents={remainingAfter} tone="dim" />.
@@ -130,7 +130,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
         )}
 
         {differs && (
-          <p className="text-[12px] text-chalk-faint">
+          <p className="text-[12px] text-fg-muted">
             {willUpdateTemplate
               ? 'El importe del fijo pasa a este valor de acá en adelante.'
               : 'Estás marcando un mes pasado — el importe del fijo no se toca.'}

@@ -23,10 +23,10 @@ export function CompositionView({ nets, assets, prices }: CompositionViewProps) 
   const values = valueByAsset(nets, assets, prices)
 
   if (values == null) {
-    return <p className="text-[13px] text-chalk-faint">Cotización no disponible para calcular la composición.</p>
+    return <p className="text-[13px] text-fg-muted">Cotización no disponible para calcular la composición.</p>
   }
   if (values.length === 0) {
-    return <p className="text-[13px] text-chalk-faint">Sin aportes todavía.</p>
+    return <p className="text-[13px] text-fg-muted">Sin aportes todavía.</p>
   }
 
   const total = values.reduce((sum, v) => sum + v.valueCents, 0)
@@ -47,12 +47,12 @@ export function CompositionView({ nets, assets, prices }: CompositionViewProps) 
       <ul className="flex flex-col gap-3">
         {slices.map((s) => (
           <li key={s.assetId} className="flex items-baseline justify-between gap-4">
-            <span className="flex items-center gap-2 text-[14px] text-chalk">
+            <span className="flex items-center gap-2 text-[14px] text-fg">
               <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
               {s.name}
             </span>
             <span className="flex items-baseline gap-3">
-              <span className="tnum text-[12px] text-chalk-faint">{Math.round(s.pct)}%</span>
+              <span className="tnum text-[12px] text-fg-muted">{Math.round(s.pct)}%</span>
               <Money cents={s.cents} tone="dim" />
             </span>
           </li>

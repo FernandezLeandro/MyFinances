@@ -8,8 +8,8 @@ interface MonthNavProps {
 }
 
 const arrowClass =
-  'grid size-[26px] shrink-0 place-items-center rounded-[8px] border border-ink-600 text-chalk-faint ' +
-  'transition-colors hover:bg-ink-850 hover:text-chalk'
+  'grid size-[26px] shrink-0 place-items-center rounded-[8px] border border-border-strong text-fg-muted ' +
+  'transition-colors hover:bg-fill-subtle hover:text-fg'
 
 /**
  * Header "‹ mes › " compartido por Movimientos, Fijos, Mis Deudas y Análisis — antes era el mismo

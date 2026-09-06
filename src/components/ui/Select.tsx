@@ -14,7 +14,7 @@ export function Select({ className, invalid, ref, children, ...props }: SelectPr
         className={cn(
           controlBase,
           'h-11 appearance-none pr-10 text-[15px]',
-          invalid && 'ring-1 ring-coral/60',
+          invalid && 'ring-1 ring-negative/60',
           className,
         )}
         {...props}
@@ -24,7 +24,7 @@ export function Select({ className, invalid, ref, children, ...props }: SelectPr
       <svg
         aria-hidden
         viewBox="0 0 12 12"
-        className="pointer-events-none absolute top-1/2 right-3.5 size-3 -translate-y-1/2 text-chalk-faint"
+        className="pointer-events-none absolute top-1/2 right-3.5 size-3 -translate-y-1/2 text-fg-muted"
       >
         <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>

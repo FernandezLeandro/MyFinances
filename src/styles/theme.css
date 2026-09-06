@@ -14,11 +14,6 @@
  * Paleta cruda en variables normales (claro en :root, oscuro en :root[data-theme="dark"]) y
  * @theme inline mapeándolas a nombres de utilidad — así una sola clase (bg-surface, text-fg)
  * resuelve al valor correcto en cualquiera de los dos temas sin tocar el markup.
- *
- * Alias de compatibilidad: los nombres de la identidad anterior (ink-*, chalk*, acid*, coral) se
- * mantienen apuntando a los roles nuevos para no tener que tocar los ~80 archivos que ya los usan
- * de punta a punta de la migración. Se borran en el bloque de cierre — no agregar usos nuevos de
- * estos nombres, usar los roles semánticos (surface, fg, accent, negative, …).
  */
 
 :root {
@@ -130,6 +125,8 @@
   --color-on-accent: var(--c-on-accent);
 
   --color-negative: var(--c-negative);
+  /* Advertencia leve ("sin cotización") — reusa el matiz de `cat-5`, no es un color de categoría. */
+  --color-amber: var(--c-cat-5);
 
   --color-on-inverse: var(--c-on-inverse);
   --color-on-inverse-secondary: var(--c-on-inverse-secondary);
@@ -143,37 +140,6 @@
   --color-cat-4: var(--c-cat-4);
   --color-cat-5: var(--c-cat-5);
   --color-cat-6: var(--c-cat-6);
-
-  /* --- Alias de compatibilidad con la identidad anterior — borrar en el bloque de cierre --- */
-  --color-ink-950: var(--c-canvas);
-  --color-ink-900: var(--c-surface);
-  --color-ink-850: var(--c-fill-subtle);
-  --color-ink-800: var(--c-fill-subtle);
-  --color-ink-700: var(--c-border-strong);
-  --color-ink-600: var(--c-border-strong);
-  --color-ink-500: var(--c-border-strong);
-
-  --color-chalk: var(--c-fg);
-  --color-chalk-dim: var(--c-fg-secondary);
-  --color-chalk-faint: var(--c-fg-muted);
-
-  --color-acid: var(--c-accent);
-  --color-acid-soft: var(--c-accent);
-  --color-acid-deep: var(--c-accent);
-
-  --color-coral: var(--c-negative);
-  --color-coral-deep: var(--c-negative);
-  --color-amber: var(--c-cat-5);
-
-  --color-cat-coral: var(--c-cat-2);
-  --color-cat-amber: var(--c-cat-5);
-  --color-cat-teal: var(--c-cat-1);
-  --color-cat-violet: var(--c-cat-4);
-  --color-cat-rose: var(--c-cat-2);
-  --color-cat-sky: var(--c-cat-3);
-  --color-cat-sand: var(--c-cat-5);
-  --color-cat-moss: var(--c-cat-6);
-  /* --- fin alias --- */
 
   /* Tipografía */
   --font-display: 'Sora', system-ui, sans-serif;

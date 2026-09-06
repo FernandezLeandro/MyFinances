@@ -25,7 +25,7 @@ export function IconSquare({ children, active = false, onClick, disabled, classN
       disabled={disabled}
       className={cn(
         'grid size-5 shrink-0 place-items-center rounded-[5px] transition-colors duration-150 disabled:opacity-50',
-        active ? 'bg-acid text-on-accent' : 'bg-ink-800 text-chalk-faint hover:bg-ink-700 hover:text-chalk',
+        active ? 'bg-accent text-on-accent' : 'bg-fill-subtle text-fg-muted hover:bg-border-strong hover:text-fg',
         className,
       )}
       {...aria}

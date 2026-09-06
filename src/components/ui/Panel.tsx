@@ -19,8 +19,8 @@ export function Panel({ children, className, tone = 'raised' }: PanelProps) {
     <div
       className={cn(
         'rounded-panel',
-        tone === 'raised' && 'bg-ink-900',
-        tone === 'flat' && 'bg-ink-950 ring-1 ring-ink-800',
+        tone === 'raised' && 'bg-surface',
+        tone === 'flat' && 'bg-canvas ring-1 ring-fill-subtle',
         tone === 'inverse' && 'bg-inverse text-on-inverse',
         className,
       )}
@@ -44,7 +44,7 @@ export function PanelHeader({ title, action, hint }: PanelHeaderProps) {
     <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
       <div>
         <h2 className="eyebrow">{title}</h2>
-        {hint && <p className="mt-1.5 text-[13px] text-chalk-faint">{hint}</p>}
+        {hint && <p className="mt-1.5 text-[13px] text-fg-muted">{hint}</p>}
       </div>
       {action}
     </div>

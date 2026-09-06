@@ -73,7 +73,7 @@ function CategoryEditDialog({ category, onClose }: { category: DefaultCategory; 
               aria-pressed={color === c.hex}
               className={cn(
                 'size-6 rounded-full transition-transform duration-150',
-                color === c.hex && 'ring-2 ring-chalk ring-offset-2 ring-offset-ink-900',
+                color === c.hex && 'ring-2 ring-fg ring-offset-2 ring-offset-surface',
               )}
               style={{ backgroundColor: c.hex }}
             />
@@ -102,21 +102,21 @@ function CategoryRow({
       dragListener={false}
       dragControls={dragControls}
       onDragEnd={onDragEnd}
-      className={cn('flex items-center gap-3 bg-ink-900 px-6 py-3', category.is_archived && 'opacity-50')}
+      className={cn('flex items-center gap-3 bg-surface px-6 py-3', category.is_archived && 'opacity-50')}
     >
       <button
         type="button"
         onPointerDown={(e) => dragControls.start(e)}
         aria-label={`Reordenar ${category.name}`}
-        className="shrink-0 touch-none cursor-grab p-1 text-chalk-faint active:cursor-grabbing"
+        className="shrink-0 touch-none cursor-grab p-1 text-fg-muted active:cursor-grabbing"
       >
         <GripVertical className="size-4" fill="currentColor" aria-hidden />
       </button>
 
       <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] text-chalk">{category.name}</p>
-        <p className="text-[12px] text-chalk-faint">
+        <p className="truncate text-[14px] text-fg">{category.name}</p>
+        <p className="text-[12px] text-fg-muted">
           {category.kind === 'income' ? 'Ingreso' : 'Gasto'}
           {category.is_archived && ' · archivada'}
         </p>
@@ -125,7 +125,7 @@ function CategoryRow({
         type="button"
         onClick={() => onEdit(category)}
         aria-label={`Editar ${category.name}`}
-        className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+        className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
       >
         <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
       </button>
@@ -133,7 +133,7 @@ function CategoryRow({
         type="button"
         onClick={() => updateCategory.mutate({ id: category.id, isArchived: !category.is_archived })}
         disabled={updateCategory.isPending}
-        className="rounded-chip px-2 py-1 text-[11px] text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+        className="rounded-chip px-2 py-1 text-[11px] text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
       >
         {category.is_archived ? 'Reactivar' : 'Archivar'}
       </button>
@@ -156,9 +156,9 @@ function AddCategoryForm({ nextSortOrder }: { nextSortOrder: number }) {
   }
 
   return (
-    <div className="border-t border-ink-800 p-6">
+    <div className="border-t border-fill-subtle p-6">
       <p className="eyebrow">Agregar categoría</p>
-      <p className="mt-1.5 text-[12px] text-chalk-faint">Se suma al final — el orden después se arrastra.</p>
+      <p className="mt-1.5 text-[12px] text-fg-muted">Se suma al final — el orden después se arrastra.</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="flex gap-1.5">
           <Chip active={kind === 'expense'} onClick={() => setKind('expense')}>
@@ -183,7 +183,7 @@ function AddCategoryForm({ nextSortOrder }: { nextSortOrder: number }) {
               aria-pressed={color === c.hex}
               className={cn(
                 'size-6 rounded-full transition-transform duration-150',
-                color === c.hex && 'ring-2 ring-chalk ring-offset-2 ring-offset-ink-900',
+                color === c.hex && 'ring-2 ring-fg ring-offset-2 ring-offset-surface',
               )}
               style={{ backgroundColor: c.hex }}
             />
@@ -224,7 +224,7 @@ function CategoryList({ categories }: { categories: DefaultCategory[] }) {
 
   return (
     <>
-      <Reorder.Group axis="y" values={order} onReorder={handleReorder} className="divide-y divide-ink-850">
+      <Reorder.Group axis="y" values={order} onReorder={handleReorder} className="divide-y divide-fill-subtle">
         {order.map((c) => (
           <CategoryRow key={c.id} category={c} onEdit={setEditingCategory} onDragEnd={handleDragEnd} />
         ))}
@@ -245,7 +245,7 @@ export function Categorias() {
       <header>
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Categorías por defecto</h1>
-        <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
           Lo que arranca sembrado cada cuenta nueva al redimir su invitación. No afecta a las categorías que ya tiene cargadas cada cuenta. Arrastrá
           para cambiar el orden.
         </p>

@@ -101,13 +101,13 @@ export function AccountDrawer({
       <div className="flex items-center gap-3 px-5 pb-4">
         <Avatar initials={initials} size="md" />
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-chalk">{displayName ?? email ?? 'Cuenta'}</p>
-          {email && <p className="truncate text-[12px] text-chalk-faint">{email}</p>}
+          <p className="truncate text-[14px] font-medium text-fg">{displayName ?? email ?? 'Cuenta'}</p>
+          {email && <p className="truncate text-[12px] text-fg-muted">{email}</p>}
         </div>
       </div>
 
       {overflowItems.length > 0 && (
-        <div className="border-t border-ink-850 px-2 py-2">
+        <div className="border-t border-fill-subtle px-2 py-2">
           <p className="eyebrow px-3.5 pb-1.5">Secciones</p>
           {overflowItems.map((item) => (
             <NavLink
@@ -117,7 +117,7 @@ export function AccountDrawer({
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2.5 rounded-control px-3.5 py-2.5 text-[15px] transition-colors duration-150',
-                  isActive ? 'bg-ink-850 text-chalk' : 'text-chalk-dim hover:bg-ink-800 hover:text-chalk',
+                  isActive ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-fill-subtle hover:text-fg',
                 )
               }
             >
@@ -128,7 +128,7 @@ export function AccountDrawer({
         </div>
       )}
 
-      <div className="mt-auto border-t border-ink-850 px-2 pt-2">
+      <div className="mt-auto border-t border-fill-subtle px-2 pt-2">
         <AccountMenuItems showAjustes={showAjustes} onNavigate={onClose} size="md" />
       </div>
     </Drawer>

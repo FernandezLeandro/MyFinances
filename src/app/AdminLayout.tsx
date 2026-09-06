@@ -29,7 +29,7 @@ export function AdminLayout() {
   return (
     <>
       <Sidebar
-        accent="chalk"
+        accent="fg"
         items={adminNavItems}
         initials={initials}
         displayName={null}

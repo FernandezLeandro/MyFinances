@@ -12,10 +12,10 @@ export interface InviteCode {
 }
 
 export function codeStatus(code: InviteCode) {
-  if (!code.isActive) return { label: 'Revocado', tone: 'text-chalk-faint' }
-  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return { label: 'Vencido', tone: 'text-coral' }
-  if (code.usedCount >= code.maxUses) return { label: 'Agotado', tone: 'text-coral' }
-  return { label: 'Activo', tone: 'text-acid' }
+  if (!code.isActive) return { label: 'Revocado', tone: 'text-fg-muted' }
+  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return { label: 'Vencido', tone: 'text-negative' }
+  if (code.usedCount >= code.maxUses) return { label: 'Agotado', tone: 'text-negative' }
+  return { label: 'Activo', tone: 'text-accent' }
 }
 
 /** Sólo el admin puede crear (la base lo exige, `is_admin()`) — se invalida la lista admin al pegarle. */

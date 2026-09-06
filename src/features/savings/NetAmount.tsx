@@ -17,15 +17,15 @@ export function NetAmount({
 }: {
   net: AssetNet
   asset: Asset
-  tone?: 'dim' | 'chalk' | 'coral' | 'acid'
+  tone?: 'dim' | 'fg' | 'negative' | 'accent'
   hidden?: boolean
 }) {
   if (asset.symbol === 'ARS') return <Money cents={net.quantityUnits} tone={tone} hidden={hidden} />
   if (hidden) {
-    return <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>•••• {asset.symbol}</span>
+    return <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-fg-secondary' : 'text-fg')}>•••• {asset.symbol}</span>
   }
   return (
-    <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-chalk-dim' : 'text-chalk')}>
+    <span className={cn('tnum text-[14px]', tone === 'dim' ? 'text-fg-secondary' : 'text-fg')}>
       {formatQuantity(net.quantityUnits, asset.decimals)} {asset.symbol}
     </span>
   )

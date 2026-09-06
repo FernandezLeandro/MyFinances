@@ -284,7 +284,7 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
           </Field>
         </div>
 
-        {preview && <p className="text-[12px] text-chalk-faint">{preview}</p>}
+        {preview && <p className="text-[12px] text-fg-muted">{preview}</p>}
       </form>
     </Dialog>
   )

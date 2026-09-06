@@ -42,20 +42,20 @@ function DeudaRow({
 }) {
   const { receivable, pendingCents } = summary
   return (
-    <div className="flex items-center gap-2 rounded-control px-1 py-1.5 transition-colors hover:bg-ink-850">
+    <div className="flex items-center gap-2 rounded-control px-1 py-1.5 transition-colors hover:bg-fill-subtle">
       <button type="button" onClick={onOpenDetail} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] text-chalk">{receivable.name}</p>
-          <p className="text-[12px] text-chalk-faint">
+          <p className="truncate text-[14px] text-fg">{receivable.name}</p>
+          <p className="text-[12px] text-fg-muted">
             {receivable.expected_period
               ? format(parseISO(receivable.expected_period), 'MMM yyyy', { locale: es })
               : 'Sin fecha'}
           </p>
         </div>
-        <Money cents={pendingCents} tone="acid" />
+        <Money cents={pendingCents} tone="accent" />
       </button>
       {onExpense && (
-        <button type="button" onClick={onExpense} className="shrink-0 text-[11px] font-medium text-acid hover:underline">
+        <button type="button" onClick={onExpense} className="shrink-0 text-[11px] font-medium text-accent hover:underline">
           Descontar
         </button>
       )}
@@ -248,14 +248,14 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                 <button
                   type="button"
                   onClick={() => setTransferOpen(true)}
-                  className="text-[12px] font-medium text-acid hover:underline"
+                  className="text-[12px] font-medium text-accent hover:underline"
                 >
                   Transferir
                 </button>
                 <button
                   type="button"
                   onClick={() => setCuentasManagerOpen(true)}
-                  className="text-[12px] font-medium text-acid hover:underline"
+                  className="text-[12px] font-medium text-accent hover:underline"
                 >
                   Administrar
                 </button>
@@ -267,9 +267,9 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : activeLocations.length === 0 ? (
-              <p className="text-[13px] text-chalk-faint">
+              <p className="text-[13px] text-fg-muted">
                 Todavía no cargaste ninguna cuenta.{' '}
-                <button type="button" onClick={() => setCuentasManagerOpen(true)} className="font-medium text-acid hover:underline">
+                <button type="button" onClick={() => setCuentasManagerOpen(true)} className="font-medium text-accent hover:underline">
                   Agregar la primera →
                 </button>
               </p>
@@ -286,7 +286,7 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             )}
           </div>
 
-          <div className="border-t border-ink-800 pt-5">
+          <div className="border-t border-fill-subtle pt-5">
             <p className="eyebrow mb-2">Te deben</p>
             {isReceivablesLoadingAny ? (
               <div className="flex flex-col gap-2">
@@ -309,47 +309,47 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             <button
               type="button"
               onClick={() => setReceivableFormOpen(true)}
-              className="mt-2 text-[12px] font-medium text-acid hover:underline"
+              className="mt-2 text-[12px] font-medium text-accent hover:underline"
             >
               + Agregar deuda
             </button>
 
-            <p className="mt-3 text-[12px] text-chalk-faint">
+            <p className="mt-3 text-[12px] text-fg-muted">
               Acá sólo se muestran las que esperás cobrar este mes. Al prestar efectivo no cargues un
               gasto: esa plata sigue siendo tuya. Cuando te devuelvan, registrá el abono desde la deuda
               y sumá el monto en la cuenta donde entró.{' '}
-              <Link to="/me-deben" className="font-medium text-acid hover:underline">
+              <Link to="/me-deben" className="font-medium text-accent hover:underline">
                 Ver todas en Me Deben →
               </Link>
             </p>
           </div>
 
-          <dl className="space-y-2 border-t border-ink-800 pt-4 text-[13px]">
+          <dl className="space-y-2 border-t border-fill-subtle pt-4 text-[13px]">
             {hasReceivables && (
               <>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">En tus cuentas</dt>
+                  <dt className="text-fg-muted">En tus cuentas</dt>
                   <dd>
                     <Money cents={rec.locationsCents} tone="dim" />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Te deben</dt>
+                  <dt className="text-fg-muted">Te deben</dt>
                   <dd>
-                    <Money cents={rec.receivablesCents} tone="acid" />
+                    <Money cents={rec.receivablesCents} tone="accent" />
                   </dd>
                 </div>
               </>
             )}
             <div className="flex justify-between gap-4">
-              <dt className="text-chalk-faint">Tenés</dt>
+              <dt className="text-fg-muted">Tenés</dt>
               <dd>
                 <Money cents={rec.totalCents} tone="dim" />
               </dd>
             </div>
             {rec.sinAsignarCents !== 0 && (
               <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">
+                <dt className="text-fg-muted">
                   Sin asignar ·{' '}
                   {/* Antes mandaba a Movimientos sin ningún filtro — un `<Link to="/movimientos">`
                       a secas caía en "este mes" (el período por defecto) sin filtrar por cuenta,
@@ -374,9 +374,9 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             )}
             {hasAnyRow && !rec.cuadrado && (
               <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Diferencia</dt>
+                <dt className="text-fg-muted">Diferencia</dt>
                 <dd>
-                  <Money cents={rec.diffCents} tone={rec.diffCents < 0 ? 'coral' : 'acid'} signed />
+                  <Money cents={rec.diffCents} tone={rec.diffCents < 0 ? 'negative' : 'accent'} signed />
                   {rec.diffCents < 0 ? ' de menos' : ' de más'}
                 </dd>
               </div>
@@ -390,9 +390,9 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
             </div>
           )}
 
-          {error && <p className="text-[12px] text-coral">{error}</p>}
+          {error && <p className="text-[12px] text-negative">{error}</p>}
 
-          <p className="text-[12px] text-chalk-faint">
+          <p className="text-[12px] text-fg-muted">
             "Sólo ajustar" crea el movimiento sin categoría, afuera de Análisis — para cuando no sabés
             de dónde salió la diferencia, o cuando cerrás el mes dejando todas las cuentas en $0. Si
             sabés qué fue, "Registrar como movimiento" lo carga como un gasto o ingreso real, con

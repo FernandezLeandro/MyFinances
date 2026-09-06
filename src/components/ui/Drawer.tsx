@@ -67,7 +67,7 @@ export function Drawer({ open, onClose, children, className }: DrawerProps) {
     >
       <div
         className={cn(
-          'flex h-full w-full animate-drawer-in flex-col overflow-y-auto bg-ink-900 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]',
+          'flex h-full w-full animate-drawer-in flex-col overflow-y-auto bg-surface pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]',
           className,
         )}
       >

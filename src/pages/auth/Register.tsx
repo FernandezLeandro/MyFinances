@@ -49,7 +49,7 @@ export function Register() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="font-display text-2xl font-semibold">Crear cuenta</h1>
-        <p className="mt-1 text-[13px] text-chalk-faint">El alta es por invitación — el código te lo pedimos en el próximo paso.</p>
+        <p className="mt-1 text-[13px] text-fg-muted">El alta es por invitación — el código te lo pedimos en el próximo paso.</p>
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
@@ -82,9 +82,9 @@ export function Register() {
         {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
       </Button>
 
-      <p className="text-center text-[13px] text-chalk-faint">
+      <p className="text-center text-[13px] text-fg-muted">
         ¿Ya tenés cuenta?{' '}
-        <Link to="/login" className="text-chalk hover:underline">
+        <Link to="/login" className="text-fg hover:underline">
           Entrá
         </Link>
       </p>

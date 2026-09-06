@@ -25,7 +25,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
       <label
         htmlFor={id}
         aria-label="Elegir color"
-        className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-full ring-1 ring-ink-700"
+        className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-full ring-1 ring-border-strong"
         style={{ backgroundColor: HEX_RE.test(value) ? value : undefined }}
       >
         <input

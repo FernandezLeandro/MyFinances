@@ -45,15 +45,15 @@ function AssetRow({
   return (
     <li
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850',
+        'flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle',
         asset.is_archived && 'opacity-50',
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="tnum shrink-0 rounded-chip bg-ink-800 px-2 py-1 font-mono text-[12px] text-chalk">{asset.symbol}</span>
+        <span className="tnum shrink-0 rounded-chip bg-fill-subtle px-2 py-1 font-mono text-[12px] text-fg">{asset.symbol}</span>
         <div className="min-w-0">
-          <p className="truncate text-[14px] text-chalk">{asset.name}</p>
-          <p className="text-[12px] text-chalk-faint">
+          <p className="truncate text-[14px] text-fg">{asset.name}</p>
+          <p className="text-[12px] text-fg-muted">
             {assetClassLabels[asset.asset_class]} · cotiza en {asset.quote_currency}
             {asset.is_archived && ' · archivado'}
           </p>
@@ -63,11 +63,11 @@ function AssetRow({
       <div className="text-right text-[13px]">
         {asset.price_source === 'coingecko' ? (
           price?.priceArsCents != null ? (
-            <span className="text-chalk-dim">
-              <Money cents={price.priceArsCents} tone="dim" /> <span className="text-[11px] text-chalk-faint">en vivo</span>
+            <span className="text-fg-secondary">
+              <Money cents={price.priceArsCents} tone="dim" /> <span className="text-[11px] text-fg-muted">en vivo</span>
             </span>
           ) : (
-            <span className="text-chalk-faint">sin cotización</span>
+            <span className="text-fg-muted">sin cotización</span>
           )
         ) : price?.priceArsCents != null ? (
           <Money cents={price.priceArsCents} tone="dim" />
@@ -81,7 +81,7 @@ function AssetRow({
           type="button"
           onClick={() => onEdit(asset)}
           aria-label={`Editar ${asset.symbol}`}
-          className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+          className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
         >
           <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
@@ -93,7 +93,7 @@ function AssetRow({
           onClick={() => setConfirmingDelete(true)}
           disabled={deleteAsset.isPending}
           aria-label={`Eliminar ${asset.symbol}`}
-          className="shrink-0 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+          className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
         >
           <Trash2 className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
@@ -115,8 +115,8 @@ function AssetRow({
             </>
           }
         >
-          <p className="text-[14px] text-chalk-dim">
-            ¿Eliminar <span className="text-chalk">{asset.symbol}</span> ({asset.name}) del catálogo? No se puede deshacer.
+          <p className="text-[14px] text-fg-secondary">
+            ¿Eliminar <span className="text-fg">{asset.symbol}</span> ({asset.name}) del catálogo? No se puede deshacer.
           </p>
         </Dialog>
       )}
@@ -181,7 +181,7 @@ export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false
           <Skeleton className="h-16 w-full" />
         </div>
       ) : listedAssets.length === 0 ? (
-        <p className="px-6 pb-5 text-[13px] text-chalk-faint">Todavía no hay activos cargados.</p>
+        <p className="px-6 pb-5 text-[13px] text-fg-muted">Todavía no hay activos cargados.</p>
       ) : (
         <ul className="pb-1">
           {listedAssets.map((asset) => (

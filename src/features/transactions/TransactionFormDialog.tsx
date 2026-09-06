@@ -336,7 +336,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             no se ofrece: la deuda ya puede tener abonos propios, y desarmar el vínculo retroactivo
             entre un movimiento editado y una deuda ya existente es más confuso que útil. */}
         {type === 'expense' && !isEditing && (
-          <div className="border-t border-ink-800 pt-5">
+          <div className="border-t border-fill-subtle pt-5">
             <Chip active={compartido} onClick={() => setValue('compartido', !compartido)}>
               Compartido
             </Chip>
@@ -381,7 +381,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
                     <AmountInput className="mt-2" placeholder="0,00" {...register('splitAmount')} />
                   )}
                   {errors.splitAmount?.message && (
-                    <p className="mt-2 text-[12px] text-coral">{errors.splitAmount.message}</p>
+                    <p className="mt-2 text-[12px] text-negative">{errors.splitAmount.message}</p>
                   )}
                 </div>
 
@@ -390,9 +390,9 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
                 </Field>
 
                 {miParteCents != null && otroCents != null && (
-                  <p className="text-[13px] text-chalk-faint">
+                  <p className="text-[13px] text-fg-muted">
                     Gasto <Money cents={miParteCents} tone="dim" size="inline" /> (tu parte) · Deuda{' '}
-                    <Money cents={otroCents} tone="acid" size="inline" />
+                    <Money cents={otroCents} tone="accent" size="inline" />
                     {watch('personName')?.trim() ? ` ${watch('personName')!.trim()}` : ''}
                   </p>
                 )}

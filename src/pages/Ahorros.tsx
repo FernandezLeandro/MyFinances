@@ -69,13 +69,13 @@ function BucketCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-[13.5px] text-chalk-dim">{bucket.name}</p>
+            <p className="truncate text-[13.5px] text-fg-secondary">{bucket.name}</p>
             {!bucket.include_in_total && <Badge variant="outline">No cuenta en el total</Badge>}
           </div>
           {valueCents == null ? (
-            <p className="mt-1.5 text-[13px] text-chalk-faint">Cotización no disponible</p>
+            <p className="mt-1.5 text-[13px] text-fg-muted">Cotización no disponible</p>
           ) : (
-            <Money cents={valueCents} tone="chalk" size="figure" className="mt-1.5" hidden={hidden} />
+            <Money cents={valueCents} tone="fg" size="figure" className="mt-1.5" hidden={hidden} />
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -84,7 +84,7 @@ function BucketCard({
             type="button"
             onClick={() => onEdit(bucket)}
             aria-label={`Editar ${bucket.name}`}
-            className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk"
+            className="rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
           >
             <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
           </button>
@@ -98,7 +98,7 @@ function BucketCard({
             if (!asset) return null
             return (
               <div key={net.assetId} className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">{asset.symbol}</dt>
+                <dt className="text-fg-muted">{asset.symbol}</dt>
                 <dd>
                   <NetAmount net={net} asset={asset} hidden={hidden} />
                 </dd>
@@ -163,7 +163,7 @@ export function Ahorros() {
         <div>
           <p className="eyebrow">Ahorros</p>
           <h1 className="mt-2 font-display text-figure font-semibold">Lo que tenés guardado</h1>
-          <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+          <p className="mt-2 max-w-md text-[13px] text-fg-muted">
             Fondo de emergencia, ahorros y jubilación — aparte del saldo del mes, no afecta a Hoy ni a Análisis.
           </p>
         </div>
@@ -217,12 +217,12 @@ export function Ahorros() {
               {(() => {
                 const displayCents = toDisplayCents(portfolio.totalValueCents, displayCurrency, usdRateCents)
                 return displayCents == null ? (
-                  <p className="mt-2 text-[15px] text-chalk-dim">Cotización no disponible</p>
+                  <p className="mt-2 text-[15px] text-fg-secondary">Cotización no disponible</p>
                 ) : (
                   <Money
                     cents={displayCents}
                     currency={displayCurrency}
-                    tone="chalk"
+                    tone="fg"
                     size="total"
                     className="mt-2.5"
                     hidden={balanceHidden}
@@ -257,7 +257,7 @@ export function Ahorros() {
                   const displayCents = toDisplayCents(portfolio.totalGain.costArsCents, displayCurrency, usdRateCents)
                   if (displayCents == null) {
                     return (
-                      <p className="mt-2 text-[13px] text-chalk-faint">
+                      <p className="mt-2 text-[13px] text-fg-muted">
                         {portfolio.totalGain.missingRateCount > 0
                           ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
                           : 'No disponible sin cotización de algún activo en tenencia.'}
@@ -274,7 +274,7 @@ export function Ahorros() {
                   const displayCents = toDisplayCents(portfolio.totalGain.gainCents, displayCurrency, usdRateCents)
                   if (displayCents == null) {
                     return (
-                      <p className="mt-2 text-[13px] text-chalk-faint">
+                      <p className="mt-2 text-[13px] text-fg-muted">
                         {portfolio.totalGain.missingRateCount > 0
                           ? `Faltan cotizaciones de compra en ${portfolio.totalGain.missingRateCount} aporte${portfolio.totalGain.missingRateCount === 1 ? '' : 's'}.`
                           : 'No disponible sin cotización de algún activo en tenencia.'}
@@ -285,7 +285,7 @@ export function Ahorros() {
                     <Money
                       cents={displayCents}
                       currency={displayCurrency}
-                      tone={displayCents < 0 ? 'coral' : 'acid'}
+                      tone={displayCents < 0 ? 'negative' : 'accent'}
                       size="figure"
                       signed
                       className="mt-2"
@@ -296,7 +296,7 @@ export function Ahorros() {
 
               {(() => {
                 const label = usdUpdatedLabel(usdPrice?.updatedAt ?? null)
-                return label && <p className="mt-auto pt-5 text-[11.5px] text-chalk-faint">{label}</p>
+                return label && <p className="mt-auto pt-5 text-[11.5px] text-fg-muted">{label}</p>
               })()}
             </div>
           </Panel>

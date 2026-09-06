@@ -148,7 +148,7 @@ export function Hoy() {
         {balance.isPending ? (
           <Skeleton className="mt-4 h-16 w-64" />
         ) : (
-          <Money cents={animatedBalance} tone="acid" size="hero" className="mt-3 -ml-1" hidden={balanceHidden} />
+          <Money cents={animatedBalance} tone="accent" size="hero" className="mt-3 -ml-1" hidden={balanceHidden} />
         )}
 
         <div className="mt-7 border-t border-divider pt-6">
@@ -169,14 +169,14 @@ export function Hoy() {
               {summary.isPending ? (
                 <Skeleton className="h-7 w-24" />
               ) : (
-                <Money cents={totalIncome} tone="chalk" size="figure" hidden={balanceHidden} />
+                <Money cents={totalIncome} tone="fg" size="figure" hidden={balanceHidden} />
               )}
             </Stat>
             <Stat label="Gastos">
               {summary.isPending ? (
                 <Skeleton className="h-7 w-24" />
               ) : (
-                <Money cents={totalExpense} tone="coral" size="figure" hidden={balanceHidden} />
+                <Money cents={totalExpense} tone="negative" size="figure" hidden={balanceHidden} />
               )}
             </Stat>
           </StatRow>
@@ -220,7 +220,7 @@ export function Hoy() {
         ) : portfolio.totalValueCents == null ? (
           <p className="mt-2 text-[13px] text-fg-muted">Cotización no disponible</p>
         ) : (
-          <Money cents={portfolio.totalValueCents} tone="chalk" size="figure" className="mt-2" hidden={balanceHidden} />
+          <Money cents={portfolio.totalValueCents} tone="fg" size="figure" className="mt-2" hidden={balanceHidden} />
         )}
 
         <dl className="mt-4 flex flex-col gap-2.5 text-[12.5px]">
@@ -230,15 +230,15 @@ export function Hoy() {
             return (
               <KeyValueRow key={b.bucket.id} label={<span className="text-fg-secondary">{b.bucket.name}</span>}>
                 {net && asset ? (
-                  <NetAmount net={net} asset={asset} tone="chalk" hidden={balanceHidden} />
+                  <NetAmount net={net} asset={asset} tone="fg" hidden={balanceHidden} />
                 ) : (
-                  <Money cents={b.valueCents ?? 0} tone="chalk" hidden={balanceHidden} />
+                  <Money cents={b.valueCents ?? 0} tone="fg" hidden={balanceHidden} />
                 )}
               </KeyValueRow>
             )
           })}
           <KeyValueRow label={<span className="text-fg-secondary">Me deben</span>} divider>
-            <Money cents={receivablesSummary.totalPendingCents} tone="chalk" hidden={balanceHidden} />
+            <Money cents={receivablesSummary.totalPendingCents} tone="fg" hidden={balanceHidden} />
           </KeyValueRow>
         </dl>
       </Panel>

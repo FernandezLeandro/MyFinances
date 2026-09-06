@@ -35,7 +35,7 @@ export function Invitaciones() {
       <header>
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Invitaciones</h1>
-        <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
           Todos los códigos del sistema, no sólo los que generaste vos — antes cada cuenta podía crear los suyos, ahora es sólo desde acá.
         </p>
       </header>
@@ -65,15 +65,15 @@ export function Invitaciones() {
                 return (
                   <li
                     key={code.code}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink-850 py-2.5 text-[13px] first:border-t-0"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-fill-subtle py-2.5 text-[13px] first:border-t-0"
                   >
-                    <span className="tnum font-mono text-chalk">{code.code}</span>
+                    <span className="tnum font-mono text-fg">{code.code}</span>
                     <span className={cn('text-[11px] font-medium', status.tone)}>{status.label}</span>
-                    <span className="text-[12px] text-chalk-faint">
+                    <span className="text-[12px] text-fg-muted">
                       quedan {remaining} de {code.maxUses}
                     </span>
                     {code.expiresAt && (
-                      <span className="text-[12px] text-chalk-faint">{format(parseISO(code.expiresAt), 'd/MM', { locale: es })}</span>
+                      <span className="text-[12px] text-fg-muted">{format(parseISO(code.expiresAt), 'd/MM', { locale: es })}</span>
                     )}
                     <div className="ml-auto flex items-center gap-1">
                       <CopyButton text={code.code} />
@@ -81,7 +81,7 @@ export function Invitaciones() {
                         type="button"
                         onClick={() => deleteCode.mutate(code.code)}
                         disabled={deleteCode.isPending}
-                        className="rounded-chip px-2 py-1 text-[11px] text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+                        className="rounded-chip px-2 py-1 text-[11px] text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
                       >
                         Eliminar
                       </button>
@@ -92,7 +92,7 @@ export function Invitaciones() {
             </ul>
           )}
 
-          <div className="mt-5 border-t border-ink-800 pt-4">
+          <div className="mt-5 border-t border-fill-subtle pt-4">
             <p className="eyebrow">Generar código nuevo</p>
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <Field label="Usos" className="w-20">

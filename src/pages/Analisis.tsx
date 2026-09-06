@@ -90,13 +90,13 @@ export function Analisis() {
                         onClick={() => goToCategory(s.categoryId)}
                         className="flex w-full items-baseline justify-between gap-3 rounded-chip text-left transition-opacity hover:opacity-70"
                       >
-                        <span className="flex items-center gap-2 text-[13.5px] text-chalk">
+                        <span className="flex items-center gap-2 text-[13.5px] text-fg">
                           <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
                           {s.categoryName}
                         </span>
                         <span className="flex items-baseline gap-3">
-                          <span className="tnum text-[12px] text-chalk-faint">{(share * 100).toFixed(0)}%</span>
-                          <Money cents={s.cents} tone={i === 0 ? 'chalk' : 'dim'} size="row" />
+                          <span className="tnum text-[12px] text-fg-muted">{(share * 100).toFixed(0)}%</span>
+                          <Money cents={s.cents} tone={i === 0 ? 'fg' : 'dim'} size="row" />
                         </span>
                       </button>
                     </li>

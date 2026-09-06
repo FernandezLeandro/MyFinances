@@ -23,7 +23,7 @@ function makeTooltip(colors: ChartColorSet) {
         style={{ backgroundColor: colors.tooltipBg, borderColor: colors.tooltipRing }}
       >
         <p className="eyebrow mb-1.5">{format(parseISO(point.period), 'MMMM yyyy', { locale: es })}</p>
-        <Money cents={point.runningBalanceCents} tone="acid" />
+        <Money cents={point.runningBalanceCents} tone="accent" />
       </div>
     )
   }

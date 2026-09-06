@@ -125,7 +125,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
         // `dialog:not([open]) { display: none }` del navegador. El layout de columna va en el
         // wrapper de adentro. `vh` y no `dvh`: las unidades dinámicas se resuelven de forma
         // inconsistente dentro del top layer en mobile.
-        'fixed inset-x-0 top-auto bottom-0 z-50 m-0 w-full max-w-none overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
+        'fixed inset-x-0 top-auto bottom-0 z-50 m-0 w-full max-w-none overflow-hidden rounded-t-panel bg-surface p-0 text-fg',
         'overscroll-contain animate-sheet-in backdrop:bg-black/75',
         'sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,
@@ -140,7 +140,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mr-1.5 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+            className="-mr-1.5 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
           >
             <X className="size-4" strokeWidth={1.5} aria-hidden />
           </button>
@@ -159,9 +159,9 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             role="status"
             aria-live="polite"
             aria-busy="true"
-            className="absolute inset-0 grid place-items-center bg-ink-900/70 backdrop-blur-[1px]"
+            className="absolute inset-0 grid place-items-center bg-surface/70 backdrop-blur-[1px]"
           >
-            <Spinner className="text-acid" />
+            <Spinner className="text-accent" />
           </div>
         )}
       </div>

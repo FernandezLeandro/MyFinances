@@ -20,7 +20,7 @@ const shapeClasses = {
 }
 
 /**
- * Círculo (o cuadrado redondeado) de iniciales. Deliberadamente en `ink-800`, no en el acento: ese
+ * Círculo (o cuadrado redondeado) de iniciales. Deliberadamente en `fill-subtle`, no en el acento: ese
  * color se reserva para el dato principal y la serie primaria de un gráfico (ver `theme.css`), y un
  * avatar visible en cada pantalla lo rompería. Se eleva por luminosidad como el resto de las
  * superficies.
@@ -30,7 +30,7 @@ export function Avatar({ initials, size = 'sm', shape = 'circle', className }: A
     <span
       aria-hidden
       className={cn(
-        'grid shrink-0 place-items-center bg-ink-800 font-display font-semibold text-chalk-dim ring-1 ring-ink-700',
+        'grid shrink-0 place-items-center bg-fill-subtle font-display font-semibold text-fg-secondary ring-1 ring-border-strong',
         sizeClasses[size],
         shapeClasses[shape],
         className,

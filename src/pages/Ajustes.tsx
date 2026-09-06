@@ -85,13 +85,13 @@ function FxPanel() {
             </div>
 
             <div className="mt-5 text-[13px]">
-              <p className="text-chalk-faint">Cotización en uso ahora</p>
+              <p className="text-fg-muted">Cotización en uso ahora</p>
               {usdRate.rateCents == null ? (
-                <p className="mt-1 text-chalk-faint">Sin cotización disponible</p>
+                <p className="mt-1 text-fg-muted">Sin cotización disponible</p>
               ) : (
                 <div className="mt-1 flex items-center gap-2">
-                  <Money cents={usdRate.rateCents} tone="chalk" size="figure" />
-                  <span className="text-[12px] text-chalk-faint">
+                  <Money cents={usdRate.rateCents} tone="fg" size="figure" />
+                  <span className="text-[12px] text-fg-muted">
                     {usdRate.origin === 'manual' ? (usdRate.isFallback ? '· manual (la API falló)' : '· manual') : '· dolarapi.com'}
                   </span>
                 </div>
@@ -133,7 +133,7 @@ function AccountsPanel() {
     <Panel>
       <PanelHeader title="Cuentas" hint="Efectivo, billeteras virtuales, bancos — con qué pagás cada movimiento" />
       <div className="flex flex-col gap-3 px-6 pb-6">
-        <p className="text-[13px] text-chalk-faint">
+        <p className="text-[13px] text-fg-muted">
           {active.length === 0
             ? 'Todavía no cargaste ninguna.'
             : active.map((l) => l.name || '(sin nombre)').join(' · ')}

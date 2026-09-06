@@ -33,7 +33,7 @@ function ReceivableRow({
   const hasPartialPayments = paidCents > 0
 
   return (
-    <li className="flex items-center gap-3 px-6 py-3 transition-colors duration-150 hover:bg-ink-850">
+    <li className="flex items-center gap-3 px-6 py-3 transition-colors duration-150 hover:bg-fill-subtle">
       <button
         type="button"
         onClick={onOpenDetail}
@@ -42,7 +42,7 @@ function ReceivableRow({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-[13.5px] font-semibold text-chalk">{receivable.name}</p>
+            <p className="truncate text-[13.5px] font-semibold text-fg">{receivable.name}</p>
             {receivable.already_expensed && (
               <Badge variant="outline" className="shrink-0">
                 {receivable.expense_transaction_id != null ? 'Descontado' : 'Ya cargado como gasto'}
@@ -51,20 +51,20 @@ function ReceivableRow({
           </div>
 
           {hasPartialPayments ? (
-            <p className="mt-1 text-[12px] text-chalk-faint">
+            <p className="mt-1 text-[12px] text-fg-muted">
               <Money cents={paidCents} tone="dim" /> de <Money cents={receivable.amountCents} tone="dim" /> abonado
             </p>
           ) : vencida && receivable.expected_period ? (
-            <p className="mt-0.5 text-[12px] text-coral">
+            <p className="mt-0.5 text-[12px] text-negative">
               Venció en {format(parseISO(receivable.expected_period), 'MMMM yyyy', { locale: es })}
             </p>
           ) : receivable.note ? (
-            <p className="mt-0.5 truncate text-[12px] text-chalk-faint">{receivable.note}</p>
+            <p className="mt-0.5 truncate text-[12px] text-fg-muted">{receivable.note}</p>
           ) : null}
         </div>
       </button>
 
-      <Money cents={pendingCents} tone="chalk" size="row" />
+      <Money cents={pendingCents} tone="fg" size="row" />
 
       <IconSquare onClick={onRegisterPayment} aria-label={`${receivable.name}: registrar abono`}>
         <Plus className="size-3" strokeWidth={1.8} aria-hidden />
@@ -121,7 +121,7 @@ export function MeDeben() {
         <div>
           <p className="eyebrow">Deudas a favor</p>
           <h1 className="mt-2 font-display text-figure font-semibold">Quién te debe plata</h1>
-          <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+          <p className="mt-2 max-w-md text-[13px] text-fg-muted">
             Para no olvidarte de lo que prestaste, aunque te lo devuelvan recién el mes que viene.
           </p>
           <div className="mt-3">
@@ -155,23 +155,23 @@ export function MeDeben() {
           <div className="flex flex-col gap-4">
             <Panel className="p-6">
               <p className="eyebrow">Te deben en total</p>
-              <Money cents={summary.totalPendingCents} tone="chalk" size="total" className="mt-2.5" />
+              <Money cents={summary.totalPendingCents} tone="fg" size="total" className="mt-2.5" />
               <dl className="mt-4 flex flex-col gap-2 border-t border-divider pt-4 text-[13px]">
-                <KeyValueRow label={<span className="text-chalk-faint">Cuenta en tu saldo</span>}>
+                <KeyValueRow label={<span className="text-fg-muted">Cuenta en tu saldo</span>}>
                   <Money cents={summary.contadoEnSaldoCents} tone="dim" />
                 </KeyValueRow>
                 {summary.yaGastadoPendingCents > 0 && (
-                  <KeyValueRow label={<span className="text-chalk-faint">Ya lo cargaste como gasto</span>}>
+                  <KeyValueRow label={<span className="text-fg-muted">Ya lo cargaste como gasto</span>}>
                     <Money cents={summary.yaGastadoPendingCents} tone="dim" />
                   </KeyValueRow>
                 )}
                 {summary.vencidasCount > 0 && (
-                  <KeyValueRow label={<span className="text-chalk-faint">Vencidas</span>}>
-                    <span className="text-coral">{summary.vencidasCount}</span>
+                  <KeyValueRow label={<span className="text-fg-muted">Vencidas</span>}>
+                    <span className="text-negative">{summary.vencidasCount}</span>
                   </KeyValueRow>
                 )}
               </dl>
-              <p className="mt-4 text-[12px] text-chalk-faint">
+              <p className="mt-4 text-[12px] text-fg-muted">
                 No suma al saldo proyectado: es plata que todavía no volvió.
               </p>
             </Panel>
@@ -188,7 +188,7 @@ export function MeDeben() {
                     {summary.cobradas.map((item) => (
                       <li
                         key={item.receivable.id}
-                        className="flex items-center gap-3 px-5 py-2.5 opacity-60 transition-colors duration-150 hover:bg-ink-850"
+                        className="flex items-center gap-3 px-5 py-2.5 opacity-60 transition-colors duration-150 hover:bg-fill-subtle"
                       >
                         <button
                           type="button"
@@ -196,7 +196,7 @@ export function MeDeben() {
                           aria-label={`${item.receivable.name}: ver detalle`}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <p className="truncate text-[13.5px] text-chalk-faint">{item.receivable.name}</p>
+                          <p className="truncate text-[13.5px] text-fg-muted">{item.receivable.name}</p>
                         </button>
                         <Money cents={item.receivable.amountCents} tone="dim" size="row" />
                       </li>
@@ -213,7 +213,7 @@ export function MeDeben() {
               action={<span className="text-[12px] text-fg-muted">Agrupadas por mes esperado de cobro</span>}
             />
             {summary.pendientes.length === 0 ? (
-              <p className="px-6 pt-2 pb-5 text-[13px] text-chalk-faint">No tenés deudas pendientes.</p>
+              <p className="px-6 pt-2 pb-5 text-[13px] text-fg-muted">No tenés deudas pendientes.</p>
             ) : (
               <div className="pb-3">
                 {groups.map((group) => (

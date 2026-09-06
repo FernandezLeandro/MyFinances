@@ -31,7 +31,7 @@ export function PeriodSelector({ value, onChange }: { value: Period; onChange: (
             onChange={(e) => onChange({ ...value, from: e.target.value })}
             className="h-9 text-[13px]"
           />
-          <span aria-hidden className="text-chalk-faint">
+          <span aria-hidden className="text-fg-muted">
             –
           </span>
           <Input

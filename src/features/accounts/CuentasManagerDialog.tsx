@@ -62,7 +62,7 @@ function CompactAmountInput({
       onChange={(e) => onChange(e.target.value)}
       inputMode="decimal"
       aria-label={ariaLabel}
-      className="tnum h-10 w-full rounded-control bg-ink-850 px-3 text-right text-[14px] text-chalk transition-colors focus:bg-ink-800 focus:outline-none"
+      className="tnum h-10 w-full rounded-control bg-fill-subtle px-3 text-right text-[14px] text-fg transition-colors focus:bg-fill-subtle focus:outline-none"
     />
   )
 }
@@ -91,13 +91,13 @@ function AccountListItem({
           al lado y aplastaba el nombre a una tira de ~90px. Las medidas de esta fila son las de
           `CuentaRow` a propósito: son las dos listas de cuentas de la app. */}
       <div className="flex items-center gap-3 rounded-control px-1 py-2">
-        <Icon className="size-4 shrink-0 text-chalk-faint" strokeWidth={1.5} aria-hidden />
+        <Icon className="size-4 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px]">{location.name || '(sin nombre)'}</p>
           {isBalancePending ? (
             <Skeleton className="mt-1 h-3 w-24" />
           ) : (
-            <p className="text-[11px] text-chalk-faint">
+            <p className="text-[11px] text-fg-muted">
               Según la app: <Money cents={derivedCents ?? location.openingCents} tone="dim" size="inline" />
             </p>
           )}
@@ -107,16 +107,16 @@ function AccountListItem({
           onClick={() => setDefault.mutate(location.id)}
           aria-label={location.is_default ? `${location.name} es la predeterminada` : `Hacer predeterminada ${location.name}`}
           disabled={location.is_default || setDefault.isPending}
-          className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-acid disabled:hover:bg-transparent"
+          className="rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-accent disabled:hover:bg-transparent"
         >
-          <Star className={location.is_default ? 'size-4 fill-acid text-acid' : 'size-4'} strokeWidth={1.3} aria-hidden />
+          <Star className={location.is_default ? 'size-4 fill-accent text-accent' : 'size-4'} strokeWidth={1.3} aria-hidden />
         </button>
         <button
           type="button"
           onClick={onToggleEdit}
           aria-label={`Editar ${location.name}`}
           aria-expanded={editing}
-          className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+          className="rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
         >
           <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
         </button>
@@ -124,7 +124,7 @@ function AccountListItem({
           type="button"
           onClick={() => updateLocation.mutate({ id: location.id, isArchived: !location.is_archived })}
           aria-label={location.is_archived ? `Reactivar ${location.name}` : `Archivar ${location.name}`}
-          className="rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+          className="rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
         >
           <X className="size-4" strokeWidth={1.5} aria-hidden />
         </button>
@@ -153,9 +153,9 @@ function AccountEditForm({ location, onDone }: { location: BalanceLocation; onDo
   return (
     // Sangría + regla vertical en vez de un recuadro: se lee como "esto es de la fila de arriba"
     // sin encerrarlo. El `ml-7` lo alinea bajo el nombre (ícono size-4 + gap-3). Fondo sin cambios
-    // — el sistema eleva por luminosidad, y entre ink-900 (diálogo) e ink-850 (inputs) no queda un
+    // — el sistema eleva por luminosidad, y entre surface (diálogo) e fill-subtle (inputs) no queda un
     // escalón intermedio sin que los campos se pierdan contra el panel.
-    <div className="mt-1 mb-3 ml-7 flex flex-col gap-3 border-l border-ink-800 pt-1 pb-1 pl-4">
+    <div className="mt-1 mb-3 ml-7 flex flex-col gap-3 border-l border-fill-subtle pt-1 pb-1 pl-4">
       <KindChips value={kind} onChange={setKind} />
       <Field label="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Efectivo, Mercado Pago, ICBC…" />
@@ -252,7 +252,7 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
                 onToggleEdit={() => startEdit(l.id)}
               />
             ))}
-            {archived.length > 0 && <p className="mt-2 px-1 text-[11px] text-chalk-faint">Archivadas</p>}
+            {archived.length > 0 && <p className="mt-2 px-1 text-[11px] text-fg-muted">Archivadas</p>}
             {archived.map((l) => (
               <AccountListItem
                 key={l.id}
@@ -265,7 +265,7 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
             ))}
           </ul>
 
-          <div className="border-t border-ink-800 pt-5">
+          <div className="border-t border-fill-subtle pt-5">
             {showCreateForm ? (
               <div className="flex flex-col gap-3">
                 <p className="eyebrow">Nueva cuenta</p>
@@ -298,27 +298,27 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
               <button
                 type="button"
                 onClick={startCreate}
-                className="text-[12px] font-medium text-acid hover:underline"
+                className="text-[12px] font-medium text-accent hover:underline"
               >
                 + Agregar cuenta
               </button>
             )}
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-ink-800 pt-5">
+          <div className="flex flex-col gap-2 border-t border-fill-subtle pt-5">
             <div className="flex items-center justify-between">
               <p className="eyebrow">Transferencias recientes</p>
-              <button type="button" onClick={() => setTransferOpen(true)} className="text-[12px] font-medium text-acid hover:underline">
+              <button type="button" onClick={() => setTransferOpen(true)} className="text-[12px] font-medium text-accent hover:underline">
                 + Transferir
               </button>
             </div>
             {(transfers ?? []).length === 0 ? (
-              <p className="text-[12px] text-chalk-faint">Todavía no hiciste ninguna.</p>
+              <p className="text-[12px] text-fg-muted">Todavía no hiciste ninguna.</p>
             ) : (
               <ul className="flex flex-col gap-1">
                 {(transfers ?? []).slice(0, 5).map((t) => (
                   <li key={t.id} className="flex items-center gap-2 rounded-chip px-1 py-1.5 text-[13px]">
-                    <span className="min-w-0 flex-1 truncate text-chalk-dim">
+                    <span className="min-w-0 flex-1 truncate text-fg-secondary">
                       {locationById.get(t.from_account_id)?.name || '?'} → {locationById.get(t.to_account_id)?.name || '?'}
                     </span>
                     <Money cents={t.cents} tone="dim" size="inline" />
@@ -326,7 +326,7 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
                       type="button"
                       onClick={() => deleteTransfer.mutate(t.id)}
                       aria-label="Eliminar transferencia"
-                      className="shrink-0 rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+                      className="shrink-0 rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
                     >
                       <X className="size-3.5" strokeWidth={1.5} aria-hidden />
                     </button>

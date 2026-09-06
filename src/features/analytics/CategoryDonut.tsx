@@ -45,10 +45,10 @@ function makeTooltip(totalCents: number, colors: ChartColorSet) {
         className="rounded-control px-3 py-2 text-[12px] shadow-lift ring-1"
         style={{ backgroundColor: colors.tooltipBg, borderColor: colors.tooltipRing }}
       >
-        <p className="mb-0.5 text-chalk">{slice.categoryName}</p>
+        <p className="mb-0.5 text-fg">{slice.categoryName}</p>
         <div className="flex items-baseline gap-2">
           <Money cents={slice.cents} tone="dim" />
-          <span className="tnum text-[11px] text-chalk-faint">{(share * 100).toFixed(0)}%</span>
+          <span className="tnum text-[11px] text-fg-muted">{(share * 100).toFixed(0)}%</span>
         </div>
       </div>
     )
@@ -101,12 +101,12 @@ export function CategoryDonut({ data, onSelect, centerLabel, size = 178 }: Categ
       {centerLabel && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-3 text-center">
           <span
-            className="tnum font-display font-bold text-chalk"
+            className="tnum font-display font-bold text-fg"
             style={{ fontSize: fitFontSize(size, totalLabel), letterSpacing: '-0.03em', lineHeight: 1 }}
           >
             {totalLabel}
           </span>
-          <span className="text-[10.5px] tracking-[0.08em] text-chalk-faint uppercase">{centerLabel}</span>
+          <span className="text-[10.5px] tracking-[0.08em] text-fg-muted uppercase">{centerLabel}</span>
         </div>
       )}
     </div>

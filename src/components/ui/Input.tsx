@@ -26,18 +26,18 @@ export function Field({ label, labelAddon, hint, error, htmlFor, children, class
       </div>
       {children}
       {error ? (
-        <p className="text-[12px] text-coral">{error}</p>
+        <p className="text-[12px] text-negative">{error}</p>
       ) : (
-        hint && <p className="text-[12px] text-chalk-faint">{hint}</p>
+        hint && <p className="text-[12px] text-fg-muted">{hint}</p>
       )}
     </div>
   )
 }
 
 export const controlBase =
-  'w-full rounded-control bg-ink-850 px-3.5 text-chalk placeholder:text-chalk-faint ' +
+  'w-full rounded-control bg-fill-subtle px-3.5 text-fg placeholder:text-fg-muted ' +
   'transition-colors duration-150 outline-none ' +
-  'hover:bg-ink-800 focus:bg-ink-800 disabled:opacity-40'
+  'hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }
 
@@ -48,7 +48,7 @@ export function Input({ className, invalid, ref, ...props }: InputProps) {
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-coral/60', className)}
+      className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-negative/60', className)}
       {...props}
     />
   )
@@ -68,13 +68,13 @@ export function AmountInput({ className, invalid, ref, ...props }: AmountInputPr
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-control bg-ink-850 pl-4 transition-colors duration-150',
-        'focus-within:bg-ink-800',
-        invalid && 'ring-1 ring-coral/60',
+        'flex items-center gap-2 rounded-control bg-fill-subtle pl-4 transition-colors duration-150',
+        'focus-within:bg-fill-subtle',
+        invalid && 'ring-1 ring-negative/60',
         className,
       )}
     >
-      <label htmlFor={props.id ?? id} className="font-display text-2xl text-chalk-faint select-none">
+      <label htmlFor={props.id ?? id} className="font-display text-2xl text-fg-muted select-none">
         $
       </label>
       <input
@@ -85,7 +85,7 @@ export function AmountInput({ className, invalid, ref, ...props }: AmountInputPr
         autoComplete="off"
         placeholder="0,00"
         aria-invalid={invalid || undefined}
-        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-chalk outline-none placeholder:text-ink-600"
+        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-fg outline-none placeholder:text-border-strong"
         {...props}
       />
     </div>

@@ -62,7 +62,7 @@ function FixedExpenseRow({
   const pct = fe.cents > 0 ? (paidCents / fe.cents) * 100 : 0
 
   return (
-    <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850">
+    <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
       {fe.is_recurring ? (
         // Una bolsa no se "tilda" — cada carga es un pago suelto, así que el control siempre agrega
         // una carga nueva (incluso ya completa: se puede seguir cargando nafta pasado el
@@ -90,7 +90,7 @@ function FixedExpenseRow({
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
         <div className="min-w-0 flex-1">
-          <p className={cn('truncate text-[13.5px] font-semibold', done && !overspent ? 'text-chalk-faint' : 'text-chalk')}>
+          <p className={cn('truncate text-[13.5px] font-semibold', done && !overspent ? 'text-fg-muted' : 'text-fg')}>
             {fe.name}
           </p>
 
@@ -98,20 +98,20 @@ function FixedExpenseRow({
             <div className="mt-1.5 flex items-center gap-2">
               <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} />
               {overspent ? (
-                <span className="text-[12px] text-coral">
-                  Te pasaste <Money cents={overspentCents} tone="coral" hidden={hidden} />
+                <span className="text-[12px] text-negative">
+                  Te pasaste <Money cents={overspentCents} tone="negative" hidden={hidden} />
                 </span>
               ) : done ? (
-                <span className="text-[12px] text-chalk-faint">Completo</span>
+                <span className="text-[12px] text-fg-muted">Completo</span>
               ) : (
-                <span className="text-[12px] text-chalk-faint">
+                <span className="text-[12px] text-fg-muted">
                   <Money cents={paidCents} tone="dim" hidden={hidden} /> de <Money cents={fe.cents} tone="dim" hidden={hidden} />
                 </span>
               )}
             </div>
           ) : (
             <p className="mt-0.5 text-[12px]">
-              <span className={vencido ? 'text-coral' : 'text-chalk-faint'}>
+              <span className={vencido ? 'text-negative' : 'text-fg-muted'}>
                 {vencido ? `Venció el ${fe.due_day ?? '—'}` : `Vence el ${fe.due_day ?? '—'}`}
               </span>
             </p>
@@ -122,7 +122,7 @@ function FixedExpenseRow({
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
           curso ambos suelen coincidir, pero en un mes pasado pueden diferir. Bolsa: lo que resta
           mientras falte, lo cargado una vez completa (el excedente ya se ve en la línea de arriba). */}
-      <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'chalk'} size="row" hidden={hidden} />
+      <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'fg'} size="row" hidden={hidden} />
     </li>
   )
 }
@@ -230,8 +230,8 @@ export function Fijos() {
               'inline-flex h-9 items-center gap-1.5 rounded-control border px-3 text-[13px] font-medium whitespace-nowrap',
               'transition-colors duration-150',
               showPaused
-                ? 'border-ink-600 bg-ink-800 text-chalk'
-                : 'border-ink-800 bg-transparent text-chalk-faint hover:border-ink-700 hover:text-chalk-dim',
+                ? 'border-border-strong bg-fill-subtle text-fg'
+                : 'border-fill-subtle bg-transparent text-fg-muted hover:border-border-strong hover:text-fg-secondary',
             )}
           >
             <Pause className="size-3" fill="currentColor" aria-hidden />
@@ -275,7 +275,7 @@ export function Fijos() {
           ) : (
             <>
               {pending.length === 0 && (
-                <p className="px-6 pt-2 pb-4 text-[13px] text-chalk-faint">No tenés nada por pagar este mes.</p>
+                <p className="px-6 pt-2 pb-4 text-[13px] text-fg-muted">No tenés nada por pagar este mes.</p>
               )}
               <ul className="pb-3">
                 {pending.map((status) => (
@@ -326,7 +326,7 @@ export function Fijos() {
                     {pausedItems.map((fe) => (
                       <li
                         key={fe.id}
-                        className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850"
+                        className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle"
                       >
                         <button
                           type="button"
@@ -340,8 +340,8 @@ export function Fijos() {
                             style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color }}
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] text-chalk-faint">{fe.name}</p>
-                            <p className="mt-0.5 text-[12px] text-chalk-faint">
+                            <p className="truncate text-[14px] text-fg-muted">{fe.name}</p>
+                            <p className="mt-0.5 text-[12px] text-fg-muted">
                               Pausado · {fe.due_day != null ? `vence el ${fe.due_day}` : 'bolsa mensual'}
                             </p>
                           </div>
@@ -380,7 +380,7 @@ export function Fijos() {
                       style={{ backgroundColor: categoryById.get(status.fe.category_id ?? '')?.color }}
                     />
                     <span className="min-w-0 flex-1 truncate text-[13.5px]">{status.fe.name}</span>
-                    {status.fe.due_day != null && <span className="tnum text-[12px] text-chalk-faint">día {status.fe.due_day}</span>}
+                    {status.fe.due_day != null && <span className="tnum text-[12px] text-fg-muted">día {status.fe.due_day}</span>}
                     <Money cents={status.remainingCents} tone="dim" size="row" hidden={balanceHidden} />
                   </li>
                 ))}

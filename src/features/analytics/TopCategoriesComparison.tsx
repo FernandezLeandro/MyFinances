@@ -20,11 +20,11 @@ export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }
       {top.map((c) => (
         <div key={c.categoryId}>
           <div className="mb-1.5 flex items-center justify-between gap-3 text-[13px]">
-            <span className="truncate text-chalk">{c.categoryName}</span>
+            <span className="truncate text-fg">{c.categoryName}</span>
             {c.changePct === null ? (
-              <span className="tnum shrink-0 text-[11px] text-chalk-faint">nuevo</span>
+              <span className="tnum shrink-0 text-[11px] text-fg-muted">nuevo</span>
             ) : (
-              <span className={cn('tnum shrink-0 font-semibold', c.changePct > 0 ? 'text-coral' : 'text-chalk-faint')}>
+              <span className={cn('tnum shrink-0 font-semibold', c.changePct > 0 ? 'text-negative' : 'text-fg-muted')}>
                 {c.changePct > 0 ? '+' : '−'}
                 {Math.abs(Math.round(c.changePct))}%
               </span>
@@ -40,7 +40,7 @@ export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }
           />
         </div>
       ))}
-      <p className="mt-0.5 text-[11.5px] text-chalk-faint">Barra llena: este período. Barra tenue: el anterior.</p>
+      <p className="mt-0.5 text-[11.5px] text-fg-muted">Barra llena: este período. Barra tenue: el anterior.</p>
     </div>
   )
 }

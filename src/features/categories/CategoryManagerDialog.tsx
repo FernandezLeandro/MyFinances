@@ -66,12 +66,12 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
             <li key={c.id} className="flex items-center gap-2.5 rounded-chip px-1 py-1.5">
               <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
               <span className="min-w-0 flex-1 truncate text-[14px]">{c.name}</span>
-              <span className="text-[11px] text-chalk-faint">{c.kind === 'income' ? 'ingreso' : 'gasto'}</span>
+              <span className="text-[11px] text-fg-muted">{c.kind === 'income' ? 'ingreso' : 'gasto'}</span>
               <button
                 type="button"
                 onClick={() => startEdit(c)}
                 aria-label={`Editar ${c.name}`}
-                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+                className="rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
               >
                 <Pencil className="size-3.5" strokeWidth={1.3} aria-hidden />
               </button>
@@ -79,7 +79,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
                 type="button"
                 onClick={() => archiveCategory.mutate(c.id)}
                 aria-label={`Archivar ${c.name}`}
-                className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-coral"
+                className="rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
               >
                 <X className="size-3.5" strokeWidth={1.5} aria-hidden />
               </button>
@@ -87,7 +87,7 @@ export function CategoryManagerDialog({ open, onClose }: CategoryManagerDialogPr
           ))}
         </ul>
 
-        <div className="flex flex-col gap-3 border-t border-ink-800 pt-5">
+        <div className="flex flex-col gap-3 border-t border-fill-subtle pt-5">
           <p className="eyebrow">{editingId ? 'Editar categoría' : 'Nueva categoría'}</p>
 
           <div className="flex gap-1.5">

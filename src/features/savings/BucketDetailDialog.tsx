@@ -70,7 +70,7 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
         ) : (
           <>
             {heldAssetCount > 1 && (
-              <div className="mb-5 border-b border-ink-850 pb-5">
+              <div className="mb-5 border-b border-fill-subtle pb-5">
                 <p className="eyebrow mb-3">Composición</p>
                 <CompositionView nets={nets} assets={assets} prices={prices} />
               </div>
@@ -87,26 +87,26 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
               const units = unitsFromNumeric(entry.amount, asset.decimals)
 
               return (
-                <li key={entry.id} className="border-t border-ink-850 first:border-t-0">
+                <li key={entry.id} className="border-t border-fill-subtle first:border-t-0">
                   <button
                     type="button"
                     onClick={() => openEditEntry(entry)}
-                    className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-ink-850"
+                    className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] text-chalk">
+                      <p className="text-[14px] text-fg">
                         {isWithdrawal ? 'Retiro' : 'Aporte'} en {asset.symbol}
                         {missingRate && <span className="ml-2 text-[11px] font-medium text-amber">Sin cotización</span>}
                       </p>
-                      <p className="mt-0.5 text-[12px] text-chalk-faint">
+                      <p className="mt-0.5 text-[12px] text-fg-muted">
                         {format(parseISO(entry.occurred_on), "d 'de' MMMM yyyy", { locale: es })}
                         {entry.note ? ` · ${entry.note}` : ''}
                       </p>
                     </div>
                     {asset.symbol === 'ARS' ? (
-                      <Money cents={isWithdrawal ? -units : units} tone={isWithdrawal ? 'coral' : 'chalk'} signed />
+                      <Money cents={isWithdrawal ? -units : units} tone={isWithdrawal ? 'negative' : 'fg'} signed />
                     ) : (
-                      <span className={cn('tnum text-[14px]', isWithdrawal ? 'text-coral' : 'text-chalk')}>
+                      <span className={cn('tnum text-[14px]', isWithdrawal ? 'text-negative' : 'text-fg')}>
                         {isWithdrawal ? '−' : '+'}
                         {formatQuantity(units, asset.decimals)} {asset.symbol}
                       </span>

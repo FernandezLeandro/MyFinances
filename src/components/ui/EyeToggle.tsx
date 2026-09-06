@@ -19,7 +19,7 @@ export function EyeToggle({ hidden, onToggle, label = 'saldo', disabled = false 
       disabled={disabled}
       aria-label={hidden ? `Mostrar ${label}` : `Ocultar ${label}`}
       aria-pressed={hidden}
-      className="rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-850 hover:text-chalk disabled:pointer-events-none disabled:opacity-40"
+      className="rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg disabled:pointer-events-none disabled:opacity-40"
     >
       {hidden ? (
         <EyeOff className="size-3.5" strokeWidth={1.3} aria-hidden />

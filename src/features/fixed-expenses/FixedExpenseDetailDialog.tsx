@@ -95,10 +95,10 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
           </>
         }
       >
-        <div className="mb-5 border-b border-ink-850 pb-5">
+        <div className="mb-5 border-b border-fill-subtle pb-5">
           <p className="eyebrow">{fixedExpense.is_recurring ? 'Presupuesto mensual' : 'Importe actual'}</p>
           <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
-          {fixedExpense.due_day != null && <p className="mt-2 text-[12px] text-chalk-faint">Vence el {fixedExpense.due_day}</p>}
+          {fixedExpense.due_day != null && <p className="mt-2 text-[12px] text-fg-muted">Vence el {fixedExpense.due_day}</p>}
         </div>
 
         <p className="eyebrow mb-3">Historial de pagos</p>
@@ -113,9 +113,9 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
         ) : fixedExpense.is_recurring ? (
           <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
             {groups.map((group) => (
-              <li key={group.period} className="border-t border-ink-850 first:border-t-0">
+              <li key={group.period} className="border-t border-fill-subtle first:border-t-0">
                 <div className="flex items-center gap-3 px-6 pt-3 pb-1.5">
-                  <p className="min-w-0 flex-1 truncate text-[14px] text-chalk capitalize">
+                  <p className="min-w-0 flex-1 truncate text-[14px] text-fg capitalize">
                     {format(parseISO(group.period), 'MMMM yyyy', { locale: es })}
                   </p>
                   <Money cents={group.totalCents} tone="dim" />
@@ -123,7 +123,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                 <ul>
                   {group.payments.map((payment) => (
                     <li key={payment.id} className="flex items-center gap-3 px-6 py-1.5 pl-9">
-                      <p className="min-w-0 flex-1 truncate text-[12px] text-chalk-faint">
+                      <p className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">
                         {format(parseISO(payment.paid_at), "d 'de' MMMM", { locale: es })}
                         {payment.note ? ` · ${payment.note}` : ''}
                       </p>
@@ -133,7 +133,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                         onClick={() => unmarkPayment.mutate({ paymentId: payment.id })}
                         disabled={unmarkPayment.isPending}
                         aria-label="Quitar esta carga"
-                        className="grid size-6 shrink-0 place-items-center rounded-chip text-chalk-faint transition-colors duration-150 hover:bg-ink-800 hover:text-coral disabled:opacity-40"
+                        className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
                       >
                         <X className="size-3" strokeWidth={1.5} aria-hidden />
                       </button>
@@ -149,10 +149,10 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
               // Fila inerte a propósito: en esta versión no se puede editar un pago histórico de un
               // fijo de una sola vez (para corregir uno, se desmarca desde Fijos y se vuelve a
               // marcar) — un botón que no hace nada es peor que ningún botón.
-              <li key={group.period} className="flex items-center gap-3 border-t border-ink-850 px-6 py-3 first:border-t-0">
+              <li key={group.period} className="flex items-center gap-3 border-t border-fill-subtle px-6 py-3 first:border-t-0">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] text-chalk capitalize">{format(parseISO(group.period), 'MMMM yyyy', { locale: es })}</p>
-                  <p className="mt-0.5 text-[12px] text-chalk-faint">
+                  <p className="text-[14px] text-fg capitalize">{format(parseISO(group.period), 'MMMM yyyy', { locale: es })}</p>
+                  <p className="mt-0.5 text-[12px] text-fg-muted">
                     Pagado el {format(parseISO(group.payments[0].paid_at), "d 'de' MMMM", { locale: es })}
                   </p>
                 </div>
@@ -183,8 +183,8 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
             </>
           }
         >
-          <p className="text-[14px] text-chalk-dim">
-            ¿Eliminar <span className="text-chalk">{fixedExpense.name}</span>?
+          <p className="text-[14px] text-fg-secondary">
+            ¿Eliminar <span className="text-fg">{fixedExpense.name}</span>?
             {payments && payments.length > 0
               ? ' Se borra también su historial de pagos. Los movimientos ya registrados no se tocan.'
               : ' No se puede deshacer.'}

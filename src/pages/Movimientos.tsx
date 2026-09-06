@@ -228,7 +228,7 @@ export function Movimientos() {
       ) : (
         <div className="flex flex-col gap-4">
           {transactions?.length === TRANSACTIONS_ROW_LIMIT && (
-            <p className="text-[12px] text-chalk-faint">
+            <p className="text-[12px] text-fg-muted">
               Mostrando los primeros {TRANSACTIONS_ROW_LIMIT} movimientos — acotá el período.
             </p>
           )}
@@ -238,7 +238,7 @@ export function Movimientos() {
               <Panel key={day}>
                 <GroupHeader
                   label={format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}
-                  total={<Money cents={total} tone={total >= 0 ? 'dim' : 'coral'} signed />}
+                  total={<Money cents={total} tone={total >= 0 ? 'dim' : 'negative'} signed />}
                   className="px-6 pt-5 pb-1"
                 />
                 <ul className="pb-3">

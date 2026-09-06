@@ -22,18 +22,18 @@ export function TransactionRow({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-chip px-6 py-2.5 text-left transition-colors duration-150 hover:bg-ink-850"
+        className="flex w-full items-center gap-3 rounded-chip px-6 py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
       >
         <span
           aria-hidden
           className="size-2 shrink-0 rounded-full"
-          style={{ backgroundColor: category?.color ?? 'var(--color-ink-600)' }}
+          style={{ backgroundColor: category?.color ?? 'var(--color-border-strong)' }}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13.5px] font-semibold text-chalk">
+          <p className="truncate text-[13.5px] font-semibold text-fg">
             {tx.description || category?.name || 'Sin descripción'}
           </p>
-          <p className="mt-0.5 truncate text-[12px] text-chalk-faint">
+          <p className="mt-0.5 truncate text-[12px] text-fg-muted">
             {tx.is_adjustment
               ? 'Ajuste de saldo · afuera de Análisis'
               : tx.is_credit_card_payment
@@ -42,7 +42,7 @@ export function TransactionRow({
             {account && ` · ${account.name || '(sin nombre)'}`}
           </p>
         </div>
-        <Money cents={income ? tx.cents : -tx.cents} tone={income ? 'acid' : 'coral'} size="row" signed />
+        <Money cents={income ? tx.cents : -tx.cents} tone={income ? 'accent' : 'negative'} size="row" signed />
       </button>
     </li>
   )

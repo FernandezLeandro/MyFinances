@@ -28,9 +28,9 @@ function AddAssetForm() {
   }
 
   return (
-    <div className="border-t border-ink-800 p-6">
+    <div className="border-t border-fill-subtle p-6">
       <p className="eyebrow">Agregar activo</p>
-      <p className="mt-1.5 text-[12px] text-chalk-faint">Queda visible para todas las cuentas.</p>
+      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas.</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Símbolo">
@@ -69,7 +69,7 @@ export function Activos() {
       <header>
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Activos</h1>
-        <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
           El catálogo completo de Ahorros: nombre, clase y moneda de cotización. Cada cuenta sigue cargando su propio precio de referencia por separado.
         </p>
       </header>

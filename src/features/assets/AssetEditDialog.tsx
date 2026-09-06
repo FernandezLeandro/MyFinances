@@ -168,7 +168,7 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents, canEd
             />
           </Field>
         ) : (
-          <p className="text-[13px] text-chalk-faint">Se valúa sola en vivo (CoinGecko) — no hace falta cargarle nada.</p>
+          <p className="text-[13px] text-fg-muted">Se valúa sola en vivo (CoinGecko) — no hace falta cargarle nada.</p>
         )}
 
         {canEditCatalog && !isFiat && (
