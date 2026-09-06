@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Pencil } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { format, isSameDay, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { Panel, CardHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
+import { Badge } from '@/components/ui/Badge'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -20,6 +23,11 @@ import { BucketFormDialog } from '@/features/savings/BucketFormDialog'
 import { BucketDetailDialog } from '@/features/savings/BucketDetailDialog'
 import { SavingsEntryFormDialog } from '@/features/savings/SavingsEntryFormDialog'
 
+const CURRENCY_OPTIONS = [
+  { value: 'ARS' as const, label: 'ARS' },
+  { value: 'USD' as const, label: 'USD' },
+]
+
 /** Todo el estado interno de Ahorros vive en ARS — esto sólo convierte para MOSTRAR. */
 function toDisplayCents(arsCents: number | null, currency: Currency, usdRateCents: number | null): number | null {
   if (arsCents == null) return null
@@ -28,17 +36,11 @@ function toDisplayCents(arsCents: number | null, currency: Currency, usdRateCent
   return Math.round((arsCents * 100) / usdRateCents)
 }
 
-function CurrencyToggle({ value, onChange }: { value: Currency; onChange: (c: Currency) => void }) {
-  return (
-    <div className="flex gap-1">
-      <Chip active={value === 'ARS'} onClick={() => onChange('ARS')}>
-        ARS
-      </Chip>
-      <Chip active={value === 'USD'} onClick={() => onChange('USD')}>
-        USD
-      </Chip>
-    </div>
-  )
+function usdUpdatedLabel(updatedAt: string | null): string | null {
+  if (!updatedAt) return null
+  const date = parseISO(updatedAt)
+  const when = isSameDay(date, new Date()) ? `hoy ${format(date, 'HH:mm')}` : format(date, "d 'de' MMMM, HH:mm", { locale: es })
+  return `Cotización del dólar actualizada ${when}.`
 }
 
 function BucketCard({
@@ -66,14 +68,14 @@ function BucketCard({
     <Panel className="flex flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] text-chalk-dim">
-            {bucket.name}
-            {!bucket.include_in_total && <span className="ml-2 text-[11px] font-medium text-chalk-faint">No cuenta en el total</span>}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-[13.5px] text-chalk-dim">{bucket.name}</p>
+            {!bucket.include_in_total && <Badge variant="outline">No cuenta en el total</Badge>}
+          </div>
           {valueCents == null ? (
             <p className="mt-1.5 text-[13px] text-chalk-faint">Cotización no disponible</p>
           ) : (
-            <Money cents={valueCents} tone="chalk" size="figure" className="mt-1" hidden={hidden} />
+            <Money cents={valueCents} tone="chalk" size="figure" className="mt-1.5" hidden={hidden} />
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -90,7 +92,7 @@ function BucketCard({
       </div>
 
       {heldNets.length > 0 && (
-        <dl className="mt-4 space-y-1.5 border-t border-ink-800 pt-3 text-[13px]">
+        <dl className="mt-4 space-y-1.5 border-t border-divider pt-3 text-[12.5px]">
           {heldNets.map((net) => {
             const asset = assetById.get(net.assetId)
             if (!asset) return null
@@ -106,7 +108,7 @@ function BucketCard({
         </dl>
       )}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-auto flex gap-2 pt-4">
         <Button variant="outline" size="sm" onClick={() => onOpenDetail(bucket)} className="flex-1">
           Historial
         </Button>
@@ -142,7 +144,8 @@ export function Ahorros() {
   )
 
   const usdAssetId = (assets ?? []).find((a) => a.symbol === 'USD')?.id
-  const usdRateCents = usdAssetId ? (prices.get(usdAssetId)?.priceArsCents ?? null) : null
+  const usdPrice = usdAssetId ? (prices.get(usdAssetId) ?? null) : null
+  const usdRateCents = usdPrice?.priceArsCents ?? null
 
   function openNewBucket() {
     setEditingBucket(null)
@@ -172,14 +175,26 @@ export function Ahorros() {
       {isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : isPending ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <Panel key={i} className="p-5">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="mt-3 h-9 w-36" />
-              <Skeleton className="mt-4 h-8 w-full" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr]">
+          <div className="flex flex-col gap-4">
+            <Panel className="p-6">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-4 h-11 w-56" />
             </Panel>
-          ))}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[0, 1, 2, 3].map((i) => (
+                <Panel key={i} className="p-5">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="mt-3 h-7 w-32" />
+                  <Skeleton className="mt-4 h-8 w-full" />
+                </Panel>
+              ))}
+            </div>
+          </div>
+          <Panel className="p-6">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="mt-4 h-3 w-full rounded-pill" />
+          </Panel>
         </div>
       ) : (buckets ?? []).length === 0 ? (
         <EmptyState
@@ -189,15 +204,15 @@ export function Ahorros() {
           action={<Button onClick={openNewBucket}>Nuevo ítem</Button>}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <Panel className="p-6 ring-1 ring-acid/15">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr]">
+          <div className="flex flex-col gap-4">
+            <Panel className="p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <p className="eyebrow">Total de Ahorros</p>
                   <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="ahorros" />
                 </div>
-                <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
+                <SegmentedToggle value={displayCurrency} onChange={setDisplayCurrency} options={CURRENCY_OPTIONS} />
               </div>
               {(() => {
                 const displayCents = toDisplayCents(portfolio.totalValueCents, displayCurrency, usdRateCents)
@@ -207,16 +222,16 @@ export function Ahorros() {
                   <Money
                     cents={displayCents}
                     currency={displayCurrency}
-                    tone="acid"
-                    size="hero"
-                    className="mt-2"
+                    tone="chalk"
+                    size="total"
+                    className="mt-2.5"
                     hidden={balanceHidden}
                   />
                 )
               })()}
             </Panel>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {portfolio.perBucket.map((summary) => (
                 <BucketCard
                   key={summary.bucket.id}
@@ -231,12 +246,12 @@ export function Ahorros() {
             </div>
           </div>
 
-          <Panel tone="flat">
-            <PanelHeader title="Composición" />
-            <div className="px-6 pb-6">
+          <Panel className="flex flex-col">
+            <CardHeader title="Composición" />
+            <div className="flex flex-1 flex-col px-6 pb-6">
               <CompositionView nets={portfolio.totalNets} assets={assets ?? []} prices={prices} />
 
-              <div className="mt-5 border-t border-ink-800 pt-4">
+              <div className="mt-5 border-t border-divider pt-4">
                 <p className="eyebrow">Total invertido</p>
                 {(() => {
                   const displayCents = toDisplayCents(portfolio.totalGain.costArsCents, displayCurrency, usdRateCents)
@@ -253,7 +268,7 @@ export function Ahorros() {
                 })()}
               </div>
 
-              <div className="mt-5 border-t border-ink-800 pt-4">
+              <div className="mt-5 border-t border-divider pt-4">
                 <p className="eyebrow">Ganancia estimada</p>
                 {(() => {
                   const displayCents = toDisplayCents(portfolio.totalGain.gainCents, displayCurrency, usdRateCents)
@@ -270,7 +285,7 @@ export function Ahorros() {
                     <Money
                       cents={displayCents}
                       currency={displayCurrency}
-                      tone={displayCents < 0 ? 'coral' : 'chalk'}
+                      tone={displayCents < 0 ? 'coral' : 'acid'}
                       size="figure"
                       signed
                       className="mt-2"
@@ -278,6 +293,11 @@ export function Ahorros() {
                   )
                 })()}
               </div>
+
+              {(() => {
+                const label = usdUpdatedLabel(usdPrice?.updatedAt ?? null)
+                return label && <p className="mt-auto pt-5 text-[11.5px] text-chalk-faint">{label}</p>
+              })()}
             </div>
           </Panel>
         </div>

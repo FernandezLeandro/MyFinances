@@ -11,7 +11,7 @@ export type MoneyTone =
   | 'onInverse'
   | 'onInverseSecondary'
   | 'negativeOnInverse'
-type Size = 'hero' | 'figure' | 'compact' | 'inline' | 'row'
+type Size = 'hero' | 'figure' | 'total' | 'compact' | 'inline' | 'row'
 
 interface MoneyProps {
   cents: number
@@ -46,6 +46,13 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
     root: 'font-display font-semibold text-figure',
     symbol: 'text-[0.42em] mt-[0.36em] mr-[0.12em] text-chalk-faint',
     fraction: 'text-[0.5em] mt-[0.42em] ml-[0.08em]',
+  },
+  // Entre `hero` y `figure` — el total de una tarjeta secundaria (Ahorros), lo bastante grande para
+  // ser la cifra principal de su tarjeta, pero sin competir con el saldo hero de Hoy.
+  total: {
+    root: 'font-display font-bold text-[46px] leading-none tracking-[-0.04em]',
+    symbol: 'text-[0.4em] mt-[0.32em] mr-[0.12em] text-chalk-faint',
+    fraction: 'text-[0.44em] mt-[0.36em] ml-[0.05em]',
   },
   // Para el saldo de la nav: display, pero lo bastante chico como para no pelearle al hero.
   compact: {
