@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronRight, Plus } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { Plus } from 'lucide-react'
+import { Panel, CardHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
+import { Badge } from '@/components/ui/Badge'
+import { IconSquare } from '@/components/ui/IconSquare'
+import { AccordionHeader } from '@/components/ui/AccordionHeader'
+import { GroupHeader } from '@/components/ui/GroupHeader'
+import { KeyValueRow } from '@/components/ui/KeyValueRow'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { PendientesTabs } from '@/components/PendientesTabs'
-import { cn } from '@/lib/cn'
 import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
 import { agruparPorMesEsperado, summarizeReceivables, type ReceivableSummary } from '@/features/receivables/aggregate'
 import { ReceivableFormDialog } from '@/features/receivables/ReceivableFormDialog'
@@ -30,7 +33,7 @@ function ReceivableRow({
   const hasPartialPayments = paidCents > 0
 
   return (
-    <li className="flex items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-ink-850">
+    <li className="flex items-center gap-3 px-6 py-3 transition-colors duration-150 hover:bg-ink-850">
       <button
         type="button"
         onClick={onOpenDetail}
@@ -39,11 +42,11 @@ function ReceivableRow({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-[14px] text-chalk">{receivable.name}</p>
+            <p className="truncate text-[13.5px] font-semibold text-chalk">{receivable.name}</p>
             {receivable.already_expensed && (
-              <Chip className="shrink-0">
+              <Badge variant="outline" className="shrink-0">
                 {receivable.expense_transaction_id != null ? 'Descontado' : 'Ya cargado como gasto'}
-              </Chip>
+              </Badge>
             )}
           </div>
 
@@ -55,20 +58,17 @@ function ReceivableRow({
             <p className="mt-0.5 text-[12px] text-coral">
               Venció en {format(parseISO(receivable.expected_period), 'MMMM yyyy', { locale: es })}
             </p>
+          ) : receivable.note ? (
+            <p className="mt-0.5 truncate text-[12px] text-chalk-faint">{receivable.note}</p>
           ) : null}
         </div>
       </button>
 
-      <Money cents={pendingCents} tone="acid" />
+      <Money cents={pendingCents} tone="chalk" size="row" />
 
-      <button
-        type="button"
-        onClick={onRegisterPayment}
-        aria-label={`${receivable.name}: registrar abono`}
-        className="grid size-6 shrink-0 place-items-center rounded-chip bg-ink-800 text-chalk-faint transition-colors duration-150 hover:bg-ink-700 hover:text-chalk"
-      >
-        <Plus className="size-3" strokeWidth={1.5} aria-hidden />
-      </button>
+      <IconSquare onClick={onRegisterPayment} aria-label={`${receivable.name}: registrar abono`}>
+        <Plus className="size-3" strokeWidth={1.8} aria-hidden />
+      </IconSquare>
     </li>
   )
 }
@@ -136,9 +136,12 @@ export function MeDeben() {
       {isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : isPending ? (
-        <div className="flex flex-col gap-6">
-          <Skeleton className="h-32 w-full rounded-panel" />
-          <Skeleton className="h-48 w-full rounded-panel" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-40 w-full rounded-panel" />
+            <Skeleton className="h-14 w-full rounded-panel" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-panel" />
         </div>
       ) : !hasAny ? (
         <EmptyState
@@ -148,51 +151,78 @@ export function MeDeben() {
           action={<Button onClick={openNew}>Nueva deuda</Button>}
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          <Panel className="p-6 ring-1 ring-acid/15">
-            <p className="eyebrow">Te deben en total</p>
-            <Money cents={summary.totalPendingCents} tone="chalk" size="figure" className="mt-2" />
-            <dl className="mt-5 space-y-2 border-t border-ink-800 pt-4 text-[13px]">
-              <div className="flex justify-between gap-4">
-                <dt className="text-chalk-faint">Cuenta en tu saldo</dt>
-                <dd>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.6fr]">
+          <div className="flex flex-col gap-4">
+            <Panel className="p-6">
+              <p className="eyebrow">Te deben en total</p>
+              <Money cents={summary.totalPendingCents} tone="chalk" size="total" className="mt-2.5" />
+              <dl className="mt-4 flex flex-col gap-2 border-t border-divider pt-4 text-[13px]">
+                <KeyValueRow label={<span className="text-chalk-faint">Cuenta en tu saldo</span>}>
                   <Money cents={summary.contadoEnSaldoCents} tone="dim" />
-                </dd>
-              </div>
-              {summary.yaGastadoPendingCents > 0 && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Ya lo cargaste como gasto</dt>
-                  <dd>
+                </KeyValueRow>
+                {summary.yaGastadoPendingCents > 0 && (
+                  <KeyValueRow label={<span className="text-chalk-faint">Ya lo cargaste como gasto</span>}>
                     <Money cents={summary.yaGastadoPendingCents} tone="dim" />
-                  </dd>
-                </div>
-              )}
-              {summary.vencidasCount > 0 && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-chalk-faint">Vencidas</dt>
-                  <dd className="text-coral">{summary.vencidasCount}</dd>
-                </div>
-              )}
-            </dl>
-            <p className="mt-4 text-[12px] text-chalk-faint">
-              No suma al saldo proyectado: es plata que todavía no volvió.
-            </p>
-          </Panel>
+                  </KeyValueRow>
+                )}
+                {summary.vencidasCount > 0 && (
+                  <KeyValueRow label={<span className="text-chalk-faint">Vencidas</span>}>
+                    <span className="text-coral">{summary.vencidasCount}</span>
+                  </KeyValueRow>
+                )}
+              </dl>
+              <p className="mt-4 text-[12px] text-chalk-faint">
+                No suma al saldo proyectado: es plata que todavía no volvió.
+              </p>
+            </Panel>
 
-          <Panel>
-            <PanelHeader title="Pendientes" hint="Agrupadas por mes esperado de cobro" />
+            {summary.cobradas.length > 0 && (
+              <Panel className="p-5">
+                <AccordionHeader
+                  label={`Cobradas (${summary.cobradas.length})`}
+                  expanded={cobradasExpanded}
+                  onToggle={() => setCobradasExpanded((v) => !v)}
+                />
+                {cobradasExpanded && (
+                  <ul className="mt-3 -mx-5">
+                    {summary.cobradas.map((item) => (
+                      <li
+                        key={item.receivable.id}
+                        className="flex items-center gap-3 px-5 py-2.5 opacity-60 transition-colors duration-150 hover:bg-ink-850"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(item.receivable.id)}
+                          aria-label={`${item.receivable.name}: ver detalle`}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="truncate text-[13.5px] text-chalk-faint">{item.receivable.name}</p>
+                        </button>
+                        <Money cents={item.receivable.amountCents} tone="dim" size="row" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
+          </div>
+
+          <Panel className="flex flex-col">
+            <CardHeader
+              title="Pendientes"
+              action={<span className="text-[12px] text-fg-muted">Agrupadas por mes esperado de cobro</span>}
+            />
             {summary.pendientes.length === 0 ? (
-              <p className="px-6 pt-2 pb-4 text-[13px] text-chalk-faint">No tenés deudas pendientes.</p>
+              <p className="px-6 pt-2 pb-5 text-[13px] text-chalk-faint">No tenés deudas pendientes.</p>
             ) : (
               <div className="pb-3">
                 {groups.map((group) => (
                   <div key={group.period ?? 'sin-fecha'}>
-                    <div className="flex items-center gap-3 px-6 pt-4 pb-1">
-                      <p className="eyebrow flex-1 capitalize">
-                        {group.period ? format(parseISO(group.period), 'MMMM yyyy', { locale: es }) : 'Sin fecha'}
-                      </p>
-                      <Money cents={group.totalPendingCents} tone="dim" size="inline" />
-                    </div>
+                    <GroupHeader
+                      className="px-6 pt-4 pb-1"
+                      label={group.period ? format(parseISO(group.period), 'MMMM yyyy', { locale: es }) : 'Sin fecha'}
+                      total={<Money cents={group.totalPendingCents} tone="dim" size="row" />}
+                    />
                     <ul>
                       {group.items.map((item) => (
                         <ReceivableRow
@@ -208,44 +238,6 @@ export function MeDeben() {
               </div>
             )}
           </Panel>
-
-          {summary.cobradas.length > 0 && (
-            <Panel>
-              <button
-                type="button"
-                onClick={() => setCobradasExpanded((v) => !v)}
-                aria-expanded={cobradasExpanded}
-                className="eyebrow flex w-full items-center gap-1.5 px-6 pt-5 pb-3 text-left transition-colors duration-150 hover:text-chalk"
-              >
-                <ChevronRight
-                  className={cn('size-2.5 shrink-0 transition-transform duration-150', cobradasExpanded && 'rotate-90')}
-                  strokeWidth={1.5}
-                  aria-hidden
-                />
-                Cobradas ({summary.cobradas.length})
-              </button>
-              {cobradasExpanded && (
-                <ul className="pb-3">
-                  {summary.cobradas.map((item) => (
-                    <li
-                      key={item.receivable.id}
-                      className="flex items-center gap-3 px-6 py-3 opacity-60 transition-colors duration-150 hover:bg-ink-850"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setDetailId(item.receivable.id)}
-                        aria-label={`${item.receivable.name}: ver detalle`}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <p className="truncate text-[14px] text-chalk-faint">{item.receivable.name}</p>
-                      </button>
-                      <Money cents={item.receivable.amountCents} tone="dim" />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          )}
         </div>
       )}
 
