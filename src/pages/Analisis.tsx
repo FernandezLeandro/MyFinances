@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { format, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { CardHeader, Panel } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -54,15 +54,15 @@ export function Analisis() {
 
       <PeriodSelector value={period} onChange={setPeriod} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Panel className="p-6 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr]">
+        <Panel className="p-6">
           <p className="eyebrow">En qué se fue la plata</p>
 
           {spendQuery.isError ? (
             <ErrorState onRetry={() => spendQuery.refetch()} className="mt-4" />
           ) : spendQuery.isPending ? (
             <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-center">
-              <Skeleton className="mx-auto size-52 rounded-full" />
+              <Skeleton className="mx-auto size-[232px] rounded-full" />
               <div className="flex flex-col gap-4">
                 {[0, 1, 2].map((i) => (
                   <Skeleton key={i} className="h-5 w-full" />
@@ -76,9 +76,11 @@ export function Analisis() {
               <CategoryDonut
                 data={spend.map((s) => ({ categoryId: s.categoryId, categoryName: s.categoryName, color: s.color, cents: s.cents }))}
                 onSelect={goToCategory}
+                centerLabel="gasto del mes"
+                size={232}
               />
 
-              <ul className="flex flex-col gap-4">
+              <ul className="flex flex-col gap-3.5">
                 {spend.map((s, i) => {
                   const share = total > 0 ? s.cents / total : 0
                   return (
@@ -86,15 +88,15 @@ export function Analisis() {
                       <button
                         type="button"
                         onClick={() => goToCategory(s.categoryId)}
-                        className="flex w-full items-baseline justify-between gap-4 rounded-chip text-left transition-opacity hover:opacity-70"
+                        className="flex w-full items-baseline justify-between gap-3 rounded-chip text-left transition-opacity hover:opacity-70"
                       >
-                        <span className="flex items-center gap-2 text-[14px] text-chalk">
+                        <span className="flex items-center gap-2 text-[13.5px] text-chalk">
                           <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
                           {s.categoryName}
                         </span>
                         <span className="flex items-baseline gap-3">
                           <span className="tnum text-[12px] text-chalk-faint">{(share * 100).toFixed(0)}%</span>
-                          <Money cents={s.cents} tone={i === 0 ? 'chalk' : 'dim'} />
+                          <Money cents={s.cents} tone={i === 0 ? 'chalk' : 'dim'} size="row" />
                         </span>
                       </button>
                     </li>
@@ -126,7 +128,10 @@ export function Analisis() {
       </div>
 
       <Panel>
-        <PanelHeader title="Evolución mensual" hint="Ingresos y gastos, últimos 12 meses" />
+        <CardHeader
+          title="Evolución mensual"
+          action={<span className="text-[12px] text-fg-muted">Ingresos y gastos, últimos 12 meses</span>}
+        />
         <div className="px-4 pb-5">
           {seriesQuery.isError ? (
             <ErrorState onRetry={() => seriesQuery.refetch()} />
@@ -141,7 +146,10 @@ export function Analisis() {
       </Panel>
 
       <Panel>
-        <PanelHeader title="Tendencia de saldo" hint="Saldo acumulado al cierre de cada mes, últimos 12 meses" />
+        <CardHeader
+          title="Tendencia de saldo"
+          action={<span className="text-[12px] text-fg-muted">Saldo acumulado al cierre de cada mes, últimos 12 meses</span>}
+        />
         <div className="px-4 pb-5">
           {seriesQuery.isError ? (
             <ErrorState onRetry={() => seriesQuery.refetch()} />

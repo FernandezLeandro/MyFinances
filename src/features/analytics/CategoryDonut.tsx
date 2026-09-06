@@ -10,6 +10,28 @@ export interface DonutSlice {
   cents: number
 }
 
+/** Total del centro, redondeado al peso — mostrar los centavos ahí (como en el resto de la app)
+ *  hace que la cifra se coma el círculo con montos de más de 6 dígitos; el mockup tampoco los
+ *  muestra ("$ 264.334", sin decimales). */
+function formatWhole(cents: number): string {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(
+    cents / 100,
+  )
+}
+
+/**
+ * Tamaño de fuente del total central, en px. Un total de 9 cifras ("$ 2.660.512") es bastante más
+ * ancho que el "$ 264.334" del mockup — con un tamaño fijo se sale del agujero del donut. En vez de
+ * eso, se escala hacia abajo según el largo del texto (ancho de agujero ≈ 65% del diámetro, ancho
+ * de dígito tabular en Sora bold ≈ 0.6 veces el tamaño de fuente), con un piso legible.
+ */
+function fitFontSize(size: number, label: string): number {
+  const holeDiameter = size * 0.65
+  const maxFontSize = size * 0.125
+  const fitted = (holeDiameter * 0.82) / (label.length * 0.6)
+  return Math.max(13, Math.min(maxFontSize, fitted))
+}
+
 // Factory en vez de un componente fijo: el tooltip necesita el total para calcular el % de la
 // porción que se está mirando (depende de `data`, que varía por instancia del donut) y los colores
 // del tema activo — ninguno de los dos está disponible cuando Recharts instancia el tooltip solo.
@@ -36,14 +58,22 @@ function makeTooltip(totalCents: number, colors: ChartColorSet) {
 interface CategoryDonutProps {
   data: DonutSlice[]
   onSelect?: (categoryId: string) => void
+  /** Etiqueta bajo la cifra central, p.ej. "gasto del mes" (Análisis). Sin esto no se dibuja el
+   *  total en el centro — así `CompositionView` (Ahorros), que no lo necesita, no cambia. */
+  centerLabel?: string
+  /** Diámetro en px. 178 (el del mockup) por default, pensado para el uso angosto de
+   *  `CompositionView`. Análisis pide uno más grande para no verse chico al lado de la lista de
+   *  categorías, que en la práctica suele tener más de las 6 filas del mockup. */
+  size?: number
 }
 
-export function CategoryDonut({ data, onSelect }: CategoryDonutProps) {
+export function CategoryDonut({ data, onSelect, centerLabel, size = 178 }: CategoryDonutProps) {
   const colors = useChartColors()
   const totalCents = data.reduce((sum, s) => sum + s.cents, 0)
+  const totalLabel = formatWhole(totalCents)
 
   return (
-    <div className="h-52 w-full">
+    <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -54,8 +84,8 @@ export function CategoryDonut({ data, onSelect }: CategoryDonutProps) {
             cy="50%"
             startAngle={90}
             endAngle={-270}
-            innerRadius={64}
-            outerRadius={98}
+            innerRadius="65%"
+            outerRadius="99%"
             paddingAngle={data.length > 1 ? 3 : 0}
             stroke="none"
             onClick={onSelect ? (entry) => onSelect((entry as unknown as DonutSlice).categoryId) : undefined}
@@ -68,6 +98,17 @@ export function CategoryDonut({ data, onSelect }: CategoryDonutProps) {
           <Tooltip content={makeTooltip(totalCents, colors)} />
         </PieChart>
       </ResponsiveContainer>
+      {centerLabel && (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-3 text-center">
+          <span
+            className="tnum font-display font-bold text-chalk"
+            style={{ fontSize: fitFontSize(size, totalLabel), letterSpacing: '-0.03em', lineHeight: 1 }}
+          >
+            {totalLabel}
+          </span>
+          <span className="text-[10.5px] tracking-[0.08em] text-chalk-faint uppercase">{centerLabel}</span>
+        </div>
+      )}
     </div>
   )
 }

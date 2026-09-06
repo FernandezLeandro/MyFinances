@@ -1,5 +1,5 @@
-import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
+import { PillTab, PillTabs } from '@/components/ui/PillTabs'
 import { PERIOD_PRESET_LABELS, presetToRange, type Period, type PeriodPreset } from '@/features/analytics/period'
 
 const PRESETS: PeriodPreset[] = ['month', '3m', '6m', '12m', 'custom']
@@ -14,14 +14,14 @@ export function PeriodSelector({ value, onChange }: { value: Period; onChange: (
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap items-center gap-3">
+      <PillTabs>
         {PRESETS.map((preset) => (
-          <Chip key={preset} active={value.preset === preset} onClick={() => selectPreset(preset)}>
+          <PillTab key={preset} active={value.preset === preset} onClick={() => selectPreset(preset)}>
             {PERIOD_PRESET_LABELS[preset]}
-          </Chip>
+          </PillTab>
         ))}
-      </div>
+      </PillTabs>
 
       {value.preset === 'custom' && (
         <div className="flex items-center gap-2">
