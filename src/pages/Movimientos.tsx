@@ -164,8 +164,26 @@ export function Movimientos() {
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+      <header className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-4">
+        {/* Mobile: título a la izquierda, píldora de mes a la derecha, una sola fila — como en
+            `02 Movimientos.dc.html`. */}
+        <div className="flex items-center justify-between gap-3 lg:hidden">
+          <h1 className="font-display text-figure font-semibold">Movimientos</h1>
+          {filters.period.preset === 'month' ? (
+            <MonthNav
+              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
+              mobileLabel={format(parseISO(filters.period.anchor), 'MMMM', { locale: es })}
+              onPrev={() => shiftMonth(-1)}
+              onNext={() => shiftMonth(1)}
+            />
+          ) : (
+            <p className="text-[11.5px] text-fg-muted">{periodLabel(filters.period)}</p>
+          )}
+        </div>
+
+        {/* Escritorio: la píldora de mes arriba, chica, y el título grande debajo — como ya
+            estaba. */}
+        <div className="hidden lg:block">
           {filters.period.preset === 'month' ? (
             <MonthNav
               label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
@@ -177,6 +195,7 @@ export function Movimientos() {
           )}
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -294,11 +313,14 @@ export function Movimientos() {
             className="w-full lg:w-auto lg:min-w-[280px]"
           />
           <div className="flex flex-wrap items-center gap-2 lg:contents">
+            {/* `flex-1` en mobile: junto con Filtros, ocupa el mismo ancho que el buscador de
+                arriba — en escritorio vuelve a su tamaño natural, al lado del resto. */}
             <SegmentedToggle
               variant="pill"
               value={filters.type}
               onChange={(type) => setFilters((f) => ({ ...f, type }))}
               options={TYPE_OPTIONS}
+              className="flex-1 lg:flex-none"
             />
             <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
               <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />

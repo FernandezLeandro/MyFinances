@@ -46,6 +46,11 @@ export function SegmentedToggle<T extends string>({
           aria-pressed={value === opt.value}
           className={cn(
             'text-[12px] transition-colors duration-150',
+            // `pill` reparte el ancho de la pista entre sus opciones cuando la pista crece (ver
+            // `className="flex-1 lg:flex-none"` del consumidor en Movimientos) — en escritorio
+            // vuelve a medir lo que mide cada palabra, si no una pista `flex-none` (sin ancho
+            // propio que repartir) con hijas de `flex-basis:0` no tiene de dónde sacar su tamaño.
+            variant === 'pill' && 'flex-1 text-center lg:flex-none',
             value === opt.value ? optionClass[variant].active : optionClass[variant].inactive,
           )}
         >
