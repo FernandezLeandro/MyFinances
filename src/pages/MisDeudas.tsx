@@ -12,7 +12,6 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
-import { PendientesTabs } from '@/components/PendientesTabs'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { ProgresoGuardado } from '@/features/credits/ProgresoGuardado'
 import { cn } from '@/lib/cn'
@@ -315,11 +314,10 @@ export function MisDeudas() {
             onNext={() => setMonth((m) => addMonths(m, 1))}
           />
           <h1 className="mt-2 font-display text-figure font-semibold">Mis Deudas</h1>
-          <div className="mt-3">
-            <PendientesTabs />
-          </div>
         </div>
 
+        {/* Ya no hay tabs Fijos/Mis Deudas/Me Deben acá — cada pantalla se navega desde el nav
+            general, no cruzando entre sí (mismo cambio que ya se hizo en Fijos). */}
         <div className="flex gap-2">
           <Button variant="outline" size="compact" onClick={openNewCard} className="flex-1 lg:flex-none">
             Nueva tarjeta
@@ -327,10 +325,6 @@ export function MisDeudas() {
           <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNewPurchase} className="flex-1 lg:flex-none">
             Nueva compra
           </Button>
-        </div>
-
-        <div className="lg:hidden">
-          <PendientesTabs />
         </div>
       </header>
 

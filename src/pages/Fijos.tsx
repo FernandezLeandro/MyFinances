@@ -342,24 +342,26 @@ export function Fijos() {
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
         </div>
 
+        {/* Los dos botones visibles en las dos resoluciones, uno al lado del otro — mismo patrón que
+            Mis Deudas: el FAB de la isla abre "nuevo movimiento", no crea un fijo ni togglea
+            Pausados, así que ninguno de los dos puede depender de él en mobile. */}
         <div className="flex items-center gap-2">
-          {/* Pausados sólo en escritorio: en mobile ya está el mismo toggle en el aviso del rail más
-              abajo, no hace falta duplicarlo acá. "Nuevo fijo" sí tiene que quedar en las dos — el FAB
-              de la isla abre "nuevo movimiento", no crea un fijo, así que sin este botón mobile se
-              quedaba sin ningún camino para dar de alta uno (mismo error que se coló en Mis Deudas). */}
-          <div className="hidden lg:block">
-            <Button
-              variant="outline"
-              size="compact"
-              onClick={() => setShowPaused((v) => !v)}
-              aria-pressed={showPaused}
-              icon={<Pause className="size-3" fill="currentColor" strokeWidth={1.6} aria-hidden />}
-              className={cn(showPaused && 'border-border-strong bg-fill-subtle text-fg')}
-            >
-              Pausados
-            </Button>
-          </div>
-          <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew} className="flex-1 lg:flex-none">
+          <Button
+            variant="outline"
+            size="compact"
+            onClick={() => setShowPaused((v) => !v)}
+            aria-pressed={showPaused}
+            icon={<Pause className="size-3" fill="currentColor" strokeWidth={1.6} aria-hidden />}
+            className={cn('flex-1 lg:flex-none', showPaused && 'border-border-strong bg-fill-subtle text-fg')}
+          >
+            Pausados
+          </Button>
+          <Button
+            size="compact"
+            icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
+            onClick={openNew}
+            className="flex-1 lg:flex-none"
+          >
             Nuevo fijo
           </Button>
         </div>
