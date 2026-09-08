@@ -35,7 +35,7 @@ export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) 
         </button>
       </div>
 
-      <div className="flex items-center gap-1 rounded-pill bg-fill-subtle p-1 text-[13px] font-semibold text-fg lg:hidden">
+      <div className="flex items-center gap-1 rounded-pill bg-fill-subtle p-px text-[13px] font-semibold text-fg lg:hidden">
         <button
           type="button"
           onClick={onPrev}
