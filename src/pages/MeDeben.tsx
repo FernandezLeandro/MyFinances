@@ -242,10 +242,15 @@ export function MeDeben() {
                 Ya te devolvieron <Money cents={summary.totalReturnedCents} tone="dim" size="inline" /> de{' '}
                 <Money cents={summary.totalLentCents} tone="dim" size="inline" /> prestados
               </p>
-              <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-divider pt-3.5">
+              {/* Sólo Vencido/Este mes acá — "Más adelante" ya se ve agrupado más abajo en la lista,
+                  y con las tres cifras compitiendo por 342px de ancho un importe grande (6-7
+                  cifras) no tenía dónde entrar y se solapaba con la de al lado (ver feedback de
+                  Lean). `flex-wrap`, no `grid-cols-2`, por el mismo motivo que en Fijos: los
+                  números no cortan, así que la que no entra tiene que bajar entera a su propio
+                  renglón en vez de superponerse. */}
+              <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-2 border-t border-divider pt-3.5">
                 <HeroStat label="Vencido" cents={vencidoCents} tone={vencidoCents > 0 ? 'negative' : 'fg'} />
                 <HeroStat label="Este mes" cents={esteMesCents} tone="fg" />
-                <HeroStat label="Después" cents={masAdelanteCents} tone="fg" />
               </div>
             </div>
 
@@ -265,7 +270,9 @@ export function MeDeben() {
                 Ya te devolvieron <Money cents={summary.totalReturnedCents} tone="dim" size="inline" /> de{' '}
                 <Money cents={summary.totalLentCents} tone="dim" size="inline" /> prestados
               </p>
-              <div className="mt-4 flex gap-8">
+              {/* `flex-wrap`, no un `flex` fijo: acá hay más aire que en mobile, pero con las tres
+                  cifras sin envolver un importe de 6-7 dígitos igual puede quedarse sin lugar. */}
+              <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
                 <HeroStat
                   label="Vencido"
                   cents={vencidoCents}
