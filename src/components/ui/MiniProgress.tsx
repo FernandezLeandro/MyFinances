@@ -18,7 +18,7 @@ const toneClasses: Record<MiniProgressTone, string> = {
 
 const trackClasses: Record<MiniProgressSize, string> = {
   inline: 'h-1 w-14 shrink-0',
-  wide: 'h-1.5 w-28 shrink-0 lg:w-64',
+  wide: 'h-1.5 w-28 shrink-0 lg:w-48',
   bar: 'h-1.5 w-full',
 }
 

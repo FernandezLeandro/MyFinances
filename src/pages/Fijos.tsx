@@ -130,16 +130,6 @@ function FixedExpenseRow({
         </Badge>
       )}
 
-      {/* Bolsa sin completar: en desktop "Resta" aclara que el importe de la derecha es lo que
-          falta, no lo pagado ("Falta" pide un sujeto que acá no está). En mobile se saca — la fila
-          ya viene ajustada de ancho y esos ~40px se los cede a la barra, que es el dato que Lean
-          quiere ver grande; el número solo, sin la etiqueta, sigue siendo legible ahí. Completa o
-          en un fijo único no hace falta ninguna de las dos: "Completo" ya lo dice, y el único
-          siempre muestra su total. `shrink-0` para que nunca se achique contra el nombre. */}
-      {fe.is_recurring && !done && !overspent && (
-        <span className="hidden shrink-0 text-[11.5px] whitespace-nowrap text-fg-muted lg:inline">Resta</span>
-      )}
-
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
           curso ambos suelen coincidir, pero en un mes pasado pueden diferir. Bolsa: lo que resta
           mientras falte, lo cargado una vez completa (el excedente ya se ve en la línea de arriba). */}
@@ -500,16 +490,21 @@ export function Fijos() {
 
             {bolsaStatuses.length > 0 && (
               <Panel>
-                {/* El hint ("se cargan durante el mes") sale en mobile: título + total ya casi no
-                    entran en una fila a 390px, y es el detalle menos importante de los tres. */}
+                {/* El total vuelve a estar pegado al título (antes vivía solo, empujado al borde
+                    derecho por el `justify-between`) — el hint sale en mobile, y a la derecha queda
+                    "Resta" como encabezado de columna, alineado con el importe de cada fila (mismo
+                    `w-24` que el `Money` de abajo) en vez de repetirse fila por fila. */}
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-6 pt-5 pb-2">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                     <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas mensuales</h2>
+                    <span className="text-[13px] font-semibold whitespace-nowrap text-fg">
+                      <Money cents={bolsaPaidCents} size="inline" hidden={balanceHidden} /> de{' '}
+                      <Money cents={bolsaTotalCents} size="inline" tone="dim" hidden={balanceHidden} />
+                    </span>
                     <span className="hidden text-[11.5px] text-fg-muted lg:inline">se cargan durante el mes</span>
                   </div>
-                  <span className="text-[14px] font-semibold whitespace-nowrap text-fg">
-                    <Money cents={bolsaPaidCents} size="inline" hidden={balanceHidden} /> de{' '}
-                    <Money cents={bolsaTotalCents} size="inline" tone="dim" hidden={balanceHidden} />
+                  <span className="w-24 shrink-0 text-right text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
+                    Resta
                   </span>
                 </div>
                 <ul className="pb-3">
