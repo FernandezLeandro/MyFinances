@@ -1,6 +1,10 @@
 import { SummaryPanel, type SummaryRow } from '@/components/ui/SummaryPanel'
 
 interface SaldoProyectadoPanelProps {
+  /** "Saldo proyectado a fin de mes" (default, Fijos) — Hoy pasa el título más corto del hero
+   *  ("Proyectado a fin de mes"), que ya tiene su propio "Saldo actual" arriba y no necesita
+   *  repetir la palabra. */
+  title?: string
   projectedCents: number | undefined
   isPending: boolean
   currentBalanceCents: number
@@ -27,6 +31,7 @@ interface SaldoProyectadoPanelProps {
  * acento (`accent`) sobre una tarjeta normal.
  */
 export function SaldoProyectadoPanel({
+  title = 'Saldo proyectado a fin de mes',
   projectedCents,
   isPending,
   currentBalanceCents,
@@ -50,7 +55,7 @@ export function SaldoProyectadoPanel({
 
   return (
     <SummaryPanel
-      title="Saldo proyectado a fin de mes"
+      title={title}
       cents={projectedCents}
       isPending={isPending}
       hidden={hidden}

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import { format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import { endOfMonth, format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
-import { Panel, CardHeader } from '@/components/ui/Panel'
+import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
@@ -10,6 +10,7 @@ import { Stat, StatRow } from '@/components/ui/Stat'
 import { StackedBar } from '@/components/ui/StackedBar'
 import { KeyValueRow } from '@/components/ui/KeyValueRow'
 import { GroupHeader } from '@/components/ui/GroupHeader'
+import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -18,7 +19,13 @@ import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
-import { useCurrentBalance, useMonthlySummary, useRecentTransactions, type Transaction } from '@/features/transactions/api'
+import {
+  useCurrentBalance,
+  useMonthlySummary,
+  useSpendByCategory,
+  useTransactions,
+  type Transaction,
+} from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
 import { useBalanceLocations } from '@/features/reconciliation/api'
@@ -32,18 +39,17 @@ import {
   useStandalonePurchases,
 } from '@/features/credits/api'
 import { useFixedExpensePayments, useFixedExpenses, useProjectedBalance } from '@/features/fixed-expenses/api'
-import { summarizeFixedExpenses } from '@/features/fixed-expenses/aggregate'
-import { useSavingsBuckets, useSavingsEntries } from '@/features/savings/api'
-import { summarizePortfolio } from '@/features/savings/aggregate'
-import { NetAmount } from '@/features/savings/NetAmount'
-import { useAssets } from '@/features/assets/api'
-import { useAssetPrices } from '@/features/fx/api'
-import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
-import { summarizeReceivables } from '@/features/receivables/aggregate'
+import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
 
-/** "Hoy" / "Ayer" / el nombre del día — Movimientos agrupa por fecha exacta porque ahí importa
- *  ubicarse en el calendario; acá alcanza con lo reciente, así el teaser de 6 movimientos no repite
- *  la fecha completa en cada fila. */
+// `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
+// la app (ver el comentario de `App.tsx`) — cargarlo de arriba le sumaba ~300kB gzip al bundle
+// inicial que paga cualquiera que abra la app, incluso sin llegar a mirar el donut.
+const CategoryDonut = lazy(() =>
+  import('@/features/analytics/CategoryDonut').then((m) => ({ default: m.CategoryDonut })),
+)
+
+/** "Hoy" / "Ayer" / el nombre del día — alcanza con lo reciente, así la lista no repite la fecha
+ *  completa en cada fila. */
 function dayLabel(occurredOn: string, today: Date): string {
   const date = parseISO(occurredOn)
   if (isSameDay(date, today)) return 'Hoy'
@@ -51,36 +57,48 @@ function dayLabel(occurredOn: string, today: Date): string {
   return format(date, "EEEE d 'de' MMMM", { locale: es })
 }
 
+const urgencyBadgeVariant: Record<FixedExpenseUrgency, 'red' | 'amber' | 'neutral'> = {
+  red: 'red',
+  amber: 'amber',
+  neutral: 'neutral',
+}
+
+const urgencyDotClass: Record<FixedExpenseUrgency, string> = {
+  red: 'bg-negative',
+  amber: 'bg-badge-amber-fg',
+  neutral: 'bg-border-strong',
+}
+
+function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
+  if (urgency === 'red') return 'Venció'
+  if (urgency === 'amber') return 'Esta semana'
+  return `Vence el ${dueDay}`
+}
+
 export function Hoy() {
   const [open, setOpen] = useState(false)
   const [cuadrarOpen, setCuadrarOpen] = useState(false)
-  const period = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const today = new Date()
+  const monthStart = format(startOfMonth(today), 'yyyy-MM-dd')
+  const monthEnd = format(endOfMonth(today), 'yyyy-MM-dd')
 
   const balance = useCurrentBalance()
-  const summary = useMonthlySummary(period)
-  const recent = useRecentTransactions(6)
+  const summary = useMonthlySummary(monthStart)
+  const monthTransactions = useTransactions({ from: monthStart, to: monthEnd })
+  const spendQuery = useSpendByCategory(monthStart, monthEnd)
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(monthStart)
   const { data: fixedExpenses } = useFixedExpenses()
-  const { data: fixedPayments } = useFixedExpensePayments(period)
+  const { data: fixedPayments } = useFixedExpensePayments(monthStart)
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
-  const { data: installments } = useCreditInstallments(period)
-  const { data: savings } = useCreditCardSavings(period)
-  const { data: cardPayments } = useCreditCardPayments(period)
-  const { data: purchasePayments } = useCreditPurchasePayments(period)
-
-  // Teaser de Ahorros: mismos datos y misma cuenta que la pantalla completa (`summarizePortfolio`),
-  // así el total de acá nunca puede desincronizarse del de Ahorros.
-  const { data: buckets, isPending: isBucketsPending } = useSavingsBuckets()
-  const { data: entries, isPending: isEntriesPending } = useSavingsEntries()
-  const { data: assets, isPending: isAssetsPending } = useAssets()
-  const prices = useAssetPrices()
-  const { data: receivables } = useReceivables()
-  const { data: receivablePayments } = useReceivablePayments()
+  const { data: installments } = useCreditInstallments(monthStart)
+  const { data: savings } = useCreditCardSavings(monthStart)
+  const { data: cardPayments } = useCreditCardPayments(monthStart)
+  const { data: purchasePayments } = useCreditPurchasePayments(monthStart)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
@@ -97,38 +115,45 @@ export function Hoy() {
       ),
     [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
-  // Misma función que Fijos.tsx: así "cuántos fijos faltan pagar" cuenta exactamente igual en las
-  // dos pantallas, bolsas a medio gastar incluidas.
+  const unpaidCards = misDeudasSummary.perCard.filter((c) => !c.paid)
+  const unpaidStandalone = misDeudasSummary.standalone.filter((s) => !s.paid)
+  const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
+
   const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], new Date(), new Date()),
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
     [fixedExpenses, fixedPayments],
   )
-  const unpaidDebtsCount =
-    misDeudasSummary.perCard.filter((c) => !c.paid).length + misDeudasSummary.standalone.filter((s) => !s.paid).length
 
-  const isSavingsPending = isBucketsPending || isEntriesPending || isAssetsPending
-  const portfolio = useMemo(
-    () => summarizePortfolio(buckets ?? [], entries ?? [], assets ?? [], prices),
-    [buckets, entries, assets, prices],
+  // Sólo lo que realmente "vence" — una bolsa mensual no tiene día de vencimiento, así que no
+  // compite acá con los fijos de una sola vez (ver `fixedExpenseUrgency`).
+  const upcoming = useMemo(
+    () =>
+      pendingFixed
+        .filter((s) => s.fe.due_day != null)
+        .sort((a, b) => (a.fe.due_day ?? 0) - (b.fe.due_day ?? 0))
+        .slice(0, 4),
+    [pendingFixed],
   )
-  const assetById = useMemo(() => new Map((assets ?? []).map((a) => [a.id, a])), [assets])
-  const teaserBuckets = portfolio.perBucket.filter((b) => b.bucket.include_in_total)
-  const receivablesSummary = useMemo(
-    () => summarizeReceivables(receivables ?? [], receivablePayments ?? [], new Date()),
-    [receivables, receivablePayments],
-  )
+
+  // "Comprometido" = lo mismo que resta el saldo proyectado (fijos + deudas pendientes) — así la
+  // barra de esta tarjeta y la del panel oscuro nunca pueden desincronizarse entre sí.
+  const committedCents = pendingFixedTotal + misDeudasSummary.totalPendingCents
+  const currentBalanceCents = balance.data ?? 0
+  const committedPct = currentBalanceCents > 0 ? Math.min((committedCents / currentBalanceCents) * 100, 100) : 0
+  const freePct = 100 - committedPct
 
   const groupedRecent = useMemo(() => {
-    const today = new Date()
     const groups = new Map<string, Transaction[]>()
-    for (const tx of recent.data ?? []) {
+    for (const tx of monthTransactions.data ?? []) {
       const label = dayLabel(tx.occurred_on, today)
       const list = groups.get(label) ?? []
       list.push(tx)
       groups.set(label, list)
     }
     return [...groups.entries()]
-  }, [recent.data])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
+  }, [monthTransactions.data])
 
   const totalIncome = summary.data?.totalIncome ?? 0
   const totalExpense = summary.data?.totalExpense ?? 0
@@ -136,162 +161,311 @@ export function Hoy() {
   const incomePct = totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0
   const expensePct = totalFlow > 0 ? (totalExpense / totalFlow) * 100 : 0
 
+  const monthLabel = format(today, 'MMMM', { locale: es })
+  const spend = spendQuery.data ?? []
+  const spendTotal = spend.reduce((acc, s) => acc + s.cents, 0)
+
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr_1fr] lg:grid-rows-[auto_auto]">
-      {/* Saldo actual */}
-      <Panel className="flex flex-col p-7 lg:row-span-2">
-        <div className="flex items-center gap-2">
-          <p className="eyebrow">Saldo actual</p>
-          <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="saldo" />
+    <div className="flex flex-col gap-4">
+      {/* Saldo actual — la única cifra que contesta "cuánto me queda para gastar". */}
+      <Panel className="flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:gap-11 lg:p-7">
+        <div className="flex-none">
+          <div className="flex items-center gap-2">
+            <p className="eyebrow">Saldo actual</p>
+            <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="saldo" />
+          </div>
+          {balance.isPending ? (
+            <Skeleton className="mt-3 h-12 w-56 lg:h-16 lg:w-64" />
+          ) : (
+            <Money cents={animatedBalance} tone="accent" size="hero" className="mt-2 -ml-1 lg:mt-3" hidden={balanceHidden} />
+          )}
         </div>
 
-        {balance.isPending ? (
-          <Skeleton className="mt-4 h-16 w-64" />
-        ) : (
-          <Money cents={animatedBalance} tone="accent" size="hero" className="mt-3 -ml-1" hidden={balanceHidden} />
-        )}
-
-        <div className="mt-7 border-t border-divider pt-6">
-          <p className="eyebrow">Flujo del mes</p>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow lg:hidden">Flujo del mes</p>
           {summary.isPending ? (
             <Skeleton className="mt-3 h-3 w-full" />
           ) : (
             <StackedBar
-              className="mt-3"
+              className="mt-2 lg:mt-0"
               segments={[
                 { pct: incomePct, color: 'var(--color-accent)' },
                 { pct: expensePct, color: 'var(--color-negative)' },
               ]}
             />
           )}
-          <StatRow className="mt-3.5">
+          <StatRow className="mt-3.5 gap-6 lg:gap-8">
             <Stat label="Ingresos">
               {summary.isPending ? (
-                <Skeleton className="h-7 w-24" />
+                <Skeleton className="h-6 w-20 lg:h-7 lg:w-24" />
               ) : (
                 <Money cents={totalIncome} tone="fg" size="figure" hidden={balanceHidden} />
               )}
             </Stat>
             <Stat label="Gastos">
               {summary.isPending ? (
-                <Skeleton className="h-7 w-24" />
+                <Skeleton className="h-6 w-20 lg:h-7 lg:w-24" />
               ) : (
                 <Money cents={totalExpense} tone="negative" size="figure" hidden={balanceHidden} />
+              )}
+            </Stat>
+            {/* Sólo en escritorio: en mobile la misma cifra ya es el titular de la tarjeta oscura
+                de abajo, mostrarla acá también sería redundante en un espacio más chico. */}
+            <Stat label="Libre tras compromisos" className="hidden lg:block">
+              {isProjectedPending ? (
+                <Skeleton className="h-7 w-24" />
+              ) : (
+                <Money cents={projectedBalance ?? 0} tone="fg" size="figure" hidden={balanceHidden} />
               )}
             </Stat>
           </StatRow>
         </div>
 
-        {/* Apilados full-width en mobile (nunca se desbordan) y repartiéndose el ancho disponible
-            50/50 de `sm:` para arriba — así "Cuadrar saldo" no queda pegado a la izquierda con
-            aire libre a la derecha. */}
-        <div className="mt-6 flex w-full flex-col gap-2.5 sm:flex-row">
-          <Button
-            className="w-full sm:flex-1"
-            icon={<span className="text-base leading-none">+</span>}
-            onClick={() => setOpen(true)}
-          >
-            Nuevo movimiento
-          </Button>
-          <Button variant="outline" className="w-full sm:flex-1" onClick={() => setCuadrarOpen(true)}>
+        {/* Sólo escritorio — en mobile el `+` de la isla ya cubre "nuevo movimiento", y duplicar el
+            CTA acá no aporta (ver la nota de "Cuadrar saldo" en mobile en el reporte del bloque). */}
+        <div className="hidden flex-none flex-col gap-2 lg:flex lg:w-[186px]">
+          <Button onClick={() => setOpen(true)}>+ Nuevo movimiento</Button>
+          <Button variant="outline" onClick={() => setCuadrarOpen(true)}>
             Cuadrar saldo
           </Button>
         </div>
       </Panel>
 
-      {/* Proyectado a fin de mes */}
-      <SaldoProyectadoPanel
-        projectedCents={projectedBalance}
-        isPending={isProjectedPending}
-        currentBalanceCents={balance.data ?? 0}
-        pendingFixedCount={pendingFixed.length}
-        pendingFixedCents={pendingFixedTotal}
-        unpaidDebtsCount={unpaidDebtsCount}
-        unpaidDebtsCents={misDeudasSummary.totalPendingCents}
-        hidden={balanceHidden}
-        hideWhenNothingPending
-      />
+      {/* Proyectado · En qué se fue el mes · Vencimientos — desktop, tres tarjetas iguales. */}
+      <div className="hidden gap-4 lg:grid lg:grid-cols-3">
+        <SaldoProyectadoPanel
+          title="Proyectado a fin de mes"
+          projectedCents={projectedBalance}
+          isPending={isProjectedPending}
+          currentBalanceCents={currentBalanceCents}
+          pendingFixedCount={pendingFixed.length}
+          pendingFixedCents={pendingFixedTotal}
+          unpaidDebtsCount={unpaidDebtsCount}
+          unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+          hidden={balanceHidden}
+        />
 
-      {/* Ahorros — se omite en mobile, igual que en el mockup: no entra sin apretar el resto. */}
-      <Panel className="hidden flex-col p-6 lg:flex">
-        <p className="eyebrow">Ahorros</p>
-        {isSavingsPending ? (
-          <Skeleton className="mt-2 h-8 w-32" />
-        ) : portfolio.totalValueCents == null ? (
-          <p className="mt-2 text-[13px] text-fg-muted">Cotización no disponible</p>
-        ) : (
-          <Money cents={portfolio.totalValueCents} tone="fg" size="figure" className="mt-2" hidden={balanceHidden} />
-        )}
+        <Panel className="p-[22px]">
+          <p className="eyebrow">En qué se fue el mes</p>
+          {spendQuery.isError ? (
+            <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
+          ) : spendQuery.isPending ? (
+            <div className="mt-3.5 flex items-center gap-4">
+              <Skeleton className="size-[86px] shrink-0 rounded-full" />
+              <div className="flex flex-1 flex-col gap-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-4 w-full" />
+                ))}
+              </div>
+            </div>
+          ) : spend.length === 0 ? (
+            <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos este mes.</p>
+          ) : (
+            <div className="mt-3.5 flex items-center gap-4">
+              <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
+                <CategoryDonut data={spend} size={86} />
+              </Suspense>
+              <ul className="flex min-w-0 flex-1 flex-col gap-2">
+                {spend.slice(0, 4).map((s) => (
+                  <li key={s.categoryId} className="flex items-center gap-2">
+                    <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
+                    <span className="tnum text-[12px] font-semibold text-fg-secondary">
+                      {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Panel>
 
-        <dl className="mt-4 flex flex-col gap-2.5 text-[12.5px]">
-          {teaserBuckets.map((b) => {
-            const net = b.nets.find((n) => n.quantityUnits !== 0)
-            const asset = net ? assetById.get(net.assetId) : undefined
-            return (
-              <KeyValueRow key={b.bucket.id} label={<span className="text-fg-secondary">{b.bucket.name}</span>}>
-                {net && asset ? (
-                  <NetAmount net={net} asset={asset} tone="fg" hidden={balanceHidden} />
-                ) : (
-                  <Money cents={b.valueCents ?? 0} tone="fg" hidden={balanceHidden} />
-                )}
-              </KeyValueRow>
-            )
-          })}
-          <KeyValueRow label={<span className="text-fg-secondary">Me deben</span>} divider>
-            <Money cents={receivablesSummary.totalPendingCents} tone="fg" hidden={balanceHidden} />
-          </KeyValueRow>
-        </dl>
-      </Panel>
+        <Panel className="p-[22px]">
+          <div className="flex items-baseline justify-between">
+            <p className="eyebrow">Vencimientos</p>
+            <Link to="/fijos" className="text-[12px] font-semibold text-accent-text">
+              Ver fijos
+            </Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
+          ) : (
+            <ul className="mt-2.5 flex flex-col">
+              {upcoming.map((status) => {
+                const dueDay = status.fe.due_day as number
+                const urgency = fixedExpenseUrgency(dueDay, today)
+                return (
+                  <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                    <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{status.fe.name}</span>
+                    <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
+                    <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+      </div>
 
-      {/* Últimos movimientos */}
-      <Panel className="flex flex-col lg:col-span-2">
-        <CardHeader
-          title="Últimos movimientos"
-          action={
-            <Link to="/movimientos" className="text-[13px] font-semibold text-accent-text">
+      {/* Libre después de compromisos (con proyectado al pie) · Próximos vencimientos — mobile. */}
+      <div className="flex flex-col gap-4 lg:hidden">
+        <Panel tone="inverse" className="p-[18px]">
+          <p className="eyebrow" style={{ color: 'var(--color-on-inverse-muted)' }}>
+            Libre después de compromisos
+          </p>
+          <div className="mt-1 flex items-baseline gap-2">
+            {isProjectedPending ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <Money cents={projectedBalance ?? 0} tone="onInverse" size="figure" hidden={balanceHidden} />
+            )}
+            <span className="text-[11.5px] font-semibold text-on-inverse-muted">
+              de <Money cents={currentBalanceCents} tone="onInverseSecondary" hidden={balanceHidden} />
+            </span>
+          </div>
+          <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
+            <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
+            <div className="h-full bg-accent-text" style={{ width: `${freePct}%` }} />
+          </div>
+          <div className="mt-3 flex justify-between text-[12.5px]">
+            <span className="text-on-inverse-secondary">Proyectado a fin de mes</span>
+            <Money cents={projectedBalance ?? 0} tone="onInverse" hidden={balanceHidden} />
+          </div>
+        </Panel>
+
+        <Panel className="p-[18px]">
+          <div className="flex items-baseline justify-between">
+            <p className="eyebrow">Próximos vencimientos</p>
+            <Link to="/fijos" className="text-[11.5px] font-semibold text-accent-text">
               Ver todos
             </Link>
-          }
-        />
-        {recent.isError ? (
-          <ErrorState onRetry={() => recent.refetch()} />
-        ) : recent.isPending ? (
-          <ul className="flex flex-col gap-1 px-6 pb-5">
-            {[0, 1, 2].map((i) => (
-              <li key={i} className="flex items-center gap-3 py-2.5">
-                <Skeleton className="size-2 shrink-0 rounded-full" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-20" />
-              </li>
-            ))}
-          </ul>
-        ) : recent.data && recent.data.length > 0 ? (
-          <div className="flex flex-col gap-1 pb-4">
-            {groupedRecent.map(([label, txs]) => (
-              <div key={label}>
-                <GroupHeader label={label} className="px-6 pt-2.5 pb-1" />
-                <ul>
-                  {txs.map((tx) => (
-                    <TransactionRow
-                      key={tx.id}
-                      tx={tx}
-                      category={categoryById.get(tx.category_id ?? '')}
-                      account={accountById.get(tx.account_id ?? '')}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
-        ) : (
-          <EmptyState
-            glyph="∅"
-            title="Todavía no cargaste nada"
-            hint="Arrancá con tu primer ingreso o gasto del día."
-            action={<Button onClick={() => setOpen(true)}>Nuevo movimiento</Button>}
-          />
-        )}
-      </Panel>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
+          ) : (
+            <ul className="mt-2.5 flex flex-col">
+              {upcoming.map((status) => {
+                const dueDay = status.fe.due_day as number
+                const urgency = fixedExpenseUrgency(dueDay, today)
+                return (
+                  <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                    <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
+                    <span className="text-[13px] font-semibold text-fg">{status.fe.name}</span>
+                    <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
+                    <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto" hidden={balanceHidden} />
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
+      {/* Movimientos del mes · rail derecho (Libre + Mis deudas, sólo escritorio). */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
+        <Panel className="flex flex-col p-[22px]">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-[15px] font-semibold text-fg">
+              Movimientos de {monthLabel}
+            </h2>
+            <Link to="/movimientos" className="text-[12px] font-semibold text-accent-text">
+              Ver todos
+            </Link>
+          </div>
+
+          {monthTransactions.isError ? (
+            <ErrorState onRetry={() => monthTransactions.refetch()} className="mt-4" />
+          ) : monthTransactions.isPending ? (
+            <ul className="mt-4 flex flex-col gap-1">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="flex items-center gap-3 py-2.5">
+                  <Skeleton className="size-2 shrink-0 rounded-full" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-20" />
+                </li>
+              ))}
+            </ul>
+          ) : groupedRecent.length > 0 ? (
+            <div className="mt-3 flex flex-col gap-1">
+              {groupedRecent.map(([label, txs]) => (
+                <div key={label}>
+                  <GroupHeader label={label} className="pt-2 pb-1" />
+                  <ul>
+                    {txs.map((tx) => (
+                      <TransactionRow
+                        key={tx.id}
+                        tx={tx}
+                        category={categoryById.get(tx.category_id ?? '')}
+                        account={accountById.get(tx.account_id ?? '')}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              glyph="∅"
+              title="Todavía no cargaste nada este mes"
+              hint="Arrancá con tu primer ingreso o gasto del día."
+              action={<Button onClick={() => setOpen(true)}>Nuevo movimiento</Button>}
+              className="mt-4"
+            />
+          )}
+        </Panel>
+
+        <div className="hidden flex-col gap-4 lg:flex">
+          <Panel className="p-[22px]">
+            <p className="eyebrow">Libre después de compromisos</p>
+            {isProjectedPending ? (
+              <Skeleton className="mt-2 h-7 w-32" />
+            ) : (
+              <Money cents={projectedBalance ?? 0} tone="fg" size="figure" className="mt-1.5" hidden={balanceHidden} />
+            )}
+            <div className="mt-3.5 flex h-[7px] overflow-hidden rounded-pill bg-fill-subtle">
+              <div className="h-full bg-negative" style={{ width: `${committedPct}%` }} />
+              <div className="h-full bg-accent" style={{ width: `${freePct}%` }} />
+            </div>
+            <dl className="mt-3 flex flex-col gap-1.5">
+              <KeyValueRow label={<span className="text-fg-secondary">Comprometido</span>}>
+                <Money cents={committedCents} tone="fg" hidden={balanceHidden} />
+              </KeyValueRow>
+              <KeyValueRow label={<span className="text-fg-secondary">Saldo actual</span>}>
+                <Money cents={currentBalanceCents} tone="fg" hidden={balanceHidden} />
+              </KeyValueRow>
+            </dl>
+          </Panel>
+
+          {(unpaidCards.length > 0 || unpaidStandalone.length > 0) && (
+            <Panel className="p-[22px]">
+              <div className="flex items-baseline justify-between">
+                <p className="eyebrow">Mis deudas</p>
+                <Money cents={misDeudasSummary.totalPendingCents} tone="fg" size="row" hidden={balanceHidden} />
+              </div>
+              <ul className="mt-3 flex flex-col gap-2.5">
+                {unpaidCards.map((c) => (
+                  <li key={c.card.id} className="flex items-center gap-2.5">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{c.card.name}</span>
+                    <span className="text-[11.5px] text-fg-muted">
+                      {c.items.length} cuota{c.items.length === 1 ? '' : 's'}
+                    </span>
+                    <Money cents={c.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                  </li>
+                ))}
+                {unpaidStandalone.map((s) => (
+                  <li key={s.purchase.id} className="flex items-center gap-2.5">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
+                      {s.purchase.description}
+                    </span>
+                    <Money cents={s.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+        </div>
+      </div>
 
       {/* Montado sólo mientras está abierto: así cada apertura dispara una consulta fresca de
           categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}
