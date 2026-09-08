@@ -17,6 +17,13 @@ interface SaldoProyectadoPanelProps {
   /** Hoy oculta el panel entero cuando no hay nada que descontar (redundante con el hero de
    *  arriba); Fijos lo deja siempre visible con una línea aclaratoria. */
   hideWhenNothingPending?: boolean
+  /** La fila "Saldo actual" del desglose — `true` por default (Fijos, y el panel de escritorio de
+   *  Hoy). La versión de mobile de Hoy la apaga: el saldo actual ya es el titular del hero de
+   *  arriba, repetirlo acá abajo es ruido. */
+  showCurrentBalanceRow?: boolean
+  /** La barrita de comprometido/libre — sólo la versión mobile de Hoy la pide, como acompañamiento
+   *  visual más compacto que las dos filas de desglose. */
+  bar?: boolean
 }
 
 /**
@@ -41,17 +48,25 @@ export function SaldoProyectadoPanel({
   unpaidDebtsCents,
   hidden,
   hideWhenNothingPending = false,
+  showCurrentBalanceRow = true,
+  bar = false,
 }: SaldoProyectadoPanelProps) {
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
 
-  const rows: SummaryRow[] = [{ label: 'Saldo actual', cents: currentBalanceCents }]
+  const rows: SummaryRow[] = []
+  if (showCurrentBalanceRow) rows.push({ label: 'Saldo actual', cents: currentBalanceCents })
   if (pendingFixedCount > 0) {
     rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'negativeOnInverse' })
   }
   if (unpaidDebtsCount > 0) {
     rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'negativeOnInverse' })
   }
+
+  // Mismos términos que las filas de arriba: comprometido = fijos + deudas pendientes, sobre el
+  // saldo actual — así la barra nunca puede desincronizarse del desglose que tiene al lado.
+  const committedCents = pendingFixedCents + unpaidDebtsCents
+  const committedPct = currentBalanceCents > 0 ? Math.min((committedCents / currentBalanceCents) * 100, 100) : 0
 
   return (
     <SummaryPanel
@@ -60,6 +75,14 @@ export function SaldoProyectadoPanel({
       isPending={isPending}
       hidden={hidden}
       inverse
+      extra={
+        bar && !isPending ? (
+          <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
+            <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
+            <div className="h-full bg-accent-text" style={{ width: `${100 - committedPct}%` }} />
+          </div>
+        ) : undefined
+      }
       rows={rows}
       footnote={nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined}
     />

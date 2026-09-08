@@ -137,12 +137,6 @@ export function Hoy() {
 
   const currentBalanceCents = balance.data ?? 0
 
-  // "Comprometido" = lo mismo que resta el saldo proyectado (fijos + deudas pendientes) — la barra
-  // de la tarjeta oscura de mobile nunca puede desincronizarse del número que muestra arriba.
-  const committedCents = pendingFixedTotal + misDeudasSummary.totalPendingCents
-  const committedPct = currentBalanceCents > 0 ? Math.min((committedCents / currentBalanceCents) * 100, 100) : 0
-  const freePct = 100 - committedPct
-
   const groupedRecent = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
     for (const tx of monthTransactions.data ?? []) {
@@ -299,27 +293,23 @@ export function Hoy() {
         </Panel>
       </div>
 
-      {/* Libre después de compromisos (con proyectado al pie) · Próximos vencimientos — mobile.
-          Sin "de $saldo actual" al lado de la cifra: ese número ya está en el hero de arriba. */}
+      {/* Proyectado a fin de mes (misma tarjeta que en escritorio: cifra + desglose de fijos y
+          deudas), con la barrita de comprometido/libre como acompañamiento — y sin la fila de
+          "Saldo actual" del desglose de escritorio, que ya es el titular del hero de arriba. */}
       <div className="flex flex-col gap-4 lg:hidden">
-        <Panel tone="inverse" className="p-[18px]">
-          <p className="eyebrow" style={{ color: 'var(--color-on-inverse-muted)' }}>
-            Libre después de compromisos
-          </p>
-          {isProjectedPending ? (
-            <Skeleton className="mt-2 h-8 w-32" />
-          ) : (
-            <Money cents={projectedBalance ?? 0} tone="onInverse" size="figure" className="mt-1" hidden={balanceHidden} />
-          )}
-          <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
-            <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
-            <div className="h-full bg-accent-text" style={{ width: `${freePct}%` }} />
-          </div>
-          <div className="mt-3 flex justify-between text-[12.5px]">
-            <span className="text-on-inverse-secondary">Proyectado a fin de mes</span>
-            <Money cents={projectedBalance ?? 0} tone="onInverse" hidden={balanceHidden} />
-          </div>
-        </Panel>
+        <SaldoProyectadoPanel
+          title="Proyectado a fin de mes"
+          projectedCents={projectedBalance}
+          isPending={isProjectedPending}
+          currentBalanceCents={currentBalanceCents}
+          pendingFixedCount={pendingFixed.length}
+          pendingFixedCents={pendingFixedTotal}
+          unpaidDebtsCount={unpaidDebtsCount}
+          unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+          hidden={balanceHidden}
+          showCurrentBalanceRow={false}
+          bar
+        />
 
         <Panel className="p-[18px]">
           <div className="flex items-baseline justify-between">

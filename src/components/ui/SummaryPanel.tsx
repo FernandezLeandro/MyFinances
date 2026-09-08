@@ -29,6 +29,9 @@ interface SummaryPanelProps {
   /** Tarjeta oscura fija — `SaldoProyectadoPanel` (Hoy y Fijos) la usa siempre. Cambia la cifra y
    *  las filas a los tonos "on-inverse", sin importar el tema de la app (ver `Panel` tone="inverse"). */
   inverse?: boolean
+  /** Slot libre entre la cifra y las filas — la barrita de comprometido/libre que `SaldoProyectadoPanel`
+   *  suma en mobile. Presentacional puro: quien lo pasa decide qué es. */
+  extra?: ReactNode
   rows?: SummaryRow[]
   footnote?: string
   className?: string
@@ -47,6 +50,7 @@ export function SummaryPanel({
   hidden = false,
   accent = false,
   inverse = false,
+  extra,
   rows,
   footnote,
   className,
@@ -71,6 +75,8 @@ export function SummaryPanel({
       ) : (
         <Money cents={cents ?? 0} tone={inverse ? 'onInverse' : 'fg'} size="figure" className="mt-2" hidden={hidden} />
       )}
+
+      {extra}
 
       {rows && rows.length > 0 && (
         <dl
