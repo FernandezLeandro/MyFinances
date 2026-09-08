@@ -18,6 +18,8 @@ export interface CardSummary {
   /** `savedCents / totalCents * 100`, clampeado a [0, 100]. `0` si `totalCents` es `0` (evita NaN). */
   savedPercent: number
   paid: boolean
+  /** Cuándo se marcó pagada, o `null` si no hay pago este período — para mostrar "pagada el D de mes". */
+  paidAt: string | null
 }
 
 export function summarizeCard(
@@ -34,9 +36,9 @@ export function summarizeCard(
   const savedCents = savings.find((s) => s.card_id === card.id)?.amountCents ?? 0
   const missingCents = Math.max(totalCents - savedCents, 0)
   const savedPercent = totalCents === 0 ? 0 : Math.min(Math.round((savedCents / totalCents) * 100), 100)
-  const paid = payments.some((p) => p.card_id === card.id)
+  const payment = payments.find((p) => p.card_id === card.id)
 
-  return { card, items, totalCents, savedCents, missingCents, savedPercent, paid }
+  return { card, items, totalCents, savedCents, missingCents, savedPercent, paid: !!payment, paidAt: payment?.paid_at ?? null }
 }
 
 export interface PurchaseSummary {

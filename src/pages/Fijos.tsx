@@ -342,20 +342,24 @@ export function Fijos() {
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
         </div>
 
-        {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo fijo", y Pausados vive en el
-            aviso del rail más abajo. */}
-        <div className="hidden items-center gap-2 lg:flex">
-          <Button
-            variant="outline"
-            size="compact"
-            onClick={() => setShowPaused((v) => !v)}
-            aria-pressed={showPaused}
-            icon={<Pause className="size-3" fill="currentColor" strokeWidth={1.6} aria-hidden />}
-            className={cn(showPaused && 'border-border-strong bg-fill-subtle text-fg')}
-          >
-            Pausados
-          </Button>
-          <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
+        <div className="flex items-center gap-2">
+          {/* Pausados sólo en escritorio: en mobile ya está el mismo toggle en el aviso del rail más
+              abajo, no hace falta duplicarlo acá. "Nuevo fijo" sí tiene que quedar en las dos — el FAB
+              de la isla abre "nuevo movimiento", no crea un fijo, así que sin este botón mobile se
+              quedaba sin ningún camino para dar de alta uno (mismo error que se coló en Mis Deudas). */}
+          <div className="hidden lg:block">
+            <Button
+              variant="outline"
+              size="compact"
+              onClick={() => setShowPaused((v) => !v)}
+              aria-pressed={showPaused}
+              icon={<Pause className="size-3" fill="currentColor" strokeWidth={1.6} aria-hidden />}
+              className={cn(showPaused && 'border-border-strong bg-fill-subtle text-fg')}
+            >
+              Pausados
+            </Button>
+          </div>
+          <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew} className="flex-1 lg:flex-none">
             Nuevo fijo
           </Button>
         </div>

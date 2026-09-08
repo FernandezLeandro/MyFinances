@@ -24,6 +24,9 @@ interface SaldoProyectadoPanelProps {
   /** La barrita de comprometido/libre — sólo la versión mobile de Hoy la pide, como acompañamiento
    *  visual más compacto que las dos filas de desglose. */
   bar?: boolean
+  /** Pisa el footnote de "nada pendiente" con uno fijo, sin importar `nothingPending` — Mis Deudas lo
+   *  usa para aclarar que es el mismo número que en Fijos (mismo panel, dos pantallas). */
+  footnote?: string
 }
 
 /**
@@ -50,6 +53,7 @@ export function SaldoProyectadoPanel({
   hideWhenNothingPending = false,
   showCurrentBalanceRow = true,
   bar = false,
+  footnote,
 }: SaldoProyectadoPanelProps) {
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
@@ -84,7 +88,7 @@ export function SaldoProyectadoPanel({
         ) : undefined
       }
       rows={rows}
-      footnote={nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined}
+      footnote={footnote ?? (nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined)}
     />
   )
 }
