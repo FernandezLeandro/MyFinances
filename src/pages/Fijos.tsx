@@ -103,7 +103,7 @@ function FixedExpenseRow({
 
           {fe.is_recurring && (
             <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
-              <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} />
+              <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} size="wide" />
               {overspent ? (
                 <span className="text-[12px] whitespace-nowrap text-negative">
                   Te pasaste <Money cents={overspentCents} tone="negative" hidden={hidden} />
@@ -130,12 +130,14 @@ function FixedExpenseRow({
         </Badge>
       )}
 
-      {/* Bolsa sin completar: el importe de la derecha por sí solo no dice si es lo pagado o lo que
-          falta — "Resta" lo aclara ("Falta" pide un sujeto que acá no está). Completa o en un fijo
-          único no hace falta: "Completo" ya lo dice, y el único siempre muestra su total. `shrink-0`
-          en los dos: sin eso, en 390px terminan achicándose hasta pisarse con el nombre. */}
+      {/* Bolsa sin completar: en desktop "Resta" aclara que el importe de la derecha es lo que
+          falta, no lo pagado ("Falta" pide un sujeto que acá no está). En mobile se saca — la fila
+          ya viene ajustada de ancho y esos ~40px se los cede a la barra, que es el dato que Lean
+          quiere ver grande; el número solo, sin la etiqueta, sigue siendo legible ahí. Completa o
+          en un fijo único no hace falta ninguna de las dos: "Completo" ya lo dice, y el único
+          siempre muestra su total. `shrink-0` para que nunca se achique contra el nombre. */}
       {fe.is_recurring && !done && !overspent && (
-        <span className="shrink-0 text-[11.5px] whitespace-nowrap text-fg-muted">Resta</span>
+        <span className="hidden shrink-0 text-[11.5px] whitespace-nowrap text-fg-muted lg:inline">Resta</span>
       )}
 
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en

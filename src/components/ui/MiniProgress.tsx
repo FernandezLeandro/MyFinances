@@ -1,11 +1,12 @@
 import { cn } from '@/lib/cn'
 
 type MiniProgressTone = 'negative' | 'accent' | 'muted' | 'amber' | 'onInverse'
-/** `inline` = la barrita de 56×4 de una fila de lista. `bar` = la barra ancha de un hero (el avance
- *  de pago de Fijos, el guardado de Mis Deudas, la meta de un ítem de Ahorros). No se resuelve con
+/** `inline` = la barrita de 56×4 de una fila de lista densa (Hoy). `wide` = la misma idea pero más
+ *  protagonista — la fila de una bolsa mensual en Fijos, donde la barra es el dato principal, no un
+ *  acompañamiento chico. `bar` = a todo el ancho, para el avance de un hero. No se resuelve con
  *  `className` porque `cn` no dedupe: `h-1` y `h-1.5` juntos ganan por orden de Tailwind, no por
  *  orden de escritura. */
-type MiniProgressSize = 'inline' | 'bar'
+type MiniProgressSize = 'inline' | 'wide' | 'bar'
 
 const toneClasses: Record<MiniProgressTone, string> = {
   negative: 'bg-negative',
@@ -17,6 +18,7 @@ const toneClasses: Record<MiniProgressTone, string> = {
 
 const trackClasses: Record<MiniProgressSize, string> = {
   inline: 'h-1 w-14 shrink-0',
+  wide: 'h-1.5 w-28 shrink-0 lg:w-64',
   bar: 'h-1.5 w-full',
 }
 
