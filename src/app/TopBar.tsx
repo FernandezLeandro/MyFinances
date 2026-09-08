@@ -1,7 +1,5 @@
 import { useRef, useState } from 'react'
 import { NavLink } from 'react-router'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { cn } from '@/lib/cn'
 import { Avatar } from '@/components/ui/Avatar'
 import { Menu } from '@/components/ui/Menu'
@@ -14,39 +12,45 @@ interface TopBarProps {
   displayName: string | null
   email: string | null
   showAjustes: boolean
-}
-
-// Sólo informativo — no controla nada. El selector de mes real de cada pantalla (Movimientos,
-// Fijos, Análisis) sigue siendo el `MonthNav` de esa pantalla; hacer que este también mande hubiera
-// significado sumar un mes global que hoy no existe en ningún lado (ver el handoff, decisión ya
-// tomada). Por eso muestra el mes calendario actual, no un período elegible.
-function currentMonthLabel() {
-  const label = format(new Date(), 'MMMM yyyy', { locale: es })
-  return label.charAt(0).toUpperCase() + label.slice(1)
+  /** `app` (default) es la barra financiera: punto de acento en el wordmark, avatar en acento.
+   *  `admin` es gris en los dos — ese azul significa "plata que es tuya", y el admin no tiene plata
+   *  de nadie (ver `AdminLayout`). */
+  tone?: 'app' | 'admin'
+  /** Sólo en `admin`: "Administración" al lado del wordmark, en vez del mes informativo. */
+  eyebrow?: string
 }
 
 /**
- * Barra superior fija de desktop: logo + nav en pills + mes + cuenta. Reemplaza al `Sidebar`
- * lateral de la identidad anterior — sólo en `AppLayout` (`AdminLayout` sigue con `Sidebar`, fuera
- * del alcance de este rediseño). Oculta en mobile: ahí no hay barra superior, cada página pone su
- * propio `<header>` y la navegación baja a `MobileTabBar`.
+ * Barra superior fija de escritorio: logo + tabs + cuenta. Compartida por `AppLayout` y
+ * `AdminLayout` — antes el admin tenía su propio `Sidebar` lateral; ahora los dos shells usan la
+ * misma barra, y lo que cambia es `tone`/`eyebrow`. Oculta en mobile: ahí no hay barra superior,
+ * cada página pone su propio `<header>` y la navegación baja a `MobileTabBar`.
+ *
+ * Sin selector de mes: era sólo informativo (no controlaba nada — cada pantalla sigue con su
+ * propio `MonthNav`) y el rediseño lo saca para dejar la barra en logo + tabs + avatar.
  */
-export function TopBar({ items, initials, displayName, email, showAjustes }: TopBarProps) {
+export function TopBar({ items, initials, displayName, email, showAjustes, tone = 'app', eyebrow }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const isAdmin = tone === 'admin'
 
   return (
-    <header className="sticky top-0 z-20 hidden items-center gap-7 border-b border-border bg-surface px-8 py-[18px] lg:flex">
-      <span className="font-display text-[15.5px] font-bold tracking-[-0.02em] text-fg">MyFinances</span>
+    <header className="sticky top-0 z-20 hidden h-[58px] items-center gap-[22px] border-b border-divider bg-surface px-[26px] lg:flex">
+      <div className="flex items-baseline gap-[5px]">
+        <span className="font-display text-[15px] font-bold tracking-[-0.01em] text-fg">MyFinances</span>
+        <span aria-hidden className={cn('size-[5px] rounded-full', isAdmin ? 'bg-fg-faint' : 'bg-accent')} />
+      </div>
 
-      <nav className="flex gap-0.5 text-[13.5px]" aria-label="Secciones">
+      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+
+      <nav className="flex gap-0.5 text-[13px]" aria-label="Secciones">
         {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'rounded-[8px] px-3.5 py-[7px] transition-colors duration-150',
+                'rounded-[8px] px-[13px] py-[7px] transition-colors duration-150',
                 isActive ? 'bg-inverse font-semibold text-on-inverse' : 'text-fg-secondary hover:text-fg',
               )
             }
@@ -56,8 +60,7 @@ export function TopBar({ items, initials, displayName, email, showAjustes }: Top
         ))}
       </nav>
 
-      <div className="relative ml-auto flex items-center gap-3">
-        <span className="text-[13px] text-fg-secondary">{currentMonthLabel()}</span>
+      <div className="relative ml-auto flex items-center">
         <button
           ref={triggerRef}
           type="button"
@@ -66,7 +69,7 @@ export function TopBar({ items, initials, displayName, email, showAjustes }: Top
           aria-expanded={menuOpen}
           title={displayName ?? email ?? 'Cuenta'}
         >
-          <Avatar initials={initials} shape="square" />
+          <Avatar initials={initials} size="topbar" tone={isAdmin ? 'neutral' : 'accent'} />
         </button>
 
         <Menu

@@ -1,5 +1,16 @@
 import type { ReactNode } from 'react'
-import { ArrowDownUp, Calendar, ChartNoAxesColumn, Clock, Ellipsis, HandCoins, LogOut, PiggyBank, Settings } from 'lucide-react'
+import {
+  ArrowDownUp,
+  Calendar,
+  ChartNoAxesColumn,
+  Clock,
+  CreditCard,
+  Ellipsis,
+  HandCoins,
+  LogOut,
+  PiggyBank,
+  Settings,
+} from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -8,6 +19,9 @@ export interface NavItem {
 }
 
 export const navIconClass = 'size-[18px]'
+// La isla de mobile (`MobileTabBar`) dibuja sus íconos más grandes que el resto de la nav — 21px,
+// no 18 — porque son el único elemento visible del botón (sin label al lado, como en el drawer).
+export const islandIconClass = 'size-[21px]'
 // strokeWidth 1.6, no el 2 por default de lucide: matea el trazo fino que ya tenían estos íconos a
 // mano (fill/linecap/linejoin "round" ya son el default de la librería, no hace falta repetirlos).
 const navIconStrokeWidth = 1.6
@@ -29,6 +43,11 @@ const allNavItems: NavItem[] = [
     icon: <Calendar className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
   },
   {
+    to: '/mis-deudas',
+    label: 'Mis Deudas',
+    icon: <CreditCard className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
+  {
     to: '/analisis',
     label: 'Análisis',
     icon: <ChartNoAxesColumn className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
@@ -46,18 +65,36 @@ const allNavItems: NavItem[] = [
 ]
 
 /** Secciones que no se consultan seguido: se mudan al drawer de cuenta en mobile en vez de ocupar
- *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Me Deben entra acá por el
- *  mismo motivo que Análisis/Ahorros: sobra lugar en el sidebar de desktop (6 ítems verticales),
- *  pero sumarla al tab bar de mobile rompería el constraint de 360px que ya documenta
- *  `PendientesTabs` — "Movimientos" pasa a wrappear en dos líneas con 4 tabs + "Más". */
-const OVERFLOW_ROUTES = ['/analisis', '/ahorros', '/me-deben']
+ *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Mis Deudas y Me Deben
+ *  entran acá por el mismo motivo que Análisis/Ahorros: sobra lugar en la barra de escritorio (7
+ *  ítems horizontales), pero la isla de mobile (`MobileTabBar`) es fija — Hoy, Movimientos, Fijos y
+ *  Más — y no crece con la nav de escritorio. */
+const OVERFLOW_ROUTES = ['/mis-deudas', '/analisis', '/ahorros', '/me-deben']
 
-/** Sidebar de desktop: las 5 secciones — ahí sobra ancho para no tener que recortar nada. */
+/** Barra superior de escritorio: las 7 secciones, en el orden que pidió el usuario — Hoy ·
+ *  Movimientos · Fijos · Mis Deudas · Análisis · Ahorros · Me Deben. */
 export const sidebarNavItems: NavItem[] = allNavItems
 
-/** Tab bar de mobile: 3 secciones + el tab "Más" (ver `MobileTabBar`). Análisis y Ahorros se mudan
- *  al drawer. */
-export const tabBarNavItems: NavItem[] = allNavItems.filter((item) => !OVERFLOW_ROUTES.includes(item.to))
+/** Tab bar de mobile: Hoy · Movimientos · Fijos, con íconos propios de 21px — no los 18px de
+ *  `allNavItems` (pensados para ir al lado de un label, como en el drawer). El resto se muda al
+ *  drawer (ver `overflowNavItems`), y el tab "Más" que lo abre se arma aparte en `MobileTabBar`. */
+export const tabBarNavItems: NavItem[] = [
+  {
+    to: '/hoy',
+    label: 'Hoy',
+    icon: <Clock className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
+  {
+    to: '/movimientos',
+    label: 'Movimientos',
+    icon: <ArrowDownUp className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
+  {
+    to: '/fijos',
+    label: 'Fijos',
+    icon: <Calendar className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+  },
+]
 
 /** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta. */
 export const overflowNavItems: NavItem[] = allNavItems.filter((item) => OVERFLOW_ROUTES.includes(item.to))
@@ -69,4 +106,4 @@ export const gearIcon = <Settings className={navIconClass} strokeWidth={navIconS
 
 export const logoutIcon = <LogOut className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />
 
-export const moreIcon = <Ellipsis className={navIconClass} fill="currentColor" aria-hidden />
+export const moreIcon = <Ellipsis className={islandIconClass} fill="currentColor" aria-hidden />
