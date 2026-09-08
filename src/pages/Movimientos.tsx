@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale'
 import { SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { MonthNav } from '@/components/ui/MonthNav'
+import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { Button } from '@/components/ui/Button'
 import { FilterChip } from '@/components/ui/Chip'
 import { SearchInput } from '@/components/ui/SearchInput'
@@ -112,6 +113,10 @@ export function Movimientos() {
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
+  // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
+  // el resumen del período.
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
@@ -184,19 +189,37 @@ export function Movimientos() {
           <Button variant="outline" size="compact" onClick={() => setCategoriesOpen(true)}>
             Categorías
           </Button>
-          <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
-            Nuevo movimiento
-          </Button>
+          {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
+              criterio que el hero de Hoy) — repetirlo acá es un botón más que pelea por lugar en
+              una fila que ya tiene dos. */}
+          <div className="hidden lg:block">
+            <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
+              Nuevo movimiento
+            </Button>
+          </div>
         </div>
       </header>
+
+      {/* En mobile el resumen queda plegado por default — lo primero es poder buscar/filtrar y ver
+          los movimientos, no el resumen del período. En escritorio no hay toggle: el `<Panel>`
+          siempre se ve. */}
+      <AccordionHeader
+        label="Ver resumen del período"
+        expanded={summaryOpen}
+        onToggle={() => setSummaryOpen((v) => !v)}
+        className="lg:hidden"
+      />
 
       {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día — siempre
           sobre la lista ya filtrada, nunca un total aparte del que ve la tabla de abajo. Las
           comparativas vs. el período anterior quedan apagadas acá a propósito: viven en Análisis. */}
-      {/* `lg:items-start`, no `items-end`: con la columna del gráfico de barras (más alta que las
-          demás en pantallas angostas, donde "Gasto por día" puede llegar a partirse en dos líneas)
-          alinear abajo empujaba "Neto del período" hacia abajo, dejando un hueco arriba. */}
-      <Panel className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:gap-9">
+      <Panel
+        className={cn(
+          'flex-col gap-5 p-6 lg:flex-row lg:items-center lg:gap-9',
+          summaryOpen ? 'flex' : 'hidden',
+          'lg:flex',
+        )}
+      >
         <div className="flex-none">
           <p className="eyebrow">Neto del período</p>
           <Money cents={summary.netCents} tone="accent" size="total" signed className="mt-1" />
@@ -231,7 +254,9 @@ export function Movimientos() {
         </div>
 
         {/* Sólo con datos que llenen un mes calendario: con un rango de un día o una semana, 30
-            barras finitas no cuentan nada. */}
+            barras finitas no cuentan nada. Achicado a 30px (antes 54): a la altura de las otras
+            columnas ya alineadas por el centro, una barra más baja se nota menos si la columna del
+            gráfico queda más alta que el resto por el renglón de "pico el N". */}
         {filters.period.preset === 'month' && bars.length > 1 && (
           <div className="hidden min-w-0 flex-1 lg:block">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -244,12 +269,12 @@ export function Movimientos() {
                 </span>
               )}
             </div>
-            <div className="mt-2.5 flex h-[54px] items-end gap-[3px]">
+            <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
               {bars.map((b) => (
                 <span
                   key={b.day}
                   className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
-                  style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 6)}%` : '4px' }}
+                  style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
                 />
               ))}
             </div>
