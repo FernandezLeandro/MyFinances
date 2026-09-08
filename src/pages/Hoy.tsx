@@ -8,7 +8,6 @@ import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
 import { StackedBar } from '@/components/ui/StackedBar'
-import { KeyValueRow } from '@/components/ui/KeyValueRow'
 import { GroupHeader } from '@/components/ui/GroupHeader'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -136,10 +135,11 @@ export function Hoy() {
     [pendingFixed],
   )
 
-  // "Comprometido" = lo mismo que resta el saldo proyectado (fijos + deudas pendientes) — así la
-  // barra de esta tarjeta y la del panel oscuro nunca pueden desincronizarse entre sí.
-  const committedCents = pendingFixedTotal + misDeudasSummary.totalPendingCents
   const currentBalanceCents = balance.data ?? 0
+
+  // "Comprometido" = lo mismo que resta el saldo proyectado (fijos + deudas pendientes) — la barra
+  // de la tarjeta oscura de mobile nunca puede desincronizarse del número que muestra arriba.
+  const committedCents = pendingFixedTotal + misDeudasSummary.totalPendingCents
   const committedPct = currentBalanceCents > 0 ? Math.min((committedCents / currentBalanceCents) * 100, 100) : 0
   const freePct = 100 - committedPct
 
@@ -168,7 +168,7 @@ export function Hoy() {
   return (
     <div className="flex flex-col gap-4">
       {/* Saldo actual — la única cifra que contesta "cuánto me queda para gastar". */}
-      <Panel className="flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:gap-11 lg:p-7">
+      <Panel className="flex flex-col gap-6 p-6 lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-11 lg:gap-y-5 lg:p-7">
         <div className="flex-none">
           <div className="flex items-center gap-2">
             <p className="eyebrow">Saldo actual</p>
@@ -209,21 +209,12 @@ export function Hoy() {
                 <Money cents={totalExpense} tone="negative" size="figure" hidden={balanceHidden} />
               )}
             </Stat>
-            {/* Sólo en escritorio: en mobile la misma cifra ya es el titular de la tarjeta oscura
-                de abajo, mostrarla acá también sería redundante en un espacio más chico. */}
-            <Stat label="Libre tras compromisos" className="hidden lg:block">
-              {isProjectedPending ? (
-                <Skeleton className="h-7 w-24" />
-              ) : (
-                <Money cents={projectedBalance ?? 0} tone="fg" size="figure" hidden={balanceHidden} />
-              )}
-            </Stat>
           </StatRow>
         </div>
 
         {/* Sólo escritorio — en mobile el `+` de la isla ya cubre "nuevo movimiento", y duplicar el
             CTA acá no aporta (ver la nota de "Cuadrar saldo" en mobile en el reporte del bloque). */}
-        <div className="hidden flex-none flex-col gap-2 lg:flex lg:w-[186px]">
+        <div className="hidden flex-none flex-col gap-2 lg:flex lg:ml-auto lg:w-[186px]">
           <Button onClick={() => setOpen(true)}>+ Nuevo movimiento</Button>
           <Button variant="outline" onClick={() => setCuadrarOpen(true)}>
             Cuadrar saldo
@@ -308,22 +299,18 @@ export function Hoy() {
         </Panel>
       </div>
 
-      {/* Libre después de compromisos (con proyectado al pie) · Próximos vencimientos — mobile. */}
+      {/* Libre después de compromisos (con proyectado al pie) · Próximos vencimientos — mobile.
+          Sin "de $saldo actual" al lado de la cifra: ese número ya está en el hero de arriba. */}
       <div className="flex flex-col gap-4 lg:hidden">
         <Panel tone="inverse" className="p-[18px]">
           <p className="eyebrow" style={{ color: 'var(--color-on-inverse-muted)' }}>
             Libre después de compromisos
           </p>
-          <div className="mt-1 flex items-baseline gap-2">
-            {isProjectedPending ? (
-              <Skeleton className="h-8 w-32" />
-            ) : (
-              <Money cents={projectedBalance ?? 0} tone="onInverse" size="figure" hidden={balanceHidden} />
-            )}
-            <span className="text-[11.5px] font-semibold text-on-inverse-muted">
-              de <Money cents={currentBalanceCents} tone="onInverseSecondary" hidden={balanceHidden} />
-            </span>
-          </div>
+          {isProjectedPending ? (
+            <Skeleton className="mt-2 h-8 w-32" />
+          ) : (
+            <Money cents={projectedBalance ?? 0} tone="onInverse" size="figure" className="mt-1" hidden={balanceHidden} />
+          )}
           <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
             <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
             <div className="h-full bg-accent-text" style={{ width: `${freePct}%` }} />
@@ -416,27 +403,6 @@ export function Hoy() {
         </Panel>
 
         <div className="hidden flex-col gap-4 lg:flex">
-          <Panel className="p-[22px]">
-            <p className="eyebrow">Libre después de compromisos</p>
-            {isProjectedPending ? (
-              <Skeleton className="mt-2 h-7 w-32" />
-            ) : (
-              <Money cents={projectedBalance ?? 0} tone="fg" size="figure" className="mt-1.5" hidden={balanceHidden} />
-            )}
-            <div className="mt-3.5 flex h-[7px] overflow-hidden rounded-pill bg-fill-subtle">
-              <div className="h-full bg-negative" style={{ width: `${committedPct}%` }} />
-              <div className="h-full bg-accent" style={{ width: `${freePct}%` }} />
-            </div>
-            <dl className="mt-3 flex flex-col gap-1.5">
-              <KeyValueRow label={<span className="text-fg-secondary">Comprometido</span>}>
-                <Money cents={committedCents} tone="fg" hidden={balanceHidden} />
-              </KeyValueRow>
-              <KeyValueRow label={<span className="text-fg-secondary">Saldo actual</span>}>
-                <Money cents={currentBalanceCents} tone="fg" hidden={balanceHidden} />
-              </KeyValueRow>
-            </dl>
-          </Panel>
-
           {(unpaidCards.length > 0 || unpaidStandalone.length > 0) && (
             <Panel className="p-[22px]">
               <div className="flex items-baseline justify-between">
