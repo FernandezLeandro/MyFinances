@@ -16,11 +16,11 @@ const arrowClass =
 
 /**
  * Header de mes compartido por Movimientos, Fijos, Mis Deudas y Análisis. Dos formas por
- * breakpoint, no una sola que se achica: en escritorio son dos botones cuadrados con flecha
- * alrededor del label (`‹ septiembre 2026 ›`); en mobile, una sola píldora `fill-subtle` con los
- * glifos `‹›` adentro, al lado del título — el patrón que ya fija `02 Movimientos.dc.html`.
- * Presentacional puro: cada pantalla guarda el mes a su manera (string `anchor` vs. `Date`), así
- * que esto sólo recibe los labels ya formateados y dos callbacks.
+ * breakpoint, no una sola que se achica: en escritorio son dos botones cuadrados chicos con flecha
+ * alrededor del label (`‹ septiembre 2026 ›`); en mobile, una sola píldora `fill-subtle` con dos
+ * botones circulares de 32px (objetivo táctil, no los 26px del escritorio) — el patrón que fija
+ * `02 Movimientos.dc.html`. Presentacional puro: cada pantalla guarda el mes a su manera (string
+ * `anchor` vs. `Date`), así que esto sólo recibe los labels ya formateados y dos callbacks.
  */
 export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) {
   return (
@@ -35,13 +35,23 @@ export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) 
         </button>
       </div>
 
-      <div className="flex items-center gap-2 rounded-pill bg-fill-subtle px-2.5 py-1.5 text-[11.5px] font-semibold text-fg lg:hidden">
-        <button type="button" onClick={onPrev} aria-label="Mes anterior" className="text-fg-muted">
-          ‹
+      <div className="flex items-center gap-1 rounded-pill bg-fill-subtle p-1 text-[13px] font-semibold text-fg lg:hidden">
+        <button
+          type="button"
+          onClick={onPrev}
+          aria-label="Mes anterior"
+          className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted"
+        >
+          <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
         </button>
-        {mobileLabel ?? label}
-        <button type="button" onClick={onNext} aria-label="Mes siguiente" className="text-fg-muted">
-          ›
+        <span className="px-0.5">{mobileLabel ?? label}</span>
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label="Mes siguiente"
+          className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted"
+        >
+          <ChevronRight className="size-4" strokeWidth={2} aria-hidden />
         </button>
       </div>
     </>

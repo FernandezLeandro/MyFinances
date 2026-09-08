@@ -126,6 +126,11 @@ export function Movimientos() {
     accountIds,
     text: search || undefined,
   })
+  // El resumen (neto, ingresos/gastos/promedio, barras) es del mes entero — no se mueve con tipo,
+  // categoría, cuenta ni búsqueda, sólo con el período. Consulta aparte, sin esos filtros; con todo
+  // en "Todos" y sin buscar, cae en la misma key que `transactions` y React Query la resuelve del
+  // caché sin pegarle a la red dos veces.
+  const { data: periodTransactions } = useTransactions({ from, to })
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
 
@@ -142,13 +147,11 @@ export function Movimientos() {
     return [...groups.entries()]
   }, [transactions])
 
-  // Resumen y barras del período — sobre la lista YA filtrada (tipo, categorías, cuentas, búsqueda),
-  // así el "Neto de septiembre" de arriba nunca puede contradecir lo que se ve en la tabla de abajo.
   const summary = useMemo(
-    () => summarizeTransactions(transactions ?? [], from, to, new Date()),
-    [transactions, from, to],
+    () => summarizeTransactions(periodTransactions ?? [], from, to, new Date()),
+    [periodTransactions, from, to],
   )
-  const bars = useMemo(() => dailySpendBars(transactions ?? [], from, to), [transactions, from, to])
+  const bars = useMemo(() => dailySpendBars(periodTransactions ?? [], from, to), [periodTransactions, from, to])
   const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { day: 0, cents: 0 })
   const maxBarCents = peakBar.cents
 
@@ -229,9 +232,10 @@ export function Movimientos() {
         className="lg:hidden"
       />
 
-      {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día — siempre
-          sobre la lista ya filtrada, nunca un total aparte del que ve la tabla de abajo. Las
-          comparativas vs. el período anterior quedan apagadas acá a propósito: viven en Análisis. */}
+      {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día. Es del mes
+          entero — no se mueve con tipo/categoría/cuenta/búsqueda, sólo con el período (ver
+          `periodTransactions` más arriba); por ahora, al menos. Las comparativas vs. el período
+          anterior quedan apagadas acá a propósito: viven en Análisis. */}
       <Panel
         className={cn(
           'flex-col gap-5 p-6 lg:flex-row lg:items-center lg:gap-9',
@@ -246,9 +250,9 @@ export function Movimientos() {
 
         <div className="hidden h-14 w-px shrink-0 bg-divider lg:block" />
 
-        {/* Apiladas en mobile, no en grilla de 3 — un importe de 7+ cifras no entra en un tercio
-            de 390px sin pisar al de al lado (ver el reporte del bloque). */}
-        <div className="flex flex-col gap-3 lg:flex-none lg:flex-row lg:gap-7">
+        {/* Fila mobile 1: Ingresos + Gastos lado a lado. `lg:contents` los devuelve a ser hermanos
+            sueltos de la fila principal en escritorio, igual que antes. */}
+        <div className="grid grid-cols-2 gap-4 lg:contents">
           <div>
             <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Ingresos</p>
             <Money cents={summary.totalIncomeCents} tone="fg" size="compact" className="mt-1" />
@@ -263,42 +267,49 @@ export function Movimientos() {
               {summary.expenseCount} movimiento{summary.expenseCount === 1 ? '' : 's'}
             </p>
           </div>
-          <div>
-            <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Promedio diario</p>
+        </div>
+
+        {/* Fila mobile 2: Promedio diario + gráfico, uno al lado del otro (mismo truco de
+            `lg:contents` para volver a la fila principal en escritorio). */}
+        <div className="flex items-start gap-4 lg:contents">
+          <div className="flex-none">
+            <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
+              Promedio diario
+            </p>
             <Money cents={summary.dailyAverageExpenseCents} tone="fg" size="compact" className="mt-1" />
-            <p className="mt-0.5 text-[11.5px] text-fg-muted">
+            <p className="mt-0.5 text-[11.5px] whitespace-nowrap text-fg-muted">
               de gasto, {summary.daysElapsed} día{summary.daysElapsed === 1 ? '' : 's'}
             </p>
           </div>
-        </div>
 
-        {/* Sólo con datos que llenen un mes calendario: con un rango de un día o una semana, 30
-            barras finitas no cuentan nada. Achicado a 30px (antes 54): a la altura de las otras
-            columnas ya alineadas por el centro, una barra más baja se nota menos si la columna del
-            gráfico queda más alta que el resto por el renglón de "pico el N". */}
-        {filters.period.preset === 'month' && bars.length > 1 && (
-          <div className="hidden min-w-0 flex-1 lg:block">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
-                Gasto por día
-              </p>
-              {maxBarCents > 0 && (
-                <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
-                  pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
-                </span>
-              )}
+          {/* Sólo con datos que llenen un mes calendario: con un rango de un día o una semana, 30
+              barras finitas no cuentan nada. 30px de alto (antes 54): a la altura de las otras
+              columnas alineadas por el centro, una barra más baja se nota menos si esta columna
+              queda más alta que el resto por el renglón de "pico el N". */}
+          {filters.period.preset === 'month' && bars.length > 1 && (
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
+                  Gasto por día
+                </p>
+                {maxBarCents > 0 && (
+                  <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
+                    pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
+                  </span>
+                )}
+              </div>
+              <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
+                {bars.map((b) => (
+                  <span
+                    key={b.day}
+                    className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
+                    style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
-              {bars.map((b) => (
-                <span
-                  key={b.day}
-                  className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
-                  style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </Panel>
 
       <div className="flex flex-col gap-2.5">
