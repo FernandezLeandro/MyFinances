@@ -1,5 +1,13 @@
 import { useLocation, useNavigate } from 'react-router'
-import { PillTab, PillTabs } from '@/components/ui/PillTabs'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
+
+const ROUTES = [
+  { value: '/fijos', label: 'Fijos' },
+  { value: '/mis-deudas', label: 'Mis Deudas' },
+  { value: '/me-deben', label: 'Me Deben' },
+] as const
+
+type PendienteRoute = (typeof ROUTES)[number]['value']
 
 /**
  * Fijos, Mis Deudas y Me Deben comparten header: son las tres pantallas de plata que todavía no se
@@ -17,17 +25,15 @@ export function PendientesTabs() {
   const navigate = useNavigate()
   const location = useLocation()
 
+  const current = (ROUTES.find((r) => r.value === location.pathname)?.value ?? '/fijos') as PendienteRoute
+
   return (
-    <PillTabs>
-      <PillTab active={location.pathname === '/fijos'} onClick={() => navigate('/fijos')}>
-        Fijos
-      </PillTab>
-      <PillTab active={location.pathname === '/mis-deudas'} onClick={() => navigate('/mis-deudas')}>
-        Mis Deudas
-      </PillTab>
-      <PillTab active={location.pathname === '/me-deben'} onClick={() => navigate('/me-deben')}>
-        Me Deben
-      </PillTab>
-    </PillTabs>
+    <SegmentedToggle
+      value={current}
+      options={ROUTES}
+      onChange={(route) => navigate(route)}
+      variant="pill"
+      className="w-max"
+    />
   )
 }

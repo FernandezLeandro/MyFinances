@@ -39,7 +39,7 @@ export function AppLayout() {
           con `mask-attachment: fixed` deja lo que caiga en esa franja atenuado para siempre, sin
           que scrollear lo despeje). */}
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-10 lg:pb-16">
-        <div className="mx-auto w-full max-w-[1080px]">
+        <div className="mx-auto w-full max-w-[1280px]">
           {/* Sólo el contenido suspende, no el shell (nav/header) — así no parpadea al navegar. */}
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />

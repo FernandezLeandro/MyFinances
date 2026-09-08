@@ -37,7 +37,7 @@ export function AdminLayout() {
 
       {/* El degradado antes de la isla vive en `MobileTabBar` — ver su comentario. */}
       <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-10 lg:pb-16">
-        <div className="mx-auto w-full max-w-[1080px]">
+        <div className="mx-auto w-full max-w-[1280px]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
           </Suspense>
