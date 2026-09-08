@@ -11,7 +11,7 @@ export type MoneyTone =
   | 'onInverse'
   | 'onInverseSecondary'
   | 'negativeOnInverse'
-type Size = 'hero' | 'figure' | 'total' | 'compact' | 'inline' | 'row'
+type Size = 'hero' | 'display' | 'figure' | 'total' | 'compact' | 'inline' | 'row'
 
 interface MoneyProps {
   cents: number
@@ -41,6 +41,13 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
     root: 'font-display font-bold text-hero',
     symbol: 'text-[0.26em] mt-[0.28em] mr-[0.09em] text-fg-muted',
     fraction: 'text-[0.34em] mt-[0.34em] ml-[0.06em]',
+  },
+  // La cifra que manda en una tarjeta que no es el saldo de Hoy: la cotización de Ajustes, el
+  // total guardado de Ahorros. Un escalón por encima de `total`, un escalón por debajo del hero.
+  display: {
+    root: 'font-display font-bold text-[52px] leading-none tracking-[-0.04em]',
+    symbol: 'text-[0.36em] mt-[0.32em] mr-[0.11em] text-fg-muted',
+    fraction: 'text-[0.4em] mt-[0.36em] ml-[0.05em]',
   },
   figure: {
     root: 'font-display font-semibold text-figure',

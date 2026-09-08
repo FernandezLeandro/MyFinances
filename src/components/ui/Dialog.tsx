@@ -11,6 +11,9 @@ interface DialogProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /** El footer ocupa todo el ancho y pone su propio padding — para la barra inferior de los
+   *  diálogos-herramienta (`DialogBottomBar`), que lleva fondo propio a sangre completa. */
+  footerBleed?: boolean
   className?: string
 }
 
@@ -42,7 +45,7 @@ function unlockBodyScroll() {
  * scrolleando la página de atrás en vez del contenido — el bug reportado en Cuadrar saldo y en
  * los formularios largos.
  */
-export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, footer, footerBleed, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Un <dialog> abierto con showModal() vive en el "top layer" del navegador, siempre por
   // encima de cualquier overlay position:fixed normal sin importar su z-index. Por eso el
@@ -149,7 +152,14 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
 
         {footer && (
-          <div className="flex shrink-0 justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div
+            className={cn(
+              'shrink-0',
+              footerBleed
+                ? 'flex'
+                : 'flex justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]',
+            )}
+          >
             {footer}
           </div>
         )}

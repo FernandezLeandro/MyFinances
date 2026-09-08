@@ -36,3 +36,4 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+design_handoff_rediseno_v2/*

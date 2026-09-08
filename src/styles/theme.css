@@ -53,6 +53,25 @@
   --c-inverse-divider: #2a2b31;
   --c-negative-on-inverse: #ff9d8a;
 
+  /* Badges de urgencia — rojo/ámbar/neutro (vencimientos de Fijos, Hoy, Mis Deudas). El neutro
+     reusa fill-subtle/fg-secondary, que ya existen. */
+  --c-badge-red-bg: #f7e2dd;
+  --c-badge-red-fg: #96301e;
+  --c-badge-amber-bg: #f5ead3;
+  --c-badge-amber-fg: #7a5711;
+
+  /* Superficie hundida — los bloques de detalle y la barra inferior de los diálogos. Va por debajo
+     de surface, no por encima: es el fondo contra el que se lee el resumen de lo que se va a hacer. */
+  --c-surface-sunken: #f0eee6;
+
+  /* Fila en edición (categorías del admin y de la cuenta, alta de cuenta). Más pálido que
+     accent-soft a propósito: acompaña al borde izquierdo de acento, no compite con él. */
+  --c-editing: #f0f1fd;
+
+  /* Punto de aviso blando de las secciones del arquetipo 4. El rojo de "hay algo que resolver" es
+     negative, el azul de "suma" es accent y el gris neutro es border-strong — sólo el ámbar falta. */
+  --c-dot-warn: #c9a227;
+
   /* Categorías — 6 colores saturados, pensados para fondo claro */
   --c-cat-1: #1d8f7e;
   --c-cat-2: #c4402a;
@@ -93,6 +112,16 @@
   --c-inverse-divider: #34385180;
   --c-negative-on-inverse: #ff8f75;
 
+  --c-badge-red-bg: #3a2220;
+  --c-badge-red-fg: #ff8f75;
+  --c-badge-amber-bg: #332e1e;
+  --c-badge-amber-fg: #e8b45f;
+
+  /* Hundido = hacia el canvas, no hacia fill-subtle: en oscuro "más abajo" es más negro. */
+  --c-surface-sunken: #14161b;
+  --c-editing: #1c1f38;
+  --c-dot-warn: #e8b45f;
+
   /* Categorías — mismas 6, versión clara para contrastar sobre fondo oscuro */
   --c-cat-1: #4fc9b3;
   --c-cat-2: #ff8f75;
@@ -107,6 +136,8 @@
   --color-canvas: var(--c-canvas);
   --color-surface: var(--c-surface);
   --color-inverse: var(--c-inverse);
+  --color-surface-sunken: var(--c-surface-sunken);
+  --color-editing: var(--c-editing);
 
   --color-fg: var(--c-fg);
   --color-fg-secondary: var(--c-fg-secondary);
@@ -125,6 +156,11 @@
   --color-on-accent: var(--c-on-accent);
 
   --color-negative: var(--c-negative);
+  --color-badge-red-bg: var(--c-badge-red-bg);
+  --color-badge-red-fg: var(--c-badge-red-fg);
+  --color-badge-amber-bg: var(--c-badge-amber-bg);
+  --color-badge-amber-fg: var(--c-badge-amber-fg);
+  --color-dot-warn: var(--c-dot-warn);
   /* Advertencia leve ("sin cotización") — reusa el matiz de `cat-5`, no es un color de categoría. */
   --color-amber: var(--c-cat-5);
 
@@ -167,6 +203,8 @@
      elementos flotantes de verdad — el FAB mobile y el modal lift. */
   --shadow-lift: 0 24px 60px -32px rgb(0 0 0 / 0.35);
   --shadow-fab: 0 10px 24px -8px rgb(43 63 214 / 0.7);
+  /* La isla de la tab bar de mobile: despegada del piso, así que necesita su propia sombra. */
+  --shadow-island: 0 16px 34px -18px rgb(0 0 0 / 0.65);
 
   /* Motion */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
