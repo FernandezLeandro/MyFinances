@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
+import { useFitCount } from '@/lib/useFitCount'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
 import {
@@ -73,6 +74,12 @@ function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
   if (urgency === 'amber') return 'Esta semana'
   return `Vence el ${dueDay}`
 }
+
+// El widget de Movimientos muestra los últimos N — 5 en mobile siempre, y en escritorio hasta 12
+// si el ancho de la pantalla da para eso sin obligar a scrollear (ver `useFitCount`). Subir/bajar
+// el piso o el techo es cambiar estos dos números, nada más.
+const MOVEMENTS_PREVIEW_MIN = 5
+const MOVEMENTS_PREVIEW_MAX = 12
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
@@ -137,9 +144,23 @@ export function Hoy() {
 
   const currentBalanceCents = balance.data ?? 0
 
+  // Últimos N movimientos del mes — 5 fijo en mobile, hasta 12 en escritorio si entran sin
+  // scrollear (ver `useFitCount`). `monthTransactions` ya viene ordenado del más nuevo al más
+  // viejo, así que los primeros `movementsCount` son exactamente "los últimos".
+  const { containerRef: movementsRef, count: movementsCount } = useFitCount({
+    min: MOVEMENTS_PREVIEW_MIN,
+    max: MOVEMENTS_PREVIEW_MAX,
+    // Colchón para el padding inferior del `<main>` (`lg:pb-16` = 64px) más un poco de aire.
+    bottomMarginPx: 80,
+  })
+  const visibleTransactions = useMemo(
+    () => (monthTransactions.data ?? []).slice(0, movementsCount),
+    [monthTransactions.data, movementsCount],
+  )
+
   const groupedRecent = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
-    for (const tx of monthTransactions.data ?? []) {
+    for (const tx of visibleTransactions) {
       const label = dayLabel(tx.occurred_on, today)
       const list = groups.get(label) ?? []
       list.push(tx)
@@ -147,7 +168,7 @@ export function Hoy() {
     }
     return [...groups.entries()]
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
-  }, [monthTransactions.data])
+  }, [visibleTransactions])
 
   const totalIncome = summary.data?.totalIncome ?? 0
   const totalExpense = summary.data?.totalExpense ?? 0
@@ -364,7 +385,7 @@ export function Hoy() {
               ))}
             </ul>
           ) : groupedRecent.length > 0 ? (
-            <div className="mt-3 flex flex-col gap-1">
+            <div ref={movementsRef} className="mt-3 flex flex-col gap-1">
               {groupedRecent.map(([label, txs]) => (
                 <div key={label}>
                   <GroupHeader label={label} className="pt-2 pb-1" />
