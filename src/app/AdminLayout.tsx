@@ -1,6 +1,5 @@
 import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router'
-import { cn } from '@/lib/cn'
 import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
@@ -36,17 +35,8 @@ export function AdminLayout() {
         eyebrow="Administración"
       />
 
-      <main
-        className={cn(
-          'min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-10 lg:pb-16',
-          // Mismo motivo que en `AppLayout`: sin esto, la isla de mobile corta renglones a los
-          // costados en vez de que el contenido se desvanezca antes de llegar.
-          '[mask-image:linear-gradient(to_bottom,#000_0_73.5vh,transparent_84.5vh)]',
-          '[-webkit-mask-image:linear-gradient(to_bottom,#000_0_73.5vh,transparent_84.5vh)]',
-          '[mask-attachment:fixed] [-webkit-mask-attachment:fixed]',
-          'lg:[mask-image:none] lg:[-webkit-mask-image:none]',
-        )}
-      >
+      {/* El degradado antes de la isla vive en `MobileTabBar` — ver su comentario. */}
+      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 lg:pt-10 lg:pb-16">
         <div className="mx-auto w-full max-w-[1080px]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
