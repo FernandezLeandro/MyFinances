@@ -104,11 +104,7 @@ function FixedExpenseRow({
           {fe.is_recurring && (
             <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
               <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} size="wide" />
-              {overspent ? (
-                <span className="text-[12px] whitespace-nowrap text-negative">
-                  Te pasaste <Money cents={overspentCents} tone="negative" hidden={hidden} />
-                </span>
-              ) : done ? (
+              {overspent ? null : done ? (
                 <span className="text-[12px] whitespace-nowrap text-fg-muted">Completo</span>
               ) : (
                 // En mobile esto sobra: el "Resta $X" de la derecha ya dice lo que importa, y sumar
@@ -132,14 +128,13 @@ function FixedExpenseRow({
 
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
           curso ambos suelen coincidir, pero en un mes pasado pueden diferir. Bolsa: lo que resta
-          mientras falte, lo cargado una vez completa (el excedente ya se ve en la línea de arriba). */}
-      <Money
-        cents={done ? paidCents : remainingCents}
-        tone={done ? 'dim' : 'fg'}
-        size="row"
-        hidden={hidden}
-        className="w-24 shrink-0 justify-end"
-      />
+          mientras falte, lo cargado una vez completa. El exceso ya no va al lado de la barra (no
+          entraba sin pisarla, y un importe grande la iba a pisar más todavía) — baja apilado acá
+          debajo, en su propia línea, sin ancho fijo: si el número crece no tiene con qué chocar. */}
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <Money cents={done ? paidCents : remainingCents} tone={done ? 'dim' : 'fg'} size="row" hidden={hidden} />
+        {overspent && <Money cents={overspentCents} tone="negative" size="row" signed hidden={hidden} />}
+      </div>
     </li>
   )
 }
@@ -503,7 +498,11 @@ export function Fijos() {
                     </span>
                     <span className="hidden text-[11.5px] text-fg-muted lg:inline">se cargan durante el mes</span>
                   </div>
-                  <span className="w-24 shrink-0 text-right text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
+                  {/* `hidden` entero en mobile, no sólo el texto: a 390px no hay una columna de
+                      valores prolija contra la cual alinearlo (cada fila apila su propio importe y
+                      el exceso, si hay, con anchos distintos) — dejar la etiqueta ahí sin nada que
+                      alinear rompía el header, y reservar el `w-24` igual desalineaba el resto. */}
+                  <span className="hidden text-right text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase lg:block lg:w-24 lg:shrink-0">
                     Resta
                   </span>
                 </div>
