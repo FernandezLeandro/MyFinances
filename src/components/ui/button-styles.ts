@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 
 export type ButtonVariant = 'primary' | 'ghost' | 'outline' | 'danger'
-export type ButtonSize = 'sm' | 'md'
+export type ButtonSize = 'sm' | 'compact' | 'md'
 
 const variants: Record<ButtonVariant, string> = {
   // `text-on-accent`, no `text-canvas`: con el sistema de tema nuevo el acento es azul en los dos
@@ -16,6 +16,9 @@ const variants: Record<ButtonVariant, string> = {
 
 const sizes: Record<ButtonSize, string> = {
   sm: 'h-8 px-3 text-[13px] gap-1.5',
+  // La fila de acciones de cabecera (Exportar CSV · Categorías · + Nuevo movimiento en Movimientos,
+  // y el mismo patrón en Fijos/Mis Deudas/Me Deben/Ahorros) — 38px, entre `sm` y `md`.
+  compact: 'h-[38px] px-[15px] text-[13px] gap-1.5',
   md: 'h-11 px-5 text-sm gap-2',
 }
 

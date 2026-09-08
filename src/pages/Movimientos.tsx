@@ -173,13 +173,18 @@ export function Movimientos() {
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => exportCsv(transactions, categoryById)} disabled={!transactions?.length}>
+          <Button
+            variant="outline"
+            size="compact"
+            onClick={() => exportCsv(transactions, categoryById)}
+            disabled={!transactions?.length}
+          >
             Exportar CSV
           </Button>
-          <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+          <Button variant="outline" size="compact" onClick={() => setCategoriesOpen(true)}>
             Categorías
           </Button>
-          <Button icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
+          <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
             Nuevo movimiento
           </Button>
         </div>
@@ -188,7 +193,10 @@ export function Movimientos() {
       {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día — siempre
           sobre la lista ya filtrada, nunca un total aparte del que ve la tabla de abajo. Las
           comparativas vs. el período anterior quedan apagadas acá a propósito: viven en Análisis. */}
-      <Panel className="flex flex-col gap-5 p-6 lg:flex-row lg:items-end lg:gap-9">
+      {/* `lg:items-start`, no `items-end`: con la columna del gráfico de barras (más alta que las
+          demás en pantallas angostas, donde "Gasto por día" puede llegar a partirse en dos líneas)
+          alinear abajo empujaba "Neto del período" hacia abajo, dejando un hueco arriba. */}
+      <Panel className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:gap-9">
         <div className="flex-none">
           <p className="eyebrow">Neto del período</p>
           <Money cents={summary.netCents} tone="accent" size="total" signed className="mt-1" />
@@ -196,7 +204,9 @@ export function Movimientos() {
 
         <div className="hidden h-14 w-px shrink-0 bg-divider lg:block" />
 
-        <div className="grid grid-cols-3 gap-4 lg:flex lg:flex-none lg:gap-7">
+        {/* Apiladas en mobile, no en grilla de 3 — un importe de 7+ cifras no entra en un tercio
+            de 390px sin pisar al de al lado (ver el reporte del bloque). */}
+        <div className="flex flex-col gap-3 lg:flex-none lg:flex-row lg:gap-7">
           <div>
             <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Ingresos</p>
             <Money cents={summary.totalIncomeCents} tone="fg" size="compact" className="mt-1" />
@@ -224,10 +234,12 @@ export function Movimientos() {
             barras finitas no cuentan nada. */}
         {filters.period.preset === 'month' && bars.length > 1 && (
           <div className="hidden min-w-0 flex-1 lg:block">
-            <div className="flex items-baseline justify-between">
-              <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Gasto por día</p>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
+                Gasto por día
+              </p>
               {maxBarCents > 0 && (
-                <span className="text-[11.5px] text-fg-muted">
+                <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
                   pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
                 </span>
               )}
@@ -246,34 +258,39 @@ export function Movimientos() {
       </Panel>
 
       <div className="flex flex-col gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Buscador en su propia fila, a lo ancho — el resto (segmentado, Filtros, Limpiar,
+            conteo) va debajo en mobile pero se suma a la misma línea en escritorio: `lg:contents`
+            saca ese wrapper de la jugada y sus hijos pasan a ser hermanos directos del buscador. */}
+        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
           <SearchInput
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar por descripción…"
-            className="max-w-[240px]"
+            className="w-full lg:w-auto lg:min-w-[280px]"
           />
-          <SegmentedToggle
-            variant="pill"
-            value={filters.type}
-            onChange={(type) => setFilters((f) => ({ ...f, type }))}
-            options={TYPE_OPTIONS}
-          />
-          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
-            <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
-            Filtros
-            {activeCount > 0 && <CountBubble count={activeCount} />}
-          </Button>
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearAll}>
-              Limpiar todo
+          <div className="flex flex-wrap items-center gap-2 lg:contents">
+            <SegmentedToggle
+              variant="pill"
+              value={filters.type}
+              onChange={(type) => setFilters((f) => ({ ...f, type }))}
+              options={TYPE_OPTIONS}
+            />
+            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
+              <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
+              Filtros
+              {activeCount > 0 && <CountBubble count={activeCount} />}
             </Button>
-          )}
-          {!isPending && (
-            <span className="ml-auto text-[12.5px] text-fg-muted">
-              {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'}
-            </span>
-          )}
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAll}>
+                Limpiar todo
+              </Button>
+            )}
+            {!isPending && (
+              <span className="text-[12.5px] text-fg-muted lg:ml-auto">
+                {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
         </div>
 
         {activeCount > 0 && (
