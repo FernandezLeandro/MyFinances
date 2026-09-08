@@ -52,10 +52,10 @@ export function MobileTabBar({ items, drawerOpen, onOpenDrawer, onFabClick }: Mo
           la isla, y al seguir scrolleando queda completamente visible arriba, sin ningún rastro. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-canvas to-transparent lg:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-canvas to-transparent md:hidden"
       />
 
-      <nav aria-label="Secciones" className="fixed inset-x-0 bottom-[22px] z-20 flex justify-center lg:hidden">
+      <nav aria-label="Secciones" className="fixed inset-x-0 bottom-[22px] z-20 flex justify-center md:hidden">
         <ul className="flex items-center gap-1 rounded-pill bg-inverse px-2 py-2 shadow-island">
           {items.map((item) => (
             <li key={item.to}>

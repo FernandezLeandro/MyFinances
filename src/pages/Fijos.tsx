@@ -261,9 +261,6 @@ export function Fijos() {
   const paidCentsTotal = useMemo(() => allStatuses.reduce((acc, s) => acc + s.paidCents, 0), [allStatuses])
   const paidPct = totalCents > 0 ? Math.min((paidCentsTotal / totalCents) * 100, 100) : 0
 
-  const bolsaTotalCents = useMemo(() => bolsaStatuses.reduce((acc, s) => acc + s.fe.cents, 0), [bolsaStatuses])
-  const bolsaPaidCents = useMemo(() => bolsaStatuses.reduce((acc, s) => acc + s.paidCents, 0), [bolsaStatuses])
-
   // Agrupa los fijos de una sola vez pendientes por urgencia — mismo criterio que el widget de
   // Vencimientos de Hoy (`fixedExpenseUrgency`). Fuera del mes en curso "atrasado"/"esta semana" no
   // tienen sentido (se está mirando otro mes), así que todo cae en un solo grupo.
@@ -486,17 +483,13 @@ export function Fijos() {
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-6 pt-5 pb-2">
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                     <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas mensuales</h2>
-                    <span className="text-[13px] font-semibold whitespace-nowrap text-fg">
-                      <Money cents={bolsaPaidCents} size="inline" hidden={balanceHidden} /> de{' '}
-                      <Money cents={bolsaTotalCents} size="inline" tone="dim" hidden={balanceHidden} />
-                    </span>
-                    <span className="hidden text-[11.5px] text-fg-muted lg:inline">se cargan durante el mes</span>
+                    <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el mes</span>
                   </div>
-                  {/* `hidden` entero en mobile, no sólo el texto: a 390px no hay una columna de
+                  {/* `hidden` entero por debajo de 768px, no sólo el texto: ahí no hay una columna de
                       valores prolija contra la cual alinearlo (cada fila apila su propio importe y
-                      el exceso, si hay, con anchos distintos) — dejar la etiqueta ahí sin nada que
-                      alinear rompía el header, y reservar el `w-24` igual desalineaba el resto. */}
-                  <span className="hidden text-right text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase lg:block lg:w-24 lg:shrink-0">
+                      el exceso, si hay, con anchos distintos) — dejar la etiqueta sin nada que
+                      alinear rompía el header, y reservar el ancho igual desalineaba el resto. */}
+                  <span className="hidden text-right text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase md:block md:w-24 md:shrink-0">
                     Resta
                   </span>
                 </div>
