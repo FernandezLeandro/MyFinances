@@ -35,7 +35,6 @@ import {
 import { FixedExpenseDetailDialog } from '@/features/fixed-expenses/FixedExpenseDetailDialog'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
-import { PendientesTabs } from '@/components/PendientesTabs'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
@@ -323,20 +322,18 @@ export function Fijos() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-4">
-        {/* Mobile: título + píldora de mes en una fila, los tabs Fijos/Mis Deudas/Me Deben debajo. */}
-        <div className="flex flex-col gap-3 lg:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-display text-figure font-semibold">Gastos fijos</h1>
-            <MonthNav
-              label={format(month, 'MMMM yyyy', { locale: es })}
-              mobileLabel={format(month, 'MMMM', { locale: es })}
-              onPrev={() => setMonth((m) => subMonths(m, 1))}
-              onNext={() => setMonth((m) => addMonths(m, 1))}
-            />
-          </div>
-          <PendientesTabs />
+        {/* Mobile: título + píldora de mes en una fila. Ya no hay tabs Fijos/Mis Deudas/Me Deben
+            acá — cada pantalla se navega desde el nav general, no cruzando entre sí. */}
+        <div className="flex items-center justify-between gap-3 lg:hidden">
+          <h1 className="font-display text-figure font-semibold">Gastos fijos</h1>
+          <MonthNav
+            label={format(month, 'MMMM yyyy', { locale: es })}
+            mobileLabel={format(month, 'MMMM', { locale: es })}
+            onPrev={() => setMonth((m) => subMonths(m, 1))}
+            onNext={() => setMonth((m) => addMonths(m, 1))}
+          />
         </div>
 
         <div className="hidden lg:block">
@@ -346,9 +343,6 @@ export function Fijos() {
             onNext={() => setMonth((m) => addMonths(m, 1))}
           />
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
-          <div className="mt-3">
-            <PendientesTabs />
-          </div>
         </div>
 
         {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo fijo", y Pausados vive en el
