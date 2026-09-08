@@ -70,6 +70,13 @@ export interface ReceivablesSummary {
    *  como gasto. Se muestra aparte para que el usuario entienda por qué el total no coincide. */
   yaGastadoPendingCents: number
   vencidasCount: number
+  /** Suma de `amountCents` de TODO (pendientes + cobradas) — cuánto se prestó en total alguna vez,
+   *  no sólo lo que sigue abierto. Junto con `totalReturnedCents` arma la barra "ya te devolvieron
+   *  X de Y prestados" del hero de Me Deben. */
+  totalLentCents: number
+  /** Suma de `paidCents` de TODO (pendientes + cobradas) — lo que ya volvió, incluidas las deudas
+   *  ya cerradas del todo. */
+  totalReturnedCents: number
 }
 
 /** Clave de orden para mes esperado: `null` ("no sé cuándo") ordena después de cualquier mes real. */
@@ -100,6 +107,8 @@ export function summarizeReceivables(
       .filter((s) => s.receivable.already_expensed && !s.cobrada)
       .reduce((sum, s) => sum + s.pendingCents, 0),
     vencidasCount: statuses.filter((s) => s.vencida).length,
+    totalLentCents: statuses.reduce((sum, s) => sum + s.receivable.amountCents, 0),
+    totalReturnedCents: statuses.reduce((sum, s) => sum + s.paidCents, 0),
   }
 }
 

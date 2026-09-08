@@ -121,6 +121,24 @@ describe('summarizeReceivables', () => {
     expect(s.cobradas[0].vencida).toBe(false)
     expect(s.vencidasCount).toBe(0)
   })
+
+  it('totalLentCents y totalReturnedCents suman TODO, pendientes y cobradas por igual', () => {
+    const r1 = makeReceivable({ id: 'r1', amountCents: 50_000_00 })
+    const r2 = makeReceivable({ id: 'r2', amountCents: 30_000_00 })
+    const payments = [
+      makeReceivablePayment({ receivable_id: 'r1', amountCents: 20_000_00 }), // r1 sigue pendiente
+      makeReceivablePayment({ receivable_id: 'r2', amountCents: 30_000_00 }), // r2 queda cobrada
+    ]
+    const s = summarizeReceivables([r1, r2], payments, TODAY)
+    expect(s.totalLentCents).toBe(80_000_00)
+    expect(s.totalReturnedCents).toBe(50_000_00)
+  })
+
+  it('sin deudas → totalLentCents y totalReturnedCents en 0', () => {
+    const s = summarizeReceivables([], [], TODAY)
+    expect(s.totalLentCents).toBe(0)
+    expect(s.totalReturnedCents).toBe(0)
+  })
 })
 
 describe('particionarPorHorizonte', () => {
