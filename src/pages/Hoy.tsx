@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { endOfMonth, format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
@@ -75,8 +75,15 @@ function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
   return `Vence el ${dueDay}`
 }
 
-// El widget de Movimientos muestra siempre los últimos 5, en mobile y en escritorio.
-const MOVEMENTS_PREVIEW_COUNT = 5
+// El widget de Movimientos muestra los últimos 5 fijos en mobile; en escritorio, los que entren
+// hasta el borde de la pantalla sin obligar a scrollear, con 5 de piso y 12 de techo.
+const MOVEMENTS_DESKTOP_QUERY = '(min-width: 1024px)' // mismo breakpoint que `lg:` en Tailwind
+const MOVEMENTS_PREVIEW_MIN = 5
+const MOVEMENTS_PREVIEW_MAX = 12
+/** El padding inferior del `<main>` (`md:pb-16` = 64px) más 8px de aire contra redondeos. */
+const MOVEMENTS_MAIN_BOTTOM_PADDING = 72
+/** El `gap-1` que separa un grupo de día del siguiente dentro de la lista. */
+const MOVEMENTS_GROUP_GAP = 4
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
@@ -141,11 +148,70 @@ export function Hoy() {
 
   const currentBalanceCents = balance.data ?? 0
 
+  // Cuántos movimientos entran sin scrollear. El cálculo es de una sola pasada: mide el espacio
+  // libre hasta el borde de la ventana y las alturas de una fila y de un encabezado de día, y de
+  // ahí saca el número por aritmética. Ninguna de esas tres medidas depende de cuántas filas haya
+  // renderizadas, así que volver a medir después de cambiar el conteo da siempre lo mismo y el
+  // efecto se estabiliza solo — a diferencia de ajustar de a un ítem contra un `ResizeObserver`,
+  // que oscilaba para siempre cuando el punto de ajuste caía entre dos enteros.
+  const movementsListRef = useRef<HTMLDivElement>(null)
+  const [movementsCount, setMovementsCount] = useState(MOVEMENTS_PREVIEW_MIN)
+
+  useLayoutEffect(() => {
+    const fit = () => {
+      if (!window.matchMedia(MOVEMENTS_DESKTOP_QUERY).matches) {
+        setMovementsCount(MOVEMENTS_PREVIEW_MIN)
+        return
+      }
+      const list = movementsListRef.current
+      const all = monthTransactions.data
+      if (!list || !all?.length) return
+
+      // Alturas unitarias, tomadas del primer grupo ya renderizado: fila y encabezado miden igual
+      // sin importar cuántos haya.
+      const rowHeight = list.querySelector('li')?.getBoundingClientRect().height ?? 0
+      const headerHeight = list.firstElementChild?.firstElementChild?.getBoundingClientRect().height ?? 0
+      if (!rowHeight) return
+
+      // Lo que la lista ya ocupa más lo que queda libre debajo del panel que la contiene. Medirlo
+      // así incluye solo el padding del panel sin tener que hardcodearlo, y es invariante al
+      // conteo: si la lista crece, el hueco de abajo se achica en la misma cantidad.
+      const panelBottom = list.parentElement?.getBoundingClientRect().bottom ?? 0
+      const budget =
+        list.getBoundingClientRect().height +
+        (window.innerHeight - panelBottom - MOVEMENTS_MAIN_BOTTOM_PADDING)
+      let used = 0
+      let fitted = 0
+      let lastLabel: string | null = null
+      for (const tx of all) {
+        if (fitted >= MOVEMENTS_PREVIEW_MAX) break
+        const label = dayLabel(tx.occurred_on, today)
+        const opensGroup = label !== lastLabel
+        const cost = rowHeight + (opensGroup ? headerHeight + (fitted ? MOVEMENTS_GROUP_GAP : 0) : 0)
+        if (used + cost > budget) break
+        used += cost
+        fitted += 1
+        lastLabel = label
+      }
+      setMovementsCount(Math.max(MOVEMENTS_PREVIEW_MIN, fitted))
+    }
+
+    fit()
+    const mql = window.matchMedia(MOVEMENTS_DESKTOP_QUERY)
+    window.addEventListener('resize', fit)
+    mql.addEventListener('change', fit)
+    return () => {
+      window.removeEventListener('resize', fit)
+      mql.removeEventListener('change', fit)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
+  }, [monthTransactions.data, movementsCount])
+
   // `monthTransactions` ya viene ordenado del más nuevo al más viejo, así que los primeros son
   // exactamente "los últimos".
   const visibleTransactions = useMemo(
-    () => (monthTransactions.data ?? []).slice(0, MOVEMENTS_PREVIEW_COUNT),
-    [monthTransactions.data],
+    () => (monthTransactions.data ?? []).slice(0, movementsCount),
+    [monthTransactions.data, movementsCount],
   )
 
   const groupedRecent = useMemo(() => {
@@ -377,7 +443,7 @@ export function Hoy() {
               ))}
             </ul>
           ) : groupedRecent.length > 0 ? (
-            <div className="mt-3 flex flex-col gap-1">
+            <div ref={movementsListRef} className="mt-3 flex flex-col gap-1">
               {groupedRecent.map(([label, txs]) => (
                 <div key={label}>
                   <GroupHeader label={label} className="pt-2 pb-1" />
