@@ -17,7 +17,6 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
-import { useFitCount } from '@/lib/useFitCount'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
 import {
@@ -76,11 +75,8 @@ function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
   return `Vence el ${dueDay}`
 }
 
-// El widget de Movimientos muestra los últimos N — 5 en mobile siempre, y en escritorio hasta 12
-// si el ancho de la pantalla da para eso sin obligar a scrollear (ver `useFitCount`). Subir/bajar
-// el piso o el techo es cambiar estos dos números, nada más.
-const MOVEMENTS_PREVIEW_MIN = 5
-const MOVEMENTS_PREVIEW_MAX = 12
+// El widget de Movimientos muestra siempre los últimos 5, en mobile y en escritorio.
+const MOVEMENTS_PREVIEW_COUNT = 5
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
@@ -145,18 +141,11 @@ export function Hoy() {
 
   const currentBalanceCents = balance.data ?? 0
 
-  // Últimos N movimientos del mes — 5 fijo en mobile, hasta 12 en escritorio si entran sin
-  // scrollear (ver `useFitCount`). `monthTransactions` ya viene ordenado del más nuevo al más
-  // viejo, así que los primeros `movementsCount` son exactamente "los últimos".
-  const { containerRef: movementsRef, count: movementsCount } = useFitCount({
-    min: MOVEMENTS_PREVIEW_MIN,
-    max: MOVEMENTS_PREVIEW_MAX,
-    // Colchón para el padding inferior del `<main>` (`lg:pb-16` = 64px) más un poco de aire.
-    bottomMarginPx: 80,
-  })
+  // `monthTransactions` ya viene ordenado del más nuevo al más viejo, así que los primeros son
+  // exactamente "los últimos".
   const visibleTransactions = useMemo(
-    () => (monthTransactions.data ?? []).slice(0, movementsCount),
-    [monthTransactions.data, movementsCount],
+    () => (monthTransactions.data ?? []).slice(0, MOVEMENTS_PREVIEW_COUNT),
+    [monthTransactions.data],
   )
 
   const groupedRecent = useMemo(() => {
@@ -388,7 +377,7 @@ export function Hoy() {
               ))}
             </ul>
           ) : groupedRecent.length > 0 ? (
-            <div ref={movementsRef} className="mt-3 flex flex-col gap-1">
+            <div className="mt-3 flex flex-col gap-1">
               {groupedRecent.map(([label, txs]) => (
                 <div key={label}>
                   <GroupHeader label={label} className="pt-2 pb-1" />

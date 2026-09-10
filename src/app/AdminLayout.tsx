@@ -36,7 +36,10 @@ export function AdminLayout() {
       />
 
       {/* El degradado antes de la isla vive en `MobileTabBar` — ver su comentario. */}
-      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:pt-10 md:pb-16">
+      {/* `md:min-h-[calc(100dvh-58px)]`: desde `md:` la `TopBar` sticky (h-[58px]) ya ocupa lugar
+          arriba — pedirle a `main` el viewport entero además de eso deja la página siempre 58px
+          más alta que la pantalla, con scroll aunque el contenido real no lo necesite. */}
+      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:min-h-[calc(100dvh-58px)] md:pt-10 md:pb-16">
         <div className="mx-auto w-full max-w-[1280px]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />

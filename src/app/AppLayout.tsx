@@ -38,7 +38,10 @@ export function AppLayout() {
           como un overlay fijo al viewport — no acá como mask del scroll (ver su comentario: un mask
           con `mask-attachment: fixed` deja lo que caiga en esa franja atenuado para siempre, sin
           que scrollear lo despeje). */}
-      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:pt-10 md:pb-16">
+      {/* `md:min-h-[calc(100dvh-58px)]`: desde `md:` la `TopBar` sticky (h-[58px]) ya ocupa lugar
+          arriba — pedirle a `main` el viewport entero además de eso deja la página siempre 58px
+          más alta que la pantalla, con scroll aunque el contenido real no lo necesite. */}
+      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:min-h-[calc(100dvh-58px)] md:pt-10 md:pb-16">
         <div className="mx-auto w-full max-w-[1280px]">
           {/* Sólo el contenido suspende, no el shell (nav/header) — así no parpadea al navegar. */}
           <Suspense fallback={<PageSkeleton />}>
