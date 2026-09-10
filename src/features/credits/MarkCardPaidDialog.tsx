@@ -70,10 +70,10 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
       title="Marcar tarjeta como pagada"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
             {markPaid.isPending ? 'Guardando…' : 'Marcar pagada'}
           </Button>
         </>
@@ -87,7 +87,7 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
 
         <div className="flex flex-col gap-3">
           {groups.map((group) => (
-            <div key={group.categoryId ?? 'sin-categoria'} className="rounded-control bg-fill-subtle px-4 py-3">
+            <div key={group.categoryId ?? 'sin-categoria'} className="rounded-control bg-surface-sunken px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-fg">
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: group.color ?? 'var(--color-border-strong)' }} />

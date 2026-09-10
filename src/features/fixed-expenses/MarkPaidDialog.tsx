@@ -69,10 +69,10 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
       title={isRecurring ? 'Registrar carga' : 'Marcar como pagado'}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
             {markPaid.isPending ? 'Guardando…' : isRecurring ? 'Registrar' : 'Marcar pagado'}
           </Button>
         </>

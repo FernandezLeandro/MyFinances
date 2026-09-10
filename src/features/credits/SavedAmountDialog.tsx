@@ -36,10 +36,10 @@ export function SavedAmountDialog({ open, onClose, card, period, savedCents }: S
       title={`Plata guardada — ${card.name}`}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={setSaving.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={setSaving.isPending}>
             {setSaving.isPending ? 'Guardando…' : 'Guardar'}
           </Button>
         </>

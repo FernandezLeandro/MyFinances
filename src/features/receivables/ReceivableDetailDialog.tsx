@@ -50,16 +50,20 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
         title={receivable.name}
         footer={
           <>
-            <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+            <Button variant="danger" size="dialogFooter" onClick={() => setConfirmingDelete(true)} className="sm:mr-auto">
               Eliminar
             </Button>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cerrar
             </Button>
-            <Button variant="outline" onClick={() => setFormOpen(true)}>
+            <Button variant="outline" size="dialogFooter" onClick={() => setFormOpen(true)}>
               Editar
             </Button>
-            {!cobrada && <Button onClick={() => setAbonoOpen(true)}>Registrar abono</Button>}
+            {!cobrada && (
+              <Button size="dialogFooter" onClick={() => setAbonoOpen(true)}>
+                Registrar abono
+              </Button>
+            )}
           </>
         }
       >
@@ -166,10 +170,10 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
           title="Eliminar deuda"
           footer={
             <>
-              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              <Button variant="ghost" size="dialogFooter" onClick={() => setConfirmingDelete(false)}>
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteReceivable.isPending}>
+              <Button variant="danger" size="dialogFooter" onClick={handleConfirmDelete} disabled={deleteReceivable.isPending}>
                 {deleteReceivable.isPending ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </>

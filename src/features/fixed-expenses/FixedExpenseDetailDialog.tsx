@@ -83,13 +83,13 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
         title={fixedExpense.name}
         footer={
           <>
-            <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+            <Button variant="danger" size="dialogFooter" onClick={() => setConfirmingDelete(true)} className="sm:mr-auto">
               Eliminar
             </Button>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cerrar
             </Button>
-            <Button variant="outline" onClick={() => setFormOpen(true)}>
+            <Button variant="outline" size="dialogFooter" onClick={() => setFormOpen(true)}>
               Editar
             </Button>
           </>
@@ -174,10 +174,10 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
           title="Eliminar gasto fijo"
           footer={
             <>
-              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              <Button variant="ghost" size="dialogFooter" onClick={() => setConfirmingDelete(false)}>
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteFixedExpense.isPending}>
+              <Button variant="danger" size="dialogFooter" onClick={handleConfirmDelete} disabled={deleteFixedExpense.isPending}>
                 {deleteFixedExpense.isPending ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </>

@@ -8,6 +8,9 @@ interface OpeningAmountFieldProps {
   /** La explicación va al costado, en la misma línea que el campo — no debajo. Es lo que permite
    *  que el bloque entre en un renglón en vez de tres. */
   hint: string
+  /** "$" por default. El aporte de `SavingsEntryFormDialog` lo pisa con el símbolo del activo
+   *  elegido (USD, BTC…) — ahí el campo no siempre declara pesos. */
+  symbol?: string
   ariaLabel?: string
   className?: string
 }
@@ -26,6 +29,7 @@ export function OpeningAmountField({
   onChange,
   label,
   hint,
+  symbol = '$',
   ariaLabel,
   className,
 }: OpeningAmountFieldProps) {
@@ -39,7 +43,7 @@ export function OpeningAmountField({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <div className="flex h-10 w-[150px] shrink-0 items-center gap-1.5 rounded-control bg-fill-subtle px-3">
           <span aria-hidden className="text-[14px] text-fg-muted">
-            $
+            {symbol}
           </span>
           <input
             id={id}

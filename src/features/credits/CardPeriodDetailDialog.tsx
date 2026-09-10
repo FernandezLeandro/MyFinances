@@ -79,15 +79,20 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
         title={card.name}
         footer={
           <>
-            <Button variant="ghost" onClick={onClose} className="mr-auto">
+            <Button variant="ghost" size="dialogFooter" onClick={onClose} className="sm:mr-auto">
               Cerrar
             </Button>
             {paid ? (
-              <Button variant="danger" onClick={() => unmarkPaid.mutate({ cardId: card.id, period })} disabled={unmarkPaid.isPending}>
+              <Button
+                variant="danger"
+                size="dialogFooter"
+                onClick={() => unmarkPaid.mutate({ cardId: card.id, period })}
+                disabled={unmarkPaid.isPending}
+              >
                 Desmarcar pagada
               </Button>
             ) : (
-              <Button onClick={() => setChild('markPaid')} disabled={totalCents === 0}>
+              <Button size="dialogFooter" onClick={() => setChild('markPaid')} disabled={totalCents === 0}>
                 Marcar pagada
               </Button>
             )}

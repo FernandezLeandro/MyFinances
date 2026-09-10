@@ -157,7 +157,11 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
               'shrink-0',
               footerBleed
                 ? 'flex'
-                : 'flex justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]',
+                : // `flex-col-reverse`: en mobile los botones apilan a todo el ancho con la acción
+                  // primaria (última en el DOM) arriba y Eliminar, cuando existe, siempre al final —
+                  // el orden inverso del que ya tiene sentido en escritorio, donde ese mismo `mr-auto`
+                  // lo manda al extremo izquierdo en vez de al fondo de la pila.
+                  'flex flex-col-reverse gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
             )}
           >
             {footer}

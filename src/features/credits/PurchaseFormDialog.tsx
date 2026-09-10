@@ -210,14 +210,14 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
       footer={
         <>
           {isEditing && (
-            <Button variant="danger" onClick={onDelete} disabled={deletePurchase.isPending} className="mr-auto">
+            <Button variant="danger" size="dialogFooter" onClick={onDelete} disabled={deletePurchase.isPending} className="sm:mr-auto">
               Eliminar
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>

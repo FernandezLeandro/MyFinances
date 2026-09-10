@@ -3,7 +3,6 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 import type { Category } from '@/features/categories/api'
 import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
@@ -141,40 +140,39 @@ export function TransactionFiltersDialog({
       open={open}
       onClose={onClose}
       title={view === 'categories' ? 'Categorías' : 'Filtros'}
+      footerBleed
       footer={
-        view === 'filters' ? (
-          <>
-            <Button variant="ghost" onClick={clearDraft} className="mr-auto">
-              Limpiar
-            </Button>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button onClick={apply} disabled={customInvalid}>
+        <div className="flex w-full items-center gap-4 bg-surface-sunken px-6 pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={view === 'filters' ? clearDraft : clearCategories}
+            className="text-[12.5px] font-semibold text-fg-secondary transition-colors hover:text-fg"
+          >
+            Limpiar
+          </button>
+          {view === 'filters' ? (
+            <Button size="compact" className="ml-auto" onClick={apply} disabled={customInvalid}>
               Aplicar
             </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="ghost" onClick={clearCategories} className="mr-auto">
-              Limpiar
+          ) : (
+            <Button size="compact" className="ml-auto" onClick={() => setView('filters')}>
+              Listo
             </Button>
-            <Button onClick={() => setView('filters')}>Listo</Button>
-          </>
-        )
+          )}
+        </div>
       }
     >
       {view === 'filters' ? (
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Período</p>
-            <Select value={draft.period.preset} onChange={(e) => selectPreset(e.target.value as MovementPeriodPreset)}>
+            <div className="flex flex-wrap gap-1.5">
               {MOVEMENT_PERIOD_PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
+                <Chip key={preset} active={draft.period.preset === preset} onClick={() => selectPreset(preset)}>
                   {MOVEMENT_PERIOD_PRESET_LABELS[preset]}
-                </option>
+                </Chip>
               ))}
-            </Select>
+            </div>
             {draft.period.preset === 'custom' && (
               <div className="mt-1 flex items-center gap-2">
                 <Input

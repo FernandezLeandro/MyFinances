@@ -51,10 +51,10 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
       title="Descontar de tu saldo"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={expenseReceivable.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={expenseReceivable.isPending}>
             {expenseReceivable.isPending ? 'Guardando…' : 'Descontar'}
           </Button>
         </>

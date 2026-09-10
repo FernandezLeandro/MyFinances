@@ -58,17 +58,41 @@ export function useUpdateCategory() {
   })
 }
 
-export function useArchiveCategory() {
+/** Archivar o reactivar — sus movimientos ya cargados no se tocan, sólo deja de ofrecerse en los
+ *  selectores de alta de un movimiento nuevo. */
+export function useSetCategoryArchived() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('categories').update({ is_archived: true }).eq('id', id)
+    mutationFn: async ({ id, isArchived }: { id: string; isArchived: boolean }) => {
+      const { error } = await supabase.from('categories').update({ is_archived: isArchived }).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories', user?.id] })
+    },
+  })
+}
+
+/** Cuántos movimientos tiene cada categoría — para "Sin usar" y "En uso" del arquetipo 4. Trae sólo
+ *  la columna `category_id` (no todo el movimiento) y cuenta del lado del cliente: no hay vista con
+ *  el agregado ya armado, y la tabla de un usuario normal no justifica una migración sólo para esto. */
+export function useCategoryUsageCounts() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['category-usage-counts', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('transactions').select('category_id').not('category_id', 'is', null)
+      if (error) throw error
+      const counts = new Map<string, number>()
+      for (const row of data) {
+        if (!row.category_id) continue
+        counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1)
+      }
+      return counts
     },
   })
 }

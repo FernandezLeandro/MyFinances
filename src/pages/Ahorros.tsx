@@ -594,7 +594,7 @@ export function Ahorros() {
           onClose={() => setCompositionModalOpen(false)}
           title="Composición completa"
           footer={
-            <Button variant="ghost" onClick={() => setCompositionModalOpen(false)}>
+            <Button variant="ghost" size="dialogFooter" onClick={() => setCompositionModalOpen(false)}>
               Cerrar
             </Button>
           }

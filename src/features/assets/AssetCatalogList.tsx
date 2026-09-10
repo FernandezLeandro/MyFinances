@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
@@ -72,7 +73,7 @@ function AssetRow({
         ) : price?.priceArsCents != null ? (
           <Money cents={price.priceArsCents} tone="dim" />
         ) : (
-          <span className="text-amber">sin cotización</span>
+          <Badge variant="amber">Sin cotización</Badge>
         )}
       </div>
 
@@ -106,10 +107,10 @@ function AssetRow({
           title="Eliminar activo"
           footer={
             <>
-              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              <Button variant="ghost" size="dialogFooter" onClick={() => setConfirmingDelete(false)}>
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteAsset.isPending}>
+              <Button variant="danger" size="dialogFooter" onClick={handleConfirmDelete} disabled={deleteAsset.isPending}>
                 {deleteAsset.isPending ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </>

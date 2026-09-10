@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Dialog } from '@/components/ui/Dialog'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -58,10 +59,12 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
         title={bucket.name}
         footer={
           <>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cerrar
             </Button>
-            <Button onClick={openNewEntry}>Nuevo aporte</Button>
+            <Button size="dialogFooter" onClick={openNewEntry}>
+              Nuevo aporte
+            </Button>
           </>
         }
       >
@@ -96,7 +99,11 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] text-fg">
                         {isWithdrawal ? 'Retiro' : 'Aporte'} en {asset.symbol}
-                        {missingRate && <span className="ml-2 text-[11px] font-medium text-amber">Sin cotización</span>}
+                        {missingRate && (
+                          <Badge variant="amber" className="ml-2">
+                            Sin cotización
+                          </Badge>
+                        )}
                       </p>
                       <p className="mt-0.5 text-[12px] text-fg-muted">
                         {format(parseISO(entry.occurred_on), "d 'de' MMMM yyyy", { locale: es })}

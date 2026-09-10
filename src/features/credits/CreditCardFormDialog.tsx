@@ -67,14 +67,14 @@ export function CreditCardFormDialog({ open, onClose, card }: CreditCardFormDial
       footer={
         <>
           {isEditing && (
-            <Button variant="danger" onClick={onDelete} disabled={deleteCard.isPending} className="mr-auto">
+            <Button variant="danger" size="dialogFooter" onClick={onDelete} disabled={deleteCard.isPending} className="sm:mr-auto">
               Eliminar
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>

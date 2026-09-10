@@ -28,8 +28,8 @@ export function Chip({ children, color, active = false, onClick, className, aria
       className={cn(
         'inline-flex items-center gap-1.5 rounded-chip px-2 py-1 text-[12px] leading-none whitespace-nowrap',
         'transition-colors duration-150',
-        active ? 'bg-border-strong text-fg' : 'bg-fill-subtle text-fg-secondary',
-        interactive && 'hover:bg-border-strong hover:text-fg',
+        active ? 'bg-inverse font-semibold text-on-inverse' : 'bg-fill-subtle text-fg-secondary',
+        interactive && !active && 'hover:bg-border-strong hover:text-fg',
         className,
       )}
     >

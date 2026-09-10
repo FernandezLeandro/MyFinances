@@ -98,14 +98,14 @@ export function BucketFormDialog({ open, onClose, bucket }: BucketFormDialogProp
       footer={
         <>
           {isEditing && (
-            <Button variant="danger" onClick={onArchive} disabled={updateBucket.isPending} className="mr-auto">
+            <Button variant="danger" size="dialogFooter" onClick={onArchive} disabled={updateBucket.isPending} className="sm:mr-auto">
               Archivar
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>

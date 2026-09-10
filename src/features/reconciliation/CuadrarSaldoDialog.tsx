@@ -3,9 +3,12 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogBottomBar, DialogSection, DialogSummaryBlock, type DialogStatus } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { cn } from '@/lib/cn'
+import { formatMoney } from '@/lib/money'
 import { UNASSIGNED_ACCOUNT_ID, useCreateTransaction, useCurrentBalance, type TransactionType } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { useAccountBalances, useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
@@ -120,6 +123,12 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   // id en cada render lo evita (mismo fix que en `MeDeben.tsx`).
   const [detailId, setDetailId] = useState<string | null>(null)
   const [expenseId, setExpenseId] = useState<string | null>(null)
+  // Sólo una sección abierta a la vez (regla del acordeón arquetipo 4) — con estado por fila,
+  // dejar que se acumulen estira el diálogo sin techo.
+  const [openSection, setOpenSection] = useState<'cuentas' | 'deben' | 'sinAsignar' | null>(null)
+  function toggleSection(section: 'cuentas' | 'deben' | 'sinAsignar') {
+    setOpenSection((current) => (current === section ? null : section))
+  }
 
   const activeLocations = useMemo(() => (locations ?? []).filter((l: BalanceLocation) => !l.is_archived), [locations])
 
@@ -165,6 +174,36 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
   const hasLocations = activeLocations.length > 0
   const hasReceivables = normalReceivables.length > 0
   const hasAnyRow = hasLocations || hasReceivables
+
+  // Punto de estado + línea de contexto de "Tus cuentas": rojo si alguna no coincide con su
+  // derivado, gris cuando todas coinciden (o no hay ninguna cargada todavía).
+  const mismatchedAccounts = rec.perAccount.filter((a) => a.diffCents !== 0)
+  let cuentasStatus: DialogStatus = 'neutral'
+  let cuentasContext: string
+  if (!hasLocations) {
+    cuentasContext = 'Sin cuentas cargadas'
+  } else if (mismatchedAccounts.length === 1) {
+    cuentasStatus = 'alert'
+    cuentasContext = `${activeLocations.find((l) => l.id === mismatchedAccounts[0].accountId)?.name || 'Una cuenta'} no coincide`
+  } else if (mismatchedAccounts.length > 1) {
+    cuentasStatus = 'alert'
+    cuentasContext = `${mismatchedAccounts.length} cuentas no coinciden`
+  } else {
+    cuentasContext = 'Todas coinciden'
+  }
+  const matchedAccountsCount = activeLocations.length - mismatchedAccounts.length
+
+  // "Te deben este mes": azul cuando suma algo a lo que tenés, gris cuando no hay nada pendiente.
+  let debenStatus: DialogStatus = 'neutral'
+  let debenContext: string
+  if (receivablesEsteMes.length === 0) {
+    debenContext = 'Nada pendiente este mes'
+  } else {
+    debenStatus = 'accent'
+    const names = receivablesEsteMes.map((r) => r.receivable.name)
+    const preview = names.length > 2 ? `${names.slice(0, 2).join(', ')} y ${names.length - 2} más` : names.join(', ')
+    debenContext = `${preview} · suman a lo que tenés`
+  }
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir el alta de movimiento o de deuda encima, el detalle de
@@ -217,187 +256,182 @@ export function CuadrarSaldoDialog({ open, onClose }: CuadrarSaldoDialogProps) {
         open={open && !anyNestedOpen}
         onClose={handleDialogClose}
         title="Cuadrar saldo"
+        footerBleed
         footer={
-          <>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button variant="outline" onClick={handleRegisterInstead} disabled={!hasAnyRow || createTx.isPending}>
-              Registrar como movimiento
-            </Button>
-            <Button onClick={handleAdjustOnly} disabled={!hasAnyRow || createTx.isPending}>
-              {createTx.isPending ? 'Ajustando…' : 'Sólo ajustar'}
-            </Button>
-          </>
+          <DialogBottomBar
+            label={rec.cuadrado ? undefined : rec.diffCents < 0 ? 'Te falta' : 'Te sobra'}
+            figure={
+              !rec.cuadrado && (
+                <span
+                  className={cn(
+                    'tnum font-display text-2xl font-bold tracking-[-0.03em]',
+                    rec.diffCents < 0 ? 'text-negative' : 'text-accent',
+                  )}
+                >
+                  {formatMoney(Math.abs(rec.diffCents))}
+                </span>
+              )
+            }
+            action={
+              <Button size="compact" onClick={handleAdjustOnly} disabled={!hasAnyRow || rec.cuadrado || createTx.isPending}>
+                {createTx.isPending ? 'Ajustando…' : 'Sólo ajustar'}
+              </Button>
+            }
+            secondary={
+              !rec.cuadrado && (
+                <button type="button" onClick={handleRegisterInstead} className="hover:underline">
+                  …o <span className="font-medium text-accent">registrarlo como un gasto con categoría</span>.
+                </button>
+              )
+            }
+          />
         }
       >
-        <div className="flex flex-col gap-5">
-          <div>
-            <p className="eyebrow">Saldo según MyFinances</p>
-            {isBalancePending ? (
-              <Skeleton className="mt-2 h-9 w-32" />
-            ) : (
-              <Money cents={currentBalanceCents ?? 0} tone="dim" size="figure" className="mt-1" />
-            )}
-          </div>
+        <div className="flex flex-col gap-2">
+          {isBalancePending ? (
+            <Skeleton className="h-[52px] w-full" />
+          ) : (
+            <DialogSummaryBlock
+              title="Saldo según MyFinances"
+              hint="Lo mismo que ves en Hoy"
+              figure={formatMoney(currentBalanceCents ?? 0)}
+            />
+          )}
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="eyebrow">Tus cuentas</p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setTransferOpen(true)}
-                  className="text-[12px] font-medium text-accent hover:underline"
-                >
-                  Transferir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCuentasManagerOpen(true)}
-                  className="text-[12px] font-medium text-accent hover:underline"
-                >
-                  Administrar
-                </button>
-              </div>
-            </div>
-            {isLocationsPending ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : activeLocations.length === 0 ? (
-              <p className="text-[13px] text-fg-muted">
-                Todavía no cargaste ninguna cuenta.{' '}
-                <button type="button" onClick={() => setCuentasManagerOpen(true)} className="font-medium text-accent hover:underline">
-                  Agregar la primera →
-                </button>
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {activeLocations.map((location) => (
-                  <CuentaRow
-                    key={location.id}
-                    location={location}
-                    derivedCents={accountBalances?.get(location.id) ?? location.openingCents}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-fill-subtle pt-5">
-            <p className="eyebrow mb-2">Te deben</p>
-            {isReceivablesLoadingAny ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : (
-              receivablesEsteMes.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  {receivablesEsteMes.map((item) => (
-                    <DeudaRow
-                      key={item.receivable.id}
-                      summary={item}
-                      onOpenDetail={() => setDetailId(item.receivable.id)}
-                      onExpense={() => setExpenseId(item.receivable.id)}
+          {isLocationsPending ? (
+            <Skeleton className="h-11 w-full" />
+          ) : (
+            <DialogSection
+              title="Tus cuentas"
+              status={cuentasStatus}
+              context={cuentasContext}
+              subtotal={formatMoney(rec.locationsCents)}
+              open={openSection === 'cuentas'}
+              onToggle={() => toggleSection('cuentas')}
+              footer={
+                hasLocations && (
+                  <>
+                    <span className="flex gap-3 text-[12px] font-medium text-accent">
+                      <button type="button" onClick={() => setTransferOpen(true)} className="hover:underline">
+                        Transferir
+                      </button>
+                      <button type="button" onClick={() => setCuentasManagerOpen(true)} className="hover:underline">
+                        Administrar
+                      </button>
+                    </span>
+                    <span className="text-[11.5px] text-fg-muted">
+                      {matchedAccountsCount} de {activeLocations.length} coinciden
+                    </span>
+                  </>
+                )
+              }
+            >
+              {hasLocations ? (
+                <div className="flex flex-col">
+                  {activeLocations.map((location) => (
+                    <CuentaRow
+                      key={location.id}
+                      location={location}
+                      derivedCents={accountBalances?.get(location.id) ?? location.openingCents}
                     />
                   ))}
                 </div>
-              )
-            )}
-            <button
-              type="button"
-              onClick={() => setReceivableFormOpen(true)}
-              className="mt-2 text-[12px] font-medium text-accent hover:underline"
-            >
-              + Agregar deuda
-            </button>
+              ) : (
+                <p className="px-[15px] py-3 text-[13px] text-fg-muted">
+                  Todavía no cargaste ninguna cuenta.{' '}
+                  <button type="button" onClick={() => setCuentasManagerOpen(true)} className="font-medium text-accent hover:underline">
+                    Agregar la primera →
+                  </button>
+                </p>
+              )}
+            </DialogSection>
+          )}
 
-            <p className="mt-3 text-[12px] text-fg-muted">
-              Acá sólo se muestran las que esperás cobrar este mes. Al prestar efectivo no cargues un
-              gasto: esa plata sigue siendo tuya. Cuando te devuelvan, registrá el abono desde la deuda
-              y sumá el monto en la cuenta donde entró.{' '}
-              <Link to="/me-deben" className="font-medium text-accent hover:underline">
-                Ver todas en Me Deben →
-              </Link>
-            </p>
-          </div>
-
-          <dl className="space-y-2 border-t border-fill-subtle pt-4 text-[13px]">
-            {hasReceivables && (
-              <>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-fg-muted">En tus cuentas</dt>
-                  <dd>
-                    <Money cents={rec.locationsCents} tone="dim" />
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-fg-muted">Te deben</dt>
-                  <dd>
-                    <Money cents={rec.receivablesCents} tone="accent" />
-                  </dd>
-                </div>
-              </>
-            )}
-            <div className="flex justify-between gap-4">
-              <dt className="text-fg-muted">Tenés</dt>
-              <dd>
-                <Money cents={rec.totalCents} tone="dim" />
-              </dd>
+          <DialogSection
+            title="Te deben este mes"
+            status={debenStatus}
+            context={debenContext}
+            subtotal={formatMoney(rec.receivablesCents)}
+            subtotalTone="accent"
+            open={openSection === 'deben'}
+            onToggle={() => toggleSection('deben')}
+            footer={
+              <button
+                type="button"
+                onClick={() => setReceivableFormOpen(true)}
+                className="text-[12px] font-medium text-accent hover:underline"
+              >
+                + Agregar deuda
+              </button>
+            }
+          >
+            <div className="flex flex-col gap-3 px-[15px] py-3">
+              {isReceivablesLoadingAny ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                receivablesEsteMes.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {receivablesEsteMes.map((item) => (
+                      <DeudaRow
+                        key={item.receivable.id}
+                        summary={item}
+                        onOpenDetail={() => setDetailId(item.receivable.id)}
+                        onExpense={() => setExpenseId(item.receivable.id)}
+                      />
+                    ))}
+                  </div>
+                )
+              )}
+              <p className="text-[12px] text-fg-muted">
+                Acá sólo se muestran las que esperás cobrar este mes. Al prestar efectivo no cargues un
+                gasto: esa plata sigue siendo tuya. Cuando te devuelvan, registrá el abono desde la deuda
+                y sumá el monto en la cuenta donde entró.{' '}
+                <Link to="/me-deben" className="font-medium text-accent hover:underline">
+                  Ver todas en Me Deben →
+                </Link>
+              </p>
             </div>
-            {rec.sinAsignarCents !== 0 && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-fg-muted">
-                  Sin asignar ·{' '}
-                  {/* Antes mandaba a Movimientos sin ningún filtro — un `<Link to="/movimientos">`
-                      a secas caía en "este mes" (el período por defecto) sin filtrar por cuenta,
-                      así que en la práctica nunca mostraba estos movimientos. Con `state`, "Sin
-                      cuenta" ya viene marcado y el período es todo el historial, no sólo el mes
-                      actual — se ven sin importar cuándo se cargaron. */}
-                  <Link
-                    to="/movimientos"
-                    state={{
-                      accountIds: [UNASSIGNED_ACCOUNT_ID],
-                      period: { preset: 'custom', anchor: format(new Date(), 'yyyy-MM-dd'), from: '2000-01-01', to: format(new Date(), 'yyyy-MM-dd') },
-                    }}
-                    className="underline"
-                  >
-                    ver
-                  </Link>
-                </dt>
-                <dd>
-                  <Money cents={rec.sinAsignarCents} tone="dim" />
-                </dd>
-              </div>
-            )}
-            {hasAnyRow && !rec.cuadrado && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-fg-muted">Diferencia</dt>
-                <dd>
-                  <Money cents={rec.diffCents} tone={rec.diffCents < 0 ? 'negative' : 'accent'} signed />
-                  {rec.diffCents < 0 ? ' de menos' : ' de más'}
-                </dd>
-              </div>
-            )}
-          </dl>
+          </DialogSection>
+
+          {rec.sinAsignarCents !== 0 && (
+            <DialogSection
+              title="Sin asignar"
+              status="neutral"
+              context="Movimientos sin cuenta"
+              subtotal={formatMoney(rec.sinAsignarCents)}
+              open={openSection === 'sinAsignar'}
+              onToggle={() => toggleSection('sinAsignar')}
+            >
+              <p className="px-[15px] py-3 text-[12px] text-fg-muted">
+                Plata que el saldo ya cuenta pero no está imputada a ninguna cuenta — movimientos
+                cargados sin elegir con qué se pagaron.{' '}
+                {/* Antes mandaba a Movimientos sin ningún filtro — un `<Link to="/movimientos">`
+                    a secas caía en "este mes" (el período por defecto) sin filtrar por cuenta,
+                    así que en la práctica nunca mostraba estos movimientos. Con `state`, "Sin
+                    cuenta" ya viene marcado y el período es todo el historial, no sólo el mes
+                    actual — se ven sin importar cuándo se cargaron. */}
+                <Link
+                  to="/movimientos"
+                  state={{
+                    accountIds: [UNASSIGNED_ACCOUNT_ID],
+                    period: { preset: 'custom', anchor: format(new Date(), 'yyyy-MM-dd'), from: '2000-01-01', to: format(new Date(), 'yyyy-MM-dd') },
+                  }}
+                  className="font-medium text-accent hover:underline"
+                >
+                  Ver esos movimientos →
+                </Link>
+              </p>
+            </DialogSection>
+          )}
 
           {hasAnyRow && !rec.cuadrado && activeLocations.length > 0 && (
-            <div>
+            <div className="pt-3">
               <p className="eyebrow mb-2">Imputar el ajuste a</p>
               <AccountSelect value={adjustAccountId} onChange={setAdjustAccountId} emptyLabel="Sin cuenta (como antes)" />
             </div>
           )}
 
-          {error && <p className="text-[12px] text-negative">{error}</p>}
-
-          <p className="text-[12px] text-fg-muted">
-            "Sólo ajustar" crea el movimiento sin categoría, afuera de Análisis — para cuando no sabés
-            de dónde salió la diferencia, o cuando cerrás el mes dejando todas las cuentas en $0. Si
-            sabés qué fue, "Registrar como movimiento" lo carga como un gasto o ingreso real, con
-            categoría.
-          </p>
+          {error && <p className="pt-1 text-[12px] text-negative">{error}</p>}
         </div>
       </Dialog>
 

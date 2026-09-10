@@ -83,10 +83,10 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
       title="Transferir entre cuentas"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting || !hasEnoughAccounts}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || !hasEnoughAccounts}>
             {isSubmitting ? 'Transfiriendo…' : 'Transferir'}
           </Button>
         </>
@@ -96,23 +96,25 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
         <p className="text-[13px] text-fg-muted">Necesitás al menos dos cuentas para transferir entre ellas.</p>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          <Field label="Desde" htmlFor="fromAccountId" error={errors.fromAccountId?.message}>
-            <AccountSelect
-              id="fromAccountId"
-              value={watch('fromAccountId')}
-              onChange={(v) => setValue('fromAccountId', v)}
-              emptyLabel="Elegir…"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Desde" htmlFor="fromAccountId" error={errors.fromAccountId?.message}>
+              <AccountSelect
+                id="fromAccountId"
+                value={watch('fromAccountId')}
+                onChange={(v) => setValue('fromAccountId', v)}
+                emptyLabel="Elegir…"
+              />
+            </Field>
 
-          <Field label="Hacia" htmlFor="toAccountId" error={errors.toAccountId?.message}>
-            <AccountSelect
-              id="toAccountId"
-              value={watch('toAccountId')}
-              onChange={(v) => setValue('toAccountId', v)}
-              emptyLabel="Elegir…"
-            />
-          </Field>
+            <Field label="Hacia" htmlFor="toAccountId" error={errors.toAccountId?.message}>
+              <AccountSelect
+                id="toAccountId"
+                value={watch('toAccountId')}
+                onChange={(v) => setValue('toAccountId', v)}
+                emptyLabel="Elegir…"
+              />
+            </Field>
+          </div>
 
           <Field label="Importe" error={errors.amount?.message}>
             <AmountInput invalid={!!errors.amount} {...register('amount')} />

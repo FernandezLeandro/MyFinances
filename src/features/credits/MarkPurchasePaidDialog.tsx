@@ -43,10 +43,10 @@ export function MarkPurchasePaidDialog({
       title="Marcar compra como pagada"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
             {markPaid.isPending ? 'Guardando…' : 'Marcar pagada'}
           </Button>
         </>

@@ -100,10 +100,10 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents, canEd
       title={`Editar ${asset.symbol}`}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button size="dialogFooter" onClick={handleSave} disabled={isSaving}>
             {isSaving ? 'Guardando…' : 'Guardar'}
           </Button>
         </>

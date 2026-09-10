@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Pencil, Star, X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogBottomBar, DialogSection, type DialogStatus } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input } from '@/components/ui/Input'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { centsToInputText, parseAmountToCents } from '@/lib/money'
+import { cn } from '@/lib/cn'
+import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
 import {
   useAccountBalances,
   useBalanceLocations,
@@ -44,29 +47,6 @@ function KindChips({ value, onChange }: { value: AccountKind; onChange: (kind: A
   )
 }
 
-/** Importe compacto, calcado del real declarado de `CuentaRow` — la apertura es un campo de setup
- *  que se toca una vez, y con `AmountInput` (h-14, display 3xl) terminaba siendo el elemento más
- *  grande de toda la pantalla. `inputMode="decimal"` mantiene el teclado numérico en el celular. */
-function CompactAmountInput({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: string
-  onChange: (value: string) => void
-  ariaLabel: string
-}) {
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      inputMode="decimal"
-      aria-label={ariaLabel}
-      className="tnum h-10 w-full rounded-control bg-fill-subtle px-3 text-right text-[14px] text-fg transition-colors focus:bg-fill-subtle focus:outline-none"
-    />
-  )
-}
-
 function AccountListItem({
   location,
   derivedCents,
@@ -88,12 +68,11 @@ function AccountListItem({
     <li className="flex flex-col">
       {/* Fila y formulario son hermanos en una columna — antes el form era un hermano FLEX de este
           contenido (el `col-span-full` que traía es de grid y no hacía nada acá), así que se metía
-          al lado y aplastaba el nombre a una tira de ~90px. Las medidas de esta fila son las de
-          `CuentaRow` a propósito: son las dos listas de cuentas de la app. */}
-      <div className="flex items-center gap-3 rounded-control px-1 py-2">
+          al lado y aplastaba el nombre a una tira de ~90px. */}
+      <div className="flex items-center gap-3 px-[15px] py-2">
         <Icon className="size-4 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px]">{location.name || '(sin nombre)'}</p>
+          <p className="truncate text-[13.5px]">{location.name || '(sin nombre)'}</p>
           {isBalancePending ? (
             <Skeleton className="mt-1 h-3 w-24" />
           ) : (
@@ -136,7 +115,10 @@ function AccountListItem({
 
 /** Editor inline de una cuenta existente — nombre, tipo y apertura. Separado del alta (más abajo)
  *  porque tocar la apertura de una cuenta ya usada SÍ recalcula su derivado (invalidación en
- *  `useUpdateBalanceLocation`), a diferencia de crear una nueva. */
+ *  `useUpdateBalanceLocation`), a diferencia de crear una nueva.
+ *
+ *  Sangría de 43px con regla vertical (21a): se lee como "esto es de la fila de arriba" sin
+ *  encerrarlo en una caja. */
 function AccountEditForm({ location, onDone }: { location: BalanceLocation; onDone: () => void }) {
   const updateLocation = useUpdateBalanceLocation()
   const [name, setName] = useState(location.name)
@@ -151,22 +133,18 @@ function AccountEditForm({ location, onDone }: { location: BalanceLocation; onDo
   }
 
   return (
-    // Sangría + regla vertical en vez de un recuadro: se lee como "esto es de la fila de arriba"
-    // sin encerrarlo. El `ml-7` lo alinea bajo el nombre (ícono size-4 + gap-3). Fondo sin cambios
-    // — el sistema eleva por luminosidad, y entre surface (diálogo) e fill-subtle (inputs) no queda un
-    // escalón intermedio sin que los campos se pierdan contra el panel.
-    <div className="mt-1 mb-3 ml-7 flex flex-col gap-3 border-l border-fill-subtle pt-1 pb-1 pl-4">
+    <div className="mt-1 mb-3 ml-[43px] flex flex-col gap-3 border-l border-border pl-4">
       <KindChips value={kind} onChange={setKind} />
       <Field label="Nombre">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Efectivo, Mercado Pago, ICBC…" />
       </Field>
-      <Field label="Apertura" hint="La plata que ya tenías antes de imputarle movimientos">
-        <CompactAmountInput
-          value={openingInput}
-          onChange={setOpeningInput}
-          ariaLabel={`Apertura de ${location.name || 'la cuenta'}`}
-        />
-      </Field>
+      <OpeningAmountField
+        label="Apertura"
+        hint="La plata que ya tenías antes de imputarle movimientos"
+        value={openingInput}
+        onChange={setOpeningInput}
+        ariaLabel={`Apertura de ${location.name || 'la cuenta'}`}
+      />
       <div className="flex gap-2">
         <Button variant="ghost" onClick={onDone} className="flex-1">
           Cancelar
@@ -185,12 +163,16 @@ function AccountEditForm({ location, onDone }: { location: BalanceLocation; onDo
  * del nombre, y cada fila expone "predeterminada" y "archivar" porque son las dos cosas que el
  * selector de cuenta del formulario de movimientos necesita resolver solo (ver `AccountSelect`).
  *
+ * Arquetipo 4 (19a): tres secciones plegables — Activas, Archivadas, Transferencias recientes —
+ * cada una dice su subtotal y cantidad cerrada, así que las dos últimas no estiran el diálogo
+ * cuando no se están mirando. Sólo una sección abierta a la vez.
+ *
  * Sobre el layout: acá NO hay scroll propio en ninguna lista. El cuerpo del `Dialog` ya scrollea
  * (ver `Dialog.tsx`), y un `max-h-*` con `overflow-y-auto` adentro le sumaba una segunda barra para
- * tres o cuatro filas. Por el mismo motivo las transferencias se acotan por cantidad y no por alto.
+ * tres o cuatro filas.
  *
- * Sólo una cosa abierta a la vez (una edición o el alta, nunca las dos ni dos ediciones): con el
- * acordeón por fila, dejar que se acumulen estira el diálogo sin techo.
+ * Sólo una cosa abierta a la vez adentro de "Activas" (una edición o el alta, nunca las dos ni dos
+ * ediciones): con el acordeón por fila, dejar que se acumulen estira el diálogo sin techo.
  */
 export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProps) {
   const { data: locations } = useBalanceLocations()
@@ -204,14 +186,36 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [kind, setKind] = useState<AccountKind>('cash')
+  const [openingInput, setOpeningInput] = useState('')
   const [transferOpen, setTransferOpen] = useState(false)
+  const [openSection, setOpenSection] = useState<'activas' | 'archivadas' | 'transferencias' | null>('activas')
 
   const active = (locations ?? []).filter((l) => !l.is_archived)
   const archived = (locations ?? []).filter((l) => l.is_archived)
+  const allTransfers = transfers ?? []
 
   // Sin ninguna cuenta activa el alta arranca abierta y sin trigger: esconder el único camino
   // disponible detrás de un botón deja la pantalla vacía y sin salida.
   const showCreateForm = creating || active.length === 0
+
+  const activeTotalCents = active.reduce((sum, l) => sum + (accountBalances?.get(l.id) ?? l.openingCents), 0)
+  const defaultLocation = active.find((l) => l.is_default)
+  const activasStatus: DialogStatus = active.length > 0 ? 'accent' : 'neutral'
+  const activasContext = active.length === 0
+    ? 'Sin cuentas cargadas'
+    : `${active.length} cuenta${active.length === 1 ? '' : 's'}${defaultLocation ? ` · ${defaultLocation.name} es la predeterminada` : ''}`
+
+  const archivedContext =
+    archived.length === 1 ? `${archived[0].name} · no suma al total` : `${archived.length} archivadas · no suman al total`
+
+  const lastTransfer = allTransfers[0]
+  const transfersContext = lastTransfer
+    ? `La última: ${locationById.get(lastTransfer.from_account_id)?.name ?? '?'} → ${locationById.get(lastTransfer.to_account_id)?.name ?? '?'}`
+    : 'Todavía no hiciste ninguna'
+
+  function toggleSection(section: 'activas' | 'archivadas' | 'transferencias') {
+    setOpenSection((current) => (current === section ? null : section))
+  }
 
   function startEdit(id: string) {
     setEditingId((current) => (current === id ? null : id))
@@ -226,9 +230,11 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
   async function handleCreate() {
     const trimmed = name.trim()
     if (!trimmed) return
-    await createLocation.mutateAsync({ name: trimmed, cents: 0, kind })
+    const openingCents = parseAmountToCents(openingInput) ?? 0
+    await createLocation.mutateAsync({ name: trimmed, cents: openingCents, openingCents, kind })
     setName('')
     setKind('cash')
+    setOpeningInput('')
     setCreating(false)
   }
 
@@ -238,36 +244,62 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
         open={open && !transferOpen}
         onClose={onClose}
         title="Cuentas"
-        footer={<Button onClick={onClose}>Listo</Button>}
+        footerBleed
+        footer={
+          <DialogBottomBar
+            label="Según la app"
+            figure={
+              <span className="tnum font-display text-2xl font-bold tracking-[-0.03em] text-fg">
+                {formatMoney(activeTotalCents)}
+              </span>
+            }
+            action={
+              <Button size="compact" onClick={onClose}>
+                Listo
+              </Button>
+            }
+            secondary={
+              <button type="button" onClick={() => setTransferOpen(true)} className="hover:underline">
+                …o <span className="font-medium text-accent">transferir plata entre dos cuentas</span>.
+              </button>
+            }
+          />
+        }
       >
-        <div className="flex flex-col gap-6">
-          <ul className="flex flex-col gap-1">
-            {active.map((l) => (
-              <AccountListItem
-                key={l.id}
-                location={l}
-                derivedCents={accountBalances?.get(l.id)}
-                isBalancePending={isBalancePending}
-                editing={editingId === l.id}
-                onToggleEdit={() => startEdit(l.id)}
-              />
-            ))}
-            {archived.length > 0 && <p className="mt-2 px-1 text-[11px] text-fg-muted">Archivadas</p>}
-            {archived.map((l) => (
-              <AccountListItem
-                key={l.id}
-                location={l}
-                derivedCents={accountBalances?.get(l.id)}
-                isBalancePending={isBalancePending}
-                editing={editingId === l.id}
-                onToggleEdit={() => startEdit(l.id)}
-              />
-            ))}
-          </ul>
+        <div className="flex flex-col gap-2">
+          <DialogSection
+            title="Activas"
+            status={activasStatus}
+            context={activasContext}
+            subtotal={formatMoney(activeTotalCents)}
+            open={openSection === 'activas'}
+            onToggle={() => toggleSection('activas')}
+            footer={
+              !showCreateForm && (
+                <>
+                  <button type="button" onClick={startCreate} className="text-[12px] font-medium text-accent hover:underline">
+                    + Agregar cuenta
+                  </button>
+                  <span className="text-[11.5px] text-fg-muted">La estrella marca la predeterminada</span>
+                </>
+              )
+            }
+          >
+            <ul className="flex flex-col">
+              {active.map((l) => (
+                <AccountListItem
+                  key={l.id}
+                  location={l}
+                  derivedCents={accountBalances?.get(l.id)}
+                  isBalancePending={isBalancePending}
+                  editing={editingId === l.id}
+                  onToggleEdit={() => startEdit(l.id)}
+                />
+              ))}
+            </ul>
 
-          <div className="border-t border-fill-subtle pt-5">
-            {showCreateForm ? (
-              <div className="flex flex-col gap-3">
+            {showCreateForm && (
+              <div className={cn('mx-[15px] mt-2 mb-3 flex flex-col gap-3 rounded-control border-l-2 border-accent bg-editing p-3.5')}>
                 <p className="eyebrow">Nueva cuenta</p>
                 <KindChips value={kind} onChange={setKind} />
                 <Field label="Nombre">
@@ -278,46 +310,70 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
                     onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                   />
                 </Field>
+                <OpeningAmountField
+                  label="Apertura"
+                  hint="Lo que ya tenías antes de cargar el primer movimiento"
+                  value={openingInput}
+                  onChange={setOpeningInput}
+                  ariaLabel="Apertura de la cuenta nueva"
+                />
                 <div className="flex gap-2">
                   {active.length > 0 && (
                     <Button variant="ghost" onClick={() => setCreating(false)} className="flex-1">
                       Cancelar
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    onClick={handleCreate}
-                    disabled={!name.trim() || createLocation.isPending}
-                    className="flex-1"
-                  >
+                  <Button onClick={handleCreate} disabled={!name.trim() || createLocation.isPending} className="flex-1">
                     {createLocation.isPending ? 'Agregando…' : 'Agregar cuenta'}
                   </Button>
                 </div>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={startCreate}
-                className="text-[12px] font-medium text-accent hover:underline"
-              >
-                + Agregar cuenta
-              </button>
             )}
-          </div>
+          </DialogSection>
 
-          <div className="flex flex-col gap-2 border-t border-fill-subtle pt-5">
-            <div className="flex items-center justify-between">
-              <p className="eyebrow">Transferencias recientes</p>
+          {archived.length > 0 && (
+            <DialogSection
+              title="Archivadas"
+              status="neutral"
+              context={archivedContext}
+              subtotal={archived.length}
+              open={openSection === 'archivadas'}
+              onToggle={() => toggleSection('archivadas')}
+            >
+              <ul className="flex flex-col">
+                {archived.map((l) => (
+                  <AccountListItem
+                    key={l.id}
+                    location={l}
+                    derivedCents={accountBalances?.get(l.id)}
+                    isBalancePending={isBalancePending}
+                    editing={editingId === l.id}
+                    onToggleEdit={() => startEdit(l.id)}
+                  />
+                ))}
+              </ul>
+            </DialogSection>
+          )}
+
+          <DialogSection
+            title="Transferencias recientes"
+            status="neutral"
+            context={transfersContext}
+            subtotal={allTransfers.length}
+            open={openSection === 'transferencias'}
+            onToggle={() => toggleSection('transferencias')}
+            footer={
               <button type="button" onClick={() => setTransferOpen(true)} className="text-[12px] font-medium text-accent hover:underline">
                 + Transferir
               </button>
-            </div>
-            {(transfers ?? []).length === 0 ? (
-              <p className="text-[12px] text-fg-muted">Todavía no hiciste ninguna.</p>
+            }
+          >
+            {allTransfers.length === 0 ? (
+              <p className="px-[15px] py-3 text-[12px] text-fg-muted">Todavía no hiciste ninguna.</p>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {(transfers ?? []).slice(0, 5).map((t) => (
-                  <li key={t.id} className="flex items-center gap-2 rounded-chip px-1 py-1.5 text-[13px]">
+              <ul className="flex flex-col">
+                {allTransfers.slice(0, 5).map((t) => (
+                  <li key={t.id} className="flex items-center gap-2 px-[15px] py-2 text-[13px]">
                     <span className="min-w-0 flex-1 truncate text-fg-secondary">
                       {locationById.get(t.from_account_id)?.name || '?'} → {locationById.get(t.to_account_id)?.name || '?'}
                     </span>
@@ -334,7 +390,7 @@ export function CuentasManagerDialog({ open, onClose }: CuentasManagerDialogProp
                 ))}
               </ul>
             )}
-          </div>
+          </DialogSection>
         </div>
       </Dialog>
 

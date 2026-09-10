@@ -69,10 +69,10 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
       title="Registrar abono"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={registerPayment.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={registerPayment.isPending}>
             {registerPayment.isPending ? 'Guardando…' : 'Registrar'}
           </Button>
         </>
