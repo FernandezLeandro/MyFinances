@@ -104,11 +104,11 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
 
         <div>
           <p className="eyebrow mb-2">Registrar un ingreso por este monto</p>
-          <div className="flex gap-1.5">
-            <Chip active={createIncome} onClick={() => setCreateIncome(true)}>
+          <div className="flex gap-2">
+            <Chip size="lg" active={createIncome} onClick={() => setCreateIncome(true)}>
               Sí
             </Chip>
-            <Chip active={!createIncome} onClick={() => setCreateIncome(false)}>
+            <Chip size="lg" active={!createIncome} onClick={() => setCreateIncome(false)}>
               No
             </Chip>
           </div>

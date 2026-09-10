@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
 import {
@@ -147,6 +148,7 @@ export function Hoy() {
   )
 
   const currentBalanceCents = balance.data ?? 0
+  const isDesktop = useMediaQuery(MOVEMENTS_DESKTOP_QUERY)
 
   // Cuántos movimientos entran sin scrollear. El cálculo es de una sola pasada: mide el espacio
   // libre hasta el borde de la ventana y las alturas de una fila y de un encabezado de día, y de
@@ -265,7 +267,11 @@ export function Hoy() {
               ]}
             />
           )}
-          <StatRow className="mt-3.5 gap-6 lg:gap-8">
+          {/* `flex-wrap`: `--text-figure` ya llega clampeado a su mínimo (25px) en mobile, así que
+              con importes de millones las dos cifras no entran lado a lado en una pantalla de
+              ~390px y se salían de la tarjeta. Envolviendo, Gastos baja a su propia línea sólo
+              cuando hace falta — no depende de cuántos dígitos tenga el número. */}
+          <StatRow className="mt-3.5 flex-wrap gap-6 lg:gap-8">
             <Stat label="Ingresos">
               {summary.isPending ? (
                 <Skeleton className="h-6 w-20 lg:h-7 lg:w-24" />
@@ -283,94 +289,112 @@ export function Hoy() {
           </StatRow>
         </div>
 
-        {/* Sólo escritorio — en mobile el `+` de la isla ya cubre "nuevo movimiento", y duplicar el
-            CTA acá no aporta (ver la nota de "Cuadrar saldo" en mobile en el reporte del bloque). */}
-        <div className="hidden flex-none flex-col gap-2 lg:flex lg:ml-auto lg:w-[186px]">
-          <Button onClick={() => setOpen(true)} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
+        {/* En mobile van debajo del saldo — el `+` de la isla duplica "Nuevo movimiento", pero es el
+            atajo más a mano y "Cuadrar saldo" no tiene ningún otro lugar desde donde abrirse ahí.
+            En escritorio quedan apiladas en una columna angosta.
+
+            `flex-wrap` + `grow shrink-0` en vez de `flex-1`: los dos botones tienen
+            `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con `flex-1`
+            (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta hasta
+            60px en pantallas de 360-414px. Así se acomodan solos: lado a lado si entran, uno arriba
+            del otro si no, y `grow` los estira a lo que quede libre en su fila. */}
+        <div className="flex flex-none flex-wrap gap-2 lg:ml-auto lg:w-[186px] lg:flex-col lg:flex-nowrap">
+          <Button
+            className="grow shrink-0 lg:grow-0"
+            onClick={() => setOpen(true)}
+            icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
+          >
             Nuevo movimiento
           </Button>
-          <Button variant="outline" onClick={() => setCuadrarOpen(true)}>
+          <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
             Cuadrar saldo
           </Button>
         </div>
       </Panel>
 
-      {/* Proyectado · En qué se fue el mes · Vencimientos — desktop, tres tarjetas iguales. */}
-      <div className="hidden gap-4 lg:grid lg:grid-cols-3">
-        <SaldoProyectadoPanel
-          title="Proyectado a fin de mes"
-          projectedCents={projectedBalance}
-          isPending={isProjectedPending}
-          currentBalanceCents={currentBalanceCents}
-          pendingFixedCount={pendingFixed.length}
-          pendingFixedCents={pendingFixedTotal}
-          unpaidDebtsCount={unpaidDebtsCount}
-          unpaidDebtsCents={misDeudasSummary.totalPendingCents}
-          hidden={balanceHidden}
-        />
+      {/* Proyectado · En qué se fue el mes · Vencimientos — desktop, tres tarjetas iguales.
+          `isDesktop` en vez de `hidden lg:grid`: este bloque monta el `CategoryDonut` (recharts),
+          y un `ResponsiveContainer` dentro de un `display:none` mide 0×0 y llena la consola de
+          warnings — con el gate en JS, en mobile directamente no se monta. */}
+      {isDesktop && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SaldoProyectadoPanel
+            title="Proyectado a fin de mes"
+            projectedCents={projectedBalance}
+            isPending={isProjectedPending}
+            currentBalanceCents={currentBalanceCents}
+            pendingFixedCount={pendingFixed.length}
+            pendingFixedCents={pendingFixedTotal}
+            unpaidDebtsCount={unpaidDebtsCount}
+            unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+            hidden={balanceHidden}
+          />
 
-        <Panel className="p-[22px]">
-          <p className="eyebrow">En qué se fue el mes</p>
-          {spendQuery.isError ? (
-            <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
-          ) : spendQuery.isPending ? (
-            <div className="mt-3.5 flex items-center gap-4">
-              <Skeleton className="size-[86px] shrink-0 rounded-full" />
-              <div className="flex flex-1 flex-col gap-2">
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
+          <Panel className="p-[22px]">
+            <p className="eyebrow">En qué se fue el mes</p>
+            {spendQuery.isError ? (
+              <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
+            ) : spendQuery.isPending ? (
+              <div className="mt-3.5 flex items-center gap-4">
+                <Skeleton className="size-[86px] shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-4 w-full" />
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : spend.length === 0 ? (
-            <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos este mes.</p>
-          ) : (
-            <div className="mt-3.5 flex items-center gap-4">
-              <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
-                <CategoryDonut data={spend} size={86} />
-              </Suspense>
-              <ul className="flex min-w-0 flex-1 flex-col gap-2">
-                {spend.slice(0, 4).map((s) => (
-                  <li key={s.categoryId} className="flex items-center gap-2">
-                    <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
-                    <span className="tnum text-[12px] font-semibold text-fg-secondary">
-                      {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Panel>
+            ) : spend.length === 0 ? (
+              <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos este mes.</p>
+            ) : (
+              <div className="mt-3.5 flex items-center gap-4">
+                <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
+                  <CategoryDonut data={spend} size={86} />
+                </Suspense>
+                <ul className="flex min-w-0 flex-1 flex-col gap-2">
+                  {spend.slice(0, 4).map((s) => (
+                    <li key={s.categoryId} className="flex items-center gap-2">
+                      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
+                      <span className="tnum text-[12px] font-semibold text-fg-secondary">
+                        {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Panel>
 
-        <Panel className="p-[22px]">
-          <div className="flex items-baseline justify-between">
-            <p className="eyebrow">Vencimientos</p>
-            <Link to="/fijos" className="text-[12px] font-semibold text-accent-text">
-              Ver fijos
-            </Link>
-          </div>
-          {upcoming.length === 0 ? (
-            <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
-          ) : (
-            <ul className="mt-2.5 flex flex-col">
-              {upcoming.map((status) => {
-                const dueDay = status.fe.due_day as number
-                const urgency = fixedExpenseUrgency(dueDay, today)
-                return (
-                  <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
-                    <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{status.fe.name}</span>
-                    <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
-                    <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Panel>
-      </div>
+          <Panel className="p-[22px]">
+            <div className="flex items-baseline justify-between">
+              <p className="eyebrow">Vencimientos</p>
+              <Link to="/fijos" className="text-[12px] font-semibold text-accent-text">
+                Ver fijos
+              </Link>
+            </div>
+            {upcoming.length === 0 ? (
+              <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
+            ) : (
+              <ul className="mt-2.5 flex flex-col">
+                {upcoming.map((status) => {
+                  const dueDay = status.fe.due_day as number
+                  const urgency = fixedExpenseUrgency(dueDay, today)
+                  return (
+                    <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                      <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
+                        {status.fe.name}
+                      </span>
+                      <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
+                      <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
 
       {/* Proyectado a fin de mes (misma tarjeta que en escritorio: cifra + desglose de fijos y
           deudas), con la barrita de comprometido/libre como acompañamiento — y sin la fila de
