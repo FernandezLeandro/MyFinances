@@ -76,6 +76,7 @@ export interface Database {
           include_in_total: boolean
           sort_order: number
           is_archived: boolean
+          goal_cents: number | null
           created_at: string
         }
         Insert: {
@@ -87,6 +88,7 @@ export interface Database {
           include_in_total?: boolean
           sort_order?: number
           is_archived?: boolean
+          goal_cents?: number | null
         }
         Update: Partial<{
           name: string
@@ -94,6 +96,7 @@ export interface Database {
           include_in_total: boolean
           sort_order: number
           is_archived: boolean
+          goal_cents: number | null
         }>
         Relationships: []
       }

@@ -65,9 +65,13 @@ interface CategoryDonutProps {
    *  `CompositionView`. Análisis pide uno más grande para no verse chico al lado de la lista de
    *  categorías, que en la práctica suele tener más de las 6 filas del mockup. */
   size?: number
+  /** Ahorros (15a) muestra el activo más grande en el centro ("Dólar · 61%"), no el total — eyebrow
+   *  arriba, cifra grande abajo (orden inverso al default de arriba). Pisa `centerLabel` cuando está
+   *  presente; ninguna otra pantalla lo usa. */
+  centerOverride?: { eyebrow: string; value: string }
 }
 
-export function CategoryDonut({ data, onSelect, centerLabel, size = 178 }: CategoryDonutProps) {
+export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerOverride }: CategoryDonutProps) {
   const colors = useChartColors()
   const totalCents = data.reduce((sum, s) => sum + s.cents, 0)
   const totalLabel = formatWhole(totalCents)
@@ -98,16 +102,25 @@ export function CategoryDonut({ data, onSelect, centerLabel, size = 178 }: Categ
           <Tooltip content={makeTooltip(totalCents, colors)} />
         </PieChart>
       </ResponsiveContainer>
-      {centerLabel && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-3 text-center">
-          <span
-            className="tnum font-display font-bold text-fg"
-            style={{ fontSize: fitFontSize(size, totalLabel), letterSpacing: '-0.03em', lineHeight: 1 }}
-          >
-            {totalLabel}
+      {centerOverride ? (
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-3 text-center">
+          <span className="text-[10px] font-semibold tracking-[0.08em] text-fg-muted uppercase">{centerOverride.eyebrow}</span>
+          <span className="tnum font-display text-[22px] font-semibold text-fg" style={{ letterSpacing: '-0.02em' }}>
+            {centerOverride.value}
           </span>
-          <span className="text-[10.5px] tracking-[0.08em] text-fg-muted uppercase">{centerLabel}</span>
         </div>
+      ) : (
+        centerLabel && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-3 text-center">
+            <span
+              className="tnum font-display font-bold text-fg"
+              style={{ fontSize: fitFontSize(size, totalLabel), letterSpacing: '-0.03em', lineHeight: 1 }}
+            >
+              {totalLabel}
+            </span>
+            <span className="text-[10.5px] tracking-[0.08em] text-fg-muted uppercase">{centerLabel}</span>
+          </div>
+        )
       )}
     </div>
   )

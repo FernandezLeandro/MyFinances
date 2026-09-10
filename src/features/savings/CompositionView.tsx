@@ -1,8 +1,6 @@
-import { useMemo } from 'react'
 import { Money } from '@/components/ui/Money'
 import { StackedBar } from '@/components/ui/StackedBar'
-import { CATEGORY_COLORS } from '@/lib/categoryColors'
-import { valueByAsset, type AssetNet } from './aggregate'
+import { assetSlices, type AssetNet } from './aggregate'
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 
@@ -19,27 +17,14 @@ interface CompositionViewProps {
  * tarjeta de cada ítem.
  */
 export function CompositionView({ nets, assets, prices }: CompositionViewProps) {
-  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const values = valueByAsset(nets, assets, prices)
+  const slices = assetSlices(nets, assets, prices)
 
-  if (values == null) {
+  if (slices == null) {
     return <p className="text-[13px] text-fg-muted">Cotización no disponible para calcular la composición.</p>
   }
-  if (values.length === 0) {
+  if (slices.length === 0) {
     return <p className="text-[13px] text-fg-muted">Sin aportes todavía.</p>
   }
-
-  const total = values.reduce((sum, v) => sum + v.valueCents, 0)
-  const slices = values
-    .slice()
-    .sort((a, b) => b.valueCents - a.valueCents)
-    .map((v, i) => ({
-      assetId: v.assetId,
-      name: assetById.get(v.assetId)?.symbol ?? '?',
-      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length].hex,
-      cents: v.valueCents,
-      pct: total > 0 ? (v.valueCents / total) * 100 : 0,
-    }))
 
   return (
     <div className="flex flex-col gap-4">

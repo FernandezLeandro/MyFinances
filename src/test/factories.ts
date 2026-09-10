@@ -47,6 +47,7 @@ export function makeBucket(p: Partial<SavingsBucket> & Pick<SavingsBucket, 'id'>
     include_in_total: true,
     sort_order: 0,
     is_archived: false,
+    goal_cents: null,
     created_at: FIXED_DATE,
     ...p,
   }
