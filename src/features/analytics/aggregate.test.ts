@@ -57,51 +57,69 @@ describe('summarizeFijoVsVariable', () => {
 describe('summarizeCategoryMonthlyAverages', () => {
   const cat = (categoryId: string, cents: number) => ({ categoryId, categoryName: 'Cat ' + categoryId, color: '#000', cents })
 
-  it('serie vacía → lista vacía', () => {
-    expect(summarizeCategoryMonthlyAverages([])).toEqual([])
+  it('serie vacía → lista vacía, monthsCounted 0', () => {
+    expect(summarizeCategoryMonthlyAverages([])).toEqual({ rows: [], monthsCounted: 0 })
   })
 
-  it('promedio sobre TODOS los meses, no sólo los que tuvieron gasto', () => {
+  it('promedio SOLO sobre los meses con actividad en la cuenta, no sobre toda la serie', () => {
+    // Los dos meses en 0 no tienen NINGÚN movimiento en la cuenta — no cuentan en el divisor.
     const months = [
       [cat('c1', 30_000)],
       [cat('c1', 0)],
       [cat('c1', 0)],
     ]
-    const [row] = summarizeCategoryMonthlyAverages(months)
-    expect(row!.avgCents).toBe(10_000) // 30.000 / 3, no / 1
+    const { rows, monthsCounted } = summarizeCategoryMonthlyAverages(months)
+    expect(monthsCounted).toBe(1)
+    expect(rows[0]!.avgCents).toBe(30_000) // 30.000 / 1, no / 3
+  })
+
+  it('mes con actividad en OTRA categoría cuenta en el divisor, aunque esta esté en 0', () => {
+    // c1 sólo gastó en el mes 1; c2 tuvo actividad los tres meses → los tres meses cuentan.
+    const months = [
+      [cat('c1', 30_000), cat('c2', 5_000)],
+      [cat('c1', 0), cat('c2', 5_000)],
+      [cat('c1', 0), cat('c2', 5_000)],
+    ]
+    const { rows, monthsCounted } = summarizeCategoryMonthlyAverages(months)
+    expect(monthsCounted).toBe(3)
+    const c1 = rows.find((r) => r.categoryId === 'c1')
+    expect(c1!.avgCents).toBe(10_000) // 30.000 / 3 — una categoría esporádica promedia bajo, a propósito
   })
 
   it('nowCents es el último mes de la serie', () => {
     const months = [[cat('c1', 5_000)], [cat('c1', 15_000)]]
-    const [row] = summarizeCategoryMonthlyAverages(months)
-    expect(row!.nowCents).toBe(15_000)
+    const { rows } = summarizeCategoryMonthlyAverages(months)
+    expect(rows[0]!.nowCents).toBe(15_000)
   })
 
   it('desvío positivo cuando el mes actual gastó más que el promedio', () => {
     const months = [[cat('c1', 10_000)], [cat('c1', 10_000)], [cat('c1', 13_000)]]
-    const [row] = summarizeCategoryMonthlyAverages(months)
+    const { rows } = summarizeCategoryMonthlyAverages(months)
     // avg = (10000+10000+13000)/3 = 11000; dev = (13000-11000)/11000*100 ≈ 18%
-    expect(row!.deviationPct).toBe(18)
+    expect(rows[0]!.deviationPct).toBe(18)
   })
 
   it('promedio en 0 → deviationPct null, no división por cero', () => {
+    // El mes 1 ([c1:0]) no tiene NINGUNA actividad en la cuenta y no cuenta en el divisor — sólo
+    // cuenta el mes 2, así que avg = 5.000 / 1, no 5.000 / 2.
     const months = [[cat('c1', 0)], [cat('c1', 5_000)]]
-    const [row] = summarizeCategoryMonthlyAverages(months)
-    expect(row!.avgCents).toBe(2_500)
-    expect(row!.deviationPct).not.toBeNull()
+    const { rows } = summarizeCategoryMonthlyAverages(months)
+    expect(rows[0]!.avgCents).toBe(5_000)
+    expect(rows[0]!.deviationPct).not.toBeNull()
+
     const months2 = [[cat('c1', 0)], [cat('c1', 0)]]
-    expect(summarizeCategoryMonthlyAverages(months2)).toEqual([])
+    expect(summarizeCategoryMonthlyAverages(months2)).toEqual({ rows: [], monthsCounted: 0 })
   })
 
   it('categoría sin actividad en ningún mes de la serie no aparece', () => {
     const months = [[cat('c1', 1_000), cat('c2', 0)], [cat('c1', 2_000), cat('c2', 0)]]
-    const rows = summarizeCategoryMonthlyAverages(months)
+    const { rows } = summarizeCategoryMonthlyAverages(months)
     expect(rows.map((r) => r.categoryId)).toEqual(['c1'])
   })
 
   it('ordena por gasto del último mes, descendente', () => {
     const months = [[cat('c1', 1_000), cat('c2', 5_000)]]
-    const rows = summarizeCategoryMonthlyAverages(months)
+    const { rows } = summarizeCategoryMonthlyAverages(months)
     expect(rows.map((r) => r.categoryId)).toEqual(['c2', 'c1'])
   })
 })

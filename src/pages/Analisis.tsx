@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { format, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ChevronRight } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Badge } from '@/components/ui/Badge'
 import { Money, type MoneyTone } from '@/components/ui/Money'
@@ -10,6 +11,8 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MonthNav } from '@/components/ui/MonthNav'
 import { cn } from '@/lib/cn'
+import { useChartColors } from '@/lib/chartColors'
+import { splitTopN } from '@/lib/topN'
 import { useSpendByCategory, useTransactions } from '@/features/transactions/api'
 import { movementPeriodFromRange } from '@/features/transactions/movementPeriod'
 import { useCommittedPurchaseTransactionIds } from '@/features/credits/api'
@@ -25,20 +28,116 @@ import { defaultPeriod, periodRangeLabel, shiftPeriodMonth } from '@/features/an
 import { CategoryDonut } from '@/features/analytics/CategoryDonut'
 import { TopCategoriesComparison } from '@/features/analytics/TopCategoriesComparison'
 
-/** Una de las cifras chicas del hero (Ingresos / Neto / Por día). */
-function HeroStat({ label, cents, tone, hint }: { label: string; cents: number; tone: MoneyTone; hint?: string }) {
+/** Sentinel para la porción "Otros" del donut — nunca choca con un id real (son uuid). */
+const OTROS_ID = '__otros__'
+const TOP_CATEGORIES_N = 6
+
+/** Una de las cifras chicas del hero (Ingresos / Neto / Por día). `figure` (no `compact`) para que
+ *  no se sientan chicas al lado del hero — mismo tamaño que usan los rail de Fijos/Fijo-vs-variable
+ *  para su cifra principal, escala solo con el viewport (clamp en `theme.css`). */
+function HeroStat({
+  label,
+  cents,
+  tone,
+  hint,
+  className,
+}: {
+  label: string
+  cents: number
+  tone: MoneyTone
+  hint?: string
+  className?: string
+}) {
   return (
-    <div className="min-w-0">
+    <div className={cn('min-w-0', className)}>
       <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">{label}</p>
-      <Money cents={cents} size="compact" tone={tone} signed={tone === 'accent'} className="mt-0.5" />
+      <Money cents={cents} size="figure" tone={tone} signed={tone === 'accent'} className="mt-0.5" />
       {hint && <p className="mt-0.5 truncate text-[11.5px] text-fg-muted">{hint}</p>}
+    </div>
+  )
+}
+
+/** Una fila de la leyenda del donut — punto de color, nombre, barrita proporcional (oculta en
+ *  mobile), % y monto. La usan tanto las categorías del top como las que quedaron detrás de
+ *  "Otros" una vez expandido — mismo markup para las dos. */
+function CategoryLegendRow({
+  name,
+  color,
+  cents,
+  pct,
+  dim,
+  onClick,
+}: {
+  name: string
+  color: string
+  cents: number
+  pct: number
+  dim: boolean
+  onClick: () => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center gap-3 rounded-chip py-2 text-left transition-opacity hover:opacity-70"
+      >
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className={cn('min-w-0 flex-1 truncate text-[13.5px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
+        <span className="hidden h-[5px] w-24 shrink-0 overflow-hidden rounded-pill bg-fill-subtle sm:block">
+          <span className="block h-full rounded-pill" style={{ width: `${pct * 100}%`, backgroundColor: color }} />
+        </span>
+        <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">{Math.round(pct * 100)}%</span>
+        <Money cents={cents} tone={dim ? 'dim' : 'fg'} size="row" className="w-24 shrink-0 justify-end" />
+      </button>
+    </li>
+  )
+}
+
+/** Una fila de la tabla de promedios — punto de color, nombre, promedio, mes actual y desvío. La
+ *  usan las categorías del top y las que quedaron detrás de "Otros" una vez expandida — mismo
+ *  markup para las dos, igual que `CategoryLegendRow` en el donut. */
+function PromedioRow({
+  name,
+  color,
+  avgCents,
+  nowCents,
+  deviationPct,
+  dim,
+}: {
+  name: string
+  color: string
+  avgCents: number
+  nowCents: number
+  deviationPct: number | null
+  dim?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span className={cn('truncate text-[13px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
+      </span>
+      <Money cents={avgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
+      <Money cents={nowCents} tone={dim ? 'dim' : 'fg'} size="row" className="w-20 shrink-0 justify-end" />
+      <span
+        className={cn(
+          'tnum w-12 shrink-0 text-right text-[12px] font-semibold',
+          deviationPct == null ? 'text-fg-muted' : deviationPct > 0 ? 'text-negative' : 'text-accent',
+        )}
+      >
+        {deviationPct == null ? '—' : `${deviationPct > 0 ? '+' : ''}${deviationPct}%`}
+      </span>
     </div>
   )
 }
 
 export function Analisis() {
   const [period, setPeriod] = useState(defaultPeriod)
+  const [otrosExpanded, setOtrosExpanded] = useState(false)
+  const [promedioOtrosExpanded, setPromedioOtrosExpanded] = useState(false)
   const navigate = useNavigate()
+  const chartColors = useChartColors()
 
   const spendQuery = useSpendByCategory(period.from, period.to)
   const prevTotalQuery = usePreviousPeriodTotal(period.from, period.to)
@@ -70,6 +169,34 @@ export function Analisis() {
   )
   const promedioMensual = useMemo(() => summarizeCategoryMonthlyAverages(monthlySeries ?? []), [monthlySeries])
 
+  // `spend` ya viene ordenado desc por `useSpendByCategory` — acá sólo se corta. Con 6 o menos
+  // categorías `rest` queda vacío (ver la regla `n + 1` de `splitTopN`) y todo se muestra igual
+  // que antes.
+  const { top: topCategories, rest: restCategories, restCents } = useMemo(() => splitTopN(spend ?? [], TOP_CATEGORIES_N), [spend])
+  const donutData = useMemo(
+    () =>
+      restCategories.length > 0
+        ? [...topCategories, { categoryId: OTROS_ID, categoryName: 'Otros', color: chartColors.fgMuted, cents: restCents }]
+        : topCategories,
+    [topCategories, restCategories, restCents, chartColors.fgMuted],
+  )
+
+  // Mismo corte que el donut — `promedioMensual.rows` ya viene ordenado desc por `nowCents`
+  // (ver `summarizeCategoryMonthlyAverages`), así que `splitTopN` corta en el mismo punto que la
+  // leyenda. `cents: nowCents` es sólo para que `splitTopN` sepa por dónde cortar/sumar; el resto
+  // de los campos del row viaja intacto.
+  const {
+    top: promedioTop,
+    rest: promedioRest,
+    restCents: promedioRestNowCents,
+  } = useMemo(
+    () => splitTopN(promedioMensual.rows.map((r) => ({ ...r, cents: r.nowCents })), TOP_CATEGORIES_N),
+    [promedioMensual.rows],
+  )
+  // Sin desvío agregado para "Otros": promediar el desvío de categorías sin relación entre sí no
+  // dice nada útil — el chevron ocupa ese lugar en vez de un % que confundiría más que ayudaría.
+  const promedioRestAvgCents = useMemo(() => promedioRest.reduce((sum, r) => sum + r.avgCents, 0), [promedioRest])
+
   const anchorMonthLabel = format(parseISO(period.anchor), 'MMMM', { locale: es })
   const prevMonthLabel = format(startOfMonth(parseISO(period.from)) < startOfMonth(parseISO(period.anchor)) ? parseISO(period.from) : parseISO(period.anchor), 'MMMM', { locale: es })
   // El hero dice "en {mes}" sólo cuando el preset ES un mes — en cualquier otro (3/6/12 meses,
@@ -77,8 +204,18 @@ export function Analisis() {
   // directamente incorrecto, no sólo impreciso.
   const heroPeriodLabel = period.preset === 'month' ? anchorMonthLabel : periodRangeLabel(period)
   const heroPrevPeriodLabel = period.preset === 'month' ? prevMonthLabel : 'el período anterior'
+  const promedioMesesLabel =
+    promedioMensual.monthsCounted === 0
+      ? null
+      : promedioMensual.monthsCounted === 1
+        ? 'último mes'
+        : `últimos ${promedioMensual.monthsCounted} meses`
 
   function goToCategory(categoryId: string) {
+    if (categoryId === OTROS_ID) {
+      setOtrosExpanded((v) => !v)
+      return
+    }
     navigate('/movimientos', { state: { categoryId, period: movementPeriodFromRange(period.from, period.to) } })
   }
 
@@ -124,8 +261,14 @@ export function Analisis() {
         <div className="flex flex-col gap-4">
           <Skeleton className="h-32 w-full rounded-panel" />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr]">
-            <Skeleton className="h-64 w-full rounded-panel" />
-            <Skeleton className="h-64 w-full rounded-panel" />
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-64 w-full rounded-panel" />
+              <Skeleton className="h-48 w-full rounded-panel" />
+            </div>
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-48 w-full rounded-panel" />
+              <Skeleton className="h-48 w-full rounded-panel" />
+            </div>
           </div>
         </div>
       ) : !spend || spend.length === 0 ? (
@@ -153,141 +296,228 @@ export function Analisis() {
               </p>
             </div>
 
-            <div className="flex flex-1 flex-wrap justify-between gap-x-6 gap-y-3 lg:justify-end lg:gap-x-9">
-              <HeroStat label="Ingresos" cents={incomeCents} tone="fg" />
-              <HeroStat label="Neto" cents={netCents} tone={netCents >= 0 ? 'accent' : 'negative'} />
-              <HeroStat label="Por día" cents={Math.round(totalCents / days)} tone="fg" hint={`sobre ${days} días`} />
+            {/* Divisor a la izquierda de cada cifra, incluida "Ingresos" — separa el hero de las
+                tres. `flex-wrap` SIEMPRE, en todas las resoluciones — nunca `flex-nowrap` ni
+                `grid-cols-3`: los dos fuerzan un ancho fijo por columna, y entre ~1024 y ~1250px
+                (el hueco entre el breakpoint `lg` y que el contenido de 1280px realmente tenga
+                lugar) eso corta el último dígito de "Por día" contra el borde del panel — se vio
+                con capturas reales. Con `flex-wrap` sin forzar, si las tres no entran en una fila
+                la que sobra baja a la siguiente en vez de desbordar o recortarse; a full width
+                entran igual en una sola fila, así que se sigue viendo "espaciado" como se pidió. */}
+            <div className="flex flex-1 flex-wrap gap-x-8 gap-y-3">
+              <HeroStat label="Ingresos" cents={incomeCents} tone="fg" className="lg:border-l lg:border-divider lg:pl-8" />
+              <HeroStat
+                label="Neto"
+                cents={netCents}
+                tone={netCents >= 0 ? 'accent' : 'negative'}
+                className="lg:border-l lg:border-divider lg:pl-8"
+              />
+              <HeroStat
+                label="Por día"
+                cents={Math.round(totalCents / days)}
+                tone="fg"
+                hint={`sobre ${days} días`}
+                className="lg:border-l lg:border-divider lg:pl-8"
+              />
             </div>
           </Panel>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr] lg:items-stretch">
-            <Panel className="p-6">
-              <p className="eyebrow">En qué se fue la plata</p>
-              <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row lg:gap-8">
-                <CategoryDonut
-                  data={spend.map((s) => ({ categoryId: s.categoryId, categoryName: s.categoryName, color: s.color, cents: s.cents }))}
-                  onSelect={goToCategory}
-                  centerLabel="gasto"
-                  size={196}
-                />
-                <ul className="flex w-full min-w-0 flex-col gap-1">
-                  {spend.map((s, i) => {
-                    const share = totalCents > 0 ? s.cents / totalCents : 0
-                    return (
-                      <li key={s.categoryId}>
+          {/* Columna + rail, mismo patrón que Fijos/Mis Deudas/Ahorros: los paneles que crecen con
+              la cantidad de categorías (donut, promedio mensual) van apilados en la columna ancha;
+              los de contenido corto y fijo (fijo vs. variable, top categorías) van en el rail. Así
+              ningún panel compite en altura contra un vecino de la misma fila. */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr] lg:items-start">
+            <div className="flex min-w-0 flex-col gap-4">
+              <Panel className="p-6">
+                <p className="eyebrow">En qué se fue la plata</p>
+                <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row lg:gap-8">
+                  <CategoryDonut data={donutData} onSelect={goToCategory} centerLabel="gasto" size={196} />
+                  <ul className="flex w-full min-w-0 flex-col gap-1">
+                    {topCategories.map((s, i) => (
+                      <CategoryLegendRow
+                        key={s.categoryId}
+                        name={s.categoryName}
+                        color={s.color}
+                        cents={s.cents}
+                        pct={totalCents > 0 ? s.cents / totalCents : 0}
+                        dim={i !== 0}
+                        onClick={() => goToCategory(s.categoryId)}
+                      />
+                    ))}
+
+                    {restCategories.length > 0 && (
+                      <li>
                         <button
                           type="button"
-                          onClick={() => goToCategory(s.categoryId)}
+                          onClick={() => setOtrosExpanded((v) => !v)}
+                          aria-expanded={otrosExpanded}
                           className="flex w-full items-center gap-3 rounded-chip py-2 text-left transition-opacity hover:opacity-70"
                         >
-                          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                          <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg">{s.categoryName}</span>
-                          <span className="hidden h-[5px] w-24 shrink-0 overflow-hidden rounded-pill bg-fill-subtle sm:block">
-                            <span className="block h-full rounded-pill" style={{ width: `${share * 100}%`, backgroundColor: s.color }} />
+                          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
+                          <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg-muted">
+                            Otros {restCategories.length} categoría{restCategories.length === 1 ? '' : 's'}
                           </span>
-                          <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">{Math.round(share * 100)}%</span>
-                          <Money cents={s.cents} tone={i === 0 ? 'fg' : 'dim'} size="row" className="w-24 shrink-0 justify-end" />
+                          <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">
+                            {totalCents > 0 ? Math.round((restCents / totalCents) * 100) : 0}%
+                          </span>
+                          <span className="flex w-24 shrink-0 items-center justify-end gap-1.5">
+                            <Money cents={restCents} tone="dim" size="row" />
+                            <ChevronRight
+                              className={cn('size-3 shrink-0 text-fg-muted transition-transform duration-150', otrosExpanded && 'rotate-90')}
+                              strokeWidth={1.8}
+                              aria-hidden
+                            />
+                          </span>
                         </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            </Panel>
-
-            <Panel className="flex flex-col p-6">
-              <p className="eyebrow">Fijo vs. variable</p>
-              <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
-                <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
-                <div className="h-full bg-accent" style={{ width: `${fijoVsVariable.variablePct}%` }} />
-              </div>
-              <div className="mt-4 flex flex-col gap-4">
-                <div className="flex items-start gap-2.5">
-                  <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-fg" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12.5px] text-fg-secondary">Ya estaba comprometido</p>
-                    <Money cents={fijoVsVariable.committedCents} size="figure" className="mt-0.5" />
-                    <p className="mt-0.5 text-[11.5px] text-fg-muted">{fijoVsVariable.committedPct}% del gasto · fijos y cuotas</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12.5px] text-fg-secondary">Decidiste vos</p>
-                    <Money cents={fijoVsVariable.variableCents} tone="accent" size="figure" className="mt-0.5" />
-                    <p className="mt-0.5 text-[11.5px] text-fg-muted">
-                      {fijoVsVariable.variablePct}% del gasto · <Money cents={Math.round(fijoVsVariable.variableCents / days)} tone="dim" size="inline" /> por
-                      día
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <p className="mt-auto pt-4 text-[11.5px] leading-relaxed text-fg-muted">
-                De cada $100 que gastaste, ${fijoVsVariable.committedPct} ya estaban decididos antes de que arrancara el período.
-              </p>
-            </Panel>
-          </div>
-
-          <div className="hidden gap-4 lg:grid lg:grid-cols-2 lg:items-start">
-            <Panel className="p-6">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="eyebrow">Top categorías vs. período anterior</p>
-              </div>
-              {comparisonQuery.isError ? (
-                <ErrorState onRetry={() => comparisonQuery.refetch()} className="mt-4" />
-              ) : !comparison || comparison.length === 0 ? (
-                <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
-              ) : (
-                <div className="mt-4">
-                  <TopCategoriesComparison data={comparison} />
-                </div>
-              )}
-            </Panel>
-
-            <Panel className="p-6">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="eyebrow">Promedio mensual por categoría</p>
-                <span className="text-[11.5px] text-fg-muted">últimos 12 meses</span>
-              </div>
-              {monthlySeriesQuery.isError ? (
-                <ErrorState onRetry={() => monthlySeriesQuery.refetch()} className="mt-4" />
-              ) : monthlySeriesQuery.isPending ? (
-                <div className="mt-4 flex flex-col gap-3">
-                  {[0, 1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-5 w-full" />
-                  ))}
-                </div>
-              ) : promedioMensual.length === 0 ? (
-                <EmptyState glyph="▤" title="Todavía no hay datos" className="py-8" />
-              ) : (
-                <div className="mt-3.5">
-                  <div className="flex items-center gap-3 border-b border-divider pb-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
-                    <span className="min-w-0 flex-1">Categoría</span>
-                    <span className="w-20 shrink-0 text-right">Promedio</span>
-                    <span className="w-20 shrink-0 text-right">{anchorMonthLabel}</span>
-                    <span className="w-12 shrink-0 text-right">Desvío</span>
-                  </div>
-                  {promedioMensual.map((p) => (
-                    <div key={p.categoryId} className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
-                      <span className="flex min-w-0 flex-1 items-center gap-2">
-                        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
-                        <span className="truncate text-[13px] text-fg">{p.categoryName}</span>
-                      </span>
-                      <Money cents={p.avgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
-                      <Money cents={p.nowCents} size="row" className="w-20 shrink-0 justify-end" />
-                      <span
-                        className={cn(
-                          'tnum w-12 shrink-0 text-right text-[12px] font-semibold',
-                          p.deviationPct == null ? 'text-fg-muted' : p.deviationPct > 0 ? 'text-negative' : 'text-accent',
+                        {otrosExpanded && (
+                          <ul className="flex flex-col gap-1 pl-5">
+                            {restCategories.map((s) => (
+                              <CategoryLegendRow
+                                key={s.categoryId}
+                                name={s.categoryName}
+                                color={s.color}
+                                cents={s.cents}
+                                pct={totalCents > 0 ? s.cents / totalCents : 0}
+                                dim
+                                onClick={() => goToCategory(s.categoryId)}
+                              />
+                            ))}
+                          </ul>
                         )}
-                      >
-                        {p.deviationPct == null ? '—' : `${p.deviationPct > 0 ? '+' : ''}${p.deviationPct}%`}
-                      </span>
-                    </div>
-                  ))}
+                      </li>
+                    )}
+                  </ul>
                 </div>
-              )}
-            </Panel>
+              </Panel>
+
+              <Panel className="hidden p-6 lg:block">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="eyebrow">Promedio mensual por categoría</p>
+                  {promedioMesesLabel && <span className="text-[11.5px] text-fg-muted">{promedioMesesLabel}</span>}
+                </div>
+                {monthlySeriesQuery.isError ? (
+                  <ErrorState onRetry={() => monthlySeriesQuery.refetch()} className="mt-4" />
+                ) : monthlySeriesQuery.isPending ? (
+                  <div className="mt-4 flex flex-col gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-5 w-full" />
+                    ))}
+                  </div>
+                ) : promedioMensual.rows.length === 0 ? (
+                  <EmptyState glyph="▤" title="Todavía no hay datos" className="py-8" />
+                ) : (
+                  <div className="mt-3.5">
+                    <div className="flex items-center gap-3 border-b border-divider pb-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
+                      <span className="min-w-0 flex-1">Categoría</span>
+                      <span className="w-20 shrink-0 text-right">Promedio</span>
+                      <span className="w-20 shrink-0 text-right">{anchorMonthLabel}</span>
+                      <span className="w-12 shrink-0 text-right">Desvío</span>
+                    </div>
+                    {promedioTop.map((p) => (
+                      <PromedioRow
+                        key={p.categoryId}
+                        name={p.categoryName}
+                        color={p.color}
+                        avgCents={p.avgCents}
+                        nowCents={p.nowCents}
+                        deviationPct={p.deviationPct}
+                      />
+                    ))}
+
+                    {promedioRest.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setPromedioOtrosExpanded((v) => !v)}
+                          aria-expanded={promedioOtrosExpanded}
+                          className="flex w-full items-center gap-3 border-b border-divider py-2.5 text-left last:border-b-0"
+                        >
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
+                            <span className="truncate text-[13px] text-fg-muted">
+                              Otros {promedioRest.length} categoría{promedioRest.length === 1 ? '' : 's'}
+                            </span>
+                          </span>
+                          <Money cents={promedioRestAvgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
+                          <Money cents={promedioRestNowCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
+                          <span className="flex w-12 shrink-0 items-center justify-end">
+                            <ChevronRight
+                              className={cn(
+                                'size-3 shrink-0 text-fg-muted transition-transform duration-150',
+                                promedioOtrosExpanded && 'rotate-90',
+                              )}
+                              strokeWidth={1.8}
+                              aria-hidden
+                            />
+                          </span>
+                        </button>
+                        {promedioOtrosExpanded &&
+                          promedioRest.map((p) => (
+                            <PromedioRow
+                              key={p.categoryId}
+                              name={p.categoryName}
+                              color={p.color}
+                              avgCents={p.avgCents}
+                              nowCents={p.nowCents}
+                              deviationPct={p.deviationPct}
+                              dim
+                            />
+                          ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <Panel className="p-6">
+                <p className="eyebrow">Fijo vs. variable</p>
+                <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
+                  <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
+                  <div className="h-full bg-accent" style={{ width: `${fijoVsVariable.variablePct}%` }} />
+                </div>
+                <div className="mt-4 flex flex-col gap-4">
+                  <div className="flex items-start gap-2.5">
+                    <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-fg" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] text-fg-secondary">Ya estaba comprometido</p>
+                      <Money cents={fijoVsVariable.committedCents} size="figure" className="mt-0.5" />
+                      <p className="mt-0.5 text-[11.5px] text-fg-muted">{fijoVsVariable.committedPct}% del gasto · fijos y cuotas</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] text-fg-secondary">Decidiste vos</p>
+                      <Money cents={fijoVsVariable.variableCents} tone="accent" size="figure" className="mt-0.5" />
+                      <p className="mt-0.5 text-[11.5px] text-fg-muted">
+                        {fijoVsVariable.variablePct}% del gasto ·{' '}
+                        <Money cents={Math.round(fijoVsVariable.variableCents / days)} tone="dim" size="inline" /> por día
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-4 text-[11.5px] leading-relaxed text-fg-muted">
+                  De cada $100 que gastaste, ${fijoVsVariable.committedPct} ya estaban decididos antes de que arrancara el período.
+                </p>
+              </Panel>
+
+              <Panel className="hidden p-6 lg:block">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="eyebrow">Top categorías vs. período anterior</p>
+                </div>
+                {comparisonQuery.isError ? (
+                  <ErrorState onRetry={() => comparisonQuery.refetch()} className="mt-4" />
+                ) : !comparison || comparison.length === 0 ? (
+                  <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
+                ) : (
+                  <div className="mt-4">
+                    <TopCategoriesComparison data={comparison} />
+                  </div>
+                )}
+              </Panel>
+            </div>
           </div>
         </div>
       )}

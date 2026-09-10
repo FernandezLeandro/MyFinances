@@ -49,8 +49,10 @@ export interface CategoryMonthlyRow {
   categoryId: string
   categoryName: string
   color: string
-  /** Promedio mensual sobre los meses de la serie (`sum / months.length`), no sólo los meses con
-   *  gasto — un mes en 0 sigue contando como un mes sin gastar en esa categoría. */
+  /** Promedio mensual sobre los meses en que la cuenta tuvo actividad (ver `monthsCounted`), no
+   *  sobre los 12 de la ventana. Un mes con gasto en OTRAS categorías sí cuenta acá aunque esta
+   *  categoría haya quedado en 0 — de eso se trata: una categoría esporádica tiene que promediar
+   *  bajo. Lo que no cuenta son los meses sin ningún movimiento (cuenta nueva, o un mes muerto). */
   avgCents: number
   /** El último mes de la serie (el mes ancla). */
   nowCents: number
@@ -66,23 +68,36 @@ export interface CategorySpendRow {
   cents: number
 }
 
+export interface CategoryMonthlyAverages {
+  rows: CategoryMonthlyRow[]
+  /** Cuántos de los meses de `monthlySpend` tuvieron algún movimiento en la cuenta (no sólo en esta
+   *  categoría) — el divisor real del promedio, y lo que va en la cabecera del panel ("últimos N
+   *  meses"). Una cuenta con menos de 12 meses de historia, o con algún mes muerto en el medio, no
+   *  puede promediar contra meses que nunca existieron. */
+  monthsCounted: number
+}
+
 /**
  * Arma el promedio mensual por categoría a partir de N meses de `v_spend_by_category` (uno por mes,
  * mismo orden ascendente que se pidieron). Sólo devuelve categorías con algo de actividad (`avg` o
  * `now` > 0) — una categoría que nunca se usó no aporta nada a la tabla.
  */
-export function summarizeCategoryMonthlyAverages(monthlySpend: CategorySpendRow[][]): CategoryMonthlyRow[] {
-  if (monthlySpend.length === 0) return []
+export function summarizeCategoryMonthlyAverages(monthlySpend: CategorySpendRow[][]): CategoryMonthlyAverages {
+  if (monthlySpend.length === 0) return { rows: [], monthsCounted: 0 }
   const last = monthlySpend[monthlySpend.length - 1]!
+  const monthsCounted = monthlySpend.filter((month) => month.some((r) => r.cents > 0)).length
+  const divisor = Math.max(1, monthsCounted)
 
-  return last
+  const rows = last
     .map((row): CategoryMonthlyRow => {
       const sum = monthlySpend.reduce((acc, month) => acc + (month.find((r) => r.categoryId === row.categoryId)?.cents ?? 0), 0)
-      const avgCents = Math.round(sum / monthlySpend.length)
+      const avgCents = Math.round(sum / divisor)
       const nowCents = row.cents
       const deviationPct = avgCents > 0 ? Math.round(((nowCents - avgCents) / avgCents) * 100) : null
       return { categoryId: row.categoryId, categoryName: row.categoryName, color: row.color, avgCents, nowCents, deviationPct }
     })
     .filter((row) => row.avgCents > 0 || row.nowCents > 0)
     .sort((a, b) => b.nowCents - a.nowCents)
+
+  return { rows, monthsCounted }
 }
