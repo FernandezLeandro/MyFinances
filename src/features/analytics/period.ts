@@ -1,4 +1,4 @@
-import { addMonths, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { addMonths, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export type PeriodPreset = 'month' | '3m' | '6m' | '12m' | 'custom'
@@ -64,6 +64,18 @@ export function periodRangeLabel(period: Period): string {
   if (fromLabel === toLabel) return fromLabel
   const sameYear = from.getFullYear() === to.getFullYear()
   return `${format(from, sameYear ? 'MMM' : 'MMM yyyy', { locale: es })} – ${toLabel}`
+}
+
+/** El período inmediatamente anterior a `[from, to]`, de igual duración en días — "últimos 30 días"
+ *  contra los 30 anteriores a esos, no contra el mes calendario anterior. Compartido por
+ *  `useTopCategoriesComparison` y el total del hero de Análisis, para que las dos comparativas
+ *  midan exactamente lo mismo. */
+export function previousRange(from: string, to: string): { from: string; to: string } {
+  const days = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1
+  return {
+    to: iso(subDays(parseISO(from), 1)),
+    from: iso(subDays(parseISO(from), days)),
+  }
 }
 
 /** Ventana fija de 12 meses terminando en el mes de `anchor` — la usan los gráficos de evolución
