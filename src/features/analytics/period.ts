@@ -40,6 +40,18 @@ export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   custom: 'Personalizado',
 }
 
+/** Mismos 5 presets que `PERIOD_PRESET_LABELS`, con el texto de venta corto — el mock cambiaba la
+ *  semántica a Mes/Trimestre/Año/Personalizado (ventana calendario, no rolling), pero eso es una
+ *  decisión de producto que no estaba pedida (ver la memoria de la migración); acá sólo se acorta
+ *  el texto para que las 5 píldoras entren en una fila en mobile, sin tocar qué significa cada una. */
+export const PERIOD_PRESET_MOBILE_LABELS: Record<PeriodPreset, string> = {
+  month: 'Mes',
+  '3m': '3m',
+  '6m': '6m',
+  '12m': '12m',
+  custom: 'Otro',
+}
+
 export function defaultPeriod(): Period {
   const anchor = iso(new Date())
   return { preset: 'month', anchor, ...presetToRange('month', anchor) }
