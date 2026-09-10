@@ -34,7 +34,10 @@ const TOP_CATEGORIES_N = 6
 
 /** Una de las cifras chicas del hero (Ingresos / Neto / Por día). `figure` (no `compact`) para que
  *  no se sientan chicas al lado del hero — mismo tamaño que usan los rail de Fijos/Fijo-vs-variable
- *  para su cifra principal, escala solo con el viewport (clamp en `theme.css`). */
+ *  para su cifra principal, escala solo con el viewport (clamp en `theme.css`). En mobile las tres
+ *  comparten fila en una grilla de 3 columnas angostas (~120px c/u): el piso del clamp de `figure`
+ *  (25px) es más ancho que eso y las cifras se pisaban entre sí — `max-lg:!text-[16px]` las achica
+ *  sólo por debajo de `lg`, donde SÍ tienen su propia fila ancha para el tamaño completo. */
 function HeroStat({
   label,
   cents,
@@ -51,7 +54,7 @@ function HeroStat({
   return (
     <div className={cn('min-w-0', className)}>
       <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">{label}</p>
-      <Money cents={cents} size="figure" tone={tone} signed={tone === 'accent'} className="mt-0.5" />
+      <Money cents={cents} size="figure" tone={tone} signed={tone === 'accent'} className="mt-0.5 max-lg:!text-[16px]" />
       {hint && <p className="mt-0.5 truncate text-[11.5px] text-fg-muted">{hint}</p>}
     </div>
   )
@@ -278,9 +281,9 @@ export function Analisis() {
       ) : (
         <div className="flex flex-col gap-4">
           <Panel className="flex flex-col gap-6 p-[18px] lg:flex-row lg:items-center lg:gap-9 lg:p-6">
-            <div className="flex-none">
+            <div className="flex-none text-center lg:text-left">
               <p className="eyebrow">Gastaste en {heroPeriodLabel}</p>
-              <div className="mt-1 flex items-baseline gap-3">
+              <div className="mt-1 flex items-baseline justify-center gap-3 lg:justify-start">
                 <Money cents={totalCents} size="hero" />
                 {changePct != null && (
                   <Badge variant={changePct > 0 ? 'red' : 'soft'} className="tnum">
@@ -296,15 +299,14 @@ export function Analisis() {
               </p>
             </div>
 
-            {/* Divisor a la izquierda de cada cifra, incluida "Ingresos" — separa el hero de las
-                tres. `flex-wrap` SIEMPRE, en todas las resoluciones — nunca `flex-nowrap` ni
-                `grid-cols-3`: los dos fuerzan un ancho fijo por columna, y entre ~1024 y ~1250px
-                (el hueco entre el breakpoint `lg` y que el contenido de 1280px realmente tenga
-                lugar) eso corta el último dígito de "Por día" contra el borde del panel — se vio
-                con capturas reales. Con `flex-wrap` sin forzar, si las tres no entran en una fila
-                la que sobra baja a la siguiente en vez de desbordar o recortarse; a full width
-                entran igual en una sola fila, así que se sigue viendo "espaciado" como se pidió. */}
-            <div className="flex flex-1 flex-wrap gap-x-8 gap-y-3">
+            {/* Mobile: grilla de 3 columnas parejas y centradas, con un divisor arriba separándola
+                del hero — antes era el mismo `flex flex-wrap` de escritorio, que en mobile hacía que
+                "Por día" (el tercer ítem) bajara solo a una segunda línea pegado a la izquierda,
+                desalineado del resto. Desktop sigue con `flex-wrap` (ver comentario original): nunca
+                `flex-nowrap` ni `grid-cols-3` ahí porque los dos fuerzan un ancho fijo por columna, y
+                entre ~1024 y ~1250px eso corta el último dígito de "Por día" contra el borde del
+                panel — se vio con capturas reales. */}
+            <div className="grid grid-cols-3 gap-3 border-t border-divider pt-4 text-center lg:flex lg:flex-1 lg:flex-wrap lg:gap-x-8 lg:gap-y-3 lg:border-t-0 lg:pt-0 lg:text-left">
               <HeroStat label="Ingresos" cents={incomeCents} tone="fg" className="lg:border-l lg:border-divider lg:pl-8" />
               <HeroStat
                 label="Neto"
@@ -326,9 +328,14 @@ export function Analisis() {
               la cantidad de categorías (donut, promedio mensual) van apilados en la columna ancha;
               los de contenido corto y fijo (fijo vs. variable, top categorías) van en el rail. Así
               ningún panel compite en altura contra un vecino de la misma fila. */}
+          {/* En mobile los 4 paneles son items directos de este grid (las dos columnas de abajo
+              pasan a `contents` y desaparecen del árbol de layout) para poder reordenarlos con
+              `order-*` sin tocar el armado de 2 columnas de escritorio: acá el orden pedido es
+              Gráfico, Fijo vs. variable, Top categorías, Promedio mensual — distinto del orden
+              columna-por-columna que tiene sentido en desktop. */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr] lg:items-start">
-            <div className="flex min-w-0 flex-col gap-4">
-              <Panel className="p-6">
+            <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+              <Panel className="order-1 p-6 lg:order-none">
                 <p className="eyebrow">En qué se fue la plata</p>
                 <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row lg:gap-8">
                   <CategoryDonut data={donutData} onSelect={goToCategory} centerLabel="gasto" size={196} />
@@ -390,7 +397,7 @@ export function Analisis() {
                 </div>
               </Panel>
 
-              <Panel className="hidden p-6 lg:block">
+              <Panel className="order-4 p-6 lg:order-none">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="eyebrow">Promedio mensual por categoría</p>
                   {promedioMesesLabel && <span className="text-[11.5px] text-fg-muted">{promedioMesesLabel}</span>}
@@ -470,8 +477,8 @@ export function Analisis() {
               </Panel>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-4">
-              <Panel className="p-6">
+            <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+              <Panel className="order-2 p-6 lg:order-none">
                 <p className="eyebrow">Fijo vs. variable</p>
                 <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
                   <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
@@ -503,7 +510,7 @@ export function Analisis() {
                 </p>
               </Panel>
 
-              <Panel className="hidden p-6 lg:block">
+              <Panel className="order-3 p-6 lg:order-none">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="eyebrow">Top categorías vs. período anterior</p>
                 </div>

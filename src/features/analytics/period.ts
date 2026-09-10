@@ -1,7 +1,7 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-export type PeriodPreset = 'month' | '3m' | '6m' | '12m' | 'custom'
+export type PeriodPreset = 'month' | '3m' | 'custom'
 
 export interface Period {
   preset: PeriodPreset
@@ -16,8 +16,6 @@ export interface Period {
 const MONTHS_BACK: Record<Exclude<PeriodPreset, 'custom'>, number> = {
   month: 0,
   '3m': 2,
-  '6m': 5,
-  '12m': 11,
 }
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
@@ -35,20 +33,14 @@ export function presetToRange(preset: Exclude<PeriodPreset, 'custom'>, anchor: s
 export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   month: 'Este mes',
   '3m': 'Últimos 3 meses',
-  '6m': 'Últimos 6 meses',
-  '12m': 'Últimos 12 meses',
   custom: 'Personalizado',
 }
 
-/** Mismos 5 presets que `PERIOD_PRESET_LABELS`, con el texto de venta corto — el mock cambiaba la
- *  semántica a Mes/Trimestre/Año/Personalizado (ventana calendario, no rolling), pero eso es una
- *  decisión de producto que no estaba pedida (ver la memoria de la migración); acá sólo se acorta
- *  el texto para que las 5 píldoras entren en una fila en mobile, sin tocar qué significa cada una. */
+/** Mismos presets que `PERIOD_PRESET_LABELS`, con el texto de venta corto para que entren en una
+ *  fila en mobile. */
 export const PERIOD_PRESET_MOBILE_LABELS: Record<PeriodPreset, string> = {
   month: 'Mes',
   '3m': '3m',
-  '6m': '6m',
-  '12m': '12m',
   custom: 'Otro',
 }
 
