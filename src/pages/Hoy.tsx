@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { endOfMonth, format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
+import { Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { EyeToggle } from '@/components/ui/EyeToggle'
@@ -230,7 +231,9 @@ export function Hoy() {
         {/* Sólo escritorio — en mobile el `+` de la isla ya cubre "nuevo movimiento", y duplicar el
             CTA acá no aporta (ver la nota de "Cuadrar saldo" en mobile en el reporte del bloque). */}
         <div className="hidden flex-none flex-col gap-2 lg:flex lg:ml-auto lg:w-[186px]">
-          <Button onClick={() => setOpen(true)}>+ Nuevo movimiento</Button>
+          <Button onClick={() => setOpen(true)} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
+            Nuevo movimiento
+          </Button>
           <Button variant="outline" onClick={() => setCuadrarOpen(true)}>
             Cuadrar saldo
           </Button>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { MonthNav } from '@/components/ui/MonthNav'
 import { AccordionHeader } from '@/components/ui/AccordionHeader'
@@ -215,7 +215,7 @@ export function Movimientos() {
               criterio que el hero de Hoy) — repetirlo acá es un botón más que pelea por lugar en
               una fila que ya tiene dos. */}
           <div className="hidden lg:block">
-            <Button size="compact" icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
+            <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNew}>
               Nuevo movimiento
             </Button>
           </div>
