@@ -128,7 +128,11 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
         // `dialog:not([open]) { display: none }` del navegador. El layout de columna va en el
         // wrapper de adentro. `vh` y no `dvh`: las unidades dinámicas se resuelven de forma
         // inconsistente dentro del top layer en mobile.
-        'fixed inset-x-0 top-auto bottom-0 z-50 m-0 w-full max-w-none overflow-hidden rounded-t-panel bg-surface p-0 text-fg',
+        // `bottom-3` en vez de `bottom-0`: pegado al borde de verdad quedaba sin aire, como si el
+        // sheet fuera parte del chrome del sistema en vez de un modal — un margen chico alcanza
+        // para que se lea como una tarjeta flotando. Redondeado en las 4 esquinas ahora que el
+        // borde de abajo también se ve (antes sólo hacía falta arriba, pegado como estaba).
+        'fixed inset-x-0 top-auto bottom-3 z-50 m-0 w-full max-w-none overflow-hidden rounded-panel bg-surface p-0 text-fg',
         'overscroll-contain animate-sheet-in backdrop:bg-black/75',
         'sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,

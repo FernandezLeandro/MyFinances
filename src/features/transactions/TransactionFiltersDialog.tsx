@@ -197,14 +197,14 @@ export function TransactionFiltersDialog({
 
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Tipo</p>
-            <div className="flex flex-wrap gap-1.5">
-              <Chip active={draft.type === 'all'} onClick={() => selectType('all')}>
+            <div className="flex flex-wrap gap-2">
+              <Chip size="lg" active={draft.type === 'all'} onClick={() => selectType('all')}>
                 Todos
               </Chip>
-              <Chip active={draft.type === 'income'} onClick={() => selectType('income')}>
+              <Chip size="lg" active={draft.type === 'income'} onClick={() => selectType('income')}>
                 Ingresos
               </Chip>
-              <Chip active={draft.type === 'expense'} onClick={() => selectType('expense')}>
+              <Chip size="lg" active={draft.type === 'expense'} onClick={() => selectType('expense')}>
                 Gastos
               </Chip>
             </div>

@@ -289,11 +289,11 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        <div className="flex gap-1.5">
-          <Chip active={type === 'expense'} onClick={() => selectType('expense')}>
+        <div className="flex gap-2">
+          <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
             Gasto
           </Chip>
-          <Chip active={type === 'income'} onClick={() => selectType('income')}>
+          <Chip size="lg" active={type === 'income'} onClick={() => selectType('income')}>
             Ingreso
           </Chip>
         </div>
