@@ -37,8 +37,8 @@ export function TopBar({ items, initials, displayName, email, showAjustes, tone 
 
   return (
     <header className="sticky top-0 z-20 hidden h-[58px] items-center gap-[22px] border-b border-divider bg-surface px-[26px] md:flex">
-      <div className="flex items-center gap-[7px]">
-        <Brand className="size-[17px]" accent={!isAdmin} />
+      <div className="flex items-center gap-[8px]">
+        <Brand className="size-5" accent={!isAdmin} />
         <span className="font-display text-[15px] font-bold tracking-[-0.01em] text-fg">MyFinances</span>
       </div>
 
