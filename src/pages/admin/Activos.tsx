@@ -32,9 +32,9 @@ function AddAssetForm() {
       <p className="eyebrow">Agregar activo</p>
       <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas.</p>
       <div className="mt-3 flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[150px_1fr] gap-3">
           <Field label="Símbolo">
-            <Input placeholder="VOO, AL30…" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+            <Input placeholder="VOO, AL30…" className="font-mono" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
           </Field>
           <Field label="Nombre">
             <Input placeholder="Vanguard S&P 500" value={name} onChange={(e) => setName(e.target.value)} />
@@ -42,16 +42,16 @@ function AddAssetForm() {
         </div>
         <div className="flex flex-wrap gap-1.5">
           {assetClassOptions.map((c) => (
-            <Chip key={c.value} active={assetClass === c.value} onClick={() => setAssetClass(c.value)}>
+            <Chip key={c.value} size="lg" active={assetClass === c.value} onClick={() => setAssetClass(c.value)}>
               {c.label}
             </Chip>
           ))}
         </div>
         <div className="flex gap-1.5">
-          <Chip active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
+          <Chip size="lg" active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
             Se cotiza en ARS
           </Chip>
-          <Chip active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
+          <Chip size="lg" active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
             Se cotiza en USD
           </Chip>
         </div>
