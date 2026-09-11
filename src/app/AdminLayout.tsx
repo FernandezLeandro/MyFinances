@@ -4,7 +4,7 @@ import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
-import { adminNavItems } from '@/app/adminNav'
+import { adminNavItems, adminOverflowItems, adminTabBarItems } from '@/app/adminNav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
@@ -47,7 +47,7 @@ export function AdminLayout() {
         </div>
       </main>
 
-      <MobileTabBar items={adminNavItems} drawerOpen={drawerOpen} onOpenDrawer={() => setDrawerOpen(true)} />
+      <MobileTabBar items={adminTabBarItems} drawerOpen={drawerOpen} onOpenDrawer={() => setDrawerOpen(true)} />
 
       <AccountDrawer
         open={drawerOpen}
@@ -56,7 +56,7 @@ export function AdminLayout() {
         displayName={null}
         email={email}
         showAjustes={false}
-        overflowItems={[]}
+        overflowItems={adminOverflowItems}
       />
     </>
   )

@@ -4,7 +4,7 @@ import { AppLayout } from '@/app/AppLayout'
 import { AdminLayout } from '@/app/AdminLayout'
 import { AuthLayout } from '@/app/AuthLayout'
 import { AuthProvider } from '@/features/auth/AuthProvider'
-import { RequireAuth, RequireAdmin, RedirectIfAuthed, RequireSessionNoProfile } from '@/features/auth/guards'
+import { RequireAuth, RequireAdmin, RequireCapability, RedirectIfAuthed, RequireSessionNoProfile } from '@/features/auth/guards'
 import { MutationLockOverlay } from '@/components/MutationLockOverlay'
 import { ToastHost } from '@/components/ui/ToastHost'
 import { Hoy } from '@/pages/Hoy'
@@ -27,6 +27,7 @@ const Ahorros = lazy(() => import('@/pages/Ahorros').then((m) => ({ default: m.A
 const Categorias = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
 const Activos = lazy(() => import('@/pages/admin/Activos').then((m) => ({ default: m.Activos })))
 const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones').then((m) => ({ default: m.Invitaciones })))
+const Usuarios = lazy(() => import('@/pages/admin/Usuarios').then((m) => ({ default: m.Usuarios })))
 const Cuenta = lazy(() => import('@/pages/admin/Cuenta').then((m) => ({ default: m.Cuenta })))
 
 export default function App() {
@@ -64,12 +65,12 @@ export default function App() {
           >
             <Route index element={<Navigate to="/hoy" replace />} />
             <Route path="hoy" element={<Hoy />} />
-            <Route path="movimientos" element={<Movimientos />} />
-            <Route path="fijos" element={<Fijos />} />
-            <Route path="mis-deudas" element={<MisDeudas />} />
-            <Route path="me-deben" element={<MeDeben />} />
-            <Route path="analisis" element={<Analisis />} />
-            <Route path="ahorros" element={<Ahorros />} />
+            <Route path="movimientos" element={<RequireCapability cap="movimientos"><Movimientos /></RequireCapability>} />
+            <Route path="fijos" element={<RequireCapability cap="fijos"><Fijos /></RequireCapability>} />
+            <Route path="mis-deudas" element={<RequireCapability cap="mis-deudas"><MisDeudas /></RequireCapability>} />
+            <Route path="me-deben" element={<RequireCapability cap="me-deben"><MeDeben /></RequireCapability>} />
+            <Route path="analisis" element={<RequireCapability cap="analisis"><Analisis /></RequireCapability>} />
+            <Route path="ahorros" element={<RequireCapability cap="ahorros"><Ahorros /></RequireCapability>} />
             <Route path="ajustes" element={<Ajustes />} />
             {/* Rutas viejas: por si alguien tiene el link guardado. */}
             <Route path="invitaciones" element={<Navigate to="/ajustes" replace />} />
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="categorias" element={<Categorias />} />
             <Route path="activos" element={<Activos />} />
             <Route path="invitaciones" element={<Invitaciones />} />
+            <Route path="usuarios" element={<Usuarios />} />
             <Route path="cuenta" element={<Cuenta />} />
           </Route>
 

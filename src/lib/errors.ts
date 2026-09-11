@@ -37,6 +37,9 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'PGRST301' || /jwt/i.test(message)) return 'Se venció tu sesión. Volvé a entrar.'
   if (code === 'P0001' && /not_admin/.test(message)) return 'Necesitás permisos de administrador.'
   if (code === 'P0001' && /not_authenticated/.test(message)) return 'Se venció tu sesión. Volvé a entrar.'
+  if (code === 'P0001' && /invalid_plan/.test(message)) return 'Ese plan no existe.'
+  if (code === 'P0001' && /cannot_demote_self/.test(message)) return 'No podés sacarte el admin a vos mismo.'
+  if (code === 'P0001' && /cannot_delete_self/.test(message)) return 'No podés eliminar tu propia cuenta desde acá.'
 
   return DEFAULT_MESSAGE
 }

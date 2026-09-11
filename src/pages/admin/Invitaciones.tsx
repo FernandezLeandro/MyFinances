@@ -4,12 +4,15 @@ import { es } from 'date-fns/locale'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { CopyButton } from '@/features/invites/CopyButton'
 import { codeStatus, useAdminDeleteInviteCode, useAdminInviteCodes, useCreateInviteCode, type InviteCode } from '@/features/invites/api'
+import { PLAN_LABEL, PLANS } from '@/features/access/plan'
+import type { Plan } from '@/features/access/plan'
 
 const dotTone: Record<string, string> = {
   'text-accent': 'bg-accent',
@@ -35,6 +38,7 @@ export function Invitaciones() {
 
   const [maxUses, setMaxUses] = useState('1')
   const [expiresAt, setExpiresAt] = useState('')
+  const [plan, setPlan] = useState<Plan>('test')
 
   const activeCount = (codes ?? []).filter((c) => codeStatus(c).label === 'Activo').length
 
@@ -44,9 +48,11 @@ export function Invitaciones() {
     await createCode.mutateAsync({
       maxUses: uses,
       expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      plan,
     })
     setMaxUses('1')
     setExpiresAt('')
+    setPlan('test')
   }
 
   return (
@@ -95,7 +101,9 @@ export function Invitaciones() {
                       <span aria-hidden className={cn('size-[9px] shrink-0 rounded-full', dotTone[status.tone])} />
                       <span className="tnum shrink-0 font-mono text-[14px] tracking-wide text-fg">{code.code}</span>
                       <div className="min-w-0 flex-1">
-                        <p className={cn('text-[12.5px] font-semibold', status.tone)}>{status.label}</p>
+                        <p className={cn('text-[12.5px] font-semibold', status.tone)}>
+                          {status.label} <span className="font-normal text-fg-muted">· {PLAN_LABEL[code.plan]}</span>
+                        </p>
                         <p className="mt-0.5 text-[11.5px] text-fg-muted">{codeDetail(code, status)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -128,6 +136,15 @@ export function Invitaciones() {
                 <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               </Field>
             </div>
+            <Field label="Plan" hint="Con qué acceso entra quien lo use">
+              <Select value={plan} onChange={(e) => setPlan(e.target.value as Plan)}>
+                {PLANS.map((p) => (
+                  <option key={p} value={p}>
+                    {PLAN_LABEL[p]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Button variant="outline" onClick={handleCreate} disabled={createCode.isPending}>
               {createCode.isPending ? 'Generando…' : 'Generar'}
             </Button>

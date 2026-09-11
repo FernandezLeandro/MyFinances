@@ -15,6 +15,7 @@ import { useCreateReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useCan } from '@/features/access/useCan'
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -98,6 +99,8 @@ const emptySplitDefaults = {
 
 export function TransactionFormDialog({ open, onClose, transaction, prefill }: TransactionFormDialogProps) {
   const isEditing = !!transaction
+  const canCuentas = useCan('cuentas')
+  const canCompartido = useCan('compartido')
   const { data: categories } = useCategories()
   const { data: locations } = useBalanceLocations()
   const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
@@ -185,10 +188,10 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       appliedDefaultAccountRef.current = false
       return
     }
-    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId) return
+    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId || !canCuentas) return
     setValue('accountId', defaultAccountId)
     appliedDefaultAccountRef.current = true
-  }, [open, transaction, defaultAccountId, dirtyFields.accountId, setValue])
+  }, [open, transaction, defaultAccountId, dirtyFields.accountId, canCuentas, setValue])
 
   // El mes esperado de cobro arranca en el mes de la fecha del movimiento — es el caso dominante
   // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en
@@ -319,15 +322,17 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
           </Field>
         </div>
 
-        <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
-          <AccountSelect
-            id="accountId"
-            value={watch('accountId') ?? ''}
-            // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
-            // de la predeterminada pise una elección manual no vería esta elección como manual.
-            onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
-          />
-        </Field>
+        {canCuentas && (
+          <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
+            <AccountSelect
+              id="accountId"
+              value={watch('accountId') ?? ''}
+              // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
+              // de la predeterminada pise una elección manual no vería esta elección como manual.
+              onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
+            />
+          </Field>
+        )}
 
         <Field label="Descripción" htmlFor="description" hint="Opcional">
           <Input id="description" autoComplete="off" {...register('description')} />
@@ -337,7 +342,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             "1 gasto + 1 deuda en una sola pasada" en vez de cargar cada uno por separado. En edición
             no se ofrece: la deuda ya puede tener abonos propios, y desarmar el vínculo retroactivo
             entre un movimiento editado y una deuda ya existente es más confuso que útil. */}
-        {type === 'expense' && !isEditing && (
+        {type === 'expense' && !isEditing && canCompartido && (
           <div className="border-t border-fill-subtle pt-5">
             <Chip active={compartido} onClick={() => setValue('compartido', !compartido)}>
               Compartido

@@ -7,12 +7,14 @@ import type { Database } from '@/lib/database.types'
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 export type FxSource = ProfileRow['fx_source']
 export type Role = ProfileRow['role']
+export type Plan = ProfileRow['plan']
 
 export interface Profile {
   id: string
   displayName: string | null
   currency: string
   role: Role
+  plan: Plan
   fxSource: FxSource
   /** Cotización manual en centavos de ARS por unidad de USD. `null` si nunca se cargó. */
   usdRateManualCents: number | null
@@ -25,6 +27,7 @@ function toProfile(row: ProfileRow): Profile {
     displayName: row.display_name,
     currency: row.currency,
     role: row.role,
+    plan: row.plan,
     fxSource: row.fx_source,
     usdRateManualCents: row.usd_rate_manual == null ? null : centsFromNumeric(row.usd_rate_manual),
     usdRateUpdatedAt: row.usd_rate_updated_at,

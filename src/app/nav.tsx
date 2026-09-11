@@ -11,11 +11,17 @@ import {
   PiggyBank,
   Settings,
 } from 'lucide-react'
+import { can } from '@/features/access/plan'
+import type { Capability, Plan } from '@/features/access/plan'
 
 export interface NavItem {
   to: string
   label: string
   icon: ReactNode
+  /** Sin `cap`, el ítem es de todos los planes (Hoy). Con `cap`, `navItemsFor` lo saca de la nav
+   *  para quien no la tenga — mismo criterio que gatea la ruta en `App.tsx` (`RequireCapability`),
+   *  nunca al revés: ocultar de la nav sin gatear la ruta dejaría la pantalla alcanzable a mano. */
+  cap?: Capability
 }
 
 export const navIconClass = 'size-[18px]'
@@ -36,31 +42,37 @@ const allNavItems: NavItem[] = [
     to: '/movimientos',
     label: 'Movimientos',
     icon: <ArrowDownUp className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'movimientos',
   },
   {
     to: '/fijos',
     label: 'Fijos',
     icon: <Calendar className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'fijos',
   },
   {
     to: '/mis-deudas',
     label: 'Mis Deudas',
     icon: <CreditCard className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'mis-deudas',
   },
   {
     to: '/analisis',
     label: 'Análisis',
     icon: <ChartNoAxesColumn className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'analisis',
   },
   {
     to: '/ahorros',
     label: 'Ahorros',
     icon: <PiggyBank className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'ahorros',
   },
   {
     to: '/me-deben',
     label: 'Me Deben',
     icon: <HandCoins className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'me-deben',
   },
 ]
 
@@ -72,8 +84,13 @@ const allNavItems: NavItem[] = [
 const OVERFLOW_ROUTES = ['/mis-deudas', '/analisis', '/ahorros', '/me-deben']
 
 /** Barra superior de escritorio: las 7 secciones, en el orden que pidió el usuario — Hoy ·
- *  Movimientos · Fijos · Mis Deudas · Análisis · Ahorros · Me Deben. */
-export const sidebarNavItems: NavItem[] = allNavItems
+ *  Movimientos · Fijos · Mis Deudas · Análisis · Ahorros · Me Deben — filtradas por lo que el plan
+ *  de la cuenta puede ver. Un plan restringido nunca ve ni la sección en la barra ni en el drawer:
+ *  la ruta detrás está igual de gateada (`RequireCapability` en `App.tsx`), esto es sólo para no
+ *  ofrecer un link a algo que al clickear rebota. */
+export function sidebarNavItemsFor(plan: Plan): NavItem[] {
+  return allNavItems.filter((item) => !item.cap || can(plan, item.cap))
+}
 
 /** Tab bar de mobile: Hoy · Movimientos · Fijos, con íconos propios de 21px — no los 18px de
  *  `allNavItems` (pensados para ir al lado de un label, como en el drawer). El resto se muda al
@@ -96,8 +113,13 @@ export const tabBarNavItems: NavItem[] = [
   },
 ]
 
-/** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta. */
-export const overflowNavItems: NavItem[] = allNavItems.filter((item) => OVERFLOW_ROUTES.includes(item.to))
+/** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta, filtrado por
+ *  plan igual que `sidebarNavItemsFor` — un plan restringido puede terminar con este grupo vacío
+ *  (`basic`, que sólo tiene Movimientos y Fijos, ya cubiertos por la tab bar fija), y el drawer ya
+ *  sabe ocultar la sección "Secciones" cuando la lista queda en cero (ver `AccountDrawer`). */
+export function overflowNavItemsFor(plan: Plan): NavItem[] {
+  return allNavItems.filter((item) => OVERFLOW_ROUTES.includes(item.to) && (!item.cap || can(plan, item.cap)))
+}
 
 /** Íconos sueltos, consumidos fuera del sidebar/tab bar: `AccountMenu` (ajustes, cerrar sesión) y
  *  `MobileTabBar` (el tab "Más"). Valores JSX, no componentes — igual que los íconos de `allNavItems`

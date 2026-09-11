@@ -8,6 +8,7 @@ import { useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-exp
 import { permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useCan } from '@/features/access/useCan'
 
 interface MarkPaidDialogProps {
   open: boolean
@@ -40,6 +41,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
+  const canCuentas = useCan('cuentas')
   const [accountId, setAccountId] = useDefaultAccountId()
 
   const cents = parseAmountToCents(input)
@@ -113,9 +115,11 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
           </Field>
         )}
 
-        <Field label="Con qué lo pagué" hint="Opcional">
-          <AccountSelect value={accountId} onChange={setAccountId} />
-        </Field>
+        {canCuentas && (
+          <Field label="Con qué lo pagué" hint="Opcional">
+            <AccountSelect value={accountId} onChange={setAccountId} />
+          </Field>
+        )}
 
         {isRecurring && cents != null && cents > 0 && (
           <p className="text-[12px] text-fg-muted">

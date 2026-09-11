@@ -29,6 +29,7 @@ import {
 } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
+import { useCan } from '@/features/access/useCan'
 import { useBalanceLocations } from '@/features/reconciliation/api'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
@@ -89,6 +90,7 @@ const MOVEMENTS_GROUP_GAP = 4
 export function Hoy() {
   const [open, setOpen] = useState(false)
   const [cuadrarOpen, setCuadrarOpen] = useState(false)
+  const canCuadrar = useCan('cuadrar-saldo')
   const today = new Date()
   const monthStart = format(startOfMonth(today), 'yyyy-MM-dd')
   const monthEnd = format(endOfMonth(today), 'yyyy-MM-dd')
@@ -306,9 +308,11 @@ export function Hoy() {
           >
             Nuevo movimiento
           </Button>
-          <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
-            Cuadrar saldo
-          </Button>
+          {canCuadrar && (
+            <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
+              Cuadrar saldo
+            </Button>
+          )}
         </div>
       </Panel>
 

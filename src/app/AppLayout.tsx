@@ -4,7 +4,7 @@ import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
-import { overflowNavItems, sidebarNavItems, tabBarNavItems } from '@/app/nav'
+import { overflowNavItemsFor, sidebarNavItemsFor, tabBarNavItems } from '@/app/nav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
@@ -29,10 +29,13 @@ export function AppLayout() {
   const displayName = profile?.displayName ?? null
   const email = user?.email ?? null
   const initials = initialsFrom(displayName, email)
+  // `'test'` mientras el perfil no resolvió — el plan más restrictivo, así la nav no parpadea con
+  // secciones de más durante ese instante y después las achica de golpe.
+  const plan = profile?.plan ?? 'test'
 
   return (
     <>
-      <TopBar items={sidebarNavItems} initials={initials} displayName={displayName} email={email} showAjustes />
+      <TopBar items={sidebarNavItemsFor(plan)} initials={initials} displayName={displayName} email={email} showAjustes />
 
       {/* El degradado que difumina el contenido antes de llegar a la isla vive en `MobileTabBar`,
           como un overlay fijo al viewport — no acá como mask del scroll (ver su comentario: un mask
@@ -64,7 +67,7 @@ export function AppLayout() {
         displayName={displayName}
         email={email}
         showAjustes
-        overflowItems={overflowNavItems}
+        overflowItems={overflowNavItemsFor(plan)}
       />
 
       {fabDialogOpen && <TransactionFormDialog open={fabDialogOpen} onClose={() => setFabDialogOpen(false)} />}
