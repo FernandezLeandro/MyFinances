@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router'
+import { Brand } from '@/components/Brand'
 import { Panel } from '@/components/ui/Panel'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
 
@@ -8,11 +9,11 @@ export function AuthLayout() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-5 py-12">
       <div className="w-full max-w-[380px]">
-        <div className="mb-8 flex items-baseline gap-1.5">
+        <div className="mb-8 flex items-center gap-2">
+          <Brand className="size-6" />
           <span className="font-display text-[22px] leading-none font-extrabold tracking-[-0.04em] text-fg">
             MyFinances
           </span>
-          <span aria-hidden className="size-1.5 translate-y-[-1px] rounded-full bg-accent" />
         </div>
         <Panel className="p-7">
           <Outlet />

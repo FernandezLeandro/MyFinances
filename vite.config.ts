@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => ({
       : [
           VitePWA({
             registerType: 'autoUpdate',
-            includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+            includeAssets: ['icon-light.svg', 'icon-dark.svg', 'icon-dark-32.png', 'icon-dark-180.png'],
             manifest: {
               name: 'MyFinances',
               short_name: 'MyFinances',
@@ -31,9 +31,9 @@ export default defineConfig(({ mode }) => ({
               scope: '/',
               lang: 'es-AR',
               icons: [
-                { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-                { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
-                { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+                { src: 'icon-dark-192.png', sizes: '192x192', type: 'image/png' },
+                { src: 'icon-dark-512.png', sizes: '512x512', type: 'image/png' },
+                { src: 'icon-maskable-dark-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
               ],
             },
             workbox: {
