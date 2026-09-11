@@ -10,6 +10,7 @@ import {
   subDays,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { cycleContaining, DEFAULT_CYCLE_CONFIG, type CycleConfig } from '@/lib/cycle'
 
 export type MovementPeriodPreset = 'today' | 'yesterday' | 'week' | '15d' | 'month' | 'year' | 'custom'
 
@@ -43,8 +44,17 @@ const iso = (d: Date) => format(d, 'yyyy-MM-dd')
  * lunes-domingo, "este mes"/"este año" van del primero al último día — coincide con cómo el
  * resto de la app cierra períodos (resumen mensual, tarjetas). 'month' se ancla a `p.anchor`
  * porque las flechas del header navegan mes a mes sin salir del preset.
+ *
+ * `config` sólo importa para 'month': en vez de "el mes calendario que contiene a `anchor`" a
+ * secas, es "el ciclo configurado por el usuario (`src/lib/cycle.ts`) que contiene a `anchor`" —
+ * con `config.kind === 'monthly'` (el default, y el default de este parámetro si no se pasa) es
+ * exactamente lo mismo que antes, sin ningún cambio; con quincenal/semanal, el preset "Este mes"
+ * pasa a mostrar la quincena o semana en curso. El preset se sigue llamando `'month'` (no se le
+ * cambia el id ni el copy: ver Movimientos.tsx para el porqué de no tocar el resto de la interfaz
+ * todavía) — sólo cambia qué ventana representa. Opcional (no todo caller conoce el ciclo real del
+ * usuario ni le importa: `periodLabel` nunca se llama para el preset 'month', por ejemplo).
  */
-export function periodRange(p: MovementPeriod): { from: string; to: string } {
+export function periodRange(p: MovementPeriod, config: CycleConfig = DEFAULT_CYCLE_CONFIG): { from: string; to: string } {
   const now = new Date()
   switch (p.preset) {
     case 'today':
@@ -58,8 +68,8 @@ export function periodRange(p: MovementPeriod): { from: string; to: string } {
     case '15d':
       return { from: iso(subDays(now, 14)), to: iso(now) }
     case 'month': {
-      const anchor = parseISO(p.anchor)
-      return { from: iso(startOfMonth(anchor)), to: iso(endOfMonth(anchor)) }
+      const cycle = cycleContaining(config, parseISO(p.anchor))
+      return { from: cycle.from, to: cycle.to }
     }
     case 'year':
       return { from: iso(startOfYear(now)), to: iso(endOfYear(now)) }

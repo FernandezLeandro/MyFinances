@@ -38,7 +38,7 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
   const [editingPurchase, setEditingPurchase] = useState<CreditPurchase | null>(null)
 
   const { data: purchases } = useCreditPurchases(card.id)
-  const { data: payments } = useCreditCardPayments(period)
+  const { data: payments } = useCreditCardPayments([period])
   const { data: categories } = useCategories()
   const unmarkPaid = useUnmarkCreditCardPaid()
 

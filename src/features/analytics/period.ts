@@ -1,31 +1,51 @@
 import { addMonths, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
+import {
+  cycleContaining,
+  DEFAULT_CYCLE_CONFIG,
+  previousCycleRange as previousCycleRangeOf,
+  shiftCycle,
+  type CycleConfig,
+} from '@/lib/cycle'
 
 export type PeriodPreset = 'month' | '3m' | 'custom'
 
 export interface Period {
   preset: PeriodPreset
-  /** yyyy-MM-dd, un día cualquiera del mes elegido — lo mueven las flechas del header, igual que
-   *  `MovementPeriod.anchor` en Movimientos. Sólo importa para los presets no-`custom`: define de
-   *  qué mes salen `from`/`to`. */
+  /** yyyy-MM-dd, un día cualquiera del ciclo/mes elegido — lo mueven las flechas del header, igual
+   *  que `MovementPeriod.anchor` en Movimientos. Sólo importa para los presets no-`custom`: define
+   *  de qué ciclo/ventana salen `from`/`to`. */
   anchor: string
   from: string
   to: string
 }
 
-const MONTHS_BACK: Record<Exclude<PeriodPreset, 'custom'>, number> = {
-  month: 0,
-  '3m': 2,
-}
+/** Meses hacia atrás desde `anchor` para el preset '3m' — siempre calendario, sin importar el ciclo
+ *  configurado: es una ventana de tendencia, no "mi ciclo de caja" (ver `presetToRange`). */
+const MONTHS_BACK_3M = 2
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
-/** `to` es fin del mes de `anchor` (no "hoy"), así que navegar a un mes pasado con las flechas
- *  también recorta los presets multi-mes a ese mes — no siguen enganchados al mes en curso. */
-export function presetToRange(preset: Exclude<PeriodPreset, 'custom'>, anchor: string): { from: string; to: string } {
+/** `preset === 'month'` representa el CICLO configurado por el usuario (mensual/quincenal/semanal,
+ *  `useCycleConfig()`) que contiene a `anchor` — no el mes calendario a secas. Mismo patrón que ya
+ *  usa `periodRange` en `features/transactions/movementPeriod.ts` (Bloque 3): con `config.kind ===
+ *  'monthly'` (el default) es exactamente lo mismo que antes, cero cambio visible. El id/copy del
+ *  preset ("Este mes") no se toca — sólo la ventana que representa.
+ *
+ *  El preset '3m' se queda 100% calendario a propósito: es una ventana de tendencia más larga, no
+ *  la unidad de ciclo del usuario. */
+export function presetToRange(
+  preset: Exclude<PeriodPreset, 'custom'>,
+  anchor: string,
+  config: CycleConfig = DEFAULT_CYCLE_CONFIG,
+): { from: string; to: string } {
   const anchorDate = parseISO(anchor)
+  if (preset === 'month') {
+    const cycle = cycleContaining(config, anchorDate)
+    return { from: cycle.from, to: cycle.to }
+  }
   return {
-    from: iso(startOfMonth(subMonths(anchorDate, MONTHS_BACK[preset]))),
+    from: iso(startOfMonth(subMonths(anchorDate, MONTHS_BACK_3M))),
     to: iso(endOfMonth(anchorDate)),
   }
 }
@@ -44,25 +64,36 @@ export const PERIOD_PRESET_MOBILE_LABELS: Record<PeriodPreset, string> = {
   custom: 'Otro',
 }
 
-export function defaultPeriod(): Period {
+export function defaultPeriod(config: CycleConfig = DEFAULT_CYCLE_CONFIG): Period {
   const anchor = iso(new Date())
-  return { preset: 'month', anchor, ...presetToRange('month', anchor) }
+  return { preset: 'month', anchor, ...presetToRange('month', anchor, config) }
 }
 
-/** Sólo tiene sentido llamarla con `period.preset !== 'custom'` — mueve el mes ancla y recalcula
- *  `from`/`to` con el mismo preset. Un `custom` no tiene mes ancla: sus flechas ni se muestran (ver
- *  `Analisis.tsx`). */
-export function shiftPeriodMonth(period: Period, delta: number): Period {
+/** Sólo tiene sentido llamarla con `period.preset !== 'custom'` — mueve el ancla y recalcula
+ *  `from`/`to` con el mismo preset. Un `custom` no tiene ancla de navegación: sus flechas ni se
+ *  muestran (ver `Analisis.tsx`). Con `preset === 'month'` mueve un CICLO, no necesariamente un mes
+ *  calendario (`shiftCycle`, mismo criterio que `shiftMonth` en `useMovimientosFilters.ts`) — con
+ *  `config.kind === 'monthly'` (default) es exactamente `addMonths`/`subMonths` de antes. */
+export function shiftPeriodMonth(period: Period, delta: number, config: CycleConfig = DEFAULT_CYCLE_CONFIG): Period {
+  if (period.preset === 'custom') {
+    const anchor = iso(delta > 0 ? addMonths(parseISO(period.anchor), delta) : subMonths(parseISO(period.anchor), -delta))
+    return { ...period, anchor }
+  }
+  if (period.preset === 'month') {
+    const next = shiftCycle(config, cycleContaining(config, parseISO(period.anchor)), delta)
+    return { ...period, anchor: next.from, from: next.from, to: next.to }
+  }
   const anchor = iso(delta > 0 ? addMonths(parseISO(period.anchor), delta) : subMonths(parseISO(period.anchor), -delta))
-  if (period.preset === 'custom') return { ...period, anchor }
-  return { ...period, anchor, ...presetToRange(period.preset, anchor) }
+  return { ...period, anchor, ...presetToRange(period.preset, anchor, config) }
 }
 
-/** Texto para el header cuando el preset no es 'month' (que ya tiene su propio navegador de mes) —
- *  mismo criterio que `periodLabel` en `features/transactions/movementPeriod.ts`. */
-export function periodRangeLabel(period: Period): string {
-  const from = parseISO(period.from)
-  const to = parseISO(period.to)
+/** Texto para el header cuando el preset no es 'month' (que ya tiene su propio navegador de ciclo) —
+ *  mismo criterio que `periodLabel` en `features/transactions/movementPeriod.ts`. Recibe el rango ya
+ *  resuelto (no un `Period` completo) porque, con `preset === 'month'`, `period.from`/`.to` pueden
+ *  haber quedado desactualizados frente al ciclo configurado — ver `range` en `Analisis.tsx`. */
+export function periodRangeLabel(range: { from: string; to: string }): string {
+  const from = parseISO(range.from)
+  const to = parseISO(range.to)
   const fromLabel = format(from, 'MMM yyyy', { locale: es })
   const toLabel = format(to, 'MMM yyyy', { locale: es })
   if (fromLabel === toLabel) return fromLabel
@@ -82,13 +113,21 @@ export function previousRange(from: string, to: string): { from: string; to: str
   }
 }
 
-/** Ventana fija de 12 meses terminando en el mes de `anchor` — la usan los gráficos de evolución
- *  mensual y tendencia de saldo, independiente del preset elegido para el donut (ver
- *  `Analisis.tsx`): con un solo mes de datos esos gráficos no dicen nada. */
-export function seriesRange(anchor: string): { from: string; to: string } {
-  const anchorDate = parseISO(anchor)
-  return {
-    from: iso(startOfMonth(subMonths(anchorDate, 11))),
-    to: iso(endOfMonth(anchorDate)),
+/** El período de comparación para el hero y el top de categorías (ver `Analisis.tsx`). Con
+ *  `preset === 'month'` es el CICLO real anterior (`previousCycleRange` de `src/lib/cycle.ts`) —
+ *  que puede tener una cantidad de días distinta a la del ciclo actual (una quincena de 15 días
+ *  contra una de 13–16, ver `firstHalfEnd`) — por eso las comparaciones nunca se hacen por total
+ *  crudo, siempre por promedio diario. Para '3m'/'custom' sigue siendo `previousRange` (mismo
+ *  largo en días por construcción, así que promedio y total dan el mismo cambio porcentual — cero
+ *  regresión). `range` es el rango YA RESUELTO de `period` (ver el comentario de
+ *  `periodRangeLabel` sobre por qué no se usa `period.from`/`.to` directo). */
+export function comparisonRange(
+  period: Pick<Period, 'preset' | 'anchor'>,
+  range: { from: string; to: string },
+  config: CycleConfig = DEFAULT_CYCLE_CONFIG,
+): { from: string; to: string } {
+  if (period.preset === 'month') {
+    return previousCycleRangeOf(config, cycleContaining(config, parseISO(period.anchor)))
   }
+  return previousRange(range.from, range.to)
 }

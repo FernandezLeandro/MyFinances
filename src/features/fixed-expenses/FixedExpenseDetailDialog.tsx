@@ -15,6 +15,7 @@ import {
   type FixedExpensePayment,
 } from '@/features/fixed-expenses/api'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
+import { bagPeriodNoun } from '@/features/fixed-expenses/period'
 
 interface FixedExpenseDetailDialogProps {
   open: boolean
@@ -96,7 +97,9 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
         }
       >
         <div className="mb-5 border-b border-fill-subtle pb-5">
-          <p className="eyebrow">{fixedExpense.is_recurring ? 'Presupuesto mensual' : 'Importe actual'}</p>
+          <p className="eyebrow">
+            {fixedExpense.is_recurring ? `Presupuesto ${bagPeriodNoun(fixedExpense.bag_frequency).adjective}` : 'Importe actual'}
+          </p>
           <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
           {fixedExpense.due_day != null && <p className="mt-2 text-[12px] text-fg-muted">Vence el {fixedExpense.due_day}</p>}
         </div>

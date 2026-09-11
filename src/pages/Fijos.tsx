@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { addMonths, endOfMonth, format, isSameMonth, startOfMonth, subMonths } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { format, parseISO, startOfMonth } from 'date-fns'
 import { Check, Pause, Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Money, type MoneyTone } from '@/components/ui/Money'
-import { MonthNav } from '@/components/ui/MonthNav'
+import { CycleNav } from '@/components/ui/CycleNav'
 import { IconSquare } from '@/components/ui/IconSquare'
 import { MiniProgress } from '@/components/ui/MiniProgress'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
@@ -15,16 +14,18 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
+import { useCycle } from '@/lib/useCycle'
+import { cycleShortLabel, projectionWindow } from '@/lib/cycle'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
   useFixedExpensePayments,
   useFixedExpenses,
-  useProjectedBalance,
+  useProjectedBalanceRange,
   useUnmarkFixedExpensePayment,
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
-import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
+import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expenses/period'
 import {
   compareFixedExpenses,
   fixedExpenseUrgency,
@@ -40,7 +41,7 @@ import {
   useCreditCardPayments,
   useCreditCardSavings,
   useCreditCards,
-  useCreditInstallments,
+  useCreditInstallmentsRange,
   useCreditPurchasePayments,
   useStandalonePurchases,
 } from '@/features/credits/api'
@@ -190,28 +191,53 @@ function HeroStat({
 }
 
 export function Fijos() {
-  const [month, setMonth] = useState(() => new Date())
+  const { cycle, current, isCurrent, goToPrev, goToNext, config } = useCycle()
   const [formOpen, setFormOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<FixedExpenseStatus | null>(null)
   const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
   const [showPaused, setShowPaused] = useState(false)
 
-  const period = format(startOfMonth(month), 'yyyy-MM-dd')
-  const isCurrentMonth = isSameMonth(month, new Date())
+  // `periods` son los meses que toca el ciclo mirado (eje B: pagos, ahorros y cuotas son mensuales
+  // siempre — ver `src/lib/cycle.ts`). Mensual/quincenal nunca tocan más de uno; semanal (bloque 5)
+  // puede tocar dos — de ahí que los 4 hooks de pagos/ahorros de abajo pidan una LISTA de períodos,
+  // no uno solo. `horizonte` es DISTINTO: la ventana que decide qué se descuenta del saldo proyectado
+  // (agujero #1 del plan) — coincide con el ciclo mirado salvo que se esté navegando a uno futuro, en
+  // cuyo caso arranca antes, en el ciclo en curso.
+  const periods = cycle.months
+  // Ancla de bolsa para `summarizeFixedExpenses`: mientras se mira el ciclo que CONTIENE a hoy, usa
+  // hoy mismo — mismo criterio "en vivo" que Hoy.tsx (que siempre pasa `today`). Importa cuando la
+  // semana en curso cruza el borde del mes: `cycle.months[0]` quedaría en el mes anterior a hoy, lo
+  // que cerraría de más una bolsa mensual que en realidad sigue vigente en el mes de hoy. Navegando a
+  // otro ciclo (no el de hoy), sigue siendo el primer mes que toca, como siempre — no hay "hoy" al
+  // que anclarse ahí.
+  const month = isCurrent ? new Date() : parseISO(cycle.months[0])
+  // El horizonte SÓLO alimenta el número grande del RPC (headline) — nunca la lista/desglose visible.
+  // Motivo (encontrado al verificar contra la cuenta de prueba, no en el diseño original): cuando el
+  // horizonte cruza a un mes anterior al que se está mirando, `rpc_projected_balance_range` acumula
+  // CADA mes que toca por separado (un fijo impago desde septiembre Y su instancia de octubre suman
+  // las dos, ver la migración `20260911030001`) — pero el cliente sólo tiene `payments` del mes que
+  // se está mirando (`period`), así que no puede replicar esa acumulación sin traer pagos de varios
+  // meses a la vez (la "plomería multi-mes" que el plan dejó para el bloque 5). Pasarle el horizonte
+  // a `summarizeFixedExpenses`/`useCreditInstallmentsRange` haría que la lista de pendientes
+  // SUBESTIME el headline en ese caso — exactamente el riesgo #1 del plan, con la señal invertida.
+  // Con el CICLO mirado (nunca cruza de mes) el desglose es siempre internamente consistente consigo
+  // mismo; sólo puede quedar por debajo del headline cuando hay algo impago de 2+ ciclos atrás — caso
+  // raro, y preferible a que el desglose mienta pareciendo completo.
+  const horizonte = useMemo(() => projectionWindow(cycle, current), [cycle, current])
 
   const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(showPaused)
-  const { data: payments } = useFixedExpensePayments(period)
+  const { data: payments } = useFixedExpensePayments(periods)
   const { data: currentBalance } = useCurrentBalance()
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(horizonte.from, horizonte.to)
   const { data: categories } = useCategories(true)
   const unmarkPayment = useUnmarkFixedExpensePayment()
 
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
-  const { data: installments } = useCreditInstallments(period)
-  const { data: savings } = useCreditCardSavings(period)
-  const { data: cardPayments } = useCreditCardPayments(period)
-  const { data: purchasePayments } = useCreditPurchasePayments(period)
+  const { data: installments } = useCreditInstallmentsRange(cycle.from, cycle.to)
+  const { data: savings } = useCreditCardSavings(periods)
+  const { data: cardPayments } = useCreditCardPayments(periods)
+  const { data: purchasePayments } = useCreditPurchasePayments(periods)
 
   // Sin botón propio acá: el toggle vive en Hoy y comparte clave, así que ocultar el saldo ahí
   // también enmascara los importes de esta pantalla — un solo control, no uno por pantalla.
@@ -235,16 +261,21 @@ export function Fijos() {
 
   // Todo lo elegible del período, activo o pausado — se usa para el estado vacío general y para el
   // aviso de pausados del rail. `summarizeFixedExpenses` hace este mismo filtro puertas adentro,
-  // pero sólo para los activos: acá hace falta la lista completa.
-  const eligibleAll = useMemo(
-    () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
-    [fixedExpenses, month],
-  )
+  // pero sólo para los activos: acá hace falta la lista completa. Los límites cubren TODOS los meses
+  // que toca el ciclo (no sólo el de `month`, que puede ser distinto cuando `isCurrent` ancla a hoy)
+  // — si no, un fijo que sólo se solapa con el segundo mes de una semana a caballo quedaría afuera.
+  const eligibleAll = useMemo(() => {
+    const bounds = cycleMonthsBounds(cycle.months)
+    return eligibleFixedExpenses(fixedExpenses ?? [], bounds.start, bounds.end)
+  }, [fixedExpenses, cycle])
   const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort(compareFixedExpenses)
 
+  // `month` varía con `cycle`/`isCurrent` (ya en las deps) y con el reloj dentro del mismo render,
+  // que no amerita recalcular — mismo criterio que `today` en Hoy.tsx.
   const { pending, done: doneItems, pendingTotalCents } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date()),
-    [fixedExpenses, payments, month],
+    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date(), cycle, cycle.months, config.weekStartsOn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fixedExpenses, payments, cycle, isCurrent, config],
   )
   const allStatuses = useMemo(() => [...pending, ...doneItems], [pending, doneItems])
 
@@ -267,16 +298,18 @@ export function Fijos() {
   const groups = useMemo(() => {
     const g: Record<FixedExpenseUrgency, FixedExpenseStatus[]> = { red: [], amber: [], neutral: [] }
     for (const s of oneTimePending) {
-      const urgency = isCurrentMonth && s.fe.due_day != null ? fixedExpenseUrgency(s.fe.due_day, new Date()) : 'neutral'
+      const urgency = isCurrent && s.dueDate ? fixedExpenseUrgency(parseISO(s.dueDate), new Date()) : 'neutral'
       g[urgency].push(s)
     }
+    // Por fecha real, no por día del mes crudo: con un ciclo semanal a caballo de dos meses, "día 2"
+    // (del mes que viene) tiene que ordenar DESPUÉS de "día 25" (del mes en curso), no antes.
     for (const key of ['red', 'amber', 'neutral'] as const) {
-      g[key].sort((a, b) => (a.fe.due_day ?? 32) - (b.fe.due_day ?? 32))
+      g[key].sort((a, b) => (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))
     }
     return g
-  }, [oneTimePending, isCurrentMonth])
+  }, [oneTimePending, isCurrent])
 
-  const groupDefs = isCurrentMonth
+  const groupDefs = isCurrent
     ? ([
         { key: 'red', title: 'Atrasado', hint: 'ya venció' },
         { key: 'amber', title: 'Esta semana', hint: 'los próximos 7 días' },
@@ -288,10 +321,10 @@ export function Fijos() {
   // vencido — un atrasado siempre gana. Fuera del mes en curso, simplemente el que vence primero.
   const proximo = useMemo(() => {
     if (oneTimePending.length === 0) return null
-    return [...oneTimePending].sort((a, b) => (a.fe.due_day ?? 32) - (b.fe.due_day ?? 32))[0]
+    return [...oneTimePending].sort((a, b) => (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))[0]
   }, [oneTimePending])
   const proximoUrgency: FixedExpenseUrgency =
-    proximo && isCurrentMonth && proximo.fe.due_day != null ? fixedExpenseUrgency(proximo.fe.due_day, new Date()) : 'neutral'
+    proximo && isCurrent && proximo.dueDate ? fixedExpenseUrgency(parseISO(proximo.dueDate), new Date()) : 'neutral'
   // Sin el nombre del fijo: es texto de usuario sin límite de largo, y esta es una cifra
   // secundaria del hero — no vale la pena volver a pelear con el ancho por ella.
   const proximoHint = proximo ? (proximoUrgency === 'red' ? `Venció el ${proximo.fe.due_day}` : `Vence el ${proximo.fe.due_day}`) : undefined
@@ -325,20 +358,11 @@ export function Fijos() {
             acá — cada pantalla se navega desde el nav general, no cruzando entre sí. */}
         <div className="flex items-center justify-between gap-3 lg:hidden">
           <h1 className="font-display text-figure font-semibold">Gastos fijos</h1>
-          <MonthNav
-            label={format(month, 'MMMM yyyy', { locale: es })}
-            mobileLabel={format(month, 'MMMM', { locale: es })}
-            onPrev={() => setMonth((m) => subMonths(m, 1))}
-            onNext={() => setMonth((m) => addMonths(m, 1))}
-          />
+          <CycleNav cycle={cycle} onPrev={goToPrev} onNext={goToNext} />
         </div>
 
         <div className="hidden lg:block">
-          <MonthNav
-            label={format(month, 'MMMM yyyy', { locale: es })}
-            onPrev={() => setMonth((m) => subMonths(m, 1))}
-            onNext={() => setMonth((m) => addMonths(m, 1))}
-          />
+          <CycleNav cycle={cycle} onPrev={goToPrev} onNext={goToNext} />
           <h1 className="mt-2 font-display text-figure font-semibold">Gastos fijos</h1>
         </div>
 
@@ -442,7 +466,7 @@ export function Fijos() {
               {/* Escritorio: mismo patrón que el resumen de Movimientos — cifra principal + divisor
                   + el resto, todo centrado verticalmente en vez de alineado al fondo. */}
               <div className="hidden flex-none lg:block">
-                <p className="eyebrow">Falta pagar en {format(month, 'MMMM', { locale: es })}</p>
+                <p className="eyebrow">Falta pagar en {cycleShortLabel(cycle)}</p>
                 <Money cents={pendingTotalCents} size="total" className="mt-1" hidden={balanceHidden} />
               </div>
               <div className="hidden h-14 w-px shrink-0 bg-divider lg:block" />
@@ -488,8 +512,8 @@ export function Fijos() {
                     `w-24` que el `Money` de abajo) en vez de repetirse fila por fila. */}
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-6 pt-5 pb-2">
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                    <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas mensuales</h2>
-                    <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el mes</span>
+                    <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas</h2>
+                    <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el período</span>
                   </div>
                   {/* `hidden` entero por debajo de 768px, no sólo el texto: ahí no hay una columna de
                       valores prolija contra la cual alinearlo (cada fila apila su propio importe y
@@ -653,7 +677,10 @@ export function Fijos() {
           open={!!markingPaid}
           onClose={() => setMarkingPaid(null)}
           fixedExpense={markingPaid.fe}
-          period={period}
+          // El mes de ESTE fijo, no el primer mes del ciclo a secas: con un ciclo semanal a caballo
+          // de dos meses (bloque 5 del plan) un fijo de una sola vez puede vencer en el segundo — y
+          // una bolsa usa la misma ancla "en vivo" (`month`) que ya calculó `summarizeFixedExpenses`.
+          period={markingPaid.dueDate ? format(startOfMonth(parseISO(markingPaid.dueDate)), 'yyyy-MM-dd') : format(startOfMonth(month), 'yyyy-MM-dd')}
           alreadyPaidCents={markingPaid.paidCents}
         />
       )}

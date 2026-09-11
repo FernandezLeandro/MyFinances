@@ -4,7 +4,9 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
-import { MonthNav } from '@/components/ui/MonthNav'
+import { CycleNav } from '@/components/ui/CycleNav'
+import { useCycleConfig } from '@/lib/useCycle'
+import { cycleContaining } from '@/lib/cycle'
 import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { Button } from '@/components/ui/Button'
 import { FilterChip } from '@/components/ui/Chip'
@@ -22,7 +24,7 @@ import { useCategories, type Category } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
-import { dailySpendBars, summarizeTransactions } from '@/features/transactions/aggregate'
+import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
 import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
@@ -87,6 +89,7 @@ export function Movimientos() {
   // limitarlo al mes actual).
   const location = useLocation()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
+  const cycleConfig = useCycleConfig()
 
   const {
     filters,
@@ -107,6 +110,7 @@ export function Movimientos() {
     initialPeriod: incoming?.period,
     initialCategoryId: incoming?.categoryId,
     initialAccountIds: incoming?.accountIds,
+    config: cycleConfig,
   })
 
   const [formOpen, setFormOpen] = useState(false)
@@ -152,8 +156,12 @@ export function Movimientos() {
     [periodTransactions, from, to],
   )
   const bars = useMemo(() => dailySpendBars(periodTransactions ?? [], from, to), [periodTransactions, from, to])
-  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { day: 0, cents: 0 })
+  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { date: '', day: 0, cents: 0 })
   const maxBarCents = peakBar.cents
+  // Con un ciclo semanal (bloque 5 del plan) el rango puede cruzar el borde del mes — ahí "pico el
+  // 5" es ambiguo (¿de qué mes?) y el label agrega el mes. Casi siempre `true` (mensual/quincenal
+  // nunca cruzan, y la mayoría de las semanas tampoco).
+  const barsSameMonth = bars.length === 0 || bars.every((b) => b.date.slice(0, 7) === bars[0].date.slice(0, 7))
 
   function openNew() {
     setEditingTx(null)
@@ -173,9 +181,8 @@ export function Movimientos() {
         <div className="flex items-center justify-between gap-3 lg:hidden">
           <h1 className="font-display text-figure font-semibold">Movimientos</h1>
           {filters.period.preset === 'month' ? (
-            <MonthNav
-              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
-              mobileLabel={format(parseISO(filters.period.anchor), 'MMMM', { locale: es })}
+            <CycleNav
+              cycle={cycleContaining(cycleConfig, parseISO(filters.period.anchor))}
               onPrev={() => shiftMonth(-1)}
               onNext={() => shiftMonth(1)}
             />
@@ -188,8 +195,8 @@ export function Movimientos() {
             estaba. */}
         <div className="hidden lg:block">
           {filters.period.preset === 'month' ? (
-            <MonthNav
-              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
+            <CycleNav
+              cycle={cycleContaining(cycleConfig, parseISO(filters.period.anchor))}
               onPrev={() => shiftMonth(-1)}
               onNext={() => shiftMonth(1)}
             />
@@ -294,14 +301,14 @@ export function Movimientos() {
                 </p>
                 {maxBarCents > 0 && (
                   <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
-                    pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
+                    pico el {dailySpendPeakLabel(peakBar, barsSameMonth)} · <Money cents={peakBar.cents} tone="dim" size="inline" />
                   </span>
                 )}
               </div>
               <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
                 {bars.map((b) => (
                   <span
-                    key={b.day}
+                    key={b.date}
                     className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
                     style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
                   />

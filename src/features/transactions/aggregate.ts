@@ -6,6 +6,7 @@
  * recalcularse aparte con un criterio propio.
  */
 import { differenceInCalendarDays, eachDayOfInterval, format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import type { Transaction } from './api'
 
 export interface TransactionsSummary {
@@ -64,7 +65,12 @@ export function summarizeTransactions(transactions: Transaction[], from: string,
 }
 
 export interface DailySpendBar {
-  /** Día del mes (1-31), para el eje del gráfico. */
+  /** Fecha del día, `'yyyy-MM-dd'` — clave de `key` y de orden, y lo que arma el label. */
+  date: string
+  /** Día del mes (1-31), sólo para el label corto ("pico el 5") cuando el rango completo no cruza
+   *  el borde del mes — ver `dailySpendPeakLabel`. Con un rango que sí cruza (ciclo semanal, bloque
+   *  5 del plan) dos barras pueden compartir este número sin ser el mismo día — por eso el label
+   *  usa `date` entera en ese caso, nunca esto solo. */
   day: number
   cents: number
 }
@@ -79,8 +85,17 @@ export function dailySpendBars(transactions: Transaction[], from: string, to: st
     totalsByDay.set(tx.occurred_on, (totalsByDay.get(tx.occurred_on) ?? 0) + tx.cents)
   }
 
-  return eachDayOfInterval({ start: parseISO(from), end: parseISO(to) }).map((date) => ({
-    day: date.getDate(),
-    cents: totalsByDay.get(format(date, 'yyyy-MM-dd')) ?? 0,
-  }))
+  return eachDayOfInterval({ start: parseISO(from), end: parseISO(to) }).map((date) => {
+    const iso = format(date, 'yyyy-MM-dd')
+    return { date: iso, day: date.getDate(), cents: totalsByDay.get(iso) ?? 0 }
+  })
+}
+
+/** Label del "pico" del gráfico de barras — sólo el día ("5") cuando todas las barras caen en el
+ *  mismo mes, con el mes agregado ("29 sep") cuando el rango lo cruza (ciclo semanal, bloque 5 del
+ *  plan) — dos barras de meses distintos pueden compartir número de día, y sin el mes el label
+ *  miente sobre cuál de las dos es. */
+export function dailySpendPeakLabel(bar: DailySpendBar, sameMonth: boolean): string {
+  if (sameMonth) return String(bar.day)
+  return format(parseISO(bar.date), 'd MMM', { locale: es })
 }

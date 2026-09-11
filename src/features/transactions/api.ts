@@ -126,6 +126,28 @@ export function useMonthlySummary(period: string) {
   })
 }
 
+/** Igual que `useMonthlySummary`, sobre un rango arbitrario en vez de un mes — la variante que
+ *  consume `useCycle()` cuando el ciclo no es mensual. Ver `v_range_summary` en
+ *  `20260911030001_cycle_range_functions.sql`. */
+export function useRangeSummary(from: string, to: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['range-summary', user?.id, from, to],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('v_range_summary', { p_from: from, p_to: to })
+      if (error) throw error
+      const row = data?.[0]
+      return {
+        totalIncome: centsFromNumeric(row?.total_income ?? '0'),
+        totalExpense: centsFromNumeric(row?.total_expense ?? '0'),
+        balance: centsFromNumeric(row?.balance ?? '0'),
+      }
+    },
+  })
+}
+
 export function useSpendByCategory(from: string, to: string) {
   const { user } = useAuth()
 

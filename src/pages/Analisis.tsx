@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { format, parseISO, startOfMonth } from 'date-fns'
+import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronRight } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
@@ -9,10 +9,12 @@ import { Money, type MoneyTone } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { MonthNav } from '@/components/ui/MonthNav'
+import { CycleNav } from '@/components/ui/CycleNav'
 import { cn } from '@/lib/cn'
 import { useChartColors } from '@/lib/chartColors'
 import { splitTopN } from '@/lib/topN'
+import { cycleContaining, cycleLabel } from '@/lib/cycle'
+import { useCycleConfig } from '@/lib/useCycle'
 import { useSpendByCategory, useTransactions } from '@/features/transactions/api'
 import { movementPeriodFromRange } from '@/features/transactions/movementPeriod'
 import { useCommittedPurchaseTransactionIds } from '@/features/credits/api'
@@ -24,7 +26,7 @@ import {
 } from '@/features/analytics/api'
 import { summarizeCategoryMonthlyAverages, summarizeFijoVsVariable } from '@/features/analytics/aggregate'
 import { PeriodSelector } from '@/features/analytics/PeriodSelector'
-import { defaultPeriod, periodRangeLabel, shiftPeriodMonth } from '@/features/analytics/period'
+import { comparisonRange, defaultPeriod, periodRangeLabel, presetToRange, shiftPeriodMonth } from '@/features/analytics/period'
 import { CategoryDonut } from '@/features/analytics/CategoryDonut'
 import { TopCategoriesComparison } from '@/features/analytics/TopCategoriesComparison'
 
@@ -136,23 +138,36 @@ function PromedioRow({
 }
 
 export function Analisis() {
-  const [period, setPeriod] = useState(defaultPeriod)
+  const cycleConfig = useCycleConfig()
+  const [period, setPeriod] = useState(() => defaultPeriod(cycleConfig))
   const [otrosExpanded, setOtrosExpanded] = useState(false)
   const [promedioOtrosExpanded, setPromedioOtrosExpanded] = useState(false)
   const navigate = useNavigate()
   const chartColors = useChartColors()
 
-  const spendQuery = useSpendByCategory(period.from, period.to)
-  const prevTotalQuery = usePreviousPeriodTotal(period.from, period.to)
-  const comparisonQuery = useTopCategoriesComparison(period.from, period.to)
-  const transactionsQuery = useTransactions({ from: period.from, to: period.to, type: 'expense' })
+  // `range`/`prevRange` son el rango YA RESUELTO de `period` contra el ciclo configurado — con
+  // `preset === 'month'` no se lee `period.from`/`.to` directo en ningún lado de acá para abajo,
+  // así que no importa si quedaron desactualizados frente a `cycleConfig` (p.ej. recién cargó el
+  // perfil): siempre se recalculan acá. Ver `presetToRange`/`comparisonRange` en `period.ts`.
+  const range = useMemo(
+    () => (period.preset === 'custom' ? { from: period.from, to: period.to } : presetToRange(period.preset, period.anchor, cycleConfig)),
+    [period, cycleConfig],
+  )
+  const prevRange = useMemo(() => comparisonRange(period, range, cycleConfig), [period, range, cycleConfig])
+  const cycle = useMemo(() => cycleContaining(cycleConfig, parseISO(period.anchor)), [cycleConfig, period.anchor])
+
+  const spendQuery = useSpendByCategory(range.from, range.to)
+  const prevTotalQuery = usePreviousPeriodTotal(prevRange.from, prevRange.to)
+  const comparisonQuery = useTopCategoriesComparison(range.from, range.to, prevRange.from, prevRange.to)
+  const transactionsQuery = useTransactions({ from: range.from, to: range.to, type: 'expense' })
   const { data: committedPurchaseIds } = useCommittedPurchaseTransactionIds()
   const monthlySeriesQuery = useCategoryMonthlySeries(period.anchor)
-  // Exacto cuando `period.from`/`to` están alineados a mes entero (todos los presets salvo
-  // "Personalizado" — ver `presetToRange`): el RPC agrupa por mes calendario, así que un rango
-  // "Personalizado" que arranca a mitad de mes va a incluir esos primeros días igual. Aceptado: es
-  // el único caso, y el desvío es chico.
-  const incomeSeriesQuery = useMonthlySeries(period.from, period.to)
+  // Exacto cuando `range.from`/`.to` están alineados a mes entero (todos los presets salvo
+  // "Personalizado" con ciclo mensual — ver `presetToRange`): el RPC agrupa por mes calendario, así
+  // que un rango que no calza con meses enteros (quincena, semana, "Personalizado" a mitad de mes)
+  // va a incluir esos días igual. Aceptado: el desvío es chico y el gráfico se queda mensual a
+  // propósito (ver "Qué se queda mensual a propósito" en el plan de ciclos).
+  const incomeSeriesQuery = useMonthlySeries(range.from, range.to)
 
   const { data: spend } = spendQuery
   const { data: comparison } = comparisonQuery
@@ -163,8 +178,13 @@ export function Analisis() {
   const incomeCents = (incomeSeriesQuery.data ?? []).reduce((acc, p) => acc + p.incomeCents, 0)
   const netCents = incomeCents - totalCents
   const prevTotalCents = prevTotalQuery.data ?? 0
-  const changePct = prevTotalCents > 0 ? ((totalCents - prevTotalCents) / prevTotalCents) * 100 : null
-  const days = Math.max(1, Math.round((parseISO(period.to).getTime() - parseISO(period.from).getTime()) / 86_400_000) + 1)
+  const days = Math.max(1, differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1)
+  const prevDays = Math.max(1, differenceInCalendarDays(parseISO(prevRange.to), parseISO(prevRange.from)) + 1)
+  // Por PROMEDIO diario, no por total crudo — con `preset === 'month'` el período anterior puede
+  // tener otra cantidad de días (una quincena de 15 contra una de 13–16), y comparar los totales
+  // sin más sería peras contra manzanas. Cuando `days === prevDays` (siempre en '3m'/'custom', y en
+  // 'month' con ciclo mensual) da exactamente el mismo % que comparar totales — cero regresión.
+  const changePct = prevTotalCents > 0 ? ((totalCents / days - prevTotalCents / prevDays) / (prevTotalCents / prevDays)) * 100 : null
 
   const fijoVsVariable = useMemo(
     () => summarizeFijoVsVariable(transactions ?? [], committedPurchaseIds ?? new Set()),
@@ -200,13 +220,19 @@ export function Analisis() {
   // dice nada útil — el chevron ocupa ese lugar en vez de un % que confundiría más que ayudaría.
   const promedioRestAvgCents = useMemo(() => promedioRest.reduce((sum, r) => sum + r.avgCents, 0), [promedioRest])
 
-  const anchorMonthLabel = format(parseISO(period.anchor), 'MMMM', { locale: es })
-  const prevMonthLabel = format(startOfMonth(parseISO(period.from)) < startOfMonth(parseISO(period.anchor)) ? parseISO(period.from) : parseISO(period.anchor), 'MMMM', { locale: es })
-  // El hero dice "en {mes}" sólo cuando el preset ES un mes — en cualquier otro (3/6/12 meses,
-  // personalizado) el gasto no corresponde a un solo mes, así que hablar de "agosto" sería
-  // directamente incorrecto, no sólo impreciso.
-  const heroPeriodLabel = period.preset === 'month' ? anchorMonthLabel : periodRangeLabel(period)
-  const heroPrevPeriodLabel = period.preset === 'month' ? prevMonthLabel : 'el período anterior'
+  // "septiembre" (sin año) — idéntico al copy de siempre cuando el ciclo es mensual (el caso común).
+  // Con `preset === 'month'` y un ciclo más chico (quincena/semana), `cycleLabel` ya trae su propio
+  // formato ("1–15 sep 2026") — no hay un solo nombre de mes que lo represente.
+  const anchorMonthLabel = format(parseISO(cycle.from), 'MMMM', { locale: es })
+  // El hero dice "en {mes}" sólo cuando el preset ES 'month' y el ciclo es mensual — en cualquier
+  // otro caso (3/6/12 meses, personalizado, o quincena/semana) el gasto no corresponde a un solo
+  // mes, así que hablar de "agosto" sería directamente incorrecto, no sólo impreciso.
+  const heroPeriodLabel =
+    period.preset !== 'month' ? periodRangeLabel(range) : cycleConfig.kind === 'monthly' ? anchorMonthLabel : cycleLabel(cycle)
+  const heroPrevPeriodLabel =
+    period.preset === 'month' && cycleConfig.kind === 'monthly'
+      ? format(parseISO(prevRange.from), 'MMMM', { locale: es })
+      : 'el período anterior'
   const promedioMesesLabel =
     promedioMensual.monthsCounted === 0
       ? null
@@ -219,7 +245,7 @@ export function Analisis() {
       setOtrosExpanded((v) => !v)
       return
     }
-    navigate('/movimientos', { state: { categoryId, period: movementPeriodFromRange(period.from, period.to) } })
+    navigate('/movimientos', { state: { categoryId, period: movementPeriodFromRange(range.from, range.to) } })
   }
 
   const isPending = spendQuery.isPending || comparisonQuery.isPending
@@ -231,29 +257,28 @@ export function Analisis() {
         <div className="flex items-center justify-between gap-3 lg:hidden">
           <h1 className="font-display text-figure font-semibold">Análisis</h1>
           {period.preset === 'month' && (
-            <MonthNav
-              label={format(parseISO(period.anchor), 'MMMM yyyy', { locale: es })}
-              mobileLabel={format(parseISO(period.anchor), 'MMMM', { locale: es })}
-              onPrev={() => setPeriod((p) => shiftPeriodMonth(p, -1))}
-              onNext={() => setPeriod((p) => shiftPeriodMonth(p, 1))}
+            <CycleNav
+              cycle={cycle}
+              onPrev={() => setPeriod((p) => shiftPeriodMonth(p, -1, cycleConfig))}
+              onNext={() => setPeriod((p) => shiftPeriodMonth(p, 1, cycleConfig))}
             />
           )}
         </div>
 
         <div className="hidden lg:block">
           {period.preset === 'month' ? (
-            <MonthNav
-              label={format(parseISO(period.anchor), 'MMMM yyyy', { locale: es })}
-              onPrev={() => setPeriod((p) => shiftPeriodMonth(p, -1))}
-              onNext={() => setPeriod((p) => shiftPeriodMonth(p, 1))}
+            <CycleNav
+              cycle={cycle}
+              onPrev={() => setPeriod((p) => shiftPeriodMonth(p, -1, cycleConfig))}
+              onNext={() => setPeriod((p) => shiftPeriodMonth(p, 1, cycleConfig))}
             />
           ) : (
-            <p className="eyebrow">{periodRangeLabel(period)}</p>
+            <p className="eyebrow">{periodRangeLabel(range)}</p>
           )}
           <h1 className="mt-2 font-display text-figure font-semibold">Análisis</h1>
         </div>
 
-        <PeriodSelector value={period} onChange={setPeriod} />
+        <PeriodSelector value={period} onChange={setPeriod} config={cycleConfig} />
       </header>
 
       {isError ? (

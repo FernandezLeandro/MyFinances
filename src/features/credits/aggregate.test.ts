@@ -67,6 +67,51 @@ describe('summarizeCard', () => {
   })
 })
 
+describe('summarizeCard — dos períodos en la misma vista (bloque 5, ciclo semanal a caballo de dos meses)', () => {
+  it('un solo período con su pago propio → pagada (comportamiento de siempre)', () => {
+    const card = makeCard({ id: 'c1' })
+    const items = [makeInstallment({ card_id: 'c1', amountCents: 10_000, period: '2026-09-01' })]
+    const payments = [makePayment({ card_id: 'c1', period: '2026-09-01' })]
+    const s = summarizeCard(card, items, [], payments)
+    expect(s.paid).toBe(true)
+  })
+
+  it('dos períodos, sólo uno con pago → NO pagada — antes (match sólo por card_id) daba pagada de más', () => {
+    const card = makeCard({ id: 'c1' })
+    const items = [
+      makeInstallment({ card_id: 'c1', amountCents: 10_000, period: '2026-09-01' }),
+      makeInstallment({ card_id: 'c1', amountCents: 12_000, period: '2026-10-01' }),
+    ]
+    const payments = [makePayment({ card_id: 'c1', period: '2026-09-01' })] // sólo septiembre pagado
+    const s = summarizeCard(card, items, [], payments)
+    expect(s.paid).toBe(false)
+  })
+
+  it('dos períodos, los dos con pago → pagada', () => {
+    const card = makeCard({ id: 'c1' })
+    const items = [
+      makeInstallment({ card_id: 'c1', amountCents: 10_000, period: '2026-09-01' }),
+      makeInstallment({ card_id: 'c1', amountCents: 12_000, period: '2026-10-01' }),
+    ]
+    const payments = [
+      makePayment({ card_id: 'c1', period: '2026-09-01' }),
+      makePayment({ card_id: 'c1', period: '2026-10-01' }),
+    ]
+    const s = summarizeCard(card, items, [], payments)
+    expect(s.paid).toBe(true)
+  })
+
+  it('dueOn toma el vencimiento más próximo entre los ítems', () => {
+    const card = makeCard({ id: 'c1' })
+    const items = [
+      makeInstallment({ card_id: 'c1', amountCents: 10_000, due_on: '2026-10-02' }),
+      makeInstallment({ card_id: 'c1', amountCents: 12_000, due_on: '2026-09-30' }),
+    ]
+    const s = summarizeCard(card, items, [], [])
+    expect(s.dueOn).toBe('2026-09-30')
+  })
+})
+
 describe('summarizePurchase', () => {
   it('compra con cuota este período → totalCents de la cuota, no pagada', () => {
     const purchase = makePurchase({ id: 'p1' })
@@ -89,6 +134,23 @@ describe('summarizePurchase', () => {
     const payments = [makePurchasePayment({ purchase_id: 'p1' })]
     const s = summarizePurchase(purchase, [], payments)
     expect(s.paid).toBe(true)
+  })
+
+  // Bloque 5 del plan: con dos períodos en la misma vista (semana a caballo de dos meses), un pago
+  // del OTRO período no debe marcar como pagada la cuota de éste.
+  it('la cuota tiene un período distinto al del pago existente → NO pagada', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const items = [makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 8_000, period: '2026-10-01' })]
+    const payments = [makePurchasePayment({ purchase_id: 'p1', period: '2026-09-01' })]
+    const s = summarizePurchase(purchase, items, payments)
+    expect(s.paid).toBe(false)
+  })
+
+  it('dueOn expone el vencimiento materializado de la cuota', () => {
+    const purchase = makePurchase({ id: 'p1' })
+    const items = [makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 8_000, due_on: '2026-10-02' })]
+    const s = summarizePurchase(purchase, items, [])
+    expect(s.dueOn).toBe('2026-10-02')
   })
 })
 
