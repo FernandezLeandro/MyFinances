@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { NavLink } from 'react-router'
 import { cn } from '@/lib/cn'
+import { Brand } from '@/components/Brand'
 import { Avatar } from '@/components/ui/Avatar'
 import { Menu } from '@/components/ui/Menu'
 import { AccountMenuItems } from '@/app/AccountMenu'
@@ -36,9 +37,9 @@ export function TopBar({ items, initials, displayName, email, showAjustes, tone 
 
   return (
     <header className="sticky top-0 z-20 hidden h-[58px] items-center gap-[22px] border-b border-divider bg-surface px-[26px] md:flex">
-      <div className="flex items-baseline gap-[5px]">
+      <div className="flex items-center gap-[7px]">
+        <Brand className="size-[17px]" accent={!isAdmin} />
         <span className="font-display text-[15px] font-bold tracking-[-0.01em] text-fg">MyFinances</span>
-        <span aria-hidden className={cn('size-[5px] rounded-full', isAdmin ? 'bg-fg-faint' : 'bg-accent')} />
       </div>
 
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}

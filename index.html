@@ -2,8 +2,9 @@
 <html lang="es-AR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link id="favicon" rel="icon" href="/icon-light.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-dark-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icon-dark-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#efeee8" />
     <meta
@@ -21,9 +22,12 @@
       // Aplica el tema guardado antes del primer paint — sin esto, la app arranca siempre en
       // claro y "parpadea" a oscuro un instante después de hidratar (ver `useTheme`, que es la
       // fuente de verdad en runtime; esto sólo evita el flash inicial leyendo el mismo storage key).
+      // El favicon sigue el mismo toggle, no el tema del sistema operativo — por eso se resuelve
+      // acá también, en vez de con `prefers-color-scheme` en el <link>.
       try {
         if (localStorage.getItem('theme:dark') === '1') {
           document.documentElement.dataset.theme = 'dark'
+          document.getElementById('favicon').href = '/icon-dark.svg'
         }
       } catch {}
     </script>
