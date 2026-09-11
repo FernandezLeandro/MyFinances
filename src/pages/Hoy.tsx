@@ -1,8 +1,10 @@
 import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { endOfMonth, format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
+import { format, isSameDay, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
+import { useCycle } from '@/lib/useCycle'
+import { cycleShortLabel } from '@/lib/cycle'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { EyeToggle } from '@/components/ui/EyeToggle'
@@ -22,7 +24,7 @@ import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
 import {
   useCurrentBalance,
-  useMonthlySummary,
+  useRangeSummary,
   useSpendByCategory,
   useTransactions,
   type Transaction,
@@ -36,11 +38,11 @@ import {
   useCreditCardPayments,
   useCreditCardSavings,
   useCreditCards,
-  useCreditInstallments,
+  useCreditInstallmentsRange,
   useCreditPurchasePayments,
   useStandalonePurchases,
 } from '@/features/credits/api'
-import { useFixedExpensePayments, useFixedExpenses, useProjectedBalance } from '@/features/fixed-expenses/api'
+import { useFixedExpensePayments, useFixedExpenses, useProjectedBalanceRange } from '@/features/fixed-expenses/api'
 import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
 
 // `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
@@ -92,26 +94,36 @@ export function Hoy() {
   const [cuadrarOpen, setCuadrarOpen] = useState(false)
   const canCuadrar = useCan('cuadrar-saldo')
   const today = new Date()
-  const monthStart = format(startOfMonth(today), 'yyyy-MM-dd')
-  const monthEnd = format(endOfMonth(today), 'yyyy-MM-dd')
+
+  // Hoy nunca navega — siempre muestra el ciclo que contiene a hoy (`useCycle()` sin flechas). Con
+  // el ciclo mensual de siempre (default de todo usuario que no configuró nada en Ajustes) esto es
+  // exactamente `monthStart`/`monthEnd` de antes; con quincenal/semanal, la mitad o la semana en
+  // curso — el cambio de comportamiento que el bloque 3 del plan de ciclos habilita a propósito.
+  const { cycle } = useCycle()
+  const cycleFrom = cycle.from
+  const cycleTo = cycle.to
+  // Los pagos/ahorros/cuotas siguen atados al MES (eje B, no configurable — ver `src/lib/cycle.ts`):
+  // con ciclo mensual o quincenal el rango nunca toca más de un mes (`cycle.months` tiene un solo
+  // elemento), así que alcanza con pedirlo para ese mes. El semanal (bloque 5) sí puede cruzar dos.
+  const monthOfCycle = cycle.months[0]
 
   const balance = useCurrentBalance()
-  const summary = useMonthlySummary(monthStart)
-  const monthTransactions = useTransactions({ from: monthStart, to: monthEnd })
-  const spendQuery = useSpendByCategory(monthStart, monthEnd)
+  const summary = useRangeSummary(cycleFrom, cycleTo)
+  const monthTransactions = useTransactions({ from: cycleFrom, to: cycleTo })
+  const spendQuery = useSpendByCategory(cycleFrom, cycleTo)
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(monthStart)
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(cycleFrom, cycleTo)
   const { data: fixedExpenses } = useFixedExpenses()
-  const { data: fixedPayments } = useFixedExpensePayments(monthStart)
+  const { data: fixedPayments } = useFixedExpensePayments(monthOfCycle)
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
-  const { data: installments } = useCreditInstallments(monthStart)
-  const { data: savings } = useCreditCardSavings(monthStart)
-  const { data: cardPayments } = useCreditCardPayments(monthStart)
-  const { data: purchasePayments } = useCreditPurchasePayments(monthStart)
+  const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
+  const { data: savings } = useCreditCardSavings(monthOfCycle)
+  const { data: cardPayments } = useCreditCardPayments(monthOfCycle)
+  const { data: purchasePayments } = useCreditPurchasePayments(monthOfCycle)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
@@ -133,9 +145,9 @@ export function Hoy() {
   const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
 
   const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today),
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today, cycle),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
-    [fixedExpenses, fixedPayments],
+    [fixedExpenses, fixedPayments, cycle],
   )
 
   // Sólo lo que realmente "vence" — una bolsa mensual no tiene día de vencimiento, así que no
@@ -236,7 +248,11 @@ export function Hoy() {
   const incomePct = totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0
   const expensePct = totalFlow > 0 ? (totalExpense / totalFlow) * 100 : 0
 
-  const monthLabel = format(today, 'MMMM', { locale: es })
+  // Con ciclo mensual da exactamente lo mismo que `format(today, 'MMMM', {locale: es})` de antes
+  // ("septiembre"); con quincenal/semanal, el rango corto ("5–20 sep"). El resto del copy fijo
+  // ("Flujo del mes", "este mes") queda con la palabra "mes" a propósito por ahora — generalizarlo
+  // es trabajo de UI aparte, no de esta migración de datos (ver plan, bloque 6).
+  const monthLabel = cycleShortLabel(cycle)
   const spend = spendQuery.data ?? []
   const spendTotal = spend.reduce((acc, s) => acc + s.cents, 0)
 

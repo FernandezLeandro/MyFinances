@@ -4,7 +4,9 @@ import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
-import { MonthNav } from '@/components/ui/MonthNav'
+import { CycleNav } from '@/components/ui/CycleNav'
+import { useCycleConfig } from '@/lib/useCycle'
+import { cycleContaining } from '@/lib/cycle'
 import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { Button } from '@/components/ui/Button'
 import { FilterChip } from '@/components/ui/Chip'
@@ -87,6 +89,7 @@ export function Movimientos() {
   // limitarlo al mes actual).
   const location = useLocation()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
+  const cycleConfig = useCycleConfig()
 
   const {
     filters,
@@ -107,6 +110,7 @@ export function Movimientos() {
     initialPeriod: incoming?.period,
     initialCategoryId: incoming?.categoryId,
     initialAccountIds: incoming?.accountIds,
+    config: cycleConfig,
   })
 
   const [formOpen, setFormOpen] = useState(false)
@@ -173,9 +177,8 @@ export function Movimientos() {
         <div className="flex items-center justify-between gap-3 lg:hidden">
           <h1 className="font-display text-figure font-semibold">Movimientos</h1>
           {filters.period.preset === 'month' ? (
-            <MonthNav
-              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
-              mobileLabel={format(parseISO(filters.period.anchor), 'MMMM', { locale: es })}
+            <CycleNav
+              cycle={cycleContaining(cycleConfig, parseISO(filters.period.anchor))}
               onPrev={() => shiftMonth(-1)}
               onNext={() => shiftMonth(1)}
             />
@@ -188,8 +191,8 @@ export function Movimientos() {
             estaba. */}
         <div className="hidden lg:block">
           {filters.period.preset === 'month' ? (
-            <MonthNav
-              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
+            <CycleNav
+              cycle={cycleContaining(cycleConfig, parseISO(filters.period.anchor))}
               onPrev={() => shiftMonth(-1)}
               onNext={() => shiftMonth(1)}
             />

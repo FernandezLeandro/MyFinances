@@ -4,9 +4,10 @@ import { ChevronRight } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { cn } from '@/lib/cn'
 import { parseAmountToCents } from '@/lib/money'
-import { useProfile, useUpdateProfile, type FxSource } from '@/features/profile/api'
+import { useProfile, useUpdateProfile, type CycleKind, type FxSource } from '@/features/profile/api'
 import { useUsdRate, useAssetPrices } from '@/features/fx/api'
 import { useAssets } from '@/features/assets/api'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
@@ -199,6 +200,74 @@ function AccountsPanel() {
   )
 }
 
+const cycleKinds: { value: CycleKind; label: string }[] = [
+  { value: 'monthly', label: 'Mensual' },
+  { value: 'biweekly', label: 'Quincenal' },
+  { value: 'weekly', label: 'Semanal' },
+]
+
+const weekdays: { value: number; label: string }[] = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mié' },
+  { value: 4, label: 'Jue' },
+  { value: 5, label: 'Vie' },
+  { value: 6, label: 'Sáb' },
+  { value: 7, label: 'Dom' },
+]
+
+/** Ciclo de caja: la ventana con la que esta cuenta mira su plata — gobierna Hoy, Fijos, Mis Deudas,
+ *  Movimientos y Análisis por igual (ver `src/lib/cycle.ts`). Mensual es el default y preserva el
+ *  comportamiento de siempre; nadie pierde nada por no tocar este panel. Sólo con 'weekly' importa
+ *  el día de arranque de la semana — el resto del tiempo la fila queda oculta, no deshabilitada, para
+ *  no mostrar un control que no hace nada. */
+function CiclosPanel() {
+  const { data: profile, isPending } = useProfile()
+  const updateProfile = useUpdateProfile()
+
+  return (
+    <Panel className="p-5">
+      <p className="eyebrow">Ciclo</p>
+      <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-muted">Con qué frecuencia mirás tu plata</p>
+
+      {isPending ? (
+        <Skeleton className="mt-3.5 h-9 w-full" />
+      ) : (
+        <>
+          <SegmentedToggle
+            value={profile?.cycleKind ?? 'monthly'}
+            options={cycleKinds}
+            onChange={(cycleKind) => updateProfile.mutate({ cycleKind })}
+            className="mt-3.5"
+          />
+          {profile?.cycleKind === 'weekly' && (
+            <div className="mt-3.5 border-t border-fill-subtle pt-3.5">
+              <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Arranca el</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {weekdays.map((day) => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() => updateProfile.mutate({ cycleWeekStartsOn: day.value })}
+                    className={cn(
+                      'rounded-chip px-[11px] py-[6px] text-[12px] transition-colors duration-150',
+                      profile.cycleWeekStartsOn === day.value
+                        ? 'bg-inverse font-semibold text-on-inverse'
+                        : 'bg-fill-subtle text-fg-secondary hover:text-fg',
+                    )}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Panel>
+  )
+}
+
 /** Dos miniaturas de teléfono claro/oscuro en vez de nombrar la opción — muestran el resultado. Los
  *  colores de cada miniatura son fijos (representan cómo se ve cada tema, no el tema actual); sólo
  *  el borde/fondo de "elegida" usa los tokens del tema en uso. */
@@ -298,14 +367,16 @@ export function Ajustes() {
           </div>
           <div className="flex flex-col gap-4">
             <AccountsPanel />
+            <CiclosPanel />
             <AppearancePanel />
             <SecurityPanel />
           </div>
         </div>
       ) : (
         // Plan restringido: sin dólar, activos ni cuentas — nada que gestionar todavía. Sólo lo que
-        // pidió Lean para test/basic, tema y seguridad, en una sola columna angosta.
+        // pidió Lean para test/basic, ciclo, tema y seguridad, en una sola columna angosta.
         <div className="flex max-w-[420px] flex-col gap-4">
+          <CiclosPanel />
           <AppearancePanel />
           <SecurityPanel />
         </div>

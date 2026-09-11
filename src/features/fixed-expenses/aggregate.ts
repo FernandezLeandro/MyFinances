@@ -1,6 +1,7 @@
-import { endOfMonth, startOfMonth } from 'date-fns'
+import { endOfMonth, format, startOfMonth } from 'date-fns'
+import type { Cycle } from '@/lib/cycle'
 import type { FixedExpense, FixedExpensePayment } from './api'
-import { eligibleFixedExpenses } from './period'
+import { eligibleFixedExpenses, fijoCaeEnCiclo } from './period'
 
 /**
  * Función pura, separada de la red a propósito — mismo criterio que `credits/aggregate.ts`: se
@@ -83,15 +84,33 @@ export interface FixedExpensesSummary {
   pendingTotalCents: number
 }
 
-/** `period` es cualquier fecha dentro del mes a resumir (como `month` en Fijos.tsx / Hoy.tsx);
- *  `payments` son los pagos YA filtrados a ese período (lo que devuelve `useFixedExpensePayments`). */
+/**
+ * `period` es cualquier fecha dentro del mes a resumir (como `month` en Fijos.tsx / Hoy.tsx);
+ * `payments` son los pagos YA filtrados a ese período (lo que devuelve `useFixedExpensePayments`).
+ *
+ * `window` es opcional y nuevo (bloque 3 del plan de ciclos): cuando se pasa, además del filtro de
+ * vigencia de siempre se aplica `fijoCaeEnCiclo` — un fijo de una sola vez sólo cuenta si su
+ * vencimiento cae dentro de esa ventana, no en cualquier punto del mes. Sin `window` (ningún
+ * consumidor lo pasaba antes de este bloque) el comportamiento es IDÉNTICO al de siempre — y aunque
+ * se pase, con una ventana = el mes calendario completo el filtro es un no-op (ver
+ * `fijoCaeEnCiclo`), así que un usuario en ciclo mensual tampoco nota cambio.
+ *
+ * `window` no es necesariamente el ciclo que se está mirando: en una pantalla que navega, tiene que
+ * ser el HORIZONTE (`projectionWindow` en `src/lib/cycle.ts`) para que este desglose coincida exacto
+ * con lo que descuenta `rpc_projected_balance_range` — pasar el ciclo a secas ahí desincroniza el
+ * panel del número grande en silencio (riesgo #1 del plan).
+ */
 export function summarizeFixedExpenses(
   expenses: FixedExpense[],
   payments: FixedExpensePayment[],
   period: Date,
   today: Date,
+  window?: Pick<Cycle, 'from' | 'to'>,
 ): FixedExpensesSummary {
-  const eligible = eligibleFixedExpenses(expenses, startOfMonth(period), endOfMonth(period)).filter((fe) => fe.is_active)
+  const monthStart = format(startOfMonth(period), 'yyyy-MM-dd')
+  const eligible = eligibleFixedExpenses(expenses, startOfMonth(period), endOfMonth(period))
+    .filter((fe) => fe.is_active)
+    .filter((fe) => !window || fijoCaeEnCiclo(fe, monthStart, window))
   const statuses = eligible
     .map((fe) => statusFor(fe, payments, period, today))
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe))

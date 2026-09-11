@@ -93,6 +93,24 @@ export function useProjectedBalance(period: string) {
   })
 }
 
+/** Igual que `useProjectedBalance`, sobre un rango arbitrario — la variante "horizonte, no ventana"
+ *  del bloque 3 del plan de ciclos (ver `rpc_projected_balance_range` y el comentario de
+ *  `projectionWindow` en `src/lib/cycle.ts` sobre por qué `from` no siempre es el inicio del ciclo
+ *  que se está mirando). Convive con `useProjectedBalance`, no la reemplaza. */
+export function useProjectedBalanceRange(from: string, to: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['projected-balance-range', user?.id, from, to],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('rpc_projected_balance_range', { p_from: from, p_to: to })
+      if (error) throw error
+      return centsFromNumeric(String(data ?? 0))
+    },
+  })
+}
+
 export interface FixedExpenseInput {
   name: string
   cents: number

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { eligibleFixedExpenses, permiteActualizarPlantilla } from './period'
+import { cycleContaining, type CycleConfig } from '@/lib/cycle'
+import { eligibleFixedExpenses, fijoCaeEnCiclo, permiteActualizarPlantilla } from './period'
 import type { FixedExpense } from './api'
 
 function fe(overrides: Partial<FixedExpense>): FixedExpense {
@@ -66,5 +67,31 @@ describe('eligibleFixedExpenses', () => {
   it('incluye un fijo que se da de baja recién el mes que viene', () => {
     const items = [fe({ ends_on: '2026-09-01' })]
     expect(eligibleFixedExpenses(items, periodStart, periodEnd)).toHaveLength(1)
+  })
+})
+
+describe('fijoCaeEnCiclo', () => {
+  const monthly: CycleConfig = { kind: 'monthly', weekStartsOn: 1 }
+  const biweekly: CycleConfig = { kind: 'biweekly', weekStartsOn: 1 }
+
+  it('con ciclo mensual, cualquier due_day cae siempre — no-op de retrocompatibilidad', () => {
+    const cycle = cycleContaining(monthly, new Date(2026, 8, 10, 12))
+    for (let due = 1; due <= 31; due++) {
+      expect(fijoCaeEnCiclo(fe({ due_day: due }), '2026-09-01', cycle)).toBe(true)
+    }
+  })
+
+  it('con ciclo quincenal, un fijo que vence el 5 cae sólo en la primera quincena', () => {
+    const first = cycleContaining(biweekly, new Date(2026, 8, 5, 12))
+    const second = cycleContaining(biweekly, new Date(2026, 8, 20, 12))
+    const alquiler = fe({ due_day: 5 })
+    expect(fijoCaeEnCiclo(alquiler, '2026-09-01', first)).toBe(true)
+    expect(fijoCaeEnCiclo(alquiler, '2026-09-01', second)).toBe(false)
+  })
+
+  it('una bolsa (is_recurring, sin due_day) siempre da true — no la evalúa esta función', () => {
+    const cycle = cycleContaining(biweekly, new Date(2026, 8, 20, 12))
+    const bolsa = fe({ is_recurring: true, due_day: null })
+    expect(fijoCaeEnCiclo(bolsa, '2026-09-01', cycle)).toBe(true)
   })
 })

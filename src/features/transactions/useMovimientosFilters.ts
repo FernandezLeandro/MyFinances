@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { addMonths, format, parseISO, subMonths } from 'date-fns'
+import { parseISO } from 'date-fns'
 import { centsToNumeric } from '@/lib/money'
 import { downloadCsv } from '@/lib/csv'
+import { cycleContaining, shiftCycle, type CycleConfig } from '@/lib/cycle'
 import type { Category } from '@/features/categories/api'
 import type { Transaction } from '@/features/transactions/api'
 import { defaultMovementPeriod, periodRange, type MovementPeriod } from '@/features/transactions/movementPeriod'
@@ -11,6 +12,10 @@ interface UseMovimientosFiltersOptions {
   initialPeriod?: MovementPeriod
   initialCategoryId?: string
   initialAccountIds?: string[]
+  /** Ciclo configurado por el usuario (`useCycleConfig()`) — sólo afecta al preset 'month', que
+   *  pasa a representar el ciclo (mensual/quincenal/semanal) en vez de siempre el mes calendario.
+   *  Ver `periodRange` en `movementPeriod.ts`. */
+  config: CycleConfig
 }
 
 /**
@@ -20,7 +25,7 @@ interface UseMovimientosFiltersOptions {
  * entran acá: esas queries siguen viviendo en la página, que también las necesita para pintar las
  * filas — `exportCsv` sólo las recibe como parámetro al momento de exportar.
  */
-export function useMovimientosFilters({ initialPeriod, initialCategoryId, initialAccountIds }: UseMovimientosFiltersOptions) {
+export function useMovimientosFilters({ initialPeriod, initialCategoryId, initialAccountIds, config }: UseMovimientosFiltersOptions) {
   const [filters, setFilters] = useState<MovementFilters>(() => ({
     period: initialPeriod ?? defaultMovementPeriod(),
     type: 'all',
@@ -35,19 +40,18 @@ export function useMovimientosFilters({ initialPeriod, initialCategoryId, initia
     return () => clearTimeout(id)
   }, [searchInput])
 
-  const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
+  const { from, to } = useMemo(() => periodRange(filters.period, config), [filters.period, config])
   const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
   const accountIds = useMemo(() => [...filters.accountIds].sort(), [filters.accountIds])
 
+  // Nombre histórico ("mes"), pero mueve un CICLO — con `config.kind === 'monthly'` (default) es
+  // exactamente `addMonths`/`subMonths` de antes (`shiftCycle` con kind mensual hace lo mismo).
   function shiftMonth(delta: number) {
     setFilters((f) => ({
       ...f,
       period: {
         ...f.period,
-        anchor: format(
-          delta > 0 ? addMonths(parseISO(f.period.anchor), delta) : subMonths(parseISO(f.period.anchor), -delta),
-          'yyyy-MM-dd',
-        ),
+        anchor: shiftCycle(config, cycleContaining(config, parseISO(f.period.anchor)), delta).from,
       },
     }))
   }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { cycleContaining, type CycleConfig } from '@/lib/cycle'
 import { compareFixedExpenses, fixedExpenseUrgency, summarizeFixedExpenses } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment } from '@/test/factories'
 
@@ -111,6 +112,51 @@ describe('summarizeFixedExpenses — mezcla', () => {
   })
 })
 
+describe('summarizeFixedExpenses — con cycle (bloque 3 del plan de ciclos)', () => {
+  const monthly: CycleConfig = { kind: 'monthly', weekStartsOn: 1 }
+  const biweekly: CycleConfig = { kind: 'biweekly', weekStartsOn: 1 }
+
+  it('sin cycle, el comportamiento es idéntico al de siempre (Fijos.tsx no lo pasa)', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const withoutCycle = summarizeFixedExpenses([alquiler], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(withoutCycle.pendingTotalCents).toBe(450_000_00)
+  })
+
+  it('con cycle mensual, no cambia nada — no-op de retrocompatibilidad', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const cycle = cycleContaining(monthly, HOY_EN_AGOSTO)
+    const s = summarizeFixedExpenses([alquiler], [], AGOSTO, HOY_EN_AGOSTO, cycle)
+    expect(s.pendingTotalCents).toBe(450_000_00)
+  })
+
+  it('con cycle quincenal, un fijo que vence en la otra quincena no cuenta en esta', () => {
+    const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 20 }) // segunda quincena
+    const firstHalf = cycleContaining(biweekly, new Date(2026, 7, 5, 12))
+    const s = summarizeFixedExpenses([internet], [], AGOSTO, HOY_EN_AGOSTO, firstHalf)
+    expect(s.pending).toHaveLength(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('telescopía: las dos quincenas del mes suman exactamente lo que sumaba el mes entero — agarra un doble descuento', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 20 })
+    const expenses = [alquiler, internet]
+
+    const wholeMonth = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO)
+    const firstHalf = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 5, 12)))
+    const secondHalf = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 20, 12)))
+
+    expect(firstHalf.pendingTotalCents + secondHalf.pendingTotalCents).toBe(wholeMonth.pendingTotalCents)
+  })
+
+  it('una bolsa sigue contando entera en cualquier quincena del mes (todavía 100% mensual)', () => {
+    const nafta = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true, due_day: null })
+    const firstHalf = cycleContaining(biweekly, new Date(2026, 7, 5, 12))
+    const s = summarizeFixedExpenses([nafta], [], AGOSTO, HOY_EN_AGOSTO, firstHalf)
+    expect(s.pendingTotalCents).toBe(60_000_00)
+  })
+})
+
 describe('compareFixedExpenses', () => {
   it('pone todos los recurrentes antes que los de una sola vez', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', due_day: 5 })
@@ -139,5 +185,33 @@ describe('fixedExpenseUrgency', () => {
   it('neutro más allá de 7 días', () => {
     expect(fixedExpenseUrgency(27, HOY_EN_AGOSTO)).toBe('neutral')
     expect(fixedExpenseUrgency(31, HOY_EN_AGOSTO)).toBe('neutral')
+  })
+})
+
+describe('summarizeFixedExpenses — con window extendido más allá del mes mirado (decisión de scoping)', () => {
+  const monthly: CycleConfig = { kind: 'monthly', weekStartsOn: 1 }
+
+  // Documenta a propósito la decisión tomada al conectar Fijos.tsx: pasarle a `summarizeFixedExpenses`
+  // un `window` que cruza a un mes ANTERIOR al mirado (el horizonte de `projectionWindow`) NO debe
+  // hacer que esta función intente sumar la instancia de ese mes anterior — sólo tiene `payments` del
+  // mes que se está mirando, así que no podría saber si esa instancia vieja está pagada o no. Sumarla
+  // igual (asumiendo impaga) desincroniza el desglose visible del headline del RPC (que sí la suma,
+  // correctamente, con sus propios pagos) en la dirección opuesta — ver Fijos.tsx para el detalle.
+  // Si esta prueba empieza a fallar porque alguien "arregló" la función para mirar el mes anterior,
+  // hace falta además traer los pagos de ESE mes — no alcanza con ensanchar el filtro de fecha.
+  it('un window que arranca un mes antes del mirado no duplica ni agrega la instancia del mes anterior', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5, starts_on: '2026-01-01' })
+    // AGOSTO es el mes mirado; el window arranca en julio (como haría `projectionWindow` si "hoy"
+    // estuviera en julio y se estuviera mirando agosto hacia adelante).
+    const windowDesdeJulio = { from: '2026-07-01', to: '2026-08-31' }
+    const soloAgosto = cycleContaining(monthly, HOY_EN_AGOSTO)
+
+    const conWindowExtendido = summarizeFixedExpenses([alquiler], [], AGOSTO, HOY_EN_AGOSTO, windowDesdeJulio)
+    const conCicloPropio = summarizeFixedExpenses([alquiler], [], AGOSTO, HOY_EN_AGOSTO, soloAgosto)
+
+    // Mismo resultado: sólo la instancia de agosto, una vez — nunca $900.000 (las dos instancias).
+    expect(conWindowExtendido.pendingTotalCents).toBe(450_000_00)
+    expect(conCicloPropio.pendingTotalCents).toBe(450_000_00)
+    expect(conWindowExtendido.pending).toHaveLength(1)
   })
 })

@@ -65,6 +65,17 @@ function toCreditInstallment(row: CreditInstallmentRaw): CreditInstallment {
   return { ...rest, amountCents: centsFromNumeric(amount) }
 }
 
+/** Fila de `v_credit_installments_range`: lo mismo, más `period` (mes que toca) y `due_on`
+ *  (vencimiento ya materializado) — lo que permite filtrar por ciclo en vez de por mes completo. */
+type CreditInstallmentRangeRaw = Database['public']['Functions']['v_credit_installments_range']['Returns'][number]
+export interface CreditInstallmentRange extends Omit<CreditInstallmentRangeRaw, 'amount'> {
+  amountCents: number
+}
+function toCreditInstallmentRange(row: CreditInstallmentRangeRaw): CreditInstallmentRange {
+  const { amount, ...rest } = row
+  return { ...rest, amountCents: centsFromNumeric(amount) }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------------------------
@@ -95,6 +106,27 @@ export function useCreditInstallments(period: string) {
       const { data, error } = await supabase.rpc('v_credit_installments', { p_period: period })
       if (error) throw error
       return (data ?? []).map(toCreditInstallment)
+    },
+  })
+}
+
+/** Igual que `useCreditInstallments`, sobre `[from, to]` en vez de un mes — filtra por vencimiento
+ *  materializado dentro del rango (ver `dueFallsInCycle` en `src/lib/cycle.ts`), así una cuota que
+ *  vence en la segunda quincena no aparece en la primera. `summarizeCard`/`summarizePurchase` (en
+ *  `aggregate.ts`) matchean pago por `card_id`/`purchase_id`, no por período — sigue siendo correcto
+ *  acá porque `cardPayments`/`purchasePayments` se piden para el mismo único mes que este rango
+ *  toca (mensual o quincenal nunca cruzan el mes); con un ciclo semanal a caballo de dos meses ese
+ *  supuesto deja de valer y hay que revisar el matching (bloque 5 del plan). */
+export function useCreditInstallmentsRange(from: string, to: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['credit-installments-range', user?.id, from, to],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('v_credit_installments_range', { p_from: from, p_to: to })
+      if (error) throw error
+      return (data ?? []).map(toCreditInstallmentRange)
     },
   })
 }

@@ -15,6 +15,7 @@ type AccountKind = 'cash' | 'wallet' | 'bank'
 type Role = 'user' | 'admin'
 type Plan = 'test' | 'basic' | 'premium'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
+type CycleKind = 'monthly' | 'biweekly' | 'weekly'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
 type AssetQuoteCurrency = 'ARS' | 'USD'
@@ -34,17 +35,23 @@ export interface Database {
           fx_source: FxSource
           usd_rate_manual: string | null
           usd_rate_updated_at: string | null
+          cycle_kind: CycleKind
+          cycle_week_starts_on: number
         }
         Insert: { id: string; display_name?: string | null; currency?: string }
         // `role` y `plan` no están acá a propósito: las dos columnas se sacaron del GRANT de UPDATE
         // para `authenticated` (ver 20260807010001_admin_role.sql y 20260911010001_user_plans.sql),
-        // así que el cliente no puede tocarlas ni aunque quisiera.
+        // así que el cliente no puede tocarlas ni aunque quisiera. `cycle_kind`/`cycle_week_starts_on`
+        // sí están en el grant (20260911020001_profile_cycle_kind.sql): a diferencia de esas dos, es
+        // el propio usuario quien elige su ciclo.
         Update: Partial<{
           display_name: string | null
           currency: string
           fx_source: FxSource
           usd_rate_manual: number | string | null
           usd_rate_updated_at: string | null
+          cycle_kind: CycleKind
+          cycle_week_starts_on: number
         }>
         Relationships: []
       }
@@ -582,6 +589,17 @@ export interface Database {
         Args: { p_period: string }
         Returns: { total_income: string; total_expense: string; balance: string }[]
       }
+      // Ver `supabase/migrations/20260911030001_cycle_range_functions.sql` — bloque 3 del plan de
+      // ciclos configurables. Aditivas: `v_monthly_summary`/`rpc_projected_balance`/
+      // `v_credit_installments` de arriba y de más abajo siguen intactas.
+      v_range_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: { total_income: string; total_expense: string; balance: string }[]
+      }
+      rpc_projected_balance_range: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
       v_spend_by_category: {
         Args: { p_from: string; p_to: string }
         Returns: { category_id: string; category_name: string; color: string; total: string }[]
@@ -693,6 +711,23 @@ export interface Database {
           installments: number
           amount: string
           category_id: string | null
+        }[]
+      }
+      // Igual que `v_credit_installments`, más `period` (mes que toca) y `due_on` (vencimiento ya
+      // materializado con `due_date_in_month`) — lo que permite filtrar por ciclo en vez de por mes
+      // completo. Ver `20260911030001_cycle_range_functions.sql`.
+      v_credit_installments_range: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          card_id: string | null
+          purchase_id: string
+          description: string
+          installment_no: number
+          installments: number
+          amount: string
+          category_id: string | null
+          period: string
+          due_on: string
         }[]
       }
       rpc_mark_credit_card_paid: {
