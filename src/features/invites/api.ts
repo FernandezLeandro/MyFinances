@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
+import type { Plan } from '@/features/access/plan'
 
 export interface InviteCode {
   code: string
@@ -9,6 +10,7 @@ export interface InviteCode {
   expiresAt: string | null
   isActive: boolean
   createdAt: string
+  plan: Plan
 }
 
 export function codeStatus(code: InviteCode) {
@@ -24,10 +26,11 @@ export function useCreateInviteCode() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { maxUses: number; expiresAt: string | null }) => {
+    mutationFn: async (input: { maxUses: number; expiresAt: string | null; plan: Plan }) => {
       const { data, error } = await supabase.rpc('rpc_create_invite_code', {
         p_max_uses: input.maxUses,
         p_expires_at: input.expiresAt,
+        p_plan: input.plan,
       })
       if (error) throw error
       return data?.[0]
@@ -53,6 +56,7 @@ export function useAdminInviteCodes() {
         expiresAt: row.expires_at,
         isActive: row.is_active,
         createdAt: row.created_at,
+        plan: row.plan,
       }))
     },
   })

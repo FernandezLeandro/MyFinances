@@ -13,6 +13,7 @@
 type Kind = 'income' | 'expense'
 type AccountKind = 'cash' | 'wallet' | 'bank'
 type Role = 'user' | 'admin'
+type Plan = 'test' | 'basic' | 'premium'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
@@ -28,14 +29,16 @@ export interface Database {
           display_name: string | null
           currency: string
           role: Role
+          plan: Plan
           created_at: string
           fx_source: FxSource
           usd_rate_manual: string | null
           usd_rate_updated_at: string | null
         }
         Insert: { id: string; display_name?: string | null; currency?: string }
-        // `role` no está acá a propósito: la columna se sacó del GRANT de UPDATE para `authenticated`
-        // (ver 20260807010001_admin_role.sql), así que el cliente no puede tocarla ni aunque quisiera.
+        // `role` y `plan` no están acá a propósito: las dos columnas se sacaron del GRANT de UPDATE
+        // para `authenticated` (ver 20260807010001_admin_role.sql y 20260911010001_user_plans.sql),
+        // así que el cliente no puede tocarlas ni aunque quisiera.
         Update: Partial<{
           display_name: string | null
           currency: string
@@ -628,8 +631,8 @@ export interface Database {
         Returns: undefined
       }
       rpc_create_invite_code: {
-        Args: { p_max_uses?: number; p_expires_at?: string | null }
-        Returns: { code: string; max_uses: number; expires_at: string | null }[]
+        Args: { p_max_uses?: number; p_expires_at?: string | null; p_plan?: Plan }
+        Returns: { code: string; max_uses: number; expires_at: string | null; plan: Plan }[]
       }
       rpc_admin_list_invite_codes: {
         Args: Record<string, never>
@@ -640,10 +643,40 @@ export interface Database {
           expires_at: string | null
           is_active: boolean
           created_at: string
+          plan: Plan
         }[]
       }
       rpc_admin_delete_invite_code: {
         Args: { p_code: string }
+        Returns: undefined
+      }
+      rpc_admin_list_users: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          email: string | null
+          display_name: string | null
+          role: Role
+          plan: Plan
+          created_at: string
+          last_sign_in_at: string | null
+          transaction_count: number
+        }[]
+      }
+      rpc_admin_set_user_plan: {
+        Args: { p_user_id: string; p_plan: Plan }
+        Returns: undefined
+      }
+      rpc_admin_set_user_role: {
+        Args: { p_user_id: string; p_role: Role }
+        Returns: undefined
+      }
+      rpc_admin_delete_user: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      rpc_admin_delete_users: {
+        Args: { p_user_ids: string[] }
         Returns: undefined
       }
       rpc_reorder_default_categories: {

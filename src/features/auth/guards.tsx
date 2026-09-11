@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
+import { can } from '@/features/access/plan'
+import type { Capability } from '@/features/access/plan'
 
 /**
  * Protege /hoy, /movimientos, /fijos, /analisis, /ahorros, /ajustes: hace falta sesión Y perfil.
@@ -49,6 +51,22 @@ export function RedirectIfAuthed({ children }: { children: ReactNode }) {
   if (session && profile.data === null) return <Navigate to="/bienvenida" replace />
   if (session && profile.data?.role === 'admin') return <Navigate to="/admin" replace />
   if (session && profile.data) return <Navigate to="/hoy" replace />
+
+  return children
+}
+
+/**
+ * Para las rutas que un plan restringido no ve (Movimientos, Fijos, Análisis, Ahorros, Mis Deudas,
+ * Me Deben) — va DENTRO de `RequireAuth`, así que sesión y perfil ya están garantizados; sólo falta
+ * el plan. Sin la capacidad, rebota a /hoy en vez de mostrar una pantalla vacía o rota — mismo
+ * criterio que ya usa `RequireAdmin` con el rol. Escribir la URL a mano no evita el gate: no es sólo
+ * un filtro de la nav.
+ */
+export function RequireCapability({ cap, children }: { cap: Capability; children: ReactNode }) {
+  const profile = useProfile()
+
+  if (profile.isPending) return null
+  if (!profile.data || !can(profile.data.plan, cap)) return <Navigate to="/hoy" replace />
 
   return children
 }

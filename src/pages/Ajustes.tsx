@@ -16,6 +16,7 @@ import { accountKindIcon } from '@/features/accounts/accountKind'
 import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
 import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
+import { useCan } from '@/features/access/useCan'
 
 const fxSources: { value: FxSource; label: string }[] = [
   { value: 'oficial', label: 'Oficial' },
@@ -280,6 +281,8 @@ function SecurityPanel() {
 }
 
 export function Ajustes() {
+  const canCompleto = useCan('ajustes-completo')
+
   return (
     <div className="flex flex-col gap-8">
       <header>
@@ -287,17 +290,26 @@ export function Ajustes() {
         <h1 className="mt-2 font-display text-figure font-semibold">Ajustes</h1>
       </header>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <div className="flex flex-col gap-4">
-          <FxPanel />
-          <AssetsPanel />
+      {canCompleto ? (
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
+          <div className="flex flex-col gap-4">
+            <FxPanel />
+            <AssetsPanel />
+          </div>
+          <div className="flex flex-col gap-4">
+            <AccountsPanel />
+            <AppearancePanel />
+            <SecurityPanel />
+          </div>
         </div>
-        <div className="flex flex-col gap-4">
-          <AccountsPanel />
+      ) : (
+        // Plan restringido: sin dólar, activos ni cuentas — nada que gestionar todavía. Sólo lo que
+        // pidió Lean para test/basic, tema y seguridad, en una sola columna angosta.
+        <div className="flex max-w-[420px] flex-col gap-4">
           <AppearancePanel />
           <SecurityPanel />
         </div>
-      </div>
+      )}
     </div>
   )
 }
