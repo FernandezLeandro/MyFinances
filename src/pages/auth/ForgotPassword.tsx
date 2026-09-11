@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useState } from 'react'
+import { Mail } from 'lucide-react'
 import { Link } from 'react-router'
 import { Field, Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -29,11 +30,14 @@ export function ForgotPassword() {
   if (sent) {
     return (
       <div>
-        <h1 className="font-display text-2xl font-semibold">Revisá tu email</h1>
+        <div className="grid size-10 place-items-center rounded-[10px] bg-accent-soft">
+          <Mail className="size-5 text-accent" strokeWidth={1.5} aria-hidden />
+        </div>
+        <h1 className="mt-4 font-display text-2xl font-semibold">Revisá tu email</h1>
         <p className="mt-3 text-[14px] text-fg-secondary">
           Si esa dirección tiene una cuenta, te llegó un link para elegir una contraseña nueva.
         </p>
-        <Link to="/login" className="mt-6 inline-block text-[13px] text-fg hover:underline">
+        <Link to="/login" className="mt-6 inline-block text-[13px] font-semibold text-accent hover:opacity-80">
           Volver a entrar
         </Link>
       </div>
@@ -48,15 +52,15 @@ export function ForgotPassword() {
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
-        <Input id="email" type="email" autoComplete="email" invalid={!!errors.email} {...register('email')} />
+        <Input id="email" type="email" fieldSize="auth" autoComplete="email" invalid={!!errors.email} {...register('email')} />
       </Field>
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Enviando…' : 'Enviar link'}
       </Button>
 
-      <p className="text-center text-[13px] text-fg-muted">
-        <Link to="/login" className="text-fg hover:underline">
+      <p className="text-center text-[13px]">
+        <Link to="/login" className="font-semibold text-accent hover:opacity-80">
           Volver a entrar
         </Link>
       </p>

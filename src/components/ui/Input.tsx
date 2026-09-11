@@ -39,16 +39,29 @@ export const controlBase =
   'transition-colors duration-150 outline-none ' +
   'hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }
+type InputSize = 'md' | 'auth'
+
+const inputSizes: Record<InputSize, string> = {
+  md: 'h-11 text-[15px]',
+  // Los campos de las 5 pantallas de auth: 48px en mobile, bajando a los 44px de siempre desde `sm`.
+  auth: 'h-12 text-[15px] sm:h-11',
+}
+
+type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
+  invalid?: boolean
+  ref?: Ref<HTMLInputElement>
+  /** No confundir con el atributo nativo `size` (ancho en caracteres) — este es el alto del control. */
+  fieldSize?: InputSize
+}
 
 // React 19: una función puede recibir `ref` como prop normal, sin forwardRef. Hace falta que
 // llegue al <input> real para que React Hook Form (no controlado) pueda leer el valor.
-export function Input({ className, invalid, ref, ...props }: InputProps) {
+export function Input({ className, invalid, fieldSize = 'md', ref, ...props }: InputProps) {
   return (
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-negative/60', className)}
+      className={cn(controlBase, inputSizes[fieldSize], invalid && 'ring-1 ring-negative/60', className)}
       {...props}
     />
   )

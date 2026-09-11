@@ -64,14 +64,14 @@ export function Bienvenida() {
       </div>
 
       <Field label="Nombre" htmlFor="displayName" error={errors.displayName?.message}>
-        <Input id="displayName" autoComplete="name" invalid={!!errors.displayName} {...register('displayName')} />
+        <Input id="displayName" fieldSize="auth" autoComplete="name" invalid={!!errors.displayName} {...register('displayName')} />
       </Field>
 
       <Field label="Código de invitación" htmlFor="inviteCode" error={errors.inviteCode?.message}>
-        <Input id="inviteCode" autoComplete="off" invalid={!!errors.inviteCode} {...register('inviteCode')} />
+        <Input id="inviteCode" fieldSize="auth" autoComplete="off" invalid={!!errors.inviteCode} {...register('inviteCode')} />
       </Field>
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Entrando…' : 'Entrar'}
       </Button>
 

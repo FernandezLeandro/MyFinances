@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 
 export type ButtonVariant = 'primary' | 'ghost' | 'outline' | 'danger'
-export type ButtonSize = 'sm' | 'compact' | 'md' | 'dialogFooter'
+export type ButtonSize = 'sm' | 'compact' | 'md' | 'dialogFooter' | 'auth'
 
 const variants: Record<ButtonVariant, string> = {
   // `text-on-accent`, no `text-canvas`: con el sistema de tema nuevo el acento es azul en los dos
@@ -26,6 +26,9 @@ const sizes: Record<ButtonSize, string> = {
   // porque el `cn()` del repo no dedupea: dos clases de alto/ancho compitiendo en el mismo string
   // tendrían un ganador impredecible.
   dialogFooter: 'h-12 w-full px-4 text-sm gap-2 sm:h-[38px] sm:w-auto sm:px-[15px] sm:text-[13px] sm:gap-1.5',
+  // Botón único de las 5 pantallas de auth: siempre a todo el ancho de la tarjeta de 380px, y a
+  // 48px en mobile (donde el panel ocupa todo el viewport) bajando a los 44px de siempre desde `sm`.
+  auth: 'h-12 w-full px-5 text-sm gap-2 sm:h-11',
 }
 
 /**

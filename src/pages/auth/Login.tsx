@@ -43,13 +43,14 @@ export function Login() {
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
-        <Input id="email" type="email" autoComplete="email" invalid={!!errors.email} {...register('email')} />
+        <Input id="email" type="email" fieldSize="auth" autoComplete="email" invalid={!!errors.email} {...register('email')} />
       </Field>
 
       <Field label="Contraseña" htmlFor="password" error={errors.password?.message}>
         <Input
           id="password"
           type="password"
+          fieldSize="auth"
           autoComplete="current-password"
           invalid={!!errors.password}
           {...register('password')}
@@ -58,7 +59,7 @@ export function Login() {
 
       <FormError message={errors.root?.message} />
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Entrando…' : 'Entrar'}
       </Button>
 
@@ -66,7 +67,7 @@ export function Login() {
         <Link to="/recuperar" className="hover:text-fg">
           ¿Olvidaste tu contraseña?
         </Link>
-        <Link to="/registro" className="hover:text-fg">
+        <Link to="/registro" className="font-semibold text-accent hover:opacity-80">
           Crear cuenta
         </Link>
       </div>
