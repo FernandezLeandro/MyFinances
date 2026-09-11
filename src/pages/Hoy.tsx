@@ -1,20 +1,32 @@
-import { useMemo, useState } from 'react'
-import { format, startOfMonth } from 'date-fns'
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { endOfMonth, format, isSameDay, parseISO, startOfMonth, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { Link } from 'react-router'
+import { Plus } from 'lucide-react'
+import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
-import { buttonClasses } from '@/components/ui/button-styles'
 import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
+import { Stat, StatRow } from '@/components/ui/Stat'
+import { StackedBar } from '@/components/ui/StackedBar'
+import { GroupHeader } from '@/components/ui/GroupHeader'
+import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
 import { useCountUp } from '@/lib/useCountUp'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCategories } from '@/features/categories/api'
-import { useCurrentBalance, useMonthlySummary, useRecentTransactions } from '@/features/transactions/api'
+import {
+  useCurrentBalance,
+  useMonthlySummary,
+  useSpendByCategory,
+  useTransactions,
+  type Transaction,
+} from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
 import { useBalanceLocations } from '@/features/reconciliation/api'
@@ -28,30 +40,76 @@ import {
   useStandalonePurchases,
 } from '@/features/credits/api'
 import { useFixedExpensePayments, useFixedExpenses, useProjectedBalance } from '@/features/fixed-expenses/api'
-import { summarizeFixedExpenses } from '@/features/fixed-expenses/aggregate'
-import { Link } from 'react-router'
+import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
+
+// `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
+// la app (ver el comentario de `App.tsx`) — cargarlo de arriba le sumaba ~300kB gzip al bundle
+// inicial que paga cualquiera que abra la app, incluso sin llegar a mirar el donut.
+const CategoryDonut = lazy(() =>
+  import('@/features/analytics/CategoryDonut').then((m) => ({ default: m.CategoryDonut })),
+)
+
+/** "Hoy" / "Ayer" / el nombre del día — alcanza con lo reciente, así la lista no repite la fecha
+ *  completa en cada fila. */
+function dayLabel(occurredOn: string, today: Date): string {
+  const date = parseISO(occurredOn)
+  if (isSameDay(date, today)) return 'Hoy'
+  if (isSameDay(date, subDays(today, 1))) return 'Ayer'
+  return format(date, "EEEE d 'de' MMMM", { locale: es })
+}
+
+const urgencyBadgeVariant: Record<FixedExpenseUrgency, 'red' | 'amber' | 'neutral'> = {
+  red: 'red',
+  amber: 'amber',
+  neutral: 'neutral',
+}
+
+const urgencyDotClass: Record<FixedExpenseUrgency, string> = {
+  red: 'bg-negative',
+  amber: 'bg-badge-amber-fg',
+  neutral: 'bg-border-strong',
+}
+
+function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
+  if (urgency === 'red') return 'Venció'
+  if (urgency === 'amber') return 'Esta semana'
+  return `Vence el ${dueDay}`
+}
+
+// El widget de Movimientos muestra los últimos 5 fijos en mobile; en escritorio, los que entren
+// hasta el borde de la pantalla sin obligar a scrollear, con 5 de piso y 12 de techo.
+const MOVEMENTS_DESKTOP_QUERY = '(min-width: 1024px)' // mismo breakpoint que `lg:` en Tailwind
+const MOVEMENTS_PREVIEW_MIN = 5
+const MOVEMENTS_PREVIEW_MAX = 12
+/** El padding inferior del `<main>` (`md:pb-16` = 64px) más 8px de aire contra redondeos. */
+const MOVEMENTS_MAIN_BOTTOM_PADDING = 72
+/** El `gap-1` que separa un grupo de día del siguiente dentro de la lista. */
+const MOVEMENTS_GROUP_GAP = 4
 
 export function Hoy() {
   const [open, setOpen] = useState(false)
   const [cuadrarOpen, setCuadrarOpen] = useState(false)
-  const period = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const today = new Date()
+  const monthStart = format(startOfMonth(today), 'yyyy-MM-dd')
+  const monthEnd = format(endOfMonth(today), 'yyyy-MM-dd')
 
   const balance = useCurrentBalance()
-  const summary = useMonthlySummary(period)
-  const recent = useRecentTransactions(6)
+  const summary = useMonthlySummary(monthStart)
+  const monthTransactions = useTransactions({ from: monthStart, to: monthEnd })
+  const spendQuery = useSpendByCategory(monthStart, monthEnd)
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(period)
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalance(monthStart)
   const { data: fixedExpenses } = useFixedExpenses()
-  const { data: fixedPayments } = useFixedExpensePayments(period)
+  const { data: fixedPayments } = useFixedExpensePayments(monthStart)
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
-  const { data: installments } = useCreditInstallments(period)
-  const { data: savings } = useCreditCardSavings(period)
-  const { data: cardPayments } = useCreditCardPayments(period)
-  const { data: purchasePayments } = useCreditPurchasePayments(period)
+  const { data: installments } = useCreditInstallments(monthStart)
+  const { data: savings } = useCreditCardSavings(monthStart)
+  const { data: cardPayments } = useCreditCardPayments(monthStart)
+  const { data: purchasePayments } = useCreditPurchasePayments(monthStart)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
@@ -68,126 +126,405 @@ export function Hoy() {
       ),
     [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
-  // Misma función que Fijos.tsx: así "cuántos fijos faltan pagar" cuenta exactamente igual en las
-  // dos pantallas, bolsas a medio gastar incluidas.
+  const unpaidCards = misDeudasSummary.perCard.filter((c) => !c.paid)
+  const unpaidStandalone = misDeudasSummary.standalone.filter((s) => !s.paid)
+  const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
+
   const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], new Date(), new Date()),
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
     [fixedExpenses, fixedPayments],
   )
-  const unpaidDebtsCount =
-    misDeudasSummary.perCard.filter((c) => !c.paid).length + misDeudasSummary.standalone.filter((s) => !s.paid).length
+
+  // Sólo lo que realmente "vence" — una bolsa mensual no tiene día de vencimiento, así que no
+  // compite acá con los fijos de una sola vez (ver `fixedExpenseUrgency`).
+  const upcoming = useMemo(
+    () =>
+      pendingFixed
+        .filter((s) => s.fe.due_day != null)
+        .sort((a, b) => (a.fe.due_day ?? 0) - (b.fe.due_day ?? 0))
+        .slice(0, 4),
+    [pendingFixed],
+  )
+
+  const currentBalanceCents = balance.data ?? 0
+  const isDesktop = useMediaQuery(MOVEMENTS_DESKTOP_QUERY)
+
+  // Cuántos movimientos entran sin scrollear. El cálculo es de una sola pasada: mide el espacio
+  // libre hasta el borde de la ventana y las alturas de una fila y de un encabezado de día, y de
+  // ahí saca el número por aritmética. Ninguna de esas tres medidas depende de cuántas filas haya
+  // renderizadas, así que volver a medir después de cambiar el conteo da siempre lo mismo y el
+  // efecto se estabiliza solo — a diferencia de ajustar de a un ítem contra un `ResizeObserver`,
+  // que oscilaba para siempre cuando el punto de ajuste caía entre dos enteros.
+  const movementsListRef = useRef<HTMLDivElement>(null)
+  const [movementsCount, setMovementsCount] = useState(MOVEMENTS_PREVIEW_MIN)
+
+  useLayoutEffect(() => {
+    const fit = () => {
+      if (!window.matchMedia(MOVEMENTS_DESKTOP_QUERY).matches) {
+        setMovementsCount(MOVEMENTS_PREVIEW_MIN)
+        return
+      }
+      const list = movementsListRef.current
+      const all = monthTransactions.data
+      if (!list || !all?.length) return
+
+      // Alturas unitarias, tomadas del primer grupo ya renderizado: fila y encabezado miden igual
+      // sin importar cuántos haya.
+      const rowHeight = list.querySelector('li')?.getBoundingClientRect().height ?? 0
+      const headerHeight = list.firstElementChild?.firstElementChild?.getBoundingClientRect().height ?? 0
+      if (!rowHeight) return
+
+      // Lo que la lista ya ocupa más lo que queda libre debajo del panel que la contiene. Medirlo
+      // así incluye solo el padding del panel sin tener que hardcodearlo, y es invariante al
+      // conteo: si la lista crece, el hueco de abajo se achica en la misma cantidad.
+      const panelBottom = list.parentElement?.getBoundingClientRect().bottom ?? 0
+      const budget =
+        list.getBoundingClientRect().height +
+        (window.innerHeight - panelBottom - MOVEMENTS_MAIN_BOTTOM_PADDING)
+      let used = 0
+      let fitted = 0
+      let lastLabel: string | null = null
+      for (const tx of all) {
+        if (fitted >= MOVEMENTS_PREVIEW_MAX) break
+        const label = dayLabel(tx.occurred_on, today)
+        const opensGroup = label !== lastLabel
+        const cost = rowHeight + (opensGroup ? headerHeight + (fitted ? MOVEMENTS_GROUP_GAP : 0) : 0)
+        if (used + cost > budget) break
+        used += cost
+        fitted += 1
+        lastLabel = label
+      }
+      setMovementsCount(Math.max(MOVEMENTS_PREVIEW_MIN, fitted))
+    }
+
+    fit()
+    const mql = window.matchMedia(MOVEMENTS_DESKTOP_QUERY)
+    window.addEventListener('resize', fit)
+    mql.addEventListener('change', fit)
+    return () => {
+      window.removeEventListener('resize', fit)
+      mql.removeEventListener('change', fit)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
+  }, [monthTransactions.data, movementsCount])
+
+  // `monthTransactions` ya viene ordenado del más nuevo al más viejo, así que los primeros son
+  // exactamente "los últimos".
+  const visibleTransactions = useMemo(
+    () => (monthTransactions.data ?? []).slice(0, movementsCount),
+    [monthTransactions.data, movementsCount],
+  )
+
+  const groupedRecent = useMemo(() => {
+    const groups = new Map<string, Transaction[]>()
+    for (const tx of visibleTransactions) {
+      const label = dayLabel(tx.occurred_on, today)
+      const list = groups.get(label) ?? []
+      list.push(tx)
+      groups.set(label, list)
+    }
+    return [...groups.entries()]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
+  }, [visibleTransactions])
+
+  const totalIncome = summary.data?.totalIncome ?? 0
+  const totalExpense = summary.data?.totalExpense ?? 0
+  const totalFlow = totalIncome + totalExpense
+  const incomePct = totalFlow > 0 ? (totalIncome / totalFlow) * 100 : 0
+  const expensePct = totalFlow > 0 ? (totalExpense / totalFlow) * 100 : 0
+
+  const monthLabel = format(today, 'MMMM', { locale: es })
+  const spend = spendQuery.data ?? []
+  const spendTotal = spend.reduce((acc, s) => acc + s.cents, 0)
 
   return (
-    <div className="flex flex-col gap-12">
-      <header>
-        <div className="flex items-center gap-2">
-          <p className="eyebrow">Saldo actual · {format(new Date(), 'MMMM yyyy', { locale: es })}</p>
-          <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="saldo" />
+    <div className="flex flex-col gap-4">
+      {/* Saldo actual — la única cifra que contesta "cuánto me queda para gastar". */}
+      <Panel className="flex flex-col gap-6 p-6 lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-11 lg:gap-y-5 lg:p-7">
+        <div className="flex-none">
+          <div className="flex items-center gap-2">
+            <p className="eyebrow">Saldo actual</p>
+            <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="saldo" />
+          </div>
+          {balance.isPending ? (
+            <Skeleton className="mt-3 h-12 w-56 lg:h-16 lg:w-64" />
+          ) : (
+            <Money cents={animatedBalance} tone="accent" size="hero" className="mt-2 -ml-1 lg:mt-3" hidden={balanceHidden} />
+          )}
         </div>
 
-        {balance.isPending ? (
-          <Skeleton className="mt-4 h-20 w-72 sm:h-28 sm:w-96" />
-        ) : (
-          <Money cents={animatedBalance} tone="acid" size="hero" className="mt-3 -ml-1" hidden={balanceHidden} />
-        )}
-
-        <div className="mt-8 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-ink-850 pt-6">
-          <div>
-            <p className="eyebrow">Ingresos del mes</p>
-            {summary.isPending ? (
-              <Skeleton className="mt-2 h-9 w-28" />
-            ) : (
-              <Money
-                cents={summary.data?.totalIncome ?? 0}
-                tone="chalk"
-                size="figure"
-                className="mt-1"
-                hidden={balanceHidden}
-              />
-            )}
-          </div>
-          <div>
-            <p className="eyebrow">Gastos del mes</p>
-            {summary.isPending ? (
-              <Skeleton className="mt-2 h-9 w-28" />
-            ) : (
-              <Money
-                cents={summary.data?.totalExpense ?? 0}
-                tone="coral"
-                size="figure"
-                className="mt-1"
-                hidden={balanceHidden}
-              />
-            )}
-          </div>
-          <div className="ml-auto flex w-full gap-2 sm:w-auto">
-            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setCuadrarOpen(true)}>
-              Cuadrar saldo
-            </Button>
-            <Button
-              className="flex-1 sm:flex-none"
-              icon={<span className="text-base leading-none">+</span>}
-              onClick={() => setOpen(true)}
-            >
-              Nuevo movimiento
-            </Button>
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow lg:hidden">Flujo del mes</p>
+          {summary.isPending ? (
+            <Skeleton className="mt-3 h-3 w-full" />
+          ) : (
+            <StackedBar
+              className="mt-2 lg:mt-0"
+              segments={[
+                { pct: incomePct, color: 'var(--color-accent)' },
+                { pct: expensePct, color: 'var(--color-negative)' },
+              ]}
+            />
+          )}
+          {/* `flex-wrap`: `--text-figure` ya llega clampeado a su mínimo (25px) en mobile, así que
+              con importes de millones las dos cifras no entran lado a lado en una pantalla de
+              ~390px y se salían de la tarjeta. Envolviendo, Gastos baja a su propia línea sólo
+              cuando hace falta — no depende de cuántos dígitos tenga el número. */}
+          <StatRow className="mt-3.5 flex-wrap gap-6 lg:gap-8">
+            <Stat label="Ingresos">
+              {summary.isPending ? (
+                <Skeleton className="h-6 w-20 lg:h-7 lg:w-24" />
+              ) : (
+                <Money cents={totalIncome} tone="fg" size="figure" hidden={balanceHidden} />
+              )}
+            </Stat>
+            <Stat label="Gastos">
+              {summary.isPending ? (
+                <Skeleton className="h-6 w-20 lg:h-7 lg:w-24" />
+              ) : (
+                <Money cents={totalExpense} tone="negative" size="figure" hidden={balanceHidden} />
+              )}
+            </Stat>
+          </StatRow>
         </div>
-      </header>
 
-      <SaldoProyectadoPanel
-        projectedCents={projectedBalance}
-        isPending={isProjectedPending}
-        currentBalanceCents={balance.data ?? 0}
-        pendingFixedCount={pendingFixed.length}
-        pendingFixedCents={pendingFixedTotal}
-        unpaidDebtsCount={unpaidDebtsCount}
-        unpaidDebtsCents={misDeudasSummary.totalPendingCents}
-        hidden={balanceHidden}
-        hideWhenNothingPending
-      />
+        {/* En mobile van debajo del saldo — el `+` de la isla duplica "Nuevo movimiento", pero es el
+            atajo más a mano y "Cuadrar saldo" no tiene ningún otro lugar desde donde abrirse ahí.
+            En escritorio quedan apiladas en una columna angosta.
 
-      <Panel>
-        <PanelHeader
-          title="Últimos movimientos"
-          action={
-            <Link to="/movimientos" className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
+            `flex-wrap` + `grow shrink-0` en vez de `flex-1`: los dos botones tienen
+            `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con `flex-1`
+            (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta hasta
+            60px en pantallas de 360-414px. Así se acomodan solos: lado a lado si entran, uno arriba
+            del otro si no, y `grow` los estira a lo que quede libre en su fila. */}
+        <div className="flex flex-none flex-wrap gap-2 lg:ml-auto lg:w-[186px] lg:flex-col lg:flex-nowrap">
+          <Button
+            className="grow shrink-0 lg:grow-0"
+            onClick={() => setOpen(true)}
+            icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
+          >
+            Nuevo movimiento
+          </Button>
+          <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
+            Cuadrar saldo
+          </Button>
+        </div>
+      </Panel>
+
+      {/* Proyectado · En qué se fue el mes · Vencimientos — desktop, tres tarjetas iguales.
+          `isDesktop` en vez de `hidden lg:grid`: este bloque monta el `CategoryDonut` (recharts),
+          y un `ResponsiveContainer` dentro de un `display:none` mide 0×0 y llena la consola de
+          warnings — con el gate en JS, en mobile directamente no se monta. */}
+      {isDesktop && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SaldoProyectadoPanel
+            title="Proyectado a fin de mes"
+            projectedCents={projectedBalance}
+            isPending={isProjectedPending}
+            currentBalanceCents={currentBalanceCents}
+            pendingFixedCount={pendingFixed.length}
+            pendingFixedCents={pendingFixedTotal}
+            unpaidDebtsCount={unpaidDebtsCount}
+            unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+            hidden={balanceHidden}
+          />
+
+          <Panel className="p-[22px]">
+            <p className="eyebrow">En qué se fue el mes</p>
+            {spendQuery.isError ? (
+              <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
+            ) : spendQuery.isPending ? (
+              <div className="mt-3.5 flex items-center gap-4">
+                <Skeleton className="size-[86px] shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-4 w-full" />
+                  ))}
+                </div>
+              </div>
+            ) : spend.length === 0 ? (
+              <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos este mes.</p>
+            ) : (
+              <div className="mt-3.5 flex items-center gap-4">
+                <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
+                  <CategoryDonut data={spend} size={86} />
+                </Suspense>
+                <ul className="flex min-w-0 flex-1 flex-col gap-2">
+                  {spend.slice(0, 4).map((s) => (
+                    <li key={s.categoryId} className="flex items-center gap-2">
+                      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
+                      <span className="tnum text-[12px] font-semibold text-fg-secondary">
+                        {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Panel>
+
+          <Panel className="p-[22px]">
+            <div className="flex items-baseline justify-between">
+              <p className="eyebrow">Vencimientos</p>
+              <Link to="/fijos" className="text-[12px] font-semibold text-accent-text">
+                Ver fijos
+              </Link>
+            </div>
+            {upcoming.length === 0 ? (
+              <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
+            ) : (
+              <ul className="mt-2.5 flex flex-col">
+                {upcoming.map((status) => {
+                  const dueDay = status.fe.due_day as number
+                  const urgency = fixedExpenseUrgency(dueDay, today)
+                  return (
+                    <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                      <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
+                        {status.fe.name}
+                      </span>
+                      <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
+                      <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      {/* Proyectado a fin de mes (misma tarjeta que en escritorio: cifra + desglose de fijos y
+          deudas), con la barrita de comprometido/libre como acompañamiento — y sin la fila de
+          "Saldo actual" del desglose de escritorio, que ya es el titular del hero de arriba. */}
+      <div className="flex flex-col gap-4 lg:hidden">
+        <SaldoProyectadoPanel
+          title="Proyectado a fin de mes"
+          projectedCents={projectedBalance}
+          isPending={isProjectedPending}
+          currentBalanceCents={currentBalanceCents}
+          pendingFixedCount={pendingFixed.length}
+          pendingFixedCents={pendingFixedTotal}
+          unpaidDebtsCount={unpaidDebtsCount}
+          unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+          hidden={balanceHidden}
+          showCurrentBalanceRow={false}
+          bar
+        />
+
+        <Panel className="p-[18px]">
+          <div className="flex items-baseline justify-between">
+            <p className="eyebrow">Próximos vencimientos</p>
+            <Link to="/fijos" className="text-[11.5px] font-semibold text-accent-text">
               Ver todos
             </Link>
-          }
-        />
-        {recent.isError ? (
-          <ErrorState onRetry={() => recent.refetch()} />
-        ) : recent.isPending ? (
-          <ul className="flex flex-col gap-1 px-6 pb-5">
-            {[0, 1, 2].map((i) => (
-              <li key={i} className="flex items-center gap-3 py-2.5">
-                <Skeleton className="size-2 shrink-0 rounded-full" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-20" />
-              </li>
-            ))}
-          </ul>
-        ) : recent.data && recent.data.length > 0 ? (
-          <ul className="pb-3">
-            {recent.data.map((tx) => (
-              <TransactionRow
-                key={tx.id}
-                tx={tx}
-                category={categoryById.get(tx.category_id ?? '')}
-                account={accountById.get(tx.account_id ?? '')}
-              />
-            ))}
-          </ul>
-        ) : (
-          <EmptyState
-            glyph="∅"
-            title="Todavía no cargaste nada"
-            hint="Arrancá con tu primer ingreso o gasto del día."
-            action={<Button onClick={() => setOpen(true)}>Nuevo movimiento</Button>}
-          />
-        )}
-      </Panel>
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
+          ) : (
+            <ul className="mt-2.5 flex flex-col">
+              {upcoming.map((status) => {
+                const dueDay = status.fe.due_day as number
+                const urgency = fixedExpenseUrgency(dueDay, today)
+                return (
+                  <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                    <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
+                    <span className="text-[13px] font-semibold text-fg">{status.fe.name}</span>
+                    <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
+                    <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto" hidden={balanceHidden} />
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
+      {/* Movimientos del mes · rail derecho (Libre + Mis deudas, sólo escritorio). */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
+        <Panel className="flex flex-col p-[22px]">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-[15px] font-semibold text-fg">
+              Movimientos de {monthLabel}
+            </h2>
+            <Link to="/movimientos" className="text-[12px] font-semibold text-accent-text">
+              Ver todos
+            </Link>
+          </div>
+
+          {monthTransactions.isError ? (
+            <ErrorState onRetry={() => monthTransactions.refetch()} className="mt-4" />
+          ) : monthTransactions.isPending ? (
+            <ul className="mt-4 flex flex-col gap-1">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="flex items-center gap-3 py-2.5">
+                  <Skeleton className="size-2 shrink-0 rounded-full" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-20" />
+                </li>
+              ))}
+            </ul>
+          ) : groupedRecent.length > 0 ? (
+            <div ref={movementsListRef} className="mt-3 flex flex-col gap-1">
+              {groupedRecent.map(([label, txs]) => (
+                <div key={label}>
+                  <GroupHeader label={label} className="pt-2 pb-1" />
+                  <ul>
+                    {txs.map((tx) => (
+                      <TransactionRow
+                        key={tx.id}
+                        tx={tx}
+                        category={categoryById.get(tx.category_id ?? '')}
+                        account={accountById.get(tx.account_id ?? '')}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              glyph="∅"
+              title="Todavía no cargaste nada este mes"
+              hint="Arrancá con tu primer ingreso o gasto del día."
+              action={<Button onClick={() => setOpen(true)}>Nuevo movimiento</Button>}
+              className="mt-4"
+            />
+          )}
+        </Panel>
+
+        <div className="hidden flex-col gap-4 lg:flex">
+          {(unpaidCards.length > 0 || unpaidStandalone.length > 0) && (
+            <Panel className="p-[22px]">
+              <div className="flex items-baseline justify-between">
+                <p className="eyebrow">Mis deudas</p>
+                <Money cents={misDeudasSummary.totalPendingCents} tone="fg" size="row" hidden={balanceHidden} />
+              </div>
+              <ul className="mt-3 flex flex-col gap-2.5">
+                {unpaidCards.map((c) => (
+                  <li key={c.card.id} className="flex items-center gap-2.5">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">{c.card.name}</span>
+                    <span className="text-[11.5px] text-fg-muted">
+                      {c.items.length} cuota{c.items.length === 1 ? '' : 's'}
+                    </span>
+                    <Money cents={c.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                  </li>
+                ))}
+                {unpaidStandalone.map((s) => (
+                  <li key={s.purchase.id} className="flex items-center gap-2.5">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
+                      {s.purchase.description}
+                    </span>
+                    <Money cents={s.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+        </div>
+      </div>
 
       {/* Montado sólo mientras está abierto: así cada apertura dispara una consulta fresca de
           categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}

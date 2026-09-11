@@ -9,16 +9,16 @@ function ToastItem({ toast }: { toast: Toast }) {
     <div
       role={toast.tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'animate-sheet-in pointer-events-auto flex items-start gap-3 rounded-panel bg-ink-900 px-4 py-3 shadow-lift ring-1',
-        toast.tone === 'error' ? 'ring-coral/30' : 'ring-acid/30',
+        'animate-sheet-in pointer-events-auto flex items-start gap-3 rounded-panel bg-surface px-4 py-3 shadow-lift ring-1',
+        toast.tone === 'error' ? 'ring-negative/30' : 'ring-accent/30',
       )}
     >
-      <p className="flex-1 text-[13px] text-chalk">{toast.message}</p>
+      <p className="flex-1 text-[13px] text-fg">{toast.message}</p>
       <button
         type="button"
         onClick={() => dismissToast(toast.id)}
         aria-label="Cerrar aviso"
-        className="-mr-1 shrink-0 rounded-chip p-1 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+        className="-mr-1 shrink-0 rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
       >
         <X className="size-3.5" strokeWidth={1.5} aria-hidden />
       </button>

@@ -1,6 +1,10 @@
 import { SummaryPanel, type SummaryRow } from '@/components/ui/SummaryPanel'
 
 interface SaldoProyectadoPanelProps {
+  /** "Saldo proyectado a fin de mes" (default, Fijos) — Hoy pasa el título más corto del hero
+   *  ("Proyectado a fin de mes"), que ya tiene su propio "Saldo actual" arriba y no necesita
+   *  repetir la palabra. */
+  title?: string
   projectedCents: number | undefined
   isPending: boolean
   currentBalanceCents: number
@@ -13,6 +17,16 @@ interface SaldoProyectadoPanelProps {
   /** Hoy oculta el panel entero cuando no hay nada que descontar (redundante con el hero de
    *  arriba); Fijos lo deja siempre visible con una línea aclaratoria. */
   hideWhenNothingPending?: boolean
+  /** La fila "Saldo actual" del desglose — `true` por default (Fijos, y el panel de escritorio de
+   *  Hoy). La versión de mobile de Hoy la apaga: el saldo actual ya es el titular del hero de
+   *  arriba, repetirlo acá abajo es ruido. */
+  showCurrentBalanceRow?: boolean
+  /** La barrita de comprometido/libre — sólo la versión mobile de Hoy la pide, como acompañamiento
+   *  visual más compacto que las dos filas de desglose. */
+  bar?: boolean
+  /** Pisa el footnote de "nada pendiente" con uno fijo, sin importar `nothingPending` — Mis Deudas lo
+   *  usa para aclarar que es el mismo número que en Fijos (mismo panel, dos pantallas). */
+  footnote?: string
 }
 
 /**
@@ -21,8 +35,13 @@ interface SaldoProyectadoPanelProps {
  * mensuales incluidas) y deudas impagas (tarjetas y compras sueltas). El markup en sí vive en
  * `SummaryPanel`, compartido a su vez con los paneles de resumen de Mis Deudas y Me Deben — acá
  * sólo queda la lógica de dominio: qué filas mostrar y cuándo esconder el panel entero.
+ *
+ * Siempre `inverse`: en el sistema Bento esta es la única tarjeta oscura fija de la app (Hoy y
+ * Fijos), a diferencia de los totales de Mis Deudas/Me Deben, que se distinguen con el ring de
+ * acento (`accent`) sobre una tarjeta normal.
  */
 export function SaldoProyectadoPanel({
+  title = 'Saldo proyectado a fin de mes',
   projectedCents,
   isPending,
   currentBalanceCents,
@@ -32,27 +51,44 @@ export function SaldoProyectadoPanel({
   unpaidDebtsCents,
   hidden,
   hideWhenNothingPending = false,
+  showCurrentBalanceRow = true,
+  bar = false,
+  footnote,
 }: SaldoProyectadoPanelProps) {
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
 
-  const rows: SummaryRow[] = [{ label: 'Saldo actual', cents: currentBalanceCents, tone: 'dim' }]
+  const rows: SummaryRow[] = []
+  if (showCurrentBalanceRow) rows.push({ label: 'Saldo actual', cents: currentBalanceCents })
   if (pendingFixedCount > 0) {
-    rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'coral' })
+    rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'negativeOnInverse' })
   }
   if (unpaidDebtsCount > 0) {
-    rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'coral' })
+    rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'negativeOnInverse' })
   }
+
+  // Mismos términos que las filas de arriba: comprometido = fijos + deudas pendientes, sobre el
+  // saldo actual — así la barra nunca puede desincronizarse del desglose que tiene al lado.
+  const committedCents = pendingFixedCents + unpaidDebtsCents
+  const committedPct = currentBalanceCents > 0 ? Math.min((committedCents / currentBalanceCents) * 100, 100) : 0
 
   return (
     <SummaryPanel
-      title="Saldo proyectado a fin de mes"
+      title={title}
       cents={projectedCents}
       isPending={isPending}
       hidden={hidden}
-      accent
+      inverse
+      extra={
+        bar && !isPending ? (
+          <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
+            <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
+            <div className="h-full bg-accent-text" style={{ width: `${100 - committedPct}%` }} />
+          </div>
+        ) : undefined
+      }
       rows={rows}
-      footnote={nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined}
+      footnote={footnote ?? (nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined)}
     />
   )
 }

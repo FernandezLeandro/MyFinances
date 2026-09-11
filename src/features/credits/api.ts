@@ -184,6 +184,25 @@ export function useCreditPurchasePayments(period: string) {
   })
 }
 
+/** IDs de transacción de compras sueltas ya pagadas, sin acotar a un período — Análisis los usa para
+ *  saber qué gastos son en realidad cuotas comprometidas: una compra sin tarjeta no lleva
+ *  `is_credit_card_payment` (ver el comentario de `rpc_mark_credit_purchase_paid`: esa columna es
+ *  sólo el label "· Tarjeta" de Movimientos, no un clasificador general de "esto ya estaba
+ *  decidido"), así que sin este set esas cuotas se contarían como gasto variable por error. */
+export function useCommittedPurchaseTransactionIds() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['credit-purchase-payment-tx-ids', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('credit_purchase_payments').select('transaction_id')
+      if (error) throw error
+      return new Set(data.map((r) => r.transaction_id).filter((id): id is string => id != null))
+    },
+  })
+}
+
 /** Snapshot de lo que se abonó en un pago ya cerrado — sobrevive aunque la compra original se
  *  edite o se borre después (ver `credit_card_payment_items` en la migración). */
 export function useCreditCardPaymentItems(paymentId: string | null) {

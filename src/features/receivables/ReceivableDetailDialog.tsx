@@ -50,37 +50,41 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
         title={receivable.name}
         footer={
           <>
-            <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+            <Button variant="danger" size="dialogFooter" onClick={() => setConfirmingDelete(true)} className="sm:mr-auto">
               Eliminar
             </Button>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cerrar
             </Button>
-            <Button variant="outline" onClick={() => setFormOpen(true)}>
+            <Button variant="outline" size="dialogFooter" onClick={() => setFormOpen(true)}>
               Editar
             </Button>
-            {!cobrada && <Button onClick={() => setAbonoOpen(true)}>Registrar abono</Button>}
+            {!cobrada && (
+              <Button size="dialogFooter" onClick={() => setAbonoOpen(true)}>
+                Registrar abono
+              </Button>
+            )}
           </>
         }
       >
-        <div className="mb-5 flex flex-col gap-3 border-b border-ink-850 pb-5">
+        <div className="mb-5 flex flex-col gap-3 border-b border-fill-subtle pb-5">
           <div>
             <p className="eyebrow">{cobrada ? 'Cobrada' : 'Pendiente'}</p>
-            <Money cents={cobrada ? receivable.amountCents : pendingCents} tone={cobrada ? 'dim' : 'acid'} size="figure" className="mt-1" />
+            <Money cents={cobrada ? receivable.amountCents : pendingCents} tone={cobrada ? 'dim' : 'accent'} size="figure" className="mt-1" />
             {!cobrada && payments.length > 0 && (
-              <p className="mt-1 text-[12px] text-chalk-faint">
+              <p className="mt-1 text-[12px] text-fg-muted">
                 de <Money cents={receivable.amountCents} tone="dim" /> en total
               </p>
             )}
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
-            <span className={vencida ? 'text-coral' : 'text-chalk-faint'}>
+            <span className={vencida ? 'text-negative' : 'text-fg-muted'}>
               {receivable.expected_period
                 ? `${vencida ? 'Venció en' : 'Esperada para'} ${format(parseISO(receivable.expected_period), 'MMMM yyyy', { locale: es })}`
                 : 'Sin fecha esperada'}
             </span>
-            <span className="text-chalk-faint">
+            <span className="text-fg-muted">
               {!receivable.already_expensed
                 ? 'Le prestaste efectivo'
                 : receivable.expense_transaction_id != null
@@ -97,7 +101,7 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
               <button
                 type="button"
                 onClick={() => setExpenseOpen(true)}
-                className="self-start text-[12px] font-medium text-acid hover:underline"
+                className="self-start text-[12px] font-medium text-accent hover:underline"
               >
                 Descontar de mi saldo
               </button>
@@ -107,14 +111,14 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
                   type="button"
                   onClick={() => unexpenseReceivable.mutate(receivable.id)}
                   disabled={unexpenseReceivable.isPending}
-                  className="self-start text-[12px] font-medium text-acid hover:underline disabled:opacity-40"
+                  className="self-start text-[12px] font-medium text-accent hover:underline disabled:opacity-40"
                 >
                   {unexpenseReceivable.isPending ? 'Deshaciendo…' : 'Deshacer descuento'}
                 </button>
               )
             ))}
 
-          {receivable.note && <p className="text-[13px] text-chalk-dim">{receivable.note}</p>}
+          {receivable.note && <p className="text-[13px] text-fg-secondary">{receivable.note}</p>}
         </div>
 
         <p className="eyebrow mb-3">Historial de abonos</p>
@@ -123,10 +127,10 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
         ) : (
           <ul className="-mx-6 flex max-h-[40vh] flex-col overflow-y-auto">
             {payments.map((payment) => (
-              <li key={payment.id} className="flex items-center gap-3 border-t border-ink-850 px-6 py-2.5 first:border-t-0">
+              <li key={payment.id} className="flex items-center gap-3 border-t border-fill-subtle px-6 py-2.5 first:border-t-0">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] text-chalk-dim">{format(parseISO(payment.occurred_on), "d 'de' MMMM", { locale: es })}</p>
-                  {payment.transaction_id && <p className="mt-0.5 text-[11px] text-chalk-faint">Registró un ingreso</p>}
+                  <p className="text-[13px] text-fg-secondary">{format(parseISO(payment.occurred_on), "d 'de' MMMM", { locale: es })}</p>
+                  {payment.transaction_id && <p className="mt-0.5 text-[11px] text-fg-muted">Registró un ingreso</p>}
                 </div>
                 <Money cents={payment.amountCents} tone="dim" size="inline" />
                 <button
@@ -134,7 +138,7 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
                   onClick={() => deletePayment.mutate(payment.id)}
                   disabled={deletePayment.isPending}
                   aria-label="Quitar este abono"
-                  className="grid size-6 shrink-0 place-items-center rounded-chip text-chalk-faint transition-colors duration-150 hover:bg-ink-800 hover:text-coral disabled:opacity-40"
+                  className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
                 >
                   <X className="size-3" strokeWidth={1.5} aria-hidden />
                 </button>
@@ -166,17 +170,17 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
           title="Eliminar deuda"
           footer={
             <>
-              <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              <Button variant="ghost" size="dialogFooter" onClick={() => setConfirmingDelete(false)}>
                 Cancelar
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} disabled={deleteReceivable.isPending}>
+              <Button variant="danger" size="dialogFooter" onClick={handleConfirmDelete} disabled={deleteReceivable.isPending}>
                 {deleteReceivable.isPending ? 'Eliminando…' : 'Eliminar'}
               </Button>
             </>
           }
         >
-          <p className="text-[14px] text-chalk-dim">
-            ¿Eliminar <span className="text-chalk">{receivable.name}</span>?
+          <p className="text-[14px] text-fg-secondary">
+            ¿Eliminar <span className="text-fg">{receivable.name}</span>?
             {payments.length > 0
               ? ' Se borra también su historial de abonos. Los movimientos ya registrados no se tocan.'
               : ' No se puede deshacer.'}

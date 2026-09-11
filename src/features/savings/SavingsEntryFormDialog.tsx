@@ -6,7 +6,8 @@ import { format } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
-import { Field, Input, AmountInput } from '@/components/ui/Input'
+import { Field, Input } from '@/components/ui/Input'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
 import { Select } from '@/components/ui/Select'
 import { centsFromNumeric, centsToNumeric, parseAmountToCents, parseQuantity, unitsFromNumeric, unitsToNumeric } from '@/lib/money'
 import { useAssets, type Asset } from '@/features/assets/api'
@@ -191,14 +192,14 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
       footer={
         <>
           {isEditing && (
-            <Button variant="danger" onClick={onDelete} disabled={deleteEntry.isPending} className="mr-auto">
+            <Button variant="danger" size="dialogFooter" onClick={onDelete} disabled={deleteEntry.isPending} className="sm:mr-auto">
               Eliminar
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
@@ -235,25 +236,22 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
           </Field>
         )}
 
-        {selectedAsset?.symbol === 'ARS' ? (
-          <Field label="Importe" error={errors.amount?.message}>
-            <AmountInput invalid={!!errors.amount} {...register('amount')} />
-          </Field>
-        ) : (
-          <Field
-            label="Cantidad"
-            htmlFor="amount"
-            hint={selectedAsset ? `En ${selectedAsset.symbol}` : undefined}
-            error={errors.amount?.message}
-          >
-            <Input id="amount" inputMode="decimal" placeholder="0,00" invalid={!!errors.amount} {...register('amount')} />
-          </Field>
-        )}
+        <div>
+          <OpeningAmountField
+            label={selectedAsset?.symbol === 'ARS' ? 'Importe' : 'Cantidad'}
+            symbol={selectedAsset?.symbol === 'ARS' ? '$' : (selectedAsset?.symbol ?? '$')}
+            hint={kind === 'deposit' ? 'Se suma al total de este ítem' : 'Se resta del total de este ítem'}
+            value={amount ?? ''}
+            onChange={(v) => setValue('amount', v)}
+            ariaLabel={selectedAsset?.symbol === 'ARS' ? 'Importe' : 'Cantidad'}
+          />
+          {errors.amount?.message && <p className="mt-1.5 text-[12px] text-negative">{errors.amount.message}</p>}
+        </div>
 
         {showRate && (
-          <div className="rounded-control bg-ink-850 p-4">
+          <div className="rounded-control bg-fill-subtle p-4">
             <p className="eyebrow">¿No sabés la cotización?</p>
-            <p className="mt-1 text-[12px] text-chalk-faint">
+            <p className="mt-1 text-[12px] text-fg-muted">
               Poné cuánto gastaste en total y la calculamos con la cantidad de arriba.
             </p>
             <div className="mt-3 flex items-end gap-2">
@@ -273,7 +271,7 @@ export function SavingsEntryFormDialog({ open, onClose, bucket, entry }: Savings
                 Calcular
               </Button>
             </div>
-            {calcHint && <p className="mt-2 text-[12px] text-coral">{calcHint}</p>}
+            {calcHint && <p className="mt-2 text-[12px] text-negative">{calcHint}</p>}
           </div>
         )}
 

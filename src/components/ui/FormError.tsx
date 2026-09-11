@@ -3,7 +3,7 @@
 export function FormError({ message }: { message?: string }) {
   if (!message) return null
   return (
-    <p role="alert" className="text-[13px] text-coral">
+    <p role="alert" className="text-[13px] text-negative">
       {message}
     </p>
   )

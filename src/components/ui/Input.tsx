@@ -26,29 +26,42 @@ export function Field({ label, labelAddon, hint, error, htmlFor, children, class
       </div>
       {children}
       {error ? (
-        <p className="text-[12px] text-coral">{error}</p>
+        <p className="text-[12px] text-negative">{error}</p>
       ) : (
-        hint && <p className="text-[12px] text-chalk-faint">{hint}</p>
+        hint && <p className="text-[12px] text-fg-muted">{hint}</p>
       )}
     </div>
   )
 }
 
 export const controlBase =
-  'w-full rounded-control bg-ink-850 px-3.5 text-chalk placeholder:text-chalk-faint ' +
+  'w-full rounded-control bg-fill-subtle px-3.5 text-fg placeholder:text-fg-muted ' +
   'transition-colors duration-150 outline-none ' +
-  'hover:bg-ink-800 focus:bg-ink-800 disabled:opacity-40'
+  'hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }
+type InputSize = 'md' | 'auth'
+
+const inputSizes: Record<InputSize, string> = {
+  md: 'h-11 text-[15px]',
+  // Los campos de las 5 pantallas de auth: 48px en mobile, bajando a los 44px de siempre desde `sm`.
+  auth: 'h-12 text-[15px] sm:h-11',
+}
+
+type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
+  invalid?: boolean
+  ref?: Ref<HTMLInputElement>
+  /** No confundir con el atributo nativo `size` (ancho en caracteres) — este es el alto del control. */
+  fieldSize?: InputSize
+}
 
 // React 19: una función puede recibir `ref` como prop normal, sin forwardRef. Hace falta que
 // llegue al <input> real para que React Hook Form (no controlado) pueda leer el valor.
-export function Input({ className, invalid, ref, ...props }: InputProps) {
+export function Input({ className, invalid, fieldSize = 'md', ref, ...props }: InputProps) {
   return (
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(controlBase, 'h-11 text-[15px]', invalid && 'ring-1 ring-coral/60', className)}
+      className={cn(controlBase, inputSizes[fieldSize], invalid && 'ring-1 ring-negative/60', className)}
       {...props}
     />
   )
@@ -68,13 +81,13 @@ export function AmountInput({ className, invalid, ref, ...props }: AmountInputPr
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-control bg-ink-850 pl-4 transition-colors duration-150',
-        'focus-within:bg-ink-800',
-        invalid && 'ring-1 ring-coral/60',
+        'flex items-center gap-2 rounded-control bg-fill-subtle pl-4 transition-colors duration-150',
+        'focus-within:bg-fill-subtle',
+        invalid && 'ring-1 ring-negative/60',
         className,
       )}
     >
-      <label htmlFor={props.id ?? id} className="font-display text-2xl text-chalk-faint select-none">
+      <label htmlFor={props.id ?? id} className="font-display text-2xl text-fg-muted select-none">
         $
       </label>
       <input
@@ -85,7 +98,7 @@ export function AmountInput({ className, invalid, ref, ...props }: AmountInputPr
         autoComplete="off"
         placeholder="0,00"
         aria-invalid={invalid || undefined}
-        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-chalk outline-none placeholder:text-ink-600"
+        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-fg outline-none placeholder:text-border-strong"
         {...props}
       />
     </div>

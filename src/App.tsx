@@ -18,7 +18,6 @@ import { Register } from '@/pages/auth/Register'
 import { Bienvenida } from '@/pages/auth/Bienvenida'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
-import { FiltersPreview } from '@/pages/__FiltersPreview'
 
 // `lazy`, no import estático: son las únicas rutas que arrastran recharts (Analisis, Ahorros) o
 // motion/react (Categorias, por el Reorder) — sacarlas del chunk inicial evita que /hoy pague el
@@ -93,9 +92,6 @@ export default function App() {
             <Route path="invitaciones" element={<Invitaciones />} />
             <Route path="cuenta" element={<Cuenta />} />
           </Route>
-
-          {/* TEMP: preview de TransactionFiltersDialog sin auth, para verificación visual. Revertir. */}
-          <Route path="__filters-preview" element={<FiltersPreview />} />
 
           <Route path="*" element={<Navigate to="/hoy" replace />} />
         </Routes>

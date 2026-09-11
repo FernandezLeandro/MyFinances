@@ -43,10 +43,10 @@ export function MarkPurchasePaidDialog({
       title="Marcar compra como pagada"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
             {markPaid.isPending ? 'Guardando…' : 'Marcar pagada'}
           </Button>
         </>
@@ -60,7 +60,7 @@ export function MarkPurchasePaidDialog({
           <Money cents={totalCents} tone="dim" size="figure" className="mt-1" />
         </div>
 
-        <p className="text-[12px] text-chalk-faint">Se va a generar un movimiento con este importe.</p>
+        <p className="text-[12px] text-fg-muted">Se va a generar un movimiento con este importe.</p>
 
         <Field label="Con qué lo pagué" hint="Opcional">
           <AccountSelect value={accountId} onChange={setAccountId} />

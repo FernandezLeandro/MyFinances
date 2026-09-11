@@ -275,25 +275,25 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       footer={
         <>
           {isEditing && (
-            <Button variant="danger" onClick={onDelete} disabled={deleteTx.isPending} className="mr-auto">
+            <Button variant="danger" size="dialogFooter" onClick={onDelete} disabled={deleteTx.isPending} className="sm:mr-auto">
               Eliminar
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        <div className="flex gap-1.5">
-          <Chip active={type === 'expense'} onClick={() => selectType('expense')}>
+        <div className="flex gap-2">
+          <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
             Gasto
           </Chip>
-          <Chip active={type === 'income'} onClick={() => selectType('income')}>
+          <Chip size="lg" active={type === 'income'} onClick={() => selectType('income')}>
             Ingreso
           </Chip>
         </div>
@@ -302,20 +302,22 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
           <AmountInput invalid={!!errors.amount} {...register('amount')} />
         </Field>
 
-        <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}>
-          <Select id="categoryId" invalid={!!errors.categoryId} {...register('categoryId')}>
-            <option value="">Elegir…</option>
-            {categoriesForType.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}>
+            <Select id="categoryId" invalid={!!errors.categoryId} {...register('categoryId')}>
+              <option value="">Elegir…</option>
+              {categoriesForType.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-        <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
-          <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
-        </Field>
+          <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
+            <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
+          </Field>
+        </div>
 
         <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
           <AccountSelect
@@ -336,7 +338,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             no se ofrece: la deuda ya puede tener abonos propios, y desarmar el vínculo retroactivo
             entre un movimiento editado y una deuda ya existente es más confuso que útil. */}
         {type === 'expense' && !isEditing && (
-          <div className="border-t border-ink-800 pt-5">
+          <div className="border-t border-fill-subtle pt-5">
             <Chip active={compartido} onClick={() => setValue('compartido', !compartido)}>
               Compartido
             </Chip>
@@ -381,7 +383,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
                     <AmountInput className="mt-2" placeholder="0,00" {...register('splitAmount')} />
                   )}
                   {errors.splitAmount?.message && (
-                    <p className="mt-2 text-[12px] text-coral">{errors.splitAmount.message}</p>
+                    <p className="mt-2 text-[12px] text-negative">{errors.splitAmount.message}</p>
                   )}
                 </div>
 
@@ -390,9 +392,9 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
                 </Field>
 
                 {miParteCents != null && otroCents != null && (
-                  <p className="text-[13px] text-chalk-faint">
+                  <p className="text-[13px] text-fg-muted">
                     Gasto <Money cents={miParteCents} tone="dim" size="inline" /> (tu parte) · Deuda{' '}
-                    <Money cents={otroCents} tone="acid" size="inline" />
+                    <Money cents={otroCents} tone="accent" size="inline" />
                     {watch('personName')?.trim() ? ` ${watch('personName')!.trim()}` : ''}
                   </p>
                 )}

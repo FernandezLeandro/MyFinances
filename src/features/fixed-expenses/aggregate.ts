@@ -49,6 +49,21 @@ function statusFor(fe: FixedExpense, payments: FixedExpensePayment[], period: Da
   return { fe, payments: fePayments, paidCents, remainingCents, done, overspentCents }
 }
 
+export type FixedExpenseUrgency = 'red' | 'amber' | 'neutral'
+
+/**
+ * Rojo si ya venció este mes, ámbar si vence en los próximos 7 días (hoy incluido), neutro más
+ * adelante. Sólo tiene sentido para un fijo de una sola vez — una bolsa mensual no "vence", así que
+ * no tiene `due_day` y no pasa por acá. Compartida por el widget de Vencimientos de Hoy y los tres
+ * grupos de Fijos (Atrasado / Esta semana / Más adelante).
+ */
+export function fixedExpenseUrgency(dueDay: number, today: Date): FixedExpenseUrgency {
+  const diff = dueDay - today.getDate()
+  if (diff < 0) return 'red'
+  if (diff <= 6) return 'amber'
+  return 'neutral'
+}
+
 /** Recurrentes primero (no tienen vencimiento: son una bolsa que se va llenando todo el mes, no una
  *  fecha que llega), después los de una sola vez por día de vencimiento. Entre recurrentes, alfabético
  *  — sin `due_day` no hay criterio natural y el orden de la query no es determinístico. Es el orden

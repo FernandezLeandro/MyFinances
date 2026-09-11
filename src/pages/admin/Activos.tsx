@@ -28,13 +28,13 @@ function AddAssetForm() {
   }
 
   return (
-    <div className="border-t border-ink-800 p-6">
+    <div className="border-t border-fill-subtle p-6">
       <p className="eyebrow">Agregar activo</p>
-      <p className="mt-1.5 text-[12px] text-chalk-faint">Queda visible para todas las cuentas.</p>
+      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas.</p>
       <div className="mt-3 flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-[150px_1fr] gap-3">
           <Field label="Símbolo">
-            <Input placeholder="VOO, AL30…" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+            <Input placeholder="VOO, AL30…" className="font-mono" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
           </Field>
           <Field label="Nombre">
             <Input placeholder="Vanguard S&P 500" value={name} onChange={(e) => setName(e.target.value)} />
@@ -42,16 +42,16 @@ function AddAssetForm() {
         </div>
         <div className="flex flex-wrap gap-1.5">
           {assetClassOptions.map((c) => (
-            <Chip key={c.value} active={assetClass === c.value} onClick={() => setAssetClass(c.value)}>
+            <Chip key={c.value} size="lg" active={assetClass === c.value} onClick={() => setAssetClass(c.value)}>
               {c.label}
             </Chip>
           ))}
         </div>
         <div className="flex gap-1.5">
-          <Chip active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
+          <Chip size="lg" active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
             Se cotiza en ARS
           </Chip>
-          <Chip active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
+          <Chip size="lg" active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
             Se cotiza en USD
           </Chip>
         </div>
@@ -69,7 +69,7 @@ export function Activos() {
       <header>
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Activos</h1>
-        <p className="mt-2 max-w-md text-[13px] text-chalk-faint">
+        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
           El catálogo completo de Ahorros: nombre, clase y moneda de cotización. Cada cuenta sigue cargando su propio precio de referencia por separado.
         </p>
       </header>

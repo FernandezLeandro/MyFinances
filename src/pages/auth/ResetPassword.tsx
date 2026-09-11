@@ -52,6 +52,7 @@ export function ResetPassword() {
         <Input
           id="password"
           type="password"
+          fieldSize="auth"
           autoComplete="new-password"
           invalid={!!errors.password}
           {...register('password')}
@@ -62,6 +63,7 @@ export function ResetPassword() {
         <Input
           id="confirmPassword"
           type="password"
+          fieldSize="auth"
           autoComplete="new-password"
           invalid={!!errors.confirmPassword}
           {...register('confirmPassword')}
@@ -70,7 +72,7 @@ export function ResetPassword() {
 
       <FormError message={errors.root?.message} />
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Guardando…' : 'Guardar y entrar'}
       </Button>
     </form>

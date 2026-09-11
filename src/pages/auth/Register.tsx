@@ -49,17 +49,18 @@ export function Register() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="font-display text-2xl font-semibold">Crear cuenta</h1>
-        <p className="mt-1 text-[13px] text-chalk-faint">El alta es por invitación — el código te lo pedimos en el próximo paso.</p>
+        <p className="mt-1 text-[13px] text-fg-muted">El alta es por invitación — el código te lo pedimos en el próximo paso.</p>
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
-        <Input id="email" type="email" autoComplete="email" invalid={!!errors.email} {...register('email')} />
+        <Input id="email" type="email" fieldSize="auth" autoComplete="email" invalid={!!errors.email} {...register('email')} />
       </Field>
 
       <Field label="Contraseña" htmlFor="password" error={errors.password?.message}>
         <Input
           id="password"
           type="password"
+          fieldSize="auth"
           autoComplete="new-password"
           invalid={!!errors.password}
           {...register('password')}
@@ -70,6 +71,7 @@ export function Register() {
         <Input
           id="confirmPassword"
           type="password"
+          fieldSize="auth"
           autoComplete="new-password"
           invalid={!!errors.confirmPassword}
           {...register('confirmPassword')}
@@ -78,13 +80,13 @@ export function Register() {
 
       <FormError message={errors.root?.message} />
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
       </Button>
 
-      <p className="text-center text-[13px] text-chalk-faint">
+      <p className="text-center text-[13px] text-fg-muted">
         ¿Ya tenés cuenta?{' '}
-        <Link to="/login" className="text-chalk hover:underline">
+        <Link to="/login" className="font-semibold text-accent hover:opacity-80">
           Entrá
         </Link>
       </p>

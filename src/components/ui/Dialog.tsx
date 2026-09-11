@@ -11,6 +11,9 @@ interface DialogProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /** El footer ocupa todo el ancho y pone su propio padding — para la barra inferior de los
+   *  diálogos-herramienta (`DialogBottomBar`), que lleva fondo propio a sangre completa. */
+  footerBleed?: boolean
   className?: string
 }
 
@@ -42,7 +45,7 @@ function unlockBodyScroll() {
  * scrolleando la página de atrás en vez del contenido — el bug reportado en Cuadrar saldo y en
  * los formularios largos.
  */
-export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, footer, footerBleed, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Un <dialog> abierto con showModal() vive en el "top layer" del navegador, siempre por
   // encima de cualquier overlay position:fixed normal sin importar su z-index. Por eso el
@@ -125,8 +128,12 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
         // `dialog:not([open]) { display: none }` del navegador. El layout de columna va en el
         // wrapper de adentro. `vh` y no `dvh`: las unidades dinámicas se resuelven de forma
         // inconsistente dentro del top layer en mobile.
-        'fixed inset-x-0 top-auto bottom-0 z-50 m-0 w-full max-w-none overflow-hidden rounded-t-panel bg-ink-900 p-0 text-chalk',
-        'overscroll-contain animate-sheet-in backdrop:bg-ink-950/75',
+        // `bottom-3` en vez de `bottom-0`: pegado al borde de verdad quedaba sin aire, como si el
+        // sheet fuera parte del chrome del sistema en vez de un modal — un margen chico alcanza
+        // para que se lea como una tarjeta flotando. Redondeado en las 4 esquinas ahora que el
+        // borde de abajo también se ve (antes sólo hacía falta arriba, pegado como estaba).
+        'fixed inset-x-0 top-auto bottom-3 z-50 m-0 w-full max-w-none overflow-hidden rounded-panel bg-surface p-0 text-fg',
+        'overscroll-contain animate-sheet-in backdrop:bg-black/75',
         'sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
         className,
       )}
@@ -140,7 +147,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mr-1.5 rounded-chip p-1.5 text-chalk-faint transition-colors hover:bg-ink-800 hover:text-chalk"
+            className="-mr-1.5 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
           >
             <X className="size-4" strokeWidth={1.5} aria-hidden />
           </button>
@@ -149,7 +156,18 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
 
         {footer && (
-          <div className="flex shrink-0 justify-end gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div
+            className={cn(
+              'shrink-0',
+              footerBleed
+                ? 'flex'
+                : // `flex-col-reverse`: en mobile los botones apilan a todo el ancho con la acción
+                  // primaria (última en el DOM) arriba y Eliminar, cuando existe, siempre al final —
+                  // el orden inverso del que ya tiene sentido en escritorio, donde ese mismo `mr-auto`
+                  // lo manda al extremo izquierdo en vez de al fondo de la pila.
+                  'flex flex-col-reverse gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
+            )}
+          >
             {footer}
           </div>
         )}
@@ -159,9 +177,9 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             role="status"
             aria-live="polite"
             aria-busy="true"
-            className="absolute inset-0 grid place-items-center bg-ink-900/70 backdrop-blur-[1px]"
+            className="absolute inset-0 grid place-items-center bg-surface/70 backdrop-blur-[1px]"
           >
-            <Spinner className="text-acid" />
+            <Spinner className="text-accent" />
           </div>
         )}
       </div>

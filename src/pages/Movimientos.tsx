@@ -1,33 +1,85 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLocation } from 'react-router'
-import { addMonths, format, parseISO, subMonths } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { MonthNav } from '@/components/ui/MonthNav'
+import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
-import { Input } from '@/components/ui/Input'
+import { FilterChip } from '@/components/ui/Chip'
+import { SearchInput } from '@/components/ui/SearchInput'
+import { CountBubble } from '@/components/ui/CountBubble'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { Money } from '@/components/ui/Money'
+import { GroupHeader } from '@/components/ui/GroupHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
-import { useCategories } from '@/features/categories/api'
+import { cn } from '@/lib/cn'
+import { useCategories, type Category } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
+import { dailySpendBars, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import { TransactionFiltersDialog, type MovementFilters } from '@/features/transactions/TransactionFiltersDialog'
+import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
+import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
 import {
   MOVEMENT_PERIOD_PRESET_LABELS,
   defaultMovementPeriod,
   periodLabel,
-  periodRange,
   type MovementPeriod,
 } from '@/features/transactions/movementPeriod'
-import { centsToNumeric } from '@/lib/money'
-import { downloadCsv } from '@/lib/csv'
+
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'expense', label: 'Gastos' },
+  { value: 'income', label: 'Ingresos' },
+] as const
+
+/** Fila de la tabla ancha de escritorio — Descripción · Categoría · Cuenta · Monto en columnas
+ *  fijas. En mobile se usa `TransactionRow` (el mismo compacto de Hoy): a 390px de ancho una
+ *  tabla de cuatro columnas no entra sin achicar la descripción hasta ilegible. */
+function MovementTableRow({
+  tx,
+  category,
+  account,
+  onClick,
+}: {
+  tx: Transaction
+  category?: Category
+  account?: BalanceLocation
+  onClick: () => void
+}) {
+  const income = tx.type === 'income'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="grid w-full grid-cols-[1fr_170px_150px_130px] items-center gap-3 px-6 py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
+    >
+      <span className="truncate text-[13.5px] font-semibold text-fg">
+        {tx.description || category?.name || 'Sin descripción'}
+      </span>
+      <span className="flex items-center gap-1.5 truncate text-[12.5px] text-fg-secondary">
+        <span aria-hidden className="size-[7px] shrink-0 rounded-full" style={{ backgroundColor: category?.color ?? 'var(--color-border-strong)' }} />
+        <span className="truncate">
+          {tx.is_credit_card_payment ? `${category?.name ?? 'Sin categoría'} · Tarjeta` : (category?.name ?? 'Sin categoría')}
+        </span>
+      </span>
+      <span className="truncate text-[12.5px] text-fg-muted">{account?.name || '—'}</span>
+      <Money
+        cents={income ? tx.cents : -tx.cents}
+        tone={income ? 'accent' : 'negative'}
+        size="row"
+        signed
+        className="justify-self-end"
+      />
+    </button>
+  )
+}
 
 export function Movimientos() {
   // Llega acá desde el drill-down de Análisis (categoría + período) o desde el "ver" de "Sin
@@ -36,27 +88,35 @@ export function Movimientos() {
   const location = useLocation()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
 
-  const [filters, setFilters] = useState<MovementFilters>(() => ({
-    period: incoming?.period ?? defaultMovementPeriod(),
-    type: 'all',
-    categoryIds: incoming?.categoryId ? [incoming.categoryId] : [],
-    accountIds: incoming?.accountIds ?? [],
-  }))
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  const {
+    filters,
+    setFilters,
+    searchInput,
+    setSearchInput,
+    search,
+    from,
+    to,
+    categoryIds,
+    accountIds,
+    shiftMonth,
+    clearAll,
+    exportCsv,
+    activeCount,
+    hasFilters,
+  } = useMovimientosFilters({
+    initialPeriod: incoming?.period,
+    initialCategoryId: incoming?.categoryId,
+    initialAccountIds: incoming?.accountIds,
+  })
+
   const [formOpen, setFormOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
-
-  useEffect(() => {
-    const id = setTimeout(() => setSearch(searchInput.trim()), 300)
-    return () => clearTimeout(id)
-  }, [searchInput])
-
-  const { from, to } = useMemo(() => periodRange(filters.period), [filters.period])
-  const categoryIds = useMemo(() => [...filters.categoryIds].sort(), [filters.categoryIds])
-  const accountIds = useMemo(() => [...filters.accountIds].sort(), [filters.accountIds])
+  // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
+  // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
+  // el resumen del período.
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
@@ -66,6 +126,11 @@ export function Movimientos() {
     accountIds,
     text: search || undefined,
   })
+  // El resumen (neto, ingresos/gastos/promedio, barras) es del mes entero — no se mueve con tipo,
+  // categoría, cuenta ni búsqueda, sólo con el período. Consulta aparte, sin esos filtros; con todo
+  // en "Todos" y sin buscar, cae en la misma key que `transactions` y React Query la resuelve del
+  // caché sin pegarle a la red dos veces.
+  const { data: periodTransactions } = useTransactions({ from, to })
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
 
@@ -82,6 +147,14 @@ export function Movimientos() {
     return [...groups.entries()]
   }, [transactions])
 
+  const summary = useMemo(
+    () => summarizeTransactions(periodTransactions ?? [], from, to, new Date()),
+    [periodTransactions, from, to],
+  )
+  const bars = useMemo(() => dailySpendBars(periodTransactions ?? [], from, to), [periodTransactions, from, to])
+  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { day: 0, cents: 0 })
+  const maxBarCents = peakBar.cents
+
   function openNew() {
     setEditingTx(null)
     setFormOpen(true)
@@ -92,54 +165,28 @@ export function Movimientos() {
     setFormOpen(true)
   }
 
-  function handleExport() {
-    if (!transactions || transactions.length === 0) return
-    const rows = [
-      ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Importe'],
-      ...transactions.map((tx) => [
-        tx.occurred_on,
-        tx.type === 'income' ? 'Ingreso' : 'Gasto',
-        categoryById.get(tx.category_id ?? '')?.name ?? '',
-        tx.description ?? '',
-        centsToNumeric(tx.type === 'income' ? tx.cents : -tx.cents),
-      ]),
-    ]
-    const filename =
-      filters.period.preset === 'month'
-        ? `movimientos-${filters.period.anchor.slice(0, 7)}.csv`
-        : `movimientos-${from}_${to}.csv`
-    downloadCsv(filename, rows)
-  }
-
-  function shiftMonth(delta: number) {
-    setFilters((f) => ({
-      ...f,
-      period: {
-        ...f.period,
-        anchor: format(
-          delta > 0 ? addMonths(parseISO(f.period.anchor), delta) : subMonths(parseISO(f.period.anchor), -delta),
-          'yyyy-MM-dd',
-        ),
-      },
-    }))
-  }
-
-  function clearAll() {
-    setFilters({ period: defaultMovementPeriod(), type: 'all', categoryIds: [], accountIds: [] })
-    setSearchInput('')
-  }
-
-  const activeCount =
-    (filters.period.preset !== 'month' ? 1 : 0) +
-    (filters.type !== 'all' ? 1 : 0) +
-    filters.categoryIds.length +
-    filters.accountIds.length
-  const hasFilters = activeCount > 0 || search !== ''
-
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-4">
+        {/* Mobile: título a la izquierda, píldora de mes a la derecha, una sola fila — como en
+            `02 Movimientos.dc.html`. */}
+        <div className="flex items-center justify-between gap-3 lg:hidden">
+          <h1 className="font-display text-figure font-semibold">Movimientos</h1>
+          {filters.period.preset === 'month' ? (
+            <MonthNav
+              label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
+              mobileLabel={format(parseISO(filters.period.anchor), 'MMMM', { locale: es })}
+              onPrev={() => shiftMonth(-1)}
+              onNext={() => shiftMonth(1)}
+            />
+          ) : (
+            <p className="text-[11.5px] text-fg-muted">{periodLabel(filters.period)}</p>
+          )}
+        </div>
+
+        {/* Escritorio: la píldora de mes arriba, chica, y el título grande debajo — como ya
+            estaba. */}
+        <div className="hidden lg:block">
           {filters.period.preset === 'month' ? (
             <MonthNav
               label={format(parseISO(filters.period.anchor), 'MMMM yyyy', { locale: es })}
@@ -151,100 +198,210 @@ export function Movimientos() {
           )}
           <h1 className="mt-2 font-display text-figure font-semibold">Movimientos</h1>
         </div>
+
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={!transactions?.length}>
+          <Button
+            variant="outline"
+            size="compact"
+            onClick={() => exportCsv(transactions, categoryById)}
+            disabled={!transactions?.length}
+          >
             Exportar CSV
           </Button>
-          <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+          <Button variant="outline" size="compact" onClick={() => setCategoriesOpen(true)}>
             Categorías
           </Button>
-          <Button icon={<span className="text-base leading-none">+</span>} onClick={openNew}>
-            Nuevo movimiento
-          </Button>
+          {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
+              criterio que el hero de Hoy) — repetirlo acá es un botón más que pelea por lugar en
+              una fila que ya tiene dos. */}
+          <div className="hidden lg:block">
+            <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNew}>
+              Nuevo movimiento
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
+      {/* En mobile el resumen queda plegado por default — lo primero es poder buscar/filtrar y ver
+          los movimientos, no el resumen del período. En escritorio no hay toggle: el `<Panel>`
+          siempre se ve. */}
+      <AccordionHeader
+        label="Ver resumen del período"
+        expanded={summaryOpen}
+        onToggle={() => setSummaryOpen((v) => !v)}
+        className="lg:hidden"
+      />
+
+      {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día. Es del mes
+          entero — no se mueve con tipo/categoría/cuenta/búsqueda, sólo con el período (ver
+          `periodTransactions` más arriba); por ahora, al menos. Las comparativas vs. el período
+          anterior quedan apagadas acá a propósito: viven en Análisis. */}
+      <Panel
+        className={cn(
+          'flex-col gap-5 p-6 lg:flex-row lg:items-center lg:gap-9',
+          summaryOpen ? 'flex' : 'hidden',
+          'lg:flex',
+        )}
+      >
+        <div className="flex-none">
+          <p className="eyebrow">Neto del período</p>
+          <Money cents={summary.netCents} tone="accent" size="total" signed className="mt-1" />
+        </div>
+
+        <div className="hidden h-14 w-px shrink-0 bg-divider lg:block" />
+
+        {/* Fila mobile 1: Ingresos + Gastos lado a lado. `lg:contents` los devuelve a ser hermanos
+            sueltos de la fila principal en escritorio, igual que antes. */}
+        <div className="grid grid-cols-2 gap-4 lg:contents">
+          <div>
+            <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Ingresos</p>
+            <Money cents={summary.totalIncomeCents} tone="fg" size="compact" className="mt-1" />
+            <p className="mt-0.5 text-[11.5px] text-fg-muted">
+              {summary.incomeCount} movimiento{summary.incomeCount === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Gastos</p>
+            <Money cents={summary.totalExpenseCents} tone="negative" size="compact" className="mt-1" />
+            <p className="mt-0.5 text-[11.5px] text-fg-muted">
+              {summary.expenseCount} movimiento{summary.expenseCount === 1 ? '' : 's'}
+            </p>
+          </div>
+        </div>
+
+        {/* Fila mobile 2: Promedio diario + gráfico, uno al lado del otro (mismo truco de
+            `lg:contents` para volver a la fila principal en escritorio). */}
+        <div className="flex items-start gap-4 lg:contents">
+          <div className="flex-none">
+            <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
+              Promedio diario
+            </p>
+            <Money cents={summary.dailyAverageExpenseCents} tone="fg" size="compact" className="mt-1" />
+            <p className="mt-0.5 text-[11.5px] whitespace-nowrap text-fg-muted">
+              de gasto, {summary.daysElapsed} día{summary.daysElapsed === 1 ? '' : 's'}
+            </p>
+          </div>
+
+          {/* Sólo con datos que llenen un mes calendario: con un rango de un día o una semana, 30
+              barras finitas no cuentan nada. 30px de alto (antes 54): a la altura de las otras
+              columnas alineadas por el centro, una barra más baja se nota menos si esta columna
+              queda más alta que el resto por el renglón de "pico el N". */}
+          {filters.period.preset === 'month' && bars.length > 1 && (
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
+                  Gasto por día
+                </p>
+                {maxBarCents > 0 && (
+                  <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
+                    pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
+                  </span>
+                )}
+              </div>
+              <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
+                {bars.map((b) => (
+                  <span
+                    key={b.day}
+                    className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
+                    style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      <div className="flex flex-col gap-2.5">
+        {/* Buscador en su propia fila, a lo ancho — el resto (segmentado, Filtros, Limpiar,
+            conteo) va debajo en mobile pero se suma a la misma línea en escritorio: `lg:contents`
+            saca ese wrapper de la jugada y sus hijos pasan a ser hermanos directos del buscador. */}
+        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+          <SearchInput
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar por descripción…"
-            className="h-9 max-w-[220px] text-[13px]"
+            className="w-full lg:w-auto lg:min-w-[280px]"
           />
-          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
-            <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
-            Filtros
-            {activeCount > 0 && (
-              <span
-                aria-hidden
-                className="ml-0.5 grid size-4 place-items-center rounded-full bg-acid text-[11px] font-semibold text-ink-950"
-              >
-                {activeCount}
+          <div className="flex flex-wrap items-center gap-2 lg:contents">
+            {/* `flex-1` en mobile: junto con Filtros, ocupa el mismo ancho que el buscador de
+                arriba — en escritorio vuelve a su tamaño natural, al lado del resto. */}
+            <SegmentedToggle
+              variant="pill"
+              value={filters.type}
+              onChange={(type) => setFilters((f) => ({ ...f, type }))}
+              options={TYPE_OPTIONS}
+              className="flex-1 lg:flex-none"
+            />
+            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
+              <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
+              Filtros
+              {activeCount > 0 && <CountBubble count={activeCount} />}
+            </Button>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAll}>
+                Limpiar todo
+              </Button>
+            )}
+            {!isPending && (
+              <span className="text-[12.5px] text-fg-muted lg:ml-auto">
+                {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'}
               </span>
             )}
-          </Button>
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearAll}>
-              Limpiar todo
-            </Button>
-          )}
+          </div>
         </div>
 
         {activeCount > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {filters.period.preset !== 'month' && (
-              <Chip
-                ariaLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
-                onClick={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
+              <FilterChip
+                removeLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
+                onRemove={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
               >
-                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}{' '}
-                <span aria-hidden className="text-chalk-faint">
-                  ✕
-                </span>
-              </Chip>
+                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}
+              </FilterChip>
             )}
             {filters.type !== 'all' && (
-              <Chip
-                ariaLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
-                onClick={() => setFilters((f) => ({ ...f, type: 'all' }))}
+              <FilterChip
+                removeLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
+                onRemove={() => setFilters((f) => ({ ...f, type: 'all' }))}
               >
-                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}{' '}
-                <span aria-hidden className="text-chalk-faint">
-                  ✕
-                </span>
-              </Chip>
+                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}
+              </FilterChip>
             )}
             {filters.categoryIds.map((id) => {
               const category = categoryById.get(id)
               return (
-                <Chip
+                <FilterChip
                   key={id}
                   color={category?.color}
-                  ariaLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
-                  onClick={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
+                  removeLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
+                  onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
                 >
-                  {category?.name ?? 'Categoría'} <span aria-hidden className="text-chalk-faint">✕</span>
-                </Chip>
+                  {category?.name ?? 'Categoría'}
+                </FilterChip>
               )
             })}
             {filters.accountIds.map((id) => {
               const isUnassigned = id === UNASSIGNED_ACCOUNT_ID
               const label = isUnassigned ? 'Sin cuenta' : accountById.get(id)?.name || '(sin nombre)'
               return (
-                <Chip
+                <FilterChip
                   key={id || 'unassigned'}
-                  ariaLabel={`Quitar filtro de cuenta: ${label}`}
-                  onClick={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
+                  removeLabel={`Quitar filtro de cuenta: ${label}`}
+                  onRemove={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
                 >
-                  {label} <span aria-hidden className="text-chalk-faint">✕</span>
-                </Chip>
+                  {label}
+                </FilterChip>
               )
             })}
           </div>
         )}
       </div>
 
+      {/* Una sola tabla ancha en vez de un `Panel` por día — antes cada grupo era su propia
+          tarjeta, con el borde repitiéndose entre días; acá el corte entre días es sólo la banda
+          de encabezado. */}
       {isError ? (
         <Panel>
           <ErrorState onRetry={() => refetch()} />
@@ -279,21 +436,30 @@ export function Movimientos() {
           />
         </Panel>
       ) : (
-        <div className="flex flex-col gap-5">
+        <Panel className="overflow-hidden p-0">
           {transactions?.length === TRANSACTIONS_ROW_LIMIT && (
-            <p className="text-[12px] text-chalk-faint">
+            <p className="px-6 pt-4 text-[12px] text-fg-muted">
               Mostrando los primeros {TRANSACTIONS_ROW_LIMIT} movimientos — acotá el período.
             </p>
           )}
+
+          <div className="hidden grid-cols-[1fr_170px_150px_130px] gap-3 border-b border-divider px-6 pt-3.5 pb-2.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-faint uppercase lg:grid">
+            <span>Descripción</span>
+            <span>Categoría</span>
+            <span>Cuenta</span>
+            <span className="text-right">Monto</span>
+          </div>
+
           {byDay.map(([day, items]) => {
             const total = items.reduce((acc, t) => acc + (t.type === 'income' ? t.cents : -t.cents), 0)
             return (
-              <Panel key={day}>
-                <div className="flex items-baseline justify-between gap-4 px-6 pt-5 pb-1">
-                  <h2 className="eyebrow">{format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}</h2>
-                  <Money cents={total} tone={total >= 0 ? 'dim' : 'coral'} signed />
-                </div>
-                <ul className="pb-3">
+              <div key={day}>
+                <GroupHeader
+                  label={format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}
+                  total={<Money cents={total} tone={total >= 0 ? 'dim' : 'negative'} signed />}
+                  className="bg-divider-list px-6 py-2.5"
+                />
+                <ul className="lg:hidden">
                   {items.map((tx) => (
                     <TransactionRow
                       key={tx.id}
@@ -304,10 +470,32 @@ export function Movimientos() {
                     />
                   ))}
                 </ul>
-              </Panel>
+                <ul className="hidden lg:block">
+                  {items.map((tx) => (
+                    <li key={tx.id} className="border-t border-divider-list first:border-t-0">
+                      <MovementTableRow
+                        tx={tx}
+                        category={categoryById.get(tx.category_id ?? '')}
+                        account={accountById.get(tx.account_id ?? '')}
+                        onClick={() => openEdit(tx)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )
           })}
-        </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-divider px-6 py-3 text-[12px] text-fg-muted">
+            <span>
+              {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'} del período
+            </span>
+            <span className="tnum">
+              Gastos <Money cents={summary.totalExpenseCents} tone="dim" size="inline" /> · Ingresos{' '}
+              <Money cents={summary.totalIncomeCents} tone="dim" size="inline" />
+            </span>
+          </div>
+        </Panel>
       )}
 
       {formOpen && (

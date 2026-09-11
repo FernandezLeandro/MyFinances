@@ -62,12 +62,12 @@ export function Drawer({ open, onClose, children, className }: DrawerProps) {
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={cn(
-        'm-0 h-dvh max-h-none w-[min(20rem,82vw)] max-w-none bg-transparent p-0 backdrop:bg-ink-950/75',
+        'm-0 h-dvh max-h-none w-[min(20rem,82vw)] max-w-none bg-transparent p-0 backdrop:bg-black/75',
       )}
     >
       <div
         className={cn(
-          'flex h-full w-full animate-drawer-in flex-col overflow-y-auto bg-ink-900 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]',
+          'flex h-full w-full animate-drawer-in flex-col overflow-y-auto bg-surface pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]',
           className,
         )}
       >

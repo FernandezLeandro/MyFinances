@@ -6,36 +6,63 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { chartColors } from './chartColors'
+import { chartCategoryColors, chartColors } from './chartColors'
+
+type ChartColorSet = (typeof chartColors)['light']
 
 // Lee los tokens de color directo de theme.css, en vez de importarlo — es un archivo CSS, no un
 // módulo. Esto es lo que evita que `chartColors` (el espejo en hex que necesita Recharts, ver el
 // comentario de ese archivo) vuelva a quedar desincronizado del theme sin que nada lo note: si
-// alguien cambia un `--color-*` acá y se olvida del espejo, este test falla.
+// alguien cambia un `--c-*` acá y se olvida del espejo, este test falla.
 const themePath = fileURLToPath(new URL('../styles/theme.css', import.meta.url))
 const themeSource = readFileSync(themePath, 'utf-8')
 
-function themeToken(name: string): string {
-  const match = themeSource.match(new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6})`))
-  if (!match) throw new Error(`No se encontró --color-${name} en theme.css`)
+// El bloque claro vive en `:root { ... }` y el oscuro en `:root[data-theme='dark'] { ... }` — se
+// recorta cada uno por separado así un token con el mismo nombre en los dos bloques (todos, acá)
+// no hace que el regex del claro matchee por accidente el valor del oscuro.
+function themeBlock(theme: 'light' | 'dark'): string {
+  const marker = theme === 'light' ? ':root {' : ":root[data-theme='dark'] {"
+  const start = themeSource.indexOf(marker)
+  if (start === -1) throw new Error(`No se encontró el bloque ${marker} en theme.css`)
+  const end = themeSource.indexOf('\n}', start)
+  return themeSource.slice(start, end)
+}
+
+function themeToken(theme: 'light' | 'dark', name: string): string {
+  const match = themeBlock(theme).match(new RegExp(`--c-${name}:\\s*(#[0-9a-fA-F]{6})`))
+  if (!match) throw new Error(`No se encontró --c-${name} en el bloque ${theme} de theme.css`)
   return match[1].toLowerCase()
 }
 
-// Qué entrada de chartColors corresponde a qué token del theme. inkGrid/inkTooltip son el mismo
-// token (ink-800) usados con dos nombres distintos según el rol (grilla vs. fondo de tooltip).
-const expectedTokens: Record<keyof typeof chartColors, string> = {
-  acid: 'acid',
-  coral: 'coral',
-  chalkFaint: 'chalk-faint',
-  chalkDim: 'chalk-dim',
-  inkGrid: 'ink-800',
-  inkTooltip: 'ink-800',
-  inkTooltipRing: 'ink-700',
+// Qué entrada de ChartColorSet corresponde a qué token crudo (--c-*) del theme.
+const expectedTokens: Record<keyof (typeof chartColors)['light'], string> = {
+  accent: 'accent',
+  negative: 'negative',
+  fgMuted: 'fg-muted',
+  fgSecondary: 'fg-secondary',
+  grid: 'divider',
+  tooltipBg: 'surface',
+  tooltipRing: 'border',
 }
 
 describe('chartColors', () => {
-  it.each(Object.entries(expectedTokens))('%s coincide con --color-%s en theme.css', (key, tokenName) => {
-    const actual = chartColors[key as keyof typeof chartColors].toLowerCase()
-    expect(actual).toBe(themeToken(tokenName))
-  })
+  for (const theme of ['light', 'dark'] as const) {
+    describe(theme, () => {
+      it.each(Object.entries(expectedTokens))('%s coincide con --c-%s en theme.css', (key, tokenName) => {
+        const actual = chartColors[theme][key as keyof ChartColorSet].toLowerCase()
+        expect(actual).toBe(themeToken(theme, tokenName))
+      })
+    })
+  }
+})
+
+describe('chartCategoryColors', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    it.each(chartCategoryColors[theme].map((hex, i) => [i + 1, hex] as const))(
+      `cat-%s coincide con --c-cat-%s en theme.css (${theme})`,
+      (index, hex) => {
+        expect(hex.toLowerCase()).toBe(themeToken(theme, `cat-${index}`))
+      },
+    )
+  }
 })

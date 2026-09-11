@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@400;500;600;800&family=Space+Grotesk:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;800&family=Sora:wght@400;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,500;1,6..72,300&family=Archivo:wght@400;500;600;800&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #0d0e11; color: #edefea; font-family: 'Instrument Sans', system-ui, sans-serif; }
+  a { color: #c8f751; text-decoration: none; }
+  a:hover { color: #dcff8c; }
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+</style>
+</helmet>
+
+<section style="padding: 56px 56px 40px; display: flex; flex-direction: column; gap: 40px">
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 780px">
+    <p style="margin: 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a818c">Turno 4 · 3a en modo oscuro</p>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: -0.02em; color: #edefea">Modo oscuro de 3a</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #a0a6ae; text-wrap: pretty">Mismo layout y misma jerarquía que <a href="#3a">3a</a>, traducido a superficies oscuras: el papel pasa a gris azulado, el azul tinta se aclara para mantener el contraste sobre fondo oscuro y la tarjeta de proyectado —que en claro era el bloque negro— pasa a un panel índigo para seguir destacando. Ajustes ya aplicados en <a href="#3a">3a</a> y acá: "Nuevo movimiento" junto a "Cuadrar saldo", sin "Último ajuste".</p>
+  </div>
+
+  <div id="4a" style="display: flex; flex-direction: column; gap: 14px; width: max-content">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">4a</span>
+      <span style="font-size: 14px; color: #edefea; font-weight: 600">Bento oscuro</span>
+      <span style="font-size: 13px; color: #7a818c">3a en dark mode</span>
+    </div>
+    <div style="display: flex; gap: 28px; align-items: flex-start">
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #0f1014; color: #f1f0ec; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.9); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 28px; padding: 18px 30px; background: #14161b; border-bottom: 1px solid #23252c">
+          <span style="font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15.5px; letter-spacing: -0.02em">MyFinances</span>
+          <div style="display: flex; gap: 2px; font-size: 13.5px">
+            <span style="padding: 7px 14px; border-radius: 8px; background: #262932; color: #f1f0ec; font-weight: 600">Hoy</span>
+            <span style="padding: 7px 14px; border-radius: 8px; color: #9a9ca4">Movimientos</span>
+            <span style="padding: 7px 14px; border-radius: 8px; color: #9a9ca4">Fijos</span>
+            <span style="padding: 7px 14px; border-radius: 8px; color: #9a9ca4">Análisis</span>
+            <span style="padding: 7px 14px; border-radius: 8px; color: #9a9ca4">Ahorros</span>
+            <span style="padding: 7px 14px; border-radius: 8px; color: #9a9ca4">Me Deben</span>
+          </div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+            <span style="font-size: 13px; color: #9a9ca4">Septiembre 2026</span>
+            <span style="width: 32px; height: 32px; border-radius: 10px; background: #262932; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center">LE</span>
+          </div>
+        </div>
+        <div style="flex: 1; min-height: 0; padding: 26px 30px; display: grid; grid-template-columns: 1.6fr 1fr 1fr; grid-template-rows: auto 1fr; gap: 16px">
+          <div style="grid-row: span 2; background: #191b21; border-radius: 20px; padding: 28px 30px; display: flex; flex-direction: column">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+              <p style="margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8d96">Saldo actual</p>
+              <span style="font-size: 11.5px; font-weight: 600; color: #a9b3ff; background: #23264a; padding: 3px 8px; border-radius: 999px">+18% vs. agosto</span>
+            </div>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 64px; line-height: 0.95; letter-spacing: -0.045em">$ 2.216.181<span style="font-size: 24px; color: #8b8d96; letter-spacing: -0.01em">,50</span></p>
+            <div style="margin-top: 28px; padding-top: 24px; border-top: 1px solid #24262e">
+              <p style="margin: 0 0 12px; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8d96">Flujo del mes</p>
+              <div style="display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: #24262e">
+                <span style="width: 89%; background: #7e8cff"></span>
+                <span style="width: 11%; background: #ff8f75"></span>
+              </div>
+              <div style="margin-top: 14px; display: flex; gap: 30px">
+                <div><p style="margin: 0; font-size: 12.5px; color: #a5a7b0">Ingresos</p><p class="tnum" style="margin: 3px 0 0; font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em">$ 2.480.515,00</p></div>
+                <div><p style="margin: 0; font-size: 12.5px; color: #a5a7b0">Gastos</p><p class="tnum" style="margin: 3px 0 0; font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: #ff8f75">$ 264.333,50</p></div>
+              </div>
+            </div>
+            <div style="margin-top: auto; padding-top: 24px; display: flex; align-items: center; gap: 10px">
+              <span style="padding: 11px 18px; border-radius: 10px; background: #4f5eeb; color: #fff; font-size: 13.5px; font-weight: 600">+ Nuevo movimiento</span>
+              <span style="padding: 11px 18px; border-radius: 10px; border: 1px solid #33363f; font-size: 13.5px; font-weight: 600">Cuadrar saldo</span>
+            </div>
+          </div>
+          <div style="background: #22253a; color: #f1f0f6; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; justify-content: space-between">
+            <p style="margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a7c4">Proyectado a fin de mes</p>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 33px; line-height: 1.05; letter-spacing: -0.035em">$ 718.962<span style="font-size: 15px; color: #a3a7c4">,57</span></p>
+            <div style="display: flex; flex-direction: column; gap: 7px; font-size: 12.5px">
+              <span style="display: flex; justify-content: space-between; color: #c0c3da">Fijos por pagar (16)<span class="tnum" style="color: #ff9d8a">− 1.462.220,60</span></span>
+              <span style="display: flex; justify-content: space-between; color: #c0c3da">Deudas por pagar (1)<span class="tnum" style="color: #ff9d8a">− 34.998,33</span></span>
+              <span style="display: flex; justify-content: space-between; color: #c0c3da; padding-top: 7px; border-top: 1px solid #34385180">Fijos pagados<span class="tnum">8 de 24</span></span>
+            </div>
+          </div>
+          <div style="background: #191b21; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column">
+            <p style="margin: 0 0 10px; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8d96">Ahorros</p>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 29px; line-height: 1; letter-spacing: -0.035em">$ 3.140.000<span style="font-size: 14px; color: #8b8d96">,00</span></p>
+            <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: #a5a7b0">
+              <span style="display: flex; justify-content: space-between">Dólares<span class="tnum" style="color: #f1f0ec">USD 1.850</span></span>
+              <span style="display: flex; justify-content: space-between">Emergencia<span class="tnum" style="color: #f1f0ec">$ 620.000</span></span>
+              <span style="display: flex; justify-content: space-between">Viaje 2027<span class="tnum" style="color: #f1f0ec">$ 410.000</span></span>
+              <span style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #24262e">Me deben<span class="tnum" style="color: #f1f0ec">$ 96.500</span></span>
+            </div>
+          </div>
+          <div style="grid-column: span 2; background: #191b21; border-radius: 20px; padding: 20px 24px; min-height: 0">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+              <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.015em">Últimos movimientos</p>
+              <span style="font-size: 13px; color: #a9b3ff; font-weight: 600">Ver todos</span>
+            </div>
+            <p style="margin: 10px 0 2px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7c7e87">Hoy</p>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #23252b"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ff8f75"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Quique</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8d96">Delivery · efectivo</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #ff8f75">− $ 15.500,00</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #4fc9b3"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Verdu</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8d96">Supermercado · débito</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #ff8f75">− $ 15.550,00</span></div>
+            <p style="margin: 12px 0 2px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7c7e87">Ayer</p>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #23252b"><span style="width: 8px; height: 8px; border-radius: 999px; background: #a08ff0"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Balanceado</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8d96">Mascotas · débito</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #ff8f75">− $ 3.300,00</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #7e8cff"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Sueldo</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8d96">Ingreso · cuenta sueldo</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #a9b3ff">+ $ 2.400.000,00</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 390px; height: 844px; overflow: hidden; border-radius: 42px; background: #0f1014; color: #f1f0ec; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.9); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 26px 6px; font-size: 12px; font-weight: 600"><span class="tnum">9:41</span><span style="color: #8b8d96">▮▮▮ ▮</span></div>
+        <div style="padding: 8px 20px 0; display: flex; align-items: center; justify-content: space-between">
+          <div>
+            <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 700; letter-spacing: -0.02em">Hoy</p>
+            <p style="margin: 2px 0 0; font-size: 12.5px; color: #8b8d96">Viernes 5 · Septiembre 2026</p>
+          </div>
+          <span style="width: 36px; height: 36px; border-radius: 12px; background: #262932; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">LE</span>
+        </div>
+        <div style="flex: 1; min-height: 0; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 14px">
+          <div style="background: #191b21; border-radius: 20px; padding: 22px">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px">
+              <p style="margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8d96">Saldo actual</p>
+              <span style="font-size: 11px; font-weight: 600; color: #a9b3ff; background: #23264a; padding: 2px 7px; border-radius: 999px">+18%</span>
+            </div>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 38px; line-height: 1; letter-spacing: -0.04em">$ 2.216.181<span style="font-size: 17px; color: #8b8d96">,50</span></p>
+            <div style="margin-top: 18px; display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #24262e"><span style="width: 89%; background: #7e8cff"></span><span style="width: 11%; background: #ff8f75"></span></div>
+            <div style="margin-top: 12px; display: flex; justify-content: space-between; font-size: 12.5px">
+              <span style="color: #a5a7b0">Ingresos <span class="tnum" style="color: #f1f0ec; font-weight: 600">$ 2.480.515</span></span>
+              <span style="color: #a5a7b0">Gastos <span class="tnum" style="color: #ff8f75; font-weight: 600">$ 264.334</span></span>
+            </div>
+          </div>
+          <div style="background: #22253a; color: #f1f0f6; border-radius: 20px; padding: 18px 20px">
+            <div style="display: flex; justify-content: space-between; align-items: baseline">
+              <p style="margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a7c4">Proyectado fin de mes</p>
+              <span style="font-size: 12px; color: #a3a7c4">8/24 fijos</span>
+            </div>
+            <p class="tnum" style="margin: 8px 0 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 28px; line-height: 1; letter-spacing: -0.03em">$ 718.962<span style="font-size: 13px; color: #a3a7c4">,57</span></p>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #c0c3da">
+              <span style="display: flex; justify-content: space-between">Fijos por pagar (16)<span class="tnum" style="color: #ff9d8a">− 1.462.220,60</span></span>
+              <span style="display: flex; justify-content: space-between">Deudas por pagar (1)<span class="tnum" style="color: #ff9d8a">− 34.998,33</span></span>
+            </div>
+          </div>
+          <div style="background: #191b21; border-radius: 20px; padding: 18px 20px; flex: 1; min-height: 0">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 14.5px; font-weight: 600">Últimos movimientos</p>
+              <span style="font-size: 12.5px; color: #a9b3ff; font-weight: 600">Ver todos</span>
+            </div>
+            <p style="margin: 12px 0 2px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7c7e87">Hoy</p>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid #23252b"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ff8f75"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Quique</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #8b8d96">Delivery</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #ff8f75">− 15.500,00</span></div>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #4fc9b3"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Verdu</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #8b8d96">Supermercado</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #ff8f75">− 15.550,00</span></div>
+            <p style="margin: 12px 0 2px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #7c7e87">Ayer</p>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid #23252b"><span style="width: 8px; height: 8px; border-radius: 999px; background: #a08ff0"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Balanceado</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #8b8d96">Mascotas</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #ff8f75">− 3.300,00</span></div>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #7e8cff"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Sueldo</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #8b8d96">Ingreso</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #a9b3ff">+ 2.400.000,00</span></div>
+          </div>
+        </div>
+        <div style="padding: 10px 20px 26px; background: #14161b; border-top: 1px solid #23252c; display: flex; justify-content: space-between; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #f1f0ec"></span><span style="font-size: 11px; font-weight: 600">Hoy</span></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #2b2e37"></span><span style="font-size: 11px; color: #8b8d96">Mov.</span></div>
+          <div style="width: 62px; display: flex; justify-content: center"><span style="width: 52px; height: 52px; border-radius: 18px; background: #4f5eeb; color: #fff; font-size: 26px; font-weight: 500; display: flex; align-items: center; justify-content: center; margin-top: -18px; box-shadow: 0 10px 24px -8px rgba(79,94,235,0.8)">+</span></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #2b2e37"></span><span style="font-size: 11px; color: #8b8d96">Fijos</span></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #2b2e37"></span><span style="font-size: 11px; color: #8b8d96">Más</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding: 16px 56px 40px; display: flex; flex-direction: column; gap: 40px">
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 780px">
+    <p style="margin: 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a818c">Turno 3 · 2a y 2d con otra vuelta + mobile</p>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: -0.02em; color: #edefea">Las dos que te gustaron, afinadas</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #a0a6ae; text-wrap: pretty"><a href="#3a">3a</a> es 2a con paleta más cálida, jerarquía más clara y los movimientos agrupados por día. <a href="#3b">3b</a> es 2d con el verde más profundo, el medidor explicado y una tira de la semana. Cada una con su pantalla de escritorio y su versión mobile al lado.</p>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 56px; align-items: flex-start">
+
+    <div id="3a" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">3a</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Bento claro · v2</span>
+        <span style="font-size: 13px; color: #7a818c">papel cálido, azul tinta como único acento</span>
+      </div>
+      <div style="display: flex; gap: 28px; align-items: flex-start">
+        <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #efeee8; color: #16171b; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.7); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 28px; padding: 18px 30px; background: #fbfaf6; border-bottom: 1px solid #e2e0d7">
+            <span style="font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15.5px; letter-spacing: -0.02em">MyFinances</span>
+            <div style="display: flex; gap: 2px; font-size: 13.5px">
+              <span style="padding: 7px 14px; border-radius: 8px; background: #16171b; color: #fbfaf6; font-weight: 600">Hoy</span>
+              <span style="padding: 7px 14px; border-radius: 8px; color: #63656d">Movimientos</span>
+              <span style="padding: 7px 14px; border-radius: 8px; color: #63656d">Fijos</span>
+              <span style="padding: 7px 14px; border-radius: 8px; color: #63656d">Análisis</span>
+              <span style="padding: 7px 14px; border-radius: 8px; color: #63656d">Ahorros</span>
+              <span style="padding: 7px 14px; border-radius: 8px; color: #63656d">Me Deben</span>
+            </div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+              <span style="font-size: 13px; color: #63656d">Septiembre 2026</span>
+              <span style="width: 32px; height: 32px; border-radius: 10px; background: #e5e3da; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center">LE</span>
+            </div>
+          </div>
+          <div style="flex: 1; min-height: 0; padding: 26px 30px; display: grid; grid-template-columns: 1.6fr 1fr 1fr; grid-template-rows: auto 1fr; gap: 16px">
+            <div style="grid-row: span 2; background: #fbfaf6; border-radius: 20px; padding: 28px 30px; display: flex; flex-direction: column">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+                <p style="margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #82848c">Saldo actual</p>
+                <span style="font-size: 11.5px; font-weight: 600; color: #2b3fd6; background: #e7e9fb; padding: 3px 8px; border-radius: 999px">+18% vs. agosto</span>
+              </div>
+              <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 64px; line-height: 0.95; letter-spacing: -0.045em">$ 2.216.181<span style="font-size: 24px; color: #82848c; letter-spacing: -0.01em">,50</span></p>
+              <div style="margin-top: 28px; padding-top: 24px; border-top: 1px solid #eae8e0">
+                <p style="margin: 0 0 12px; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #82848c">Flujo del mes</p>
+                <div style="display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: #eae8e0">
+                  <span style="width: 89%; background: #2b3fd6"></span>
+                  <span style="width: 11%; background: #c4402a"></span>
+                </div>
+                <div style="margin-top: 14px; display: flex; gap: 30px">
+                  <div><p style="margin: 0; font-size: 12.5px; color: #63656d">Ingresos</p><p class="tnum" style="margin: 3px 0 0; font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em">$ 2.480.515,00</p></div>
+                  <div><p style="margin: 0; font-size: 12.5px; color: #63656d">Gastos</p><p class="tnum" style="margin: 3px 0 0; font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: #c4402a">$ 264.333,50</p></div>
+                </div>
+              </div>
+              <div style="margin-top: auto; padding-top: 24px; display: flex; align-items: center; gap: 10px">
+                <span style="padding: 11px 18px; border-radius: 10px; background: #2b3fd6; color: #fff; font-size: 13.5px; font-weight: 600">+ Nuevo movimiento</span>
+                <span style="padding: 11px 18px; border-radius: 10px; border: 1px solid #d6d3c8; font-size: 13.5px; font-weight: 600">Cuadrar saldo</span>
+              </div>
+            </div>
+            <div style="background: #16171b; color: #f4f3ef; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column; justify-content: space-between">
+              <p style="margin: 0; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #9b9da5">Proyectado a fin de mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 33px; line-height: 1.05; letter-spacing: -0.035em">$ 718.962<span style="font-size: 15px; color: #9b9da5">,57</span></p>
+              <div style="display: flex; flex-direction: column; gap: 7px; font-size: 12.5px">
+                <span style="display: flex; justify-content: space-between; color: #b6b8c0">Fijos por pagar (16)<span class="tnum" style="color: #ff9d8a">− 1.462.220,60</span></span>
+                <span style="display: flex; justify-content: space-between; color: #b6b8c0">Deudas por pagar (1)<span class="tnum" style="color: #ff9d8a">− 34.998,33</span></span>
+                <span style="display: flex; justify-content: space-between; color: #b6b8c0; padding-top: 7px; border-top: 1px solid #2a2b31">Fijos pagados<span class="tnum">8 de 24</span></span>
+              </div>
+            </div>
+            <div style="background: #fbfaf6; border-radius: 20px; padding: 22px 24px; display: flex; flex-direction: column">
+              <p style="margin: 0 0 10px; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #82848c">Ahorros</p>
+              <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 29px; line-height: 1; letter-spacing: -0.035em">$ 3.140.000<span style="font-size: 14px; color: #82848c">,00</span></p>
+              <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: #63656d">
+                <span style="display: flex; justify-content: space-between">Dólares<span class="tnum" style="color: #16171b">USD 1.850</span></span>
+                <span style="display: flex; justify-content: space-between">Emergencia<span class="tnum" style="color: #16171b">$ 620.000</span></span>
+                <span style="display: flex; justify-content: space-between">Viaje 2027<span class="tnum" style="color: #16171b">$ 410.000</span></span>
+                <span style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #eae8e0">Me deben<span class="tnum" style="color: #16171b">$ 96.500</span></span>
+              </div>
+            </div>
+            <div style="grid-column: span 2; background: #fbfaf6; border-radius: 20px; padding: 20px 24px; min-height: 0">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+                <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: -0.015em">Últimos movimientos</p>
+                <span style="font-size: 13px; color: #2b3fd6; font-weight: 600">Ver todos</span>
+              </div>
+              <p style="margin: 10px 0 2px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a5ab">Hoy</p>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #eeece4"><span style="width: 8px; height: 8px; border-radius: 999px; background: #c4402a"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Quique</p><p style="margin: 1px 0 0; font-size: 12px; color: #82848c">Delivery · efectivo</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #c4402a">− $ 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #1d8f7e"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Verdu</p><p style="margin: 1px 0 0; font-size: 12px; color: #82848c">Supermercado · débito</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #c4402a">− $ 15.550,00</span></div>
+              <p style="margin: 12px 0 2px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a5ab">Ayer</p>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #eee"><span style="width: 8px; height: 8px; border-radius: 999px; background: #6a5bb8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Balanceado</p><p style="margin: 1px 0 0; font-size: 12px; color: #82848c">Mascotas · débito</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #c4402a">− $ 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #2b3fd6"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Sueldo</p><p style="margin: 1px 0 0; font-size: 12px; color: #82848c">Ingreso · cuenta sueldo</p></div><span class="tnum" style="font-size: 14px; font-weight: 600; color: #2b3fd6">+ $ 2.400.000,00</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="width: 390px; height: 844px; overflow: hidden; border-radius: 42px; background: #efeee8; color: #16171b; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.7); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 26px 6px; font-size: 12px; font-weight: 600">
+            <span class="tnum">9:41</span><span style="color: #82848c">▮▮▮ ▮</span>
+          </div>
+          <div style="padding: 8px 20px 0; display: flex; align-items: center; justify-content: space-between">
+            <div>
+              <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 700; letter-spacing: -0.02em">Hoy</p>
+              <p style="margin: 2px 0 0; font-size: 12.5px; color: #82848c">Viernes 5 · Septiembre 2026</p>
+            </div>
+            <span style="width: 36px; height: 36px; border-radius: 12px; background: #e5e3da; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">LE</span>
+          </div>
+          <div style="flex: 1; min-height: 0; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 14px">
+            <div style="background: #fbfaf6; border-radius: 20px; padding: 22px">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px">
+                <p style="margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #82848c">Saldo actual</p>
+                <span style="font-size: 11px; font-weight: 600; color: #2b3fd6; background: #e7e9fb; padding: 2px 7px; border-radius: 999px">+18%</span>
+              </div>
+              <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 38px; line-height: 1; letter-spacing: -0.04em">$ 2.216.181<span style="font-size: 17px; color: #82848c">,50</span></p>
+              <div style="margin-top: 18px; display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #eae8e0"><span style="width: 89%; background: #2b3fd6"></span><span style="width: 11%; background: #c4402a"></span></div>
+              <div style="margin-top: 12px; display: flex; justify-content: space-between; font-size: 12.5px">
+                <span style="color: #63656d">Ingresos <span class="tnum" style="color: #16171b; font-weight: 600">$ 2.480.515</span></span>
+                <span style="color: #63656d">Gastos <span class="tnum" style="color: #c4402a; font-weight: 600">$ 264.334</span></span>
+              </div>
+            </div>
+            <div style="background: #16171b; color: #f4f3ef; border-radius: 20px; padding: 18px 20px">
+              <div style="display: flex; justify-content: space-between; align-items: baseline">
+                <p style="margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9b9da5">Proyectado fin de mes</p>
+                <span style="font-size: 12px; color: #9b9da5">8/24 fijos</span>
+              </div>
+              <p class="tnum" style="margin: 8px 0 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 28px; line-height: 1; letter-spacing: -0.03em">$ 718.962<span style="font-size: 13px; color: #9b9da5">,57</span></p>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #b6b8c0">
+                <span style="display: flex; justify-content: space-between">Fijos por pagar (16)<span class="tnum" style="color: #ff9d8a">− 1.462.220,60</span></span>
+                <span style="display: flex; justify-content: space-between">Deudas por pagar (1)<span class="tnum" style="color: #ff9d8a">− 34.998,33</span></span>
+              </div>
+            </div>
+            <div style="background: #fbfaf6; border-radius: 20px; padding: 18px 20px; flex: 1; min-height: 0">
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 14.5px; font-weight: 600">Últimos movimientos</p>
+                <span style="font-size: 12.5px; color: #2b3fd6; font-weight: 600">Ver todos</span>
+              </div>
+              <p style="margin: 12px 0 2px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a5ab">Hoy</p>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid #eee"><span style="width: 8px; height: 8px; border-radius: 999px; background: #c4402a"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Quique</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #82848c">Delivery</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #1d8f7e"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Verdu</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #82848c">Supermercado</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− 15.550,00</span></div>
+              <p style="margin: 12px 0 2px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #a3a5ab">Ayer</p>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid #eee"><span style="width: 8px; height: 8px; border-radius: 999px; background: #6a5bb8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Balanceado</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #82848c">Mascotas</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 11px; padding: 9px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #2b3fd6"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Sueldo</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #82848c">Ingreso</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #2b3fd6">+ 2.400.000,00</span></div>
+            </div>
+          </div>
+          <div style="position: relative; padding: 10px 20px 26px; background: #fbfaf6; border-top: 1px solid #e2e0d7; display: flex; justify-content: space-between; align-items: flex-start">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #16171b"></span><span style="font-size: 11px; font-weight: 600">Hoy</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #dcdad1"></span><span style="font-size: 11px; color: #82848c">Mov.</span></div>
+            <div style="width: 62px; display: flex; justify-content: center"><span style="width: 52px; height: 52px; border-radius: 18px; background: #2b3fd6; color: #fff; font-size: 26px; font-weight: 500; display: flex; align-items: center; justify-content: center; margin-top: -18px; box-shadow: 0 10px 24px -8px rgba(43,63,214,0.7)">+</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #dcdad1"></span><span style="font-size: 11px; color: #82848c">Fijos</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #dcdad1"></span><span style="font-size: 11px; color: #82848c">Más</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="3b" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">3b</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Tablero · v2</span>
+        <span style="font-size: 13px; color: #7a818c">verde más profundo, medidor explicado, tira semanal</span>
+      </div>
+      <div style="display: flex; gap: 28px; align-items: flex-start">
+        <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #051d1b; color: #e8f3ef; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.85); font-family: 'IBM Plex Sans', sans-serif; display: flex">
+          <div style="width: 214px; flex: none; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; background: #031514">
+            <div style="display: flex; align-items: center; gap: 9px; padding: 0 8px">
+              <span style="width: 26px; height: 26px; border-radius: 9px; background: #5fe0ad; color: #051d1b; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif">M</span>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: -0.01em">MyFinances</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13.5px">
+              <span style="padding: 10px 14px; border-radius: 9px; background: #0a2e2b; color: #e8f3ef; font-weight: 600; display: flex; align-items: center; gap: 9px"><span style="width: 3px; height: 15px; border-radius: 2px; background: #5fe0ad"></span>Hoy</span>
+              <span style="padding: 10px 14px; padding-left: 26px; color: #75948e">Movimientos</span>
+              <span style="padding: 10px 14px; padding-left: 26px; color: #75948e">Fijos</span>
+              <span style="padding: 10px 14px; padding-left: 26px; color: #75948e">Análisis</span>
+              <span style="padding: 10px 14px; padding-left: 26px; color: #75948e">Ahorros</span>
+              <span style="padding: 10px 14px; padding-left: 26px; color: #75948e">Me Deben</span>
+            </div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+              <div style="background: #0a2e2b; border-radius: 12px; padding: 15px">
+                <p style="margin: 0 0 6px; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #75948e">Próximo vencimiento</p>
+                <p style="margin: 0; font-size: 13px">Expensas · 10/09</p>
+                <p class="tnum" style="margin: 5px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700">$ 148.400,00</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 12px 6px 0; border-top: 1px solid #0d332f">
+                <span style="width: 28px; height: 28px; border-radius: 999px; background: #0a2e2b; color: #a9ccc4; font-size: 11px; display: flex; align-items: center; justify-content: center">LE</span>
+                <span style="font-size: 12.5px; color: #a9ccc4">Leandro</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+            <div style="display: flex; align-items: center; justify-content: space-between">
+              <div>
+                <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.02em">Viernes 5 de septiembre</p>
+                <p style="margin: 3px 0 0; font-size: 13px; color: #75948e">Gastaste $ 31.050 hoy · 11% del ingreso del mes en total</p>
+              </div>
+              <div style="display: flex; gap: 10px">
+                <span style="padding: 10px 16px; border-radius: 10px; background: #0a2e2b; font-size: 13.5px; font-weight: 500">Cuadrar saldo</span>
+                <span style="padding: 10px 16px; border-radius: 10px; background: #5fe0ad; color: #03211d; font-size: 13.5px; font-weight: 700">+ Nuevo movimiento</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 312px; gap: 18px; flex: 1; min-height: 0">
+              <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0">
+                <div style="border-radius: 18px; background: #0a2b28; padding: 26px 28px; display: flex; align-items: center; gap: 30px">
+                  <div style="flex: 1">
+                    <p style="margin: 0 0 10px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Saldo actual</p>
+                    <p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 52px; line-height: 1; letter-spacing: -0.04em; color: #5fe0ad">$ 2.216.181<span style="font-size: 21px; color: #35907a">,50</span></p>
+                    <div style="margin-top: 20px; display: flex; align-items: flex-end; gap: 6px; height: 42px">
+                      <span style="flex: 1; height: 26%; background: #12403b; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 54%; background: #12403b; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 38%; background: #12403b; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 70%; background: #12403b; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 48%; background: #12403b; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 88%; background: #2e7d6a; border-radius: 3px"></span>
+                      <span style="flex: 1; height: 62%; background: #5fe0ad; border-radius: 3px"></span>
+                    </div>
+                    <p style="margin: 9px 0 0; font-size: 11.5px; color: #75948e">Gasto diario · últimos 7 días</p>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+                    <div style="width: 122px; height: 122px; border-radius: 999px; background: conic-gradient(#5fe0ad 0turn 0.107turn, #12403b 0.107turn 1turn); display: flex; align-items: center; justify-content: center">
+                      <div style="width: 94px; height: 94px; border-radius: 999px; background: #0a2b28; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                        <span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 700">11%</span>
+                        <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #75948e">gastado</span>
+                      </div>
+                    </div>
+                    <p style="margin: 0; font-size: 11.5px; color: #a9ccc4; text-align: center; max-width: 130px">$ 264.334 de $ 2.480.515 ingresados</p>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px">
+                  <div style="border-radius: 16px; background: #0a2b28; padding: 16px 18px"><p style="margin: 0 0 7px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Ingresos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.03em">$ 2.480.515</p></div>
+                  <div style="border-radius: 16px; background: #0a2b28; padding: 16px 18px"><p style="margin: 0 0 7px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Gastos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #ffa08c">$ 264.334</p></div>
+                  <div style="border-radius: 16px; background: #0a2b28; padding: 16px 18px"><p style="margin: 0 0 7px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Proyectado fin de mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.03em">$ 718.963</p></div>
+                </div>
+                <div style="flex: 1; min-height: 0; border-radius: 18px; background: #0a2b28; padding: 20px 24px">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+                    <p style="margin: 0; font-size: 14.5px; font-weight: 600">Últimos movimientos</p>
+                    <span style="font-size: 13px; color: #5fe0ad; font-weight: 600">Ver todos</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0; border-bottom: 1px solid #103833"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ffa08c"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Quique</p><p style="margin: 1px 0 0; font-size: 12px; color: #75948e">Delivery · efectivo · hoy</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffa08c">− $ 15.500,00</span></div>
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0; border-bottom: 1px solid #103833"><span style="width: 8px; height: 8px; border-radius: 999px; background: #7fd4e8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Verdu</p><p style="margin: 1px 0 0; font-size: 12px; color: #75948e">Supermercado · débito · hoy</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffa08c">− $ 15.550,00</span></div>
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #5fe0ad"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Sueldo</p><p style="margin: 1px 0 0; font-size: 12px; color: #75948e">Ingreso · cuenta sueldo · 01/09</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #5fe0ad">+ $ 2.400.000,00</span></div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0">
+                <div style="border-radius: 18px; background: #0a2b28; padding: 20px 22px">
+                  <p style="margin: 0 0 14px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Pendiente este mes</p>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px"><span style="font-size: 13px">Fijos por pagar <span style="color: #75948e">(16)</span></span><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #ffa08c">− 1.462.220,60</span></div>
+                  <div style="height: 6px; border-radius: 999px; background: #12403b; overflow: hidden"><span style="display: block; width: 34%; height: 100%; background: #5fe0ad"></span></div>
+                  <p style="margin: 8px 0 14px; font-size: 12px; color: #75948e">8 de 24 fijos pagados</p>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid #103833"><span style="font-size: 13px">Deudas por pagar <span style="color: #75948e">(1)</span></span><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #ffa08c">− 34.998,33</span></div>
+                </div>
+                <div style="border-radius: 18px; background: #0a2b28; padding: 20px 22px; flex: 1; min-height: 0">
+                  <p style="margin: 0 0 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Ahorros e inversiones</p>
+                  <p class="tnum" style="margin: 0 0 16px; font-family: 'Space Grotesk', sans-serif; font-size: 27px; font-weight: 700; letter-spacing: -0.035em">$ 3.140.000<span style="font-size: 14px; color: #75948e">,00</span></p>
+                  <div style="display: flex; flex-direction: column; gap: 11px; font-size: 13px">
+                    <div style="display: flex; justify-content: space-between"><span style="color: #cbe3dd">Dólares</span><span class="tnum">USD 1.850</span></div>
+                    <div style="display: flex; justify-content: space-between"><span style="color: #cbe3dd">Fondo de emergencia</span><span class="tnum">$ 620.000</span></div>
+                    <div style="display: flex; justify-content: space-between"><span style="color: #cbe3dd">Viaje 2027</span><span class="tnum">$ 410.000</span></div>
+                    <div style="display: flex; justify-content: space-between; padding-top: 11px; border-top: 1px solid #103833"><span style="color: #cbe3dd">Me deben</span><span class="tnum">$ 96.500</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="width: 390px; height: 844px; overflow: hidden; border-radius: 42px; background: #051d1b; color: #e8f3ef; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.85); font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 26px 6px; font-size: 12px; font-weight: 600"><span class="tnum">9:41</span><span style="color: #75948e">▮▮▮ ▮</span></div>
+          <div style="padding: 8px 20px 0; display: flex; align-items: center; justify-content: space-between">
+            <div>
+              <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; letter-spacing: -0.02em">Hoy</p>
+              <p style="margin: 2px 0 0; font-size: 12.5px; color: #75948e">Viernes 5 · Septiembre 2026</p>
+            </div>
+            <span style="width: 34px; height: 34px; border-radius: 999px; background: #0a2e2b; color: #a9ccc4; font-size: 11.5px; display: flex; align-items: center; justify-content: center">LE</span>
+          </div>
+          <div style="flex: 1; min-height: 0; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 14px">
+            <div style="border-radius: 20px; background: #0a2b28; padding: 22px; display: flex; align-items: center; gap: 18px">
+              <div style="flex: 1">
+                <p style="margin: 0 0 9px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Saldo actual</p>
+                <p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 33px; line-height: 1; letter-spacing: -0.04em; color: #5fe0ad">$ 2.216.181<span style="font-size: 15px; color: #35907a">,50</span></p>
+                <p style="margin: 10px 0 0; font-size: 12px; color: #75948e">Proyectado <span class="tnum" style="color: #e8f3ef; font-weight: 600">$ 718.962,57</span></p>
+              </div>
+              <div style="width: 84px; height: 84px; flex: none; border-radius: 999px; background: conic-gradient(#5fe0ad 0turn 0.107turn, #12403b 0.107turn 1turn); display: flex; align-items: center; justify-content: center">
+                <div style="width: 64px; height: 64px; border-radius: 999px; background: #0a2b28; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                  <span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700">11%</span>
+                  <span style="font-size: 8.5px; letter-spacing: 0.05em; text-transform: uppercase; color: #75948e">gastado</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+              <div style="border-radius: 16px; background: #0a2b28; padding: 15px 16px"><p style="margin: 0 0 6px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Ingresos</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.03em">$ 2.480.515</p></div>
+              <div style="border-radius: 16px; background: #0a2b28; padding: 15px 16px"><p style="margin: 0 0 6px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #75948e">Gastos</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.03em; color: #ffa08c">$ 264.334</p></div>
+            </div>
+            <div style="border-radius: 18px; background: #0a2b28; padding: 17px 20px">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px"><span style="font-size: 12.5px">Fijos por pagar <span style="color: #75948e">(16)</span></span><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #ffa08c">− 1.462.220,60</span></div>
+              <div style="height: 6px; border-radius: 999px; background: #12403b; overflow: hidden"><span style="display: block; width: 34%; height: 100%; background: #5fe0ad"></span></div>
+              <p style="margin: 8px 0 0; font-size: 11.5px; color: #75948e">8 de 24 pagados · deudas − $ 34.998,33</p>
+            </div>
+            <div style="border-radius: 18px; background: #0a2b28; padding: 18px 20px; flex: 1; min-height: 0">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+                <p style="margin: 0; font-size: 14px; font-weight: 600">Últimos movimientos</p>
+                <span style="font-size: 12.5px; color: #5fe0ad; font-weight: 600">Ver todos</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #103833"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ffa08c"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Quique</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #75948e">Delivery · hoy</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #ffa08c">− 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #103833"><span style="width: 8px; height: 8px; border-radius: 999px; background: #7fd4e8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Verdu</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #75948e">Supermercado · hoy</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #ffa08c">− 15.550,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #103833"><span style="width: 8px; height: 8px; border-radius: 999px; background: #a892f0"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Balanceado</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #75948e">Mascotas · ayer</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #ffa08c">− 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #5fe0ad"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Sueldo</p><p style="margin: 1px 0 0; font-size: 11.5px; color: #75948e">Ingreso · 01/09</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #5fe0ad">+ 2.400.000,00</span></div>
+            </div>
+          </div>
+          <div style="padding: 10px 20px 26px; background: #031514; border-top: 1px solid #0d332f; display: flex; justify-content: space-between; align-items: flex-start">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #5fe0ad"></span><span style="font-size: 11px; font-weight: 600">Hoy</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #12403b"></span><span style="font-size: 11px; color: #75948e">Mov.</span></div>
+            <div style="width: 62px; display: flex; justify-content: center"><span style="width: 52px; height: 52px; border-radius: 18px; background: #5fe0ad; color: #03211d; font-size: 26px; font-weight: 500; display: flex; align-items: center; justify-content: center; margin-top: -18px; box-shadow: 0 10px 24px -8px rgba(95,224,173,0.5)">+</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #12403b"></span><span style="font-size: 11px; color: #75948e">Fijos</span></div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 62px; padding-top: 8px"><span style="width: 20px; height: 3px; border-radius: 2px; background: #12403b"></span><span style="font-size: 11px; color: #75948e">Más</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section style="padding: 16px 56px 40px; display: flex; flex-direction: column; gap: 40px">
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 780px">
+    <p style="margin: 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a818c">Turno 2 · Pantalla Hoy · sin anclaje al look actual</p>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: -0.02em; color: #edefea">Cuatro sistemas visuales nuevos</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #a0a6ae; text-wrap: pretty">Misma lógica que ya tiene la app —saldo actual, ingresos y gastos del mes, saldo proyectado con su desglose de fijos y deudas, últimos movimientos y las seis secciones— pero cada una parte de cero en color, tipografía, navegación y estructura. Decime un id (<a href="#2a">2a</a>, <a href="#2b">2b</a>, <a href="#2c">2c</a>, <a href="#2d">2d</a>) y sobre esa base armo la app entera.</p>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start">
+
+    <div id="2a" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">2a</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Bento claro</span>
+        <span style="font-size: 13px; color: #7a818c">nav arriba, módulos independientes, luz plena</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #f1f0ec; color: #14161a; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.7); font-family: 'Plus Jakarta Sans', sans-serif; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 26px; padding: 20px 32px; background: #ffffff; border-bottom: 1px solid #e4e2dc">
+          <span style="font-family: 'Sora', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: -0.02em">MyFinances</span>
+          <div style="display: flex; gap: 4px; font-size: 13.5px">
+            <span style="padding: 8px 15px; border-radius: 999px; background: #14161a; color: #fff; font-weight: 600">Hoy</span>
+            <span style="padding: 8px 15px; border-radius: 999px; color: #5b5e66">Movimientos</span>
+            <span style="padding: 8px 15px; border-radius: 999px; color: #5b5e66">Fijos</span>
+            <span style="padding: 8px 15px; border-radius: 999px; color: #5b5e66">Análisis</span>
+            <span style="padding: 8px 15px; border-radius: 999px; color: #5b5e66">Ahorros</span>
+            <span style="padding: 8px 15px; border-radius: 999px; color: #5b5e66">Me Deben</span>
+          </div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 12px">
+            <span style="padding: 9px 16px; border-radius: 999px; background: #3355ff; color: #fff; font-size: 13.5px; font-weight: 600">+ Nuevo movimiento</span>
+            <span style="width: 32px; height: 32px; border-radius: 999px; background: #e4e2dc; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; justify-content: center">LE</span>
+          </div>
+        </div>
+        <div style="flex: 1; min-height: 0; padding: 28px 32px; display: grid; grid-template-columns: 1.55fr 1fr 1fr; grid-template-rows: auto 1fr; gap: 16px">
+          <div style="grid-row: span 2; background: #ffffff; border-radius: 22px; padding: 30px 32px; display: flex; flex-direction: column">
+            <p style="margin: 0 0 14px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b8e96">Saldo actual · Septiembre 2026</p>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 62px; line-height: 1; letter-spacing: -0.04em">$ 2.216.181<span style="font-size: 24px; color: #8b8e96">,50</span></p>
+            <div style="margin-top: 26px; padding-top: 22px; border-top: 1px solid #eceae4; display: flex; flex-direction: column; gap: 18px">
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 7px"><span style="color: #5b5e66">Ingresos del mes</span><span class="tnum" style="font-weight: 600">$ 2.480.515,00</span></div>
+                <div style="height: 8px; border-radius: 999px; background: #eceae4; overflow: hidden"><span style="display: block; width: 100%; height: 100%; background: #3355ff"></span></div>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 7px"><span style="color: #5b5e66">Gastos del mes</span><span class="tnum" style="font-weight: 600; color: #c4402a">$ 264.333,50</span></div>
+                <div style="height: 8px; border-radius: 999px; background: #eceae4; overflow: hidden"><span style="display: block; width: 11%; height: 100%; background: #c4402a"></span></div>
+              </div>
+            </div>
+            <div style="margin-top: auto; padding-top: 22px; display: flex; gap: 10px">
+              <span style="padding: 10px 16px; border-radius: 12px; border: 1px solid #d8d5cd; font-size: 13.5px; font-weight: 600">Cuadrar saldo</span>
+              <span style="padding: 10px 16px; border-radius: 12px; background: #f1f0ec; font-size: 13.5px; font-weight: 600; color: #5b5e66">Ver análisis</span>
+            </div>
+          </div>
+          <div style="background: #14161a; color: #f4f4f2; border-radius: 22px; padding: 24px 26px; display: flex; flex-direction: column; justify-content: space-between">
+            <p style="margin: 0; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a9da6">Proyectado a fin de mes</p>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 34px; line-height: 1.05; letter-spacing: -0.03em">$ 718.962<span style="font-size: 15px; color: #9a9da6">,57</span></p>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #9a9da6">
+              <span style="display: flex; justify-content: space-between">Fijos por pagar (16)<span class="tnum" style="color: #ff9d8a">− 1.462.220,60</span></span>
+              <span style="display: flex; justify-content: space-between">Deudas por pagar (1)<span class="tnum" style="color: #ff9d8a">− 34.998,33</span></span>
+            </div>
+          </div>
+          <div style="background: #ffffff; border-radius: 22px; padding: 24px 26px; display: flex; flex-direction: column; gap: 14px">
+            <p style="margin: 0; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b8e96">Ahorros</p>
+            <p class="tnum" style="margin: 0; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 30px; line-height: 1; letter-spacing: -0.03em">$ 3.140.000<span style="font-size: 14px; color: #8b8e96">,00</span></p>
+            <div style="display: flex; flex-direction: column; gap: 9px; font-size: 12.5px; color: #5b5e66">
+              <span style="display: flex; justify-content: space-between">Dólares<span class="tnum">USD 1.850</span></span>
+              <span style="display: flex; justify-content: space-between">Fondo de emergencia<span class="tnum">$ 620.000</span></span>
+              <span style="display: flex; justify-content: space-between">Viaje 2027<span class="tnum">$ 410.000</span></span>
+            </div>
+          </div>
+          <div style="grid-column: span 2; background: #ffffff; border-radius: 22px; padding: 22px 26px; min-height: 0">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+              <p style="margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em">Últimos movimientos</p>
+              <span style="font-size: 13px; color: #3355ff; font-weight: 600">Ver todos</span>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eceae4"><span style="width: 9px; height: 9px; border-radius: 3px; background: #c4402a"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Quique</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8e96">Delivery · hoy</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− $ 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eceae4"><span style="width: 9px; height: 9px; border-radius: 3px; background: #1d8f7e"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Verdu</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8e96">Supermercado · hoy</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− $ 15.550,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eceae4"><span style="width: 9px; height: 9px; border-radius: 3px; background: #6a5bb8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Balanceado</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8e96">Mascotas · ayer</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #c4402a">− $ 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0"><span style="width: 9px; height: 9px; border-radius: 3px; background: #3355ff"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px; font-weight: 600">Sueldo</p><p style="margin: 1px 0 0; font-size: 12px; color: #8b8e96">Ingreso · 01/09</p></div><span class="tnum" style="font-size: 13.5px; font-weight: 600; color: #3355ff">+ $ 2.400.000,00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="2b" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">2b</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Diario</span>
+        <span style="font-size: 13px; color: #7a818c">el día como columna vertebral, saldo corriendo</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #17150f; color: #f0ece1; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.85); font-family: 'Archivo', sans-serif; display: flex">
+        <div style="width: 190px; flex: none; padding: 26px 20px; display: flex; flex-direction: column; gap: 28px; border-right: 1px solid #26231a">
+          <span style="font-family: 'Newsreader', serif; font-size: 21px; font-weight: 500">MyFinances</span>
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13.5px">
+            <span style="color: #f0ece1; font-weight: 600; display: flex; align-items: center; gap: 9px"><span style="width: 14px; height: 1px; background: #e8a33d"></span>Hoy</span>
+            <span style="color: #8f887a; padding-left: 23px">Movimientos</span>
+            <span style="color: #8f887a; padding-left: 23px">Fijos</span>
+            <span style="color: #8f887a; padding-left: 23px">Análisis</span>
+            <span style="color: #8f887a; padding-left: 23px">Ahorros</span>
+            <span style="color: #8f887a; padding-left: 23px">Me Deben</span>
+          </div>
+          <div style="margin-top: auto; font-size: 12px; color: #8f887a; line-height: 1.7; padding-top: 16px; border-top: 1px solid #26231a">Leandro<br>Septiembre 2026</div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex">
+          <div style="flex: 1; min-width: 0; padding: 34px 36px; display: flex; flex-direction: column; gap: 24px">
+            <div style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid #26231a">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px">
+                <p style="margin: 0; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f887a">Saldo actual</p>
+                <div style="display: flex; gap: 10px">
+                  <span style="padding: 9px 15px; border: 1px solid #3a3527; border-radius: 4px; font-size: 13px; font-weight: 500">Cuadrar saldo</span>
+                  <span style="padding: 9px 15px; background: #e8a33d; color: #17150f; border-radius: 4px; font-size: 13px; font-weight: 600">+ Nuevo movimiento</span>
+                </div>
+              </div>
+              <p class="tnum" style="margin: 0; font-family: 'Newsreader', serif; font-weight: 300; font-size: 72px; line-height: 0.9; letter-spacing: -0.02em; white-space: nowrap">$ 2.216.181<span style="font-size: 26px; color: #a49b89">,50</span></p>
+            </div>
+            <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px">
+              <div style="display: flex; align-items: baseline; justify-content: space-between">
+                <p style="margin: 0; font-family: 'Newsreader', serif; font-size: 19px">Viernes 5 de septiembre</p>
+                <span class="tnum" style="font-size: 12px; color: #8f887a">día −$ 31.050,00</span>
+              </div>
+              <div style="display: flex; flex-direction: column; padding-left: 14px; border-left: 1px solid #26231a">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0"><span style="width: 7px; height: 7px; border-radius: 999px; background: #e07a5f; margin-left: -18px"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Quique</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f887a">Delivery · efectivo · 21:40</p></div><span class="tnum" style="font-size: 14px; color: #e07a5f">− 15.500,00</span><span class="tnum" style="width: 120px; text-align: right; font-size: 12px; color: #8f887a">2.216.181,50</span></div>
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid #201d15"><span style="width: 7px; height: 7px; border-radius: 999px; background: #6fbfa8; margin-left: -18px"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Verdu</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f887a">Supermercado · débito · 11:05</p></div><span class="tnum" style="font-size: 14px; color: #e07a5f">− 15.550,00</span><span class="tnum" style="width: 120px; text-align: right; font-size: 12px; color: #8f887a">2.231.681,50</span></div>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px">
+                <p style="margin: 0; font-family: 'Newsreader', serif; font-size: 19px">Jueves 4 de septiembre</p>
+                <span class="tnum" style="font-size: 12px; color: #8f887a">día −$ 3.300,00</span>
+              </div>
+              <div style="display: flex; flex-direction: column; padding-left: 14px; border-left: 1px solid #26231a">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0"><span style="width: 7px; height: 7px; border-radius: 999px; background: #a892f0; margin-left: -18px"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Balanceado</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f887a">Mascotas · débito</p></div><span class="tnum" style="font-size: 14px; color: #e07a5f">− 3.300,00</span><span class="tnum" style="width: 120px; text-align: right; font-size: 12px; color: #8f887a">2.247.231,50</span></div>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px">
+                <p style="margin: 0; font-family: 'Newsreader', serif; font-size: 19px">Lunes 1 de septiembre</p>
+                <span class="tnum" style="font-size: 12px; color: #8f887a">día +$ 1.780.000,00</span>
+              </div>
+              <div style="display: flex; flex-direction: column; padding-left: 14px; border-left: 1px solid #26231a">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0"><span style="width: 7px; height: 7px; border-radius: 999px; background: #c3d94f; margin-left: -18px"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Sueldo</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f887a">Ingreso · cuenta sueldo</p></div><span class="tnum" style="font-size: 14px; color: #c3d94f">+ 2.400.000,00</span><span class="tnum" style="width: 120px; text-align: right; font-size: 12px; color: #8f887a">2.250.531,50</span></div>
+                <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid #201d15"><span style="width: 7px; height: 7px; border-radius: 999px; background: #e8a33d; margin-left: -18px"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Alquiler</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f887a">Vivienda · gasto fijo</p></div><span class="tnum" style="font-size: 14px; color: #e07a5f">− 620.000,00</span><span class="tnum" style="width: 120px; text-align: right; font-size: 12px; color: #8f887a">−149.468,50</span></div>
+              </div>
+              <span style="margin-top: 10px; font-size: 13px; color: #e8a33d">Ver todos los movimientos →</span>
+            </div>
+          </div>
+          <div style="width: 290px; flex: none; padding: 34px 28px; background: #1e1b14; display: flex; flex-direction: column; gap: 26px">
+            <div>
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f887a">Mes en curso</p>
+              <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 8px">
+                <div><p style="margin: 0; font-size: 12px; color: #8f887a">Ingresos</p><p class="tnum" style="margin: 2px 0 0; font-family: 'Newsreader', serif; font-size: 26px">$ 2.480.515,00</p></div>
+                <div><p style="margin: 0; font-size: 12px; color: #8f887a">Gastos</p><p class="tnum" style="margin: 2px 0 0; font-family: 'Newsreader', serif; font-size: 26px; color: #e07a5f">$ 264.333,50</p></div>
+              </div>
+            </div>
+            <div style="padding-top: 22px; border-top: 1px solid #2c281e">
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f887a">Proyectado a fin de mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Newsreader', serif; font-size: 34px; line-height: 1">$ 718.962,57</p>
+              <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #a49b89">
+                <span style="display: flex; justify-content: space-between">Fijos por pagar (16)<span class="tnum" style="color: #e07a5f">− 1.462.220,60</span></span>
+                <span style="display: flex; justify-content: space-between">Deudas por pagar (1)<span class="tnum" style="color: #e07a5f">− 34.998,33</span></span>
+              </div>
+            </div>
+            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #2c281e">
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f887a">Próximo fijo</p>
+              <p style="margin: 0; font-size: 14px">Expensas · vence el 10</p>
+              <p class="tnum" style="margin: 4px 0 0; font-size: 20px; font-family: 'Newsreader', serif">$ 148.400,00</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="2c" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">2c</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Editorial suizo</span>
+        <span style="font-size: 13px; color: #7a818c">tipografía como interfaz, cero tarjetas</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #e9e6de; color: #101010; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.7); font-family: 'Archivo', sans-serif; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 34px; border-bottom: 2px solid #101010">
+          <div style="display: flex; align-items: center; gap: 30px">
+            <span style="font-weight: 800; font-size: 15px; letter-spacing: -0.01em; text-transform: uppercase">MyFinances</span>
+            <div style="display: flex; gap: 20px; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em">
+              <span style="font-weight: 600; border-bottom: 2px solid #d92f1c; padding-bottom: 2px">Hoy</span>
+              <span style="color: #5d5b55">Movimientos</span>
+              <span style="color: #5d5b55">Fijos</span>
+              <span style="color: #5d5b55">Análisis</span>
+              <span style="color: #5d5b55">Ahorros</span>
+              <span style="color: #5d5b55">Me deben</span>
+            </div>
+          </div>
+          <span style="font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b55">Leandro · Sep 2026</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 380px; flex: 1; min-height: 0">
+          <div style="padding: 34px; border-right: 2px solid #101010; display: flex; flex-direction: column; gap: 26px">
+            <div>
+              <p style="margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d5b55">Saldo actual</p>
+              <p class="tnum" style="margin: 0; font-weight: 800; font-size: 88px; line-height: 0.85; letter-spacing: -0.05em">2.216.181<span style="font-size: 32px; letter-spacing: -0.02em">,50</span></p>
+              <p style="margin: 10px 0 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: #5d5b55">Pesos argentinos · 4 cuentas</p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #c3bfb4; border-bottom: 1px solid #c3bfb4">
+              <div style="padding: 18px 0"><p style="margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d5b55">Ingresos del mes</p><p class="tnum" style="margin: 0; font-weight: 800; font-size: 30px; letter-spacing: -0.03em">2.480.515,00</p></div>
+              <div style="padding: 18px 0 18px 24px; border-left: 1px solid #c3bfb4"><p style="margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d5b55">Gastos del mes</p><p class="tnum" style="margin: 0; font-weight: 800; font-size: 30px; letter-spacing: -0.03em; color: #d92f1c">264.333,50</p></div>
+            </div>
+            <div style="flex: 1; min-height: 0">
+              <p style="margin: 0 0 12px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d5b55">Últimos movimientos</p>
+              <div style="display: flex; flex-direction: column">
+                <div style="display: grid; grid-template-columns: 60px 1fr 170px 150px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid #c3bfb4"><span class="tnum" style="font-size: 12px; color: #5d5b55">05/09</span><span style="font-size: 16px; font-weight: 600">Quique</span><span style="font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b55">Delivery</span><span class="tnum" style="text-align: right; font-size: 17px; font-weight: 800; color: #d92f1c">−15.500,00</span></div>
+                <div style="display: grid; grid-template-columns: 60px 1fr 170px 150px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid #c3bfb4"><span class="tnum" style="font-size: 12px; color: #5d5b55">05/09</span><span style="font-size: 16px; font-weight: 600">Verdu</span><span style="font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b55">Supermercado</span><span class="tnum" style="text-align: right; font-size: 17px; font-weight: 800; color: #d92f1c">−15.550,00</span></div>
+                <div style="display: grid; grid-template-columns: 60px 1fr 170px 150px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid #c3bfb4"><span class="tnum" style="font-size: 12px; color: #5d5b55">04/09</span><span style="font-size: 16px; font-weight: 600">Balanceado</span><span style="font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b55">Mascotas</span><span class="tnum" style="text-align: right; font-size: 17px; font-weight: 800; color: #d92f1c">−3.300,00</span></div>
+                <div style="display: grid; grid-template-columns: 60px 1fr 170px 150px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid #c3bfb4"><span class="tnum" style="font-size: 12px; color: #5d5b55">01/09</span><span style="font-size: 16px; font-weight: 600">Sueldo</span><span style="font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b55">Ingreso</span><span class="tnum" style="text-align: right; font-size: 17px; font-weight: 800">+2.400.000,00</span></div>
+              </div>
+              <p style="margin: 14px 0 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600">Ver todos ⟶</p>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column">
+            <div style="background: #101010; color: #e9e6de; padding: 30px 28px">
+              <p style="margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #9d9a92">Proyectado a fin de mes</p>
+              <p class="tnum" style="margin: 0; font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -0.04em">718.962<span style="font-size: 19px">,57</span></p>
+              <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px">
+                <span style="display: flex; justify-content: space-between; color: #9d9a92">Fijos por pagar (16)<span class="tnum" style="color: #ff7a66">−1.462.220,60</span></span>
+                <span style="display: flex; justify-content: space-between; color: #9d9a92">Deudas por pagar (1)<span class="tnum" style="color: #ff7a66">−34.998,33</span></span>
+              </div>
+            </div>
+            <div style="padding: 26px 28px; border-bottom: 1px solid #c3bfb4">
+              <p style="margin: 0 0 12px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d5b55">Gasto por categoría</p>
+              <div style="display: flex; flex-direction: column; gap: 11px">
+                <div><div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px"><span>Supermercado</span><span class="tnum">38%</span></div><div style="height: 6px; background: #d1cdc2"><span style="display: block; width: 38%; height: 100%; background: #101010"></span></div></div>
+                <div><div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px"><span>Delivery</span><span class="tnum">21%</span></div><div style="height: 6px; background: #d1cdc2"><span style="display: block; width: 21%; height: 100%; background: #101010"></span></div></div>
+                <div><div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px"><span>Transporte</span><span class="tnum">14%</span></div><div style="height: 6px; background: #d1cdc2"><span style="display: block; width: 14%; height: 100%; background: #101010"></span></div></div>
+              </div>
+            </div>
+            <div style="padding: 26px 28px; margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+              <span style="padding: 13px 16px; background: #d92f1c; color: #fff; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; text-align: center">+ Nuevo movimiento</span>
+              <span style="padding: 13px 16px; border: 2px solid #101010; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; text-align: center">Cuadrar saldo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="2d" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">2d</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Tablero</span>
+        <span style="font-size: 13px; color: #7a818c">verde profundo, medidor del mes, lectura rápida</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 18px; background: #07211f; color: #e6f2ee; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.85); font-family: 'IBM Plex Sans', sans-serif; display: flex">
+        <div style="width: 216px; flex: none; padding: 26px 18px; display: flex; flex-direction: column; gap: 26px; background: #041917">
+          <div style="display: flex; align-items: center; gap: 9px; padding: 0 8px">
+            <span style="width: 26px; height: 26px; border-radius: 8px; background: #6ee7b7; color: #07211f; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif">M</span>
+            <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: -0.01em">MyFinances</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 13.5px">
+            <span style="padding: 10px 14px; border-radius: 8px; background: #0c332f; color: #e6f2ee; font-weight: 600">Hoy</span>
+            <span style="padding: 10px 14px; color: #7d9d97">Movimientos</span>
+            <span style="padding: 10px 14px; color: #7d9d97">Fijos</span>
+            <span style="padding: 10px 14px; color: #7d9d97">Análisis</span>
+            <span style="padding: 10px 14px; color: #7d9d97">Ahorros</span>
+            <span style="padding: 10px 14px; color: #7d9d97">Me Deben</span>
+          </div>
+          <div style="margin-top: auto; background: #0c332f; border-radius: 12px; padding: 16px">
+            <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #7d9d97">Próximo vencimiento</p>
+            <p style="margin: 0; font-size: 13.5px">Expensas · 10/09</p>
+            <p class="tnum" style="margin: 5px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700">$ 148.400,00</p>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 0; padding: 30px 34px; display: flex; flex-direction: column; gap: 20px">
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <div>
+              <p style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.02em">Hoy · viernes 5 de septiembre</p>
+              <p style="margin: 3px 0 0; font-size: 13px; color: #7d9d97">Cerrás el mes con superávit si mantenés este ritmo</p>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="padding: 10px 16px; border-radius: 10px; background: #0c332f; font-size: 13.5px; font-weight: 500">Cuadrar saldo</span>
+              <span style="padding: 10px 16px; border-radius: 10px; background: #6ee7b7; color: #04211d; font-size: 13.5px; font-weight: 700">+ Nuevo movimiento</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 316px; gap: 18px; flex: 1; min-height: 0">
+            <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0">
+              <div style="border-radius: 18px; background: #0b2c29; padding: 26px 28px; display: flex; align-items: center; gap: 34px">
+                <div>
+                  <p style="margin: 0 0 10px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d9d97">Saldo actual</p>
+                  <p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 52px; line-height: 1; letter-spacing: -0.04em; color: #6ee7b7">$ 2.216.181<span style="font-size: 21px; color: #3f9e83">,50</span></p>
+                  <p style="margin: 12px 0 0; font-size: 12.5px; color: #7d9d97">Proyectado a fin de mes <span class="tnum" style="color: #e6f2ee; font-weight: 600">$ 718.962,57</span></p>
+                </div>
+                <div style="margin-left: auto; width: 128px; height: 128px; border-radius: 999px; background: conic-gradient(#6ee7b7 0turn 0.107turn, #123f3a 0.107turn 1turn); display: flex; align-items: center; justify-content: center">
+                  <div style="width: 98px; height: 98px; border-radius: 999px; background: #0b2c29; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+                    <span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700">11%</span>
+                    <span style="font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #7d9d97">del ingreso</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px">
+                <div style="border-radius: 16px; background: #0b2c29; padding: 18px 20px"><p style="margin: 0 0 7px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d9d97">Ingresos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -0.03em">$ 2.480.515<span style="font-size: 13px; color: #7d9d97">,00</span></p></div>
+                <div style="border-radius: 16px; background: #0b2c29; padding: 18px 20px"><p style="margin: 0 0 7px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d9d97">Gastos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -0.03em; color: #ffa08c">$ 264.333<span style="font-size: 13px; color: #a8705f">,50</span></p></div>
+              </div>
+              <div style="flex: 1; min-height: 0; border-radius: 18px; background: #0b2c29; padding: 20px 24px">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+                  <p style="margin: 0; font-size: 14.5px; font-weight: 600">Últimos movimientos</p>
+                  <span style="font-size: 13px; color: #6ee7b7; font-weight: 600">Ver todos</span>
+                </div>
+                <div style="display: flex; flex-direction: column">
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0; border-bottom: 1px solid #123f3a"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ffa08c"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Quique</p><p style="margin: 1px 0 0; font-size: 12px; color: #7d9d97">Delivery · efectivo</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffa08c">− $ 15.500,00</span></div>
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0; border-bottom: 1px solid #123f3a"><span style="width: 8px; height: 8px; border-radius: 999px; background: #7fd4e8"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Verdu</p><p style="margin: 1px 0 0; font-size: 12px; color: #7d9d97">Supermercado · débito</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffa08c">− $ 15.550,00</span></div>
+                  <div style="display: flex; align-items: center; gap: 13px; padding: 10px 0"><span style="width: 8px; height: 8px; border-radius: 999px; background: #6ee7b7"></span><div style="flex: 1"><p style="margin: 0; font-size: 13.5px">Sueldo</p><p style="margin: 1px 0 0; font-size: 12px; color: #7d9d97">Ingreso · cuenta sueldo</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 700; color: #6ee7b7">+ $ 2.400.000,00</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 18px; min-height: 0">
+              <div style="border-radius: 18px; background: #0b2c29; padding: 20px 22px">
+                <p style="margin: 0 0 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d9d97">Pendiente este mes</p>
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                  <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px">Fijos por pagar <span style="color: #7d9d97">(16)</span></span><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #ffa08c">− 1.462.220,60</span></div>
+                  <div style="height: 6px; border-radius: 999px; background: #123f3a; overflow: hidden"><span style="display: block; width: 34%; height: 100%; background: #6ee7b7"></span></div>
+                  <p style="margin: 0; font-size: 12px; color: #7d9d97">8 de 24 fijos pagados</p>
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; border-top: 1px solid #123f3a"><span style="font-size: 13px">Deudas por pagar <span style="color: #7d9d97">(1)</span></span><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #ffa08c">− 34.998,33</span></div>
+                </div>
+              </div>
+              <div style="border-radius: 18px; background: #0b2c29; padding: 20px 22px; flex: 1; min-height: 0">
+                <p style="margin: 0 0 14px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d9d97">Ahorros e inversiones</p>
+                <p class="tnum" style="margin: 0 0 16px; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.03em">$ 3.140.000<span style="font-size: 14px; color: #7d9d97">,00</span></p>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px">
+                  <div style="display: flex; justify-content: space-between"><span style="color: #cfe4de">Dólares</span><span class="tnum">USD 1.850</span></div>
+                  <div style="display: flex; justify-content: space-between"><span style="color: #cfe4de">Fondo de emergencia</span><span class="tnum">$ 620.000</span></div>
+                  <div style="display: flex; justify-content: space-between"><span style="color: #cfe4de">Viaje 2027</span><span class="tnum">$ 410.000</span></div>
+                  <div style="display: flex; justify-content: space-between"><span style="color: #cfe4de">Me deben</span><span class="tnum">$ 96.500</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section style="padding: 16px 56px 96px; display: flex; flex-direction: column; gap: 40px">
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
+    <p style="margin: 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a818c">Turno 1 · Pantalla Hoy · 4 direcciones visuales</p>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 34px; letter-spacing: -0.02em; color: #edefea">Mismo contenido, cuatro tratamientos</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #a0a6ae; text-wrap: pretty">Todas muestran el saldo actual y los últimos movimientos, con ingresos/gastos del mes y el saldo proyectado. Lo que cambia es color, tipografía y densidad. Decime qué id te gusta (<a href="#1a">1a</a>, <a href="#1b">1b</a>, <a href="#1c">1c</a>, <a href="#1d">1d</a>) y armo la app completa sobre esa base.</p>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start">
+
+    <div id="1a" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">1a</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Neón contenido</span>
+        <span style="font-size: 13px; color: #7a818c">el actual, con más aire y jerarquía</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 16px; display: flex; background: #0a0b0e; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.9); font-family: 'Instrument Sans', sans-serif">
+        <div style="width: 232px; flex: none; background: #101218; padding: 26px 18px; display: flex; flex-direction: column; gap: 30px">
+          <div style="display: flex; align-items: center; gap: 7px; padding: 0 8px">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.02em">MyFinances</span>
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: #c8f751"></span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; background: #191c24; color: #edefea; font-size: 14px; font-weight: 500"><span style="width: 3px; height: 16px; border-radius: 2px; background: #c8f751"></span>Hoy</div>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 11px 17px; color: #a0a6ae; font-size: 14px">Movimientos</div>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 11px 17px; color: #a0a6ae; font-size: 14px">Fijos</div>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 11px 17px; color: #a0a6ae; font-size: 14px">Análisis</div>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 11px 17px; color: #a0a6ae; font-size: 14px">Ahorros</div>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 11px 17px; color: #a0a6ae; font-size: 14px">Me Deben</div>
+          </div>
+          <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 14px 10px 0; border-top: 1px solid #191c24">
+            <span style="width: 30px; height: 30px; border-radius: 999px; background: #22262f; color: #a0a6ae; font-size: 11px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.04em">LE</span>
+            <div style="min-width: 0">
+              <p style="margin: 0; font-size: 13px; color: #edefea">Leandro</p>
+              <p style="margin: 0; font-size: 11px; color: #7a818c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px">leanfernandez97@gmail.com</p>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 0; padding: 44px 52px; display: flex; flex-direction: column; gap: 34px; background: radial-gradient(50rem 30rem at 85% -20%, rgba(200,247,81,0.06), transparent 60%)">
+          <div>
+            <p style="margin: 0 0 10px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a818c">Saldo actual · Septiembre 2026</p>
+            <p class="tnum" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 92px; line-height: 0.88; letter-spacing: -0.045em; color: #c8f751">$ 2.216.181<span style="font-size: 34px; letter-spacing: 0">,50</span></p>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 44px; padding-top: 24px; border-top: 1px solid #191c24">
+            <div>
+              <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a818c">Ingresos del mes</p>
+              <p class="tnum" style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: #edefea">$ 2.480.515<span style="font-size: 14px">,00</span></p>
+            </div>
+            <div>
+              <p style="margin: 0 0 6px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a818c">Gastos del mes</p>
+              <p class="tnum" style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: #ff7a66">$ 264.333<span style="font-size: 14px">,50</span></p>
+            </div>
+            <div style="margin-left: auto; display: flex; gap: 10px">
+              <span style="padding: 10px 16px; border-radius: 10px; border: 1px solid #2f3440; color: #edefea; font-size: 14px; font-weight: 500">Cuadrar saldo</span>
+              <span style="padding: 10px 16px; border-radius: 10px; background: #c8f751; color: #0a0b0e; font-size: 14px; font-weight: 600">+ Nuevo movimiento</span>
+            </div>
+          </div>
+          <div style="border-radius: 20px; background: #101218; padding: 26px 28px; display: flex; align-items: center; gap: 48px">
+            <div>
+              <p style="margin: 0 0 8px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a818c">Proyectado a fin de mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 38px; line-height: 1; letter-spacing: -0.03em; color: #edefea">$ 718.962<span style="font-size: 17px">,57</span></p>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 9px; padding-left: 40px; border-left: 1px solid #191c24">
+              <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #a0a6ae">Fijos por pagar (16)</span><span class="tnum" style="color: #ff7a66">− $ 1.462.220,60</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #a0a6ae">Deudas por pagar (1)</span><span class="tnum" style="color: #ff7a66">− $ 34.998,33</span></div>
+            </div>
+          </div>
+          <div style="border-radius: 20px; background: #101218; padding: 22px 12px 14px; flex: 1; min-height: 0">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 12px">
+              <p style="margin: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a818c">Últimos movimientos</p>
+              <span style="font-size: 13px; color: #c8f751">Ver todos</span>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="display: flex; align-items: center; gap: 13px; padding: 11px 16px; border-radius: 8px; background: #14161d"><span style="width: 8px; height: 8px; border-radius: 999px; background: #ff7a66"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Quique</p><p style="margin: 2px 0 0; font-size: 12px; color: #7a818c">Delivery · Efectivo</p></div><span class="tnum" style="font-size: 14px; color: #ff7a66">− $ 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 13px; padding: 11px 16px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #5fd3c4"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Verdu</p><p style="margin: 2px 0 0; font-size: 12px; color: #7a818c">Supermercado · Débito</p></div><span class="tnum" style="font-size: 14px; color: #ff7a66">− $ 15.550,00</span></div>
+              <div style="display: flex; align-items: center; gap: 13px; padding: 11px 16px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #a892f0"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Balanceado</p><p style="margin: 2px 0 0; font-size: 12px; color: #7a818c">Mascotas · Débito</p></div><span class="tnum" style="font-size: 14px; color: #ff7a66">− $ 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 13px; padding: 11px 16px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #9bbf46"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px">Sueldo</p><p style="margin: 2px 0 0; font-size: 12px; color: #7a818c">Ingreso · Cuenta sueldo</p></div><span class="tnum" style="font-size: 14px; color: #c8f751">+ $ 2.400.000,00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1b" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">1b</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Papel</span>
+        <span style="font-size: 13px; color: #7a818c">claro, serif en las cifras, tono banca privada</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 16px; display: flex; background: #f6f4ee; color: #1c1b18; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.7); font-family: 'Instrument Sans', sans-serif">
+        <div style="width: 232px; flex: none; padding: 26px 18px; display: flex; flex-direction: column; gap: 30px; border-right: 1px solid #e2ded2">
+          <div style="display: flex; align-items: center; gap: 7px; padding: 0 8px">
+            <span style="font-family: 'Instrument Serif', serif; font-size: 22px; letter-spacing: -0.01em">MyFinances</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="padding: 10px 14px; border-radius: 8px; background: #1c1b18; color: #f6f4ee; font-size: 14px; font-weight: 500">Hoy</div>
+            <div style="padding: 10px 14px; color: #5c584d; font-size: 14px">Movimientos</div>
+            <div style="padding: 10px 14px; color: #5c584d; font-size: 14px">Fijos</div>
+            <div style="padding: 10px 14px; color: #5c584d; font-size: 14px">Análisis</div>
+            <div style="padding: 10px 14px; color: #5c584d; font-size: 14px">Ahorros</div>
+            <div style="padding: 10px 14px; color: #5c584d; font-size: 14px">Me Deben</div>
+          </div>
+          <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid #e2ded2">
+            <span style="width: 30px; height: 30px; border-radius: 999px; background: #e2ded2; color: #5c584d; font-size: 11px; display: flex; align-items: center; justify-content: center">LE</span>
+            <div><p style="margin: 0; font-size: 13px">Leandro</p><p style="margin: 0; font-size: 11px; color: #8a8577">Cuenta personal</p></div>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 0; padding: 46px 54px; display: flex; flex-direction: column; gap: 32px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 40px">
+            <div>
+              <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #8a8577">Saldo actual · Septiembre 2026</p>
+              <p class="tnum" style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 84px; line-height: 0.9; letter-spacing: -0.02em">$ 2.216.181<span style="font-size: 30px">,50</span></p>
+            </div>
+            <div style="display: flex; gap: 10px; padding-top: 26px">
+              <span style="padding: 10px 16px; border-radius: 999px; border: 1px solid #cfc9ba; font-size: 14px; font-weight: 500">Cuadrar saldo</span>
+              <span style="padding: 10px 16px; border-radius: 999px; background: #1c5f4a; color: #f6f4ee; font-size: 14px; font-weight: 600">+ Nuevo movimiento</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px">
+            <div style="background: #fffdf8; border: 1px solid #e6e1d5; border-radius: 14px; padding: 20px 22px">
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8577">Ingresos del mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1">$ 2.480.515<span style="font-size: 15px">,00</span></p>
+            </div>
+            <div style="background: #fffdf8; border: 1px solid #e6e1d5; border-radius: 14px; padding: 20px 22px">
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8577">Gastos del mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1; color: #b23a26">$ 264.333<span style="font-size: 15px">,50</span></p>
+            </div>
+            <div style="background: #1c5f4a; border-radius: 14px; padding: 20px 22px; color: #f2f7f2">
+              <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #b9d6c8">Proyectado a fin de mes</p>
+              <p class="tnum" style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1">$ 718.962<span style="font-size: 15px">,57</span></p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 34px; font-size: 13px; color: #5c584d; padding-bottom: 4px; border-bottom: 1px solid #e2ded2">
+            <span>Fijos por pagar (16) <span class="tnum" style="color: #b23a26">− $ 1.462.220,60</span></span>
+            <span>Deudas por pagar (1) <span class="tnum" style="color: #b23a26">− $ 34.998,33</span></span>
+          </div>
+          <div style="flex: 1; min-height: 0">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px">
+              <p style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 22px">Últimos movimientos</p>
+              <span style="font-size: 13px; color: #1c5f4a; font-weight: 500">Ver todos</span>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid #e6e1d5"><span style="width: 8px; height: 8px; border-radius: 999px; background: #b23a26"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 500">Quique</p><p style="margin: 2px 0 0; font-size: 12px; color: #8a8577">Delivery · Efectivo</p></div><span class="tnum" style="font-size: 15px; color: #b23a26">− $ 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid #e6e1d5"><span style="width: 8px; height: 8px; border-radius: 999px; background: #2e7d6a"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 500">Verdu</p><p style="margin: 2px 0 0; font-size: 12px; color: #8a8577">Supermercado · Débito</p></div><span class="tnum" style="font-size: 15px; color: #b23a26">− $ 15.550,00</span></div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid #e6e1d5"><span style="width: 8px; height: 8px; border-radius: 999px; background: #6a5bb8"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 500">Balanceado</p><p style="margin: 2px 0 0; font-size: 12px; color: #8a8577">Mascotas · Débito</p></div><span class="tnum" style="font-size: 15px; color: #b23a26">− $ 3.300,00</span></div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 14px 2px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #1c5f4a"></span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 500">Sueldo</p><p style="margin: 2px 0 0; font-size: 12px; color: #8a8577">Ingreso · Cuenta sueldo</p></div><span class="tnum" style="font-size: 15px; color: #1c5f4a">+ $ 2.400.000,00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">1c</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Terminal</span>
+        <span style="font-size: 13px; color: #7a818c">densa, monoespaciada, todo a la vista</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 16px; display: flex; background: #101317; color: #dfe4e8; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.9); font-family: 'IBM Plex Sans', sans-serif">
+        <div style="width: 200px; flex: none; padding: 20px 14px; display: flex; flex-direction: column; gap: 24px; border-right: 1px solid #1e242b">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; padding: 0 10px">my<span style="color: #ffb454">·</span>finances</span>
+          <div style="display: flex; flex-direction: column; gap: 1px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px">
+            <div style="padding: 8px 10px; background: #1a2029; color: #ffb454; border-left: 2px solid #ffb454">hoy</div>
+            <div style="padding: 8px 12px; color: #8b959f">movimientos</div>
+            <div style="padding: 8px 12px; color: #8b959f">fijos</div>
+            <div style="padding: 8px 12px; color: #8b959f">analisis</div>
+            <div style="padding: 8px 12px; color: #8b959f">ahorros</div>
+            <div style="padding: 8px 12px; color: #8b959f">me-deben</div>
+          </div>
+          <div style="margin-top: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6b757f; padding: 12px 10px 0; border-top: 1px solid #1e242b; line-height: 1.7">
+            <p style="margin: 0">leandro</p>
+            <p style="margin: 0">sync 16:04</p>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; border-bottom: 1px solid #1e242b; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8b959f">
+            <span>SEP 2026 · PERIODO ABIERTO</span>
+            <div style="display: flex; gap: 8px">
+              <span style="padding: 6px 12px; border: 1px solid #2b333c; border-radius: 3px; color: #dfe4e8">cuadrar</span>
+              <span style="padding: 6px 12px; background: #ffb454; color: #101317; border-radius: 3px; font-weight: 700">+ movimiento</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.4fr 1fr; border-bottom: 1px solid #1e242b">
+            <div style="padding: 26px; border-right: 1px solid #1e242b">
+              <p style="margin: 0 0 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #6b757f">SALDO_ACTUAL</p>
+              <p class="tnum" style="margin: 0; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 60px; line-height: 1; letter-spacing: -0.03em; color: #ffb454">2.216.181<span style="font-size: 24px; color: #b58038">,50</span></p>
+              <p style="margin: 12px 0 0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6b757f">ARS · 4 cuentas · actualizado hace 2 min</p>
+            </div>
+            <div style="display: grid; grid-template-rows: repeat(3, 1fr)">
+              <div style="padding: 12px 22px; border-bottom: 1px solid #1e242b; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 12px"><span style="color: #6b757f">INGRESOS_MES</span><span class="tnum" style="font-size: 17px; color: #dfe4e8">2.480.515,00</span></div>
+              <div style="padding: 12px 22px; border-bottom: 1px solid #1e242b; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 12px"><span style="color: #6b757f">GASTOS_MES</span><span class="tnum" style="font-size: 17px; color: #ff7a66">264.333,50</span></div>
+              <div style="padding: 12px 22px; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 12px"><span style="color: #6b757f">PROYECTADO_EOM</span><span class="tnum" style="font-size: 17px; color: #dfe4e8">718.962,57</span></div>
+            </div>
+          </div>
+          <div style="padding: 16px 26px; display: flex; gap: 26px; border-bottom: 1px solid #1e242b; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+            <span style="color: #6b757f">fijos_por_pagar[16] <span class="tnum" style="color: #ff7a66">−1.462.220,60</span></span>
+            <span style="color: #6b757f">deudas[1] <span class="tnum" style="color: #ff7a66">−34.998,33</span></span>
+            <span style="color: #6b757f">ahorros <span class="tnum" style="color: #dfe4e8">3.140.000,00</span></span>
+          </div>
+          <div style="flex: 1; min-height: 0; padding: 18px 26px 22px">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #6b757f">
+              <span>ULTIMOS_MOVIMIENTOS</span><span style="color: #ffb454">ver todos →</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6b757f; padding: 8px 0; border-bottom: 1px solid #1e242b">
+              <span>FECHA</span><span>DESCRIPCION</span><span>CATEGORIA</span><span style="text-align: right">MONTO</span>
+            </div>
+            <div style="display: flex; flex-direction: column; font-family: 'JetBrains Mono', monospace; font-size: 12.5px">
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0; border-bottom: 1px solid #171d24; background: #141a21"><span style="color: #6b757f">05/09</span><span>Quique</span><span style="color: #8b959f">Delivery</span><span class="tnum" style="text-align: right; color: #ff7a66">−15.500,00</span></div>
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0; border-bottom: 1px solid #171d24"><span style="color: #6b757f">05/09</span><span>Verdu</span><span style="color: #8b959f">Supermercado</span><span class="tnum" style="text-align: right; color: #ff7a66">−15.550,00</span></div>
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0; border-bottom: 1px solid #171d24"><span style="color: #6b757f">04/09</span><span>Balanceado</span><span style="color: #8b959f">Mascotas</span><span class="tnum" style="text-align: right; color: #ff7a66">−3.300,00</span></div>
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0; border-bottom: 1px solid #171d24"><span style="color: #6b757f">03/09</span><span>Nafta</span><span style="color: #8b959f">Transporte</span><span class="tnum" style="text-align: right; color: #ff7a66">−28.000,00</span></div>
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0; border-bottom: 1px solid #171d24"><span style="color: #6b757f">01/09</span><span>Sueldo</span><span style="color: #8b959f">Ingreso</span><span class="tnum" style="text-align: right; color: #a8d94f">+2.400.000,00</span></div>
+              <div style="display: grid; grid-template-columns: 74px 1fr 150px 130px; padding: 9px 0"><span style="color: #6b757f">01/09</span><span>Alquiler</span><span style="color: #8b959f">Vivienda · fijo</span><span class="tnum" style="text-align: right; color: #ff7a66">−620.000,00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1d" style="display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0d0e11; background: #c8f751; padding: 4px 8px; border-radius: 4px">1d</span>
+        <span style="font-size: 14px; color: #edefea; font-weight: 600">Cartera</span>
+        <span style="font-size: 13px; color: #7a818c">azul profundo, tarjetas amplias, foco en evolución</span>
+      </div>
+      <div style="width: 1180px; height: 760px; overflow: hidden; border-radius: 16px; display: flex; background: #0f1320; color: #e8eaf2; box-shadow: 0 30px 70px -40px rgba(0,0,0,0.9); font-family: 'Manrope', sans-serif">
+        <div style="width: 78px; flex: none; padding: 22px 0; display: flex; flex-direction: column; align-items: center; gap: 26px; background: #131829">
+          <span style="width: 34px; height: 34px; border-radius: 11px; background: #7c6cf5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff">M</span>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%">
+            <div style="width: 46px; height: 40px; border-radius: 12px; background: #232a44; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #cfd3e8; font-weight: 600">Hoy</div>
+            <div style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #767ea3">Mov</div>
+            <div style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #767ea3">Fijos</div>
+            <div style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #767ea3">Anál</div>
+            <div style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #767ea3">Ahor</div>
+            <div style="width: 46px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: #767ea3">Deben</div>
+          </div>
+          <span style="margin-top: auto; width: 30px; height: 30px; border-radius: 999px; background: #232a44; color: #cfd3e8; font-size: 11px; display: flex; align-items: center; justify-content: center">LE</span>
+        </div>
+        <div style="flex: 1; min-width: 0; padding: 34px 40px; display: flex; flex-direction: column; gap: 22px">
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <div>
+              <p style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em">Hola, Leandro</p>
+              <p style="margin: 3px 0 0; font-size: 13px; color: #8f97bd">Viernes 5 de septiembre · Septiembre 2026</p>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="padding: 10px 16px; border-radius: 12px; background: #1a2038; color: #cfd3e8; font-size: 13.5px; font-weight: 600">Cuadrar saldo</span>
+              <span style="padding: 10px 16px; border-radius: 12px; background: #7c6cf5; color: #fff; font-size: 13.5px; font-weight: 700">+ Nuevo movimiento</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px">
+            <div style="border-radius: 22px; padding: 26px 28px; background: linear-gradient(150deg, #2a2352 0%, #191f3a 70%)">
+              <p style="margin: 0 0 12px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #a9aed6">Saldo actual</p>
+              <p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.035em">$ 2.216.181<span style="font-size: 22px">,50</span></p>
+              <div style="margin-top: 20px; display: flex; align-items: flex-end; gap: 5px; height: 56px">
+                <span style="flex: 1; height: 34%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 46%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 40%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 58%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 52%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 70%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 62%; background: #4a4380; border-radius: 3px"></span>
+                <span style="flex: 1; height: 84%; background: #7c6cf5; border-radius: 3px"></span>
+                <span style="flex: 1; height: 100%; background: #9d90ff; border-radius: 3px"></span>
+              </div>
+              <p style="margin: 10px 0 0; font-size: 12px; color: #a9aed6">Últimos 9 meses · +18% vs. agosto</p>
+            </div>
+            <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 18px">
+              <div style="border-radius: 18px; background: #161c30; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between">
+                <div><p style="margin: 0 0 6px; font-size: 12px; color: #8f97bd">Ingresos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">$ 2.480.515<span style="font-size: 13px">,00</span></p></div>
+                <span style="width: 40px; height: 40px; border-radius: 12px; background: #1d2b3d; color: #62d3a4; display: flex; align-items: center; justify-content: center; font-size: 17px">↑</span>
+              </div>
+              <div style="border-radius: 18px; background: #161c30; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between">
+                <div><p style="margin: 0 0 6px; font-size: 12px; color: #8f97bd">Gastos del mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: #ff8f7a">$ 264.333<span style="font-size: 13px">,50</span></p></div>
+                <span style="width: 40px; height: 40px; border-radius: 12px; background: #3a2029; color: #ff8f7a; display: flex; align-items: center; justify-content: center; font-size: 17px">↓</span>
+              </div>
+            </div>
+          </div>
+          <div style="border-radius: 18px; background: #161c30; padding: 18px 24px; display: flex; align-items: center; gap: 32px">
+            <div><p style="margin: 0 0 5px; font-size: 12px; color: #8f97bd">Proyectado a fin de mes</p><p class="tnum" style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em">$ 718.962<span style="font-size: 14px">,57</span></p></div>
+            <div style="flex: 1; display: flex; gap: 26px; padding-left: 30px; border-left: 1px solid #232a44; font-size: 13px">
+              <span style="color: #8f97bd">Fijos por pagar (16)<br><span class="tnum" style="color: #ff8f7a; font-size: 14px">− $ 1.462.220,60</span></span>
+              <span style="color: #8f97bd">Deudas por pagar (1)<br><span class="tnum" style="color: #ff8f7a; font-size: 14px">− $ 34.998,33</span></span>
+            </div>
+          </div>
+          <div style="flex: 1; min-height: 0; border-radius: 18px; background: #161c30; padding: 20px 24px">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+              <p style="margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -0.01em">Últimos movimientos</p>
+              <span style="font-size: 13px; color: #9d90ff; font-weight: 600">Ver todos</span>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #1d2439"><span style="width: 34px; height: 34px; border-radius: 11px; background: #3a2029; color: #ff8f7a; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">QU</span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 600">Quique</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f97bd">Delivery · Efectivo</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #ff8f7a">− $ 15.500,00</span></div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #1d2439"><span style="width: 34px; height: 34px; border-radius: 11px; background: #1d3340; color: #62c8d3; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">VE</span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 600">Verdu</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f97bd">Supermercado · Débito</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #ff8f7a">− $ 15.550,00</span></div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 11px 0"><span style="width: 34px; height: 34px; border-radius: 11px; background: #232a44; color: #9d90ff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">SU</span><div style="flex: 1"><p style="margin: 0; font-size: 14px; font-weight: 600">Sueldo</p><p style="margin: 2px 0 0; font-size: 12px; color: #8f97bd">Ingreso · Cuenta sueldo</p></div><span class="tnum" style="font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: #62d3a4">+ $ 2.400.000,00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+</body>
+</html>

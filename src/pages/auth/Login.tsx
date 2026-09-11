@@ -39,17 +39,18 @@ export function Login() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="font-display text-2xl font-semibold">Entrar</h1>
-        <p className="mt-1 text-[13px] text-chalk-faint">Tu saldo, tus movimientos.</p>
+        <p className="mt-1 text-[13px] text-fg-muted">Tu saldo, tus movimientos.</p>
       </div>
 
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
-        <Input id="email" type="email" autoComplete="email" invalid={!!errors.email} {...register('email')} />
+        <Input id="email" type="email" fieldSize="auth" autoComplete="email" invalid={!!errors.email} {...register('email')} />
       </Field>
 
       <Field label="Contraseña" htmlFor="password" error={errors.password?.message}>
         <Input
           id="password"
           type="password"
+          fieldSize="auth"
           autoComplete="current-password"
           invalid={!!errors.password}
           {...register('password')}
@@ -58,15 +59,15 @@ export function Login() {
 
       <FormError message={errors.root?.message} />
 
-      <Button type="submit" disabled={isSubmitting} className="mt-2">
+      <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Entrando…' : 'Entrar'}
       </Button>
 
-      <div className="flex items-center justify-between text-[13px] text-chalk-faint">
-        <Link to="/recuperar" className="hover:text-chalk">
+      <div className="flex items-center justify-between text-[13px] text-fg-muted">
+        <Link to="/recuperar" className="hover:text-fg">
           ¿Olvidaste tu contraseña?
         </Link>
-        <Link to="/registro" className="hover:text-chalk">
+        <Link to="/registro" className="font-semibold text-accent hover:opacity-80">
           Crear cuenta
         </Link>
       </div>

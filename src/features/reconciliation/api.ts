@@ -73,11 +73,20 @@ export function useCreateBalanceLocation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { name: string; cents: number; kind?: AccountKind }) => {
+    // `openingCents`: lo que ya tenías al crear la cuenta (22b, `OpeningAmountField`) — se guarda
+    // como apertura Y como real declarado, así que Cuadrar Saldo la ve coincidiendo desde el vamos
+    // en vez de mostrar un desvío falso contra un `amount` en $0 que nadie declaró.
+    mutationFn: async (input: { name: string; cents: number; kind?: AccountKind; openingCents?: number }) => {
       if (!user) throw new Error('No autenticado')
       const { data, error } = await supabase
         .from('balance_locations')
-        .insert({ user_id: user.id, name: input.name, amount: centsToNumeric(input.cents), kind: input.kind })
+        .insert({
+          user_id: user.id,
+          name: input.name,
+          amount: centsToNumeric(input.cents),
+          opening_amount: centsToNumeric(input.openingCents ?? 0),
+          kind: input.kind,
+        })
         .select()
         .single()
       if (error) throw error

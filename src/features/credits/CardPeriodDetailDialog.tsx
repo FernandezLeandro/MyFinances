@@ -79,26 +79,31 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
         title={card.name}
         footer={
           <>
-            <Button variant="ghost" onClick={onClose} className="mr-auto">
+            <Button variant="ghost" size="dialogFooter" onClick={onClose} className="sm:mr-auto">
               Cerrar
             </Button>
             {paid ? (
-              <Button variant="danger" onClick={() => unmarkPaid.mutate({ cardId: card.id, period })} disabled={unmarkPaid.isPending}>
+              <Button
+                variant="danger"
+                size="dialogFooter"
+                onClick={() => unmarkPaid.mutate({ cardId: card.id, period })}
+                disabled={unmarkPaid.isPending}
+              >
                 Desmarcar pagada
               </Button>
             ) : (
-              <Button onClick={() => setChild('markPaid')} disabled={totalCents === 0}>
+              <Button size="dialogFooter" onClick={() => setChild('markPaid')} disabled={totalCents === 0}>
                 Marcar pagada
               </Button>
             )}
           </>
         }
       >
-        <div className="mb-5 border-b border-ink-850 pb-5">
+        <div className="mb-5 border-b border-fill-subtle pb-5">
           <p className="eyebrow">Total este mes</p>
-          <Money cents={totalCents} tone={paid ? 'dim' : 'chalk'} size="figure" className="mt-1" />
+          <Money cents={totalCents} tone={paid ? 'dim' : 'fg'} size="figure" className="mt-1" />
           {paid && payment && (
-            <p className="mt-2 text-[12px] text-acid">
+            <p className="mt-2 text-[12px] text-accent">
               Pagada — se abonó <Money cents={payment.amountPaidCents} tone="dim" size="inline" />
             </p>
           )}
@@ -106,11 +111,11 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
           {!paid && totalCents > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px] text-chalk-faint">
+                <p className="text-[12px] text-fg-muted">
                   Guardaste <Money cents={summary?.savedCents ?? 0} tone="dim" size="inline" /> · faltan{' '}
-                  <Money cents={summary?.missingCents ?? 0} tone={(summary?.missingCents ?? 0) > 0 ? 'coral' : 'dim'} size="inline" />
+                  <Money cents={summary?.missingCents ?? 0} tone={(summary?.missingCents ?? 0) > 0 ? 'negative' : 'dim'} size="inline" />
                 </p>
-                <button type="button" onClick={() => setChild('saved')} className="text-[12px] font-medium text-acid hover:underline">
+                <button type="button" onClick={() => setChild('saved')} className="text-[12px] font-medium text-accent hover:underline">
                   Editar
                 </button>
               </div>
@@ -123,7 +128,7 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
 
         <div className="flex items-center justify-between gap-3">
           <p className="eyebrow">Cuotas de este mes</p>
-          <button type="button" onClick={openNewPurchase} className="text-[12px] font-medium text-acid hover:underline">
+          <button type="button" onClick={openNewPurchase} className="text-[12px] font-medium text-accent hover:underline">
             Nueva compra
           </button>
         </div>
@@ -133,23 +138,23 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
         ) : (
           <ul className="-mx-6 mt-2 flex max-h-[40vh] flex-col overflow-y-auto">
             {items.map((item) => (
-              <li key={item.purchase_id ?? `${item.description}-${item.installment_no}`} className="border-t border-ink-850 first:border-t-0">
+              <li key={item.purchase_id ?? `${item.description}-${item.installment_no}`} className="border-t border-fill-subtle first:border-t-0">
                 <button
                   type="button"
                   onClick={() => openEditPurchase(item.purchase_id)}
                   disabled={!item.purchase_id}
-                  className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-ink-850 disabled:hover:bg-transparent"
+                  className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle disabled:hover:bg-transparent"
                 >
                   <span
                     aria-hidden
                     className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: categoryById.get(item.category_id ?? '')?.color ?? 'var(--color-ink-600)' }}
+                    style={{ backgroundColor: categoryById.get(item.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] text-chalk">
-                      {item.description} <span className="text-chalk-faint">{etiquetaCuota(item.installment_no, item.installments)}</span>
+                    <p className="truncate text-[14px] text-fg">
+                      {item.description} <span className="text-fg-muted">{etiquetaCuota(item.installment_no, item.installments)}</span>
                     </p>
-                    <p className="mt-0.5 truncate text-[12px] text-chalk-faint">
+                    <p className="mt-0.5 truncate text-[12px] text-fg-muted">
                       {categoryById.get(item.category_id ?? '')?.name ?? 'Sin categoría'}
                     </p>
                   </div>

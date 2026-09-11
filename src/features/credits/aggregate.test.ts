@@ -52,11 +52,18 @@ describe('summarizeCard', () => {
     expect(s.savedPercent).toBe(75)
   })
 
-  it('tarjeta con pago registrado este período → paid true', () => {
+  it('tarjeta con pago registrado este período → paid true y expone paidAt', () => {
     const card = makeCard({ id: 'c1' })
-    const payments = [makePayment({ card_id: 'c1' })]
+    const payments = [makePayment({ card_id: 'c1', paid_at: '2026-09-03T12:00:00Z' })]
     const s = summarizeCard(card, [], [], payments)
     expect(s.paid).toBe(true)
+    expect(s.paidAt).toBe('2026-09-03T12:00:00Z')
+  })
+
+  it('tarjeta sin pago este período → paidAt null', () => {
+    const card = makeCard({ id: 'c1' })
+    const s = summarizeCard(card, [], [], [])
+    expect(s.paidAt).toBeNull()
   })
 })
 

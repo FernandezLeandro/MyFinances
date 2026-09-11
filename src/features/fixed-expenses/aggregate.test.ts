@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareFixedExpenses, summarizeFixedExpenses } from './aggregate'
+import { compareFixedExpenses, fixedExpenseUrgency, summarizeFixedExpenses } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
@@ -121,5 +121,23 @@ describe('compareFixedExpenses', () => {
     const sorted = [alquiler, internet, nafta, comida].sort(compareFixedExpenses)
 
     expect(sorted.map((fe) => fe.id)).toEqual(['comida', 'nafta', 'internet', 'alquiler'])
+  })
+})
+
+describe('fixedExpenseUrgency', () => {
+  // Hoy es el 20 en estos tres casos.
+  it('rojo cuando ya venció este mes', () => {
+    expect(fixedExpenseUrgency(15, HOY_EN_AGOSTO)).toBe('red')
+    expect(fixedExpenseUrgency(19, HOY_EN_AGOSTO)).toBe('red')
+  })
+
+  it('ámbar dentro de los próximos 7 días, hoy incluido', () => {
+    expect(fixedExpenseUrgency(20, HOY_EN_AGOSTO)).toBe('amber')
+    expect(fixedExpenseUrgency(26, HOY_EN_AGOSTO)).toBe('amber')
+  })
+
+  it('neutro más allá de 7 días', () => {
+    expect(fixedExpenseUrgency(27, HOY_EN_AGOSTO)).toBe('neutral')
+    expect(fixedExpenseUrgency(31, HOY_EN_AGOSTO)).toBe('neutral')
   })
 })

@@ -36,17 +36,17 @@ export function SavedAmountDialog({ open, onClose, card, period, savedCents }: S
       title={`Plata guardada — ${card.name}`}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={setSaving.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={setSaving.isPending}>
             {setSaving.isPending ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-5">
-        <p className="text-[13px] text-chalk-faint">
+        <p className="text-[13px] text-fg-muted">
           Cuánto ya apartaste de este mes para pagar esta tarjeta — no hace falta decir dónde está guardado, sólo cuánto.
         </p>
         <Field label="Guardado este mes" error={error ?? undefined}>

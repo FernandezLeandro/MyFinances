@@ -15,12 +15,12 @@ export function EmptyState({ glyph = '—', title, hint, action, className }: Em
     <div className={cn('flex flex-col items-center px-6 py-14 text-center', className)}>
       <span
         aria-hidden
-        className="font-display text-[5rem] leading-none font-bold text-ink-700 select-none"
+        className="font-display text-[5rem] leading-none font-bold text-border-strong select-none"
       >
         {glyph}
       </span>
-      <p className="mt-5 font-display text-lg font-semibold text-chalk-dim">{title}</p>
-      {hint && <p className="mt-1.5 max-w-xs text-[13px] text-chalk-faint">{hint}</p>}
+      <p className="mt-5 font-display text-lg font-semibold text-fg-secondary">{title}</p>
+      {hint && <p className="mt-1.5 max-w-xs text-[13px] text-fg-muted">{hint}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>
   )

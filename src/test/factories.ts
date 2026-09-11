@@ -19,6 +19,7 @@ import type { BalanceLocation } from '@/features/reconciliation/api'
 import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import type { FixedExpense, FixedExpensePayment } from '@/features/fixed-expenses/api'
+import type { Transaction } from '@/features/transactions/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
 
@@ -46,6 +47,7 @@ export function makeBucket(p: Partial<SavingsBucket> & Pick<SavingsBucket, 'id'>
     include_in_total: true,
     sort_order: 0,
     is_archived: false,
+    goal_cents: null,
     created_at: FIXED_DATE,
     ...p,
   }
@@ -249,4 +251,19 @@ export function priceMap(precios: Record<string, number | null>): Map<string, As
       { priceArsCents, origin: priceArsCents == null ? 'none' : 'manual', updatedAt: priceArsCents == null ? null : FIXED_DATE },
     ]),
   )
+}
+
+export function makeTransaction(p: Partial<Transaction> & Pick<Transaction, 'id' | 'cents' | 'occurred_on'>): Transaction {
+  return {
+    user_id: 'user-1',
+    type: 'expense',
+    category_id: null,
+    description: null,
+    fixed_expense_payment_id: null,
+    is_adjustment: false,
+    is_credit_card_payment: false,
+    account_id: null,
+    created_at: FIXED_DATE,
+    ...p,
+  }
 }

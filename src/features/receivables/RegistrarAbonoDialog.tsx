@@ -69,10 +69,10 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
       title="Registrar abono"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={registerPayment.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={registerPayment.isPending}>
             {registerPayment.isPending ? 'Guardando…' : 'Registrar'}
           </Button>
         </>
@@ -81,7 +81,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
       <div className="flex flex-col gap-5">
         <div>
           <p className="eyebrow">{receivable.name}</p>
-          <p className="mt-1 text-[13px] text-chalk-faint">
+          <p className="mt-1 text-[13px] text-fg-muted">
             <Money cents={pendingCents} tone="dim" /> de <Money cents={receivable.amountCents} tone="dim" /> pendiente
           </p>
         </div>
@@ -104,11 +104,11 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
 
         <div>
           <p className="eyebrow mb-2">Registrar un ingreso por este monto</p>
-          <div className="flex gap-1.5">
-            <Chip active={createIncome} onClick={() => setCreateIncome(true)}>
+          <div className="flex gap-2">
+            <Chip size="lg" active={createIncome} onClick={() => setCreateIncome(true)}>
               Sí
             </Chip>
-            <Chip active={!createIncome} onClick={() => setCreateIncome(false)}>
+            <Chip size="lg" active={!createIncome} onClick={() => setCreateIncome(false)}>
               No
             </Chip>
           </div>
@@ -134,20 +134,20 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
         )}
 
         {createIncome !== alreadyExpensed ? (
-          <p className="text-[12px] text-coral">
+          <p className="text-[12px] text-negative">
             {createIncome
               ? 'Esta plata nunca salió de tu saldo. Registrar un ingreso la va a contar dos veces.'
               : 'Esa plata había salido de tu saldo como gasto. Si no registrás el ingreso, el saldo va a quedar corto — desactivalo sólo si ya lo cargaste a mano.'}
           </p>
         ) : (
-          <p className="text-[12px] text-chalk-faint">
+          <p className="text-[12px] text-fg-muted">
             {createIncome
               ? 'Se registra un ingreso por este monto — esa plata había salido de tu saldo cuando cargaste el gasto.'
               : 'No se registra ningún movimiento: esa plata nunca salió de tu saldo. Sumala en el lugar donde entró desde Cuadrar saldo.'}
           </p>
         )}
 
-        {completa && <p className="text-[12px] text-chalk-faint">Con este abono la deuda queda saldada.</p>}
+        {completa && <p className="text-[12px] text-fg-muted">Con este abono la deuda queda saldada.</p>}
       </div>
     </Dialog>
   )

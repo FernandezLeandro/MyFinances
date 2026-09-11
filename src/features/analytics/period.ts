@@ -1,7 +1,7 @@
-import { addMonths, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { addMonths, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-export type PeriodPreset = 'month' | '3m' | '6m' | '12m' | 'custom'
+export type PeriodPreset = 'month' | '3m' | 'custom'
 
 export interface Period {
   preset: PeriodPreset
@@ -16,8 +16,6 @@ export interface Period {
 const MONTHS_BACK: Record<Exclude<PeriodPreset, 'custom'>, number> = {
   month: 0,
   '3m': 2,
-  '6m': 5,
-  '12m': 11,
 }
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
@@ -35,9 +33,15 @@ export function presetToRange(preset: Exclude<PeriodPreset, 'custom'>, anchor: s
 export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   month: 'Este mes',
   '3m': 'Últimos 3 meses',
-  '6m': 'Últimos 6 meses',
-  '12m': 'Últimos 12 meses',
   custom: 'Personalizado',
+}
+
+/** Mismos presets que `PERIOD_PRESET_LABELS`, con el texto de venta corto para que entren en una
+ *  fila en mobile. */
+export const PERIOD_PRESET_MOBILE_LABELS: Record<PeriodPreset, string> = {
+  month: 'Mes',
+  '3m': '3m',
+  custom: 'Otro',
 }
 
 export function defaultPeriod(): Period {
@@ -64,6 +68,18 @@ export function periodRangeLabel(period: Period): string {
   if (fromLabel === toLabel) return fromLabel
   const sameYear = from.getFullYear() === to.getFullYear()
   return `${format(from, sameYear ? 'MMM' : 'MMM yyyy', { locale: es })} – ${toLabel}`
+}
+
+/** El período inmediatamente anterior a `[from, to]`, de igual duración en días — "últimos 30 días"
+ *  contra los 30 anteriores a esos, no contra el mes calendario anterior. Compartido por
+ *  `useTopCategoriesComparison` y el total del hero de Análisis, para que las dos comparativas
+ *  midan exactamente lo mismo. */
+export function previousRange(from: string, to: string): { from: string; to: string } {
+  const days = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1
+  return {
+    to: iso(subDays(parseISO(from), 1)),
+    from: iso(subDays(parseISO(from), days)),
+  }
 }
 
 /** Ventana fija de 12 meses terminando en el mes de `anchor` — la usan los gráficos de evolución

@@ -56,7 +56,7 @@ export function Menu({ open, onClose, triggerRef, anchorClassName, children }: M
     <div
       ref={ref}
       className={cn(
-        'absolute z-30 animate-menu-in overflow-hidden rounded-control bg-ink-850 py-1.5 shadow-lift ring-1 ring-ink-700',
+        'absolute z-30 animate-menu-in overflow-hidden rounded-control bg-fill-subtle py-1.5 shadow-lift ring-1 ring-border-strong',
         anchorClassName,
       )}
     >
@@ -83,7 +83,7 @@ export function MenuItem({ onClick, children, tone = 'default', icon, size = 'sm
       className={cn(
         'flex w-full items-center gap-2.5 text-left transition-colors duration-150',
         size === 'md' ? 'px-3.5 py-2.5 text-[15px]' : 'px-3.5 py-2 text-[13px]',
-        tone === 'danger' ? 'text-chalk-dim hover:bg-ink-800 hover:text-coral' : 'text-chalk-dim hover:bg-ink-800 hover:text-chalk',
+        tone === 'danger' ? 'text-fg-secondary hover:bg-fill-subtle hover:text-negative' : 'text-fg-secondary hover:bg-fill-subtle hover:text-fg',
       )}
     >
       {icon}

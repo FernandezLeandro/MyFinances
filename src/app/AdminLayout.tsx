@@ -1,63 +1,53 @@
 import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router'
-import { Grain } from '@/components/Grain'
 import { PageSkeleton } from '@/components/ui/PageSkeleton'
-import { cn } from '@/lib/cn'
-import { Sidebar } from '@/app/Sidebar'
+import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
 import { adminNavItems } from '@/app/adminNav'
 import { useAuth } from '@/features/auth/auth-context'
-import { useSidebarCollapsed } from '@/lib/useSidebarCollapsed'
+import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
 
 /**
- * Shell aparte para la cuenta admin: mismo lenguaje visual que `AppLayout`, pero sin nada de saldo
- * ni de la nav financiera — el admin no tiene nada que hacer ahí (ver `RequireAuth`, que lo redirige
- * para acá apenas detecta `role === 'admin'`). El punto del wordmark va en gris, no en ácido: ese
- * acento es "plata que es tuya", y acá no hay plata de nadie. Tampoco hay `/ajustes` para el admin.
+ * Shell aparte para la cuenta admin: la misma `TopBar` que `AppLayout`, con `tone="admin"` — sin
+ * nada de saldo ni de la nav financiera, ni `/ajustes` (ver `RequireAuth`, que redirige acá apenas
+ * detecta `role === 'admin'`). El avatar va en gris y el punto del wordmark también: ese acento es
+ * "plata que es tuya", y acá no hay plata de nadie.
  */
 export function AdminLayout() {
   const { user } = useAuth()
-  const [collapsed] = useSidebarCollapsed()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  useSyncThemeToDocument()
 
   const email = user?.email ?? null
   const initials = initialsFrom(null, email)
 
   return (
     <>
-      <Grain />
-
-      <Sidebar
-        accent="chalk"
+      <TopBar
         items={adminNavItems}
         initials={initials}
         displayName={null}
         email={email}
         showAjustes={false}
-        header={<p className="eyebrow mt-2">Administración</p>}
+        tone="admin"
+        eyebrow="Administración"
       />
 
-      <main
-        className={cn(
-          'min-h-dvh px-5 pt-8 pb-28 transition-[padding] duration-200 ease-[var(--ease-out-quint)] sm:px-8 lg:pt-12 lg:pb-16',
-          collapsed ? 'lg:pl-[120px]' : 'lg:pl-[276px]',
-        )}
-      >
-        <div className="mx-auto w-full max-w-[1080px]">
+      {/* El degradado antes de la isla vive en `MobileTabBar` — ver su comentario. */}
+      {/* `md:min-h-[calc(100dvh-58px)]`: desde `md:` la `TopBar` sticky (h-[58px]) ya ocupa lugar
+          arriba — pedirle a `main` el viewport entero además de eso deja la página siempre 58px
+          más alta que la pantalla, con scroll aunque el contenido real no lo necesite. */}
+      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:min-h-[calc(100dvh-58px)] md:pt-10 md:pb-16">
+        <div className="mx-auto w-full max-w-[1600px] xl:w-[90%]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
           </Suspense>
         </div>
       </main>
 
-      <MobileTabBar
-        items={adminNavItems}
-        accent="chalk"
-        drawerOpen={drawerOpen}
-        onOpenDrawer={() => setDrawerOpen(true)}
-      />
+      <MobileTabBar items={adminNavItems} drawerOpen={drawerOpen} onOpenDrawer={() => setDrawerOpen(true)} />
 
       <AccountDrawer
         open={drawerOpen}

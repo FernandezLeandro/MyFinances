@@ -198,10 +198,10 @@ export function ReceivableFormDialog({
       title={isEditing ? 'Editar deuda' : 'Nueva deuda'}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
@@ -254,19 +254,19 @@ export function ReceivableFormDialog({
             </Chip>
           </div>
           {hasPayments && (
-            <p className="mt-2 text-[12px] text-chalk-faint">
+            <p className="mt-2 text-[12px] text-fg-muted">
               No se puede cambiar: ya registraste abonos con este criterio.
             </p>
           )}
           {lockedByExpense && !hasPayments && (
-            <p className="mt-2 text-[12px] text-chalk-faint">
+            <p className="mt-2 text-[12px] text-fg-muted">
               No se puede cambiar acá: "Descontala ahora" ya generó un gasto real. Para deshacerlo, usá
               "Deshacer descuento" en el detalle de la deuda.
             </p>
           )}
 
           {saldoOption === 'descontar' && (
-            <div className="mt-3 flex flex-col gap-3 rounded-control bg-ink-850 p-3">
+            <div className="mt-3 flex flex-col gap-3 rounded-control bg-fill-subtle p-3">
               <Field label="Categoría del gasto" htmlFor="expenseCategoryId" hint="Opcional">
                 <Select id="expenseCategoryId" {...register('expenseCategoryId')}>
                   <option value="">Elegir…</option>

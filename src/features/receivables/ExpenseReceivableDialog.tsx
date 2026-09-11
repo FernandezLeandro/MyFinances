@@ -51,10 +51,10 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
       title="Descontar de tu saldo"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={expenseReceivable.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={expenseReceivable.isPending}>
             {expenseReceivable.isPending ? 'Guardando…' : 'Descontar'}
           </Button>
         </>
@@ -63,7 +63,7 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
       <div className="flex flex-col gap-5">
         <div>
           <p className="eyebrow">{receivable.name}</p>
-          <p className="mt-1 text-[13px] text-chalk-faint">
+          <p className="mt-1 text-[13px] text-fg-muted">
             Se carga un gasto por <Money cents={pendingCents} tone="dim" /> — lo que todavía te debe.
           </p>
         </div>
@@ -92,7 +92,7 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
           <AccountSelect value={accountId} onChange={setAccountId} />
         </Field>
 
-        <p className="text-[12px] text-chalk-faint">
+        <p className="text-[12px] text-fg-muted">
           Esa plata deja de contar como tuya en Cuadrar saldo — cuando te la devuelvan se va a
           registrar como un ingreso.
         </p>

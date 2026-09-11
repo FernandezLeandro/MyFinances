@@ -3,7 +3,6 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 import type { Category } from '@/features/categories/api'
 import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
@@ -141,40 +140,39 @@ export function TransactionFiltersDialog({
       open={open}
       onClose={onClose}
       title={view === 'categories' ? 'Categorías' : 'Filtros'}
+      footerBleed
       footer={
-        view === 'filters' ? (
-          <>
-            <Button variant="ghost" onClick={clearDraft} className="mr-auto">
-              Limpiar
-            </Button>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button onClick={apply} disabled={customInvalid}>
+        <div className="flex w-full items-center gap-4 bg-surface-sunken px-6 pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={view === 'filters' ? clearDraft : clearCategories}
+            className="text-[12.5px] font-semibold text-fg-secondary transition-colors hover:text-fg"
+          >
+            Limpiar
+          </button>
+          {view === 'filters' ? (
+            <Button size="compact" className="ml-auto" onClick={apply} disabled={customInvalid}>
               Aplicar
             </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="ghost" onClick={clearCategories} className="mr-auto">
-              Limpiar
+          ) : (
+            <Button size="compact" className="ml-auto" onClick={() => setView('filters')}>
+              Listo
             </Button>
-            <Button onClick={() => setView('filters')}>Listo</Button>
-          </>
-        )
+          )}
+        </div>
       }
     >
       {view === 'filters' ? (
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Período</p>
-            <Select value={draft.period.preset} onChange={(e) => selectPreset(e.target.value as MovementPeriodPreset)}>
+            <div className="flex flex-wrap gap-1.5">
               {MOVEMENT_PERIOD_PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
+                <Chip key={preset} active={draft.period.preset === preset} onClick={() => selectPreset(preset)}>
                   {MOVEMENT_PERIOD_PRESET_LABELS[preset]}
-                </option>
+                </Chip>
               ))}
-            </Select>
+            </div>
             {draft.period.preset === 'custom' && (
               <div className="mt-1 flex items-center gap-2">
                 <Input
@@ -183,7 +181,7 @@ export function TransactionFiltersDialog({
                   onChange={(e) => setDraft((d) => ({ ...d, period: { ...d.period, from: e.target.value } }))}
                   className="h-9 text-[13px]"
                 />
-                <span aria-hidden className="text-chalk-faint">
+                <span aria-hidden className="text-fg-muted">
                   –
                 </span>
                 <Input
@@ -194,19 +192,19 @@ export function TransactionFiltersDialog({
                 />
               </div>
             )}
-            {customInvalid && <p className="text-[12px] text-coral">Elegí un rango de fechas válido.</p>}
+            {customInvalid && <p className="text-[12px] text-negative">Elegí un rango de fechas válido.</p>}
           </div>
 
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Tipo</p>
-            <div className="flex flex-wrap gap-1.5">
-              <Chip active={draft.type === 'all'} onClick={() => selectType('all')}>
+            <div className="flex flex-wrap gap-2">
+              <Chip size="lg" active={draft.type === 'all'} onClick={() => selectType('all')}>
                 Todos
               </Chip>
-              <Chip active={draft.type === 'income'} onClick={() => selectType('income')}>
+              <Chip size="lg" active={draft.type === 'income'} onClick={() => selectType('income')}>
                 Ingresos
               </Chip>
-              <Chip active={draft.type === 'expense'} onClick={() => selectType('expense')}>
+              <Chip size="lg" active={draft.type === 'expense'} onClick={() => selectType('expense')}>
                 Gastos
               </Chip>
             </div>
@@ -217,10 +215,10 @@ export function TransactionFiltersDialog({
             <button
               type="button"
               onClick={openCategories}
-              className="flex h-11 items-center justify-between gap-3 rounded-control bg-ink-850 px-3.5 text-[15px] text-chalk transition-colors duration-150 hover:bg-ink-800"
+              className="flex h-11 items-center justify-between gap-3 rounded-control bg-fill-subtle px-3.5 text-[15px] text-fg transition-colors duration-150 hover:bg-fill-subtle"
             >
               <span className="truncate">{categorySummaryLabel}</span>
-              <svg aria-hidden viewBox="0 0 12 12" className="size-3 shrink-0 text-chalk-faint">
+              <svg aria-hidden viewBox="0 0 12 12" className="size-3 shrink-0 text-fg-muted">
                 <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
@@ -250,7 +248,7 @@ export function TransactionFiltersDialog({
           <button
             type="button"
             onClick={() => setView('filters')}
-            className="flex w-fit items-center gap-1 text-[13px] text-chalk-faint transition-colors duration-150 hover:text-chalk"
+            className="flex w-fit items-center gap-1 text-[13px] text-fg-muted transition-colors duration-150 hover:text-fg"
           >
             <svg aria-hidden viewBox="0 0 12 12" className="size-3">
               <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -267,7 +265,7 @@ export function TransactionFiltersDialog({
 
           <div className="flex max-h-72 flex-col gap-4 overflow-y-auto">
             {noResults ? (
-              <p className="px-1 py-2 text-[13px] text-chalk-faint">
+              <p className="px-1 py-2 text-[13px] text-fg-muted">
                 {term ? `Sin resultados para "${categorySearch.trim()}".` : 'No hay categorías para este tipo.'}
               </p>
             ) : (
@@ -286,7 +284,7 @@ export function TransactionFiltersDialog({
                             onClick={() => toggleCategory(category.id)}
                             className={cn(
                               'flex w-full items-center justify-between gap-3 rounded-control px-3.5 py-2.5 text-left text-[14px] transition-colors duration-150',
-                              active ? 'bg-ink-800 text-chalk' : 'text-chalk-dim hover:bg-ink-850',
+                              active ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-fill-subtle',
                             )}
                           >
                             <span className="flex min-w-0 items-center gap-2">
@@ -294,7 +292,7 @@ export function TransactionFiltersDialog({
                               <span className="truncate">{category.name}</span>
                             </span>
                             {active && (
-                              <svg aria-hidden viewBox="0 0 12 12" className="size-3.5 shrink-0 text-acid">
+                              <svg aria-hidden viewBox="0 0 12 12" className="size-3.5 shrink-0 text-accent">
                                 <path d="M2.5 6.5 5 9l4.5-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                             )}

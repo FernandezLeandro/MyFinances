@@ -23,17 +23,18 @@ const schema = z
 type FormValues = z.infer<typeof schema>
 
 /**
+ * Sólo el formulario, sin `Panel`/`PanelHeader` — para cuando el chasis alrededor no es el panel
+ * de siempre (Ajustes lo pliega en una fila con chevron dentro de "Seguridad"). `ChangePasswordPanel`
+ * de acá abajo es la envoltura de siempre, para `/admin/cuenta`.
+ *
  * Cambio de contraseña con la sesión abierta. A diferencia de `/restablecer` —donde el link del mail
  * ya prueba quién sos— acá hace falta la contraseña actual: si no, cualquiera que agarre el teléfono
  * desbloqueado se queda con la cuenta. Supabase no ofrece un "verificar contraseña" suelto, así que
  * la comprobación es un `signInWithPassword` con la sesión ya abierta: si la clave está mal devuelve
  * error sin tocar la sesión guardada, y si está bien sólo emite un `SIGNED_IN` con el mismo usuario
  * (`AuthProvider` únicamente limpia la caché en `SIGNED_OUT`, así que no se pierde nada).
- *
- * Vive en un panel y no en un `Dialog` porque lo montan dos páginas distintas: `/ajustes` para las
- * cuentas comunes y `/admin/cuenta` para el admin, que no tiene acceso a la nav financiera.
  */
-export function ChangePasswordPanel() {
+export function ChangePasswordForm() {
   const { user } = useAuth()
   const {
     register,
@@ -75,46 +76,54 @@ export function ChangePasswordPanel() {
   }
 
   return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 sm:max-w-sm" noValidate>
+      <Field label="Contraseña actual" htmlFor="currentPassword" error={errors.currentPassword?.message}>
+        <Input
+          id="currentPassword"
+          type="password"
+          autoComplete="current-password"
+          invalid={!!errors.currentPassword}
+          {...register('currentPassword')}
+        />
+      </Field>
+
+      <Field label="Contraseña nueva" htmlFor="newPassword" error={errors.password?.message}>
+        <Input
+          id="newPassword"
+          type="password"
+          autoComplete="new-password"
+          invalid={!!errors.password}
+          {...register('password')}
+        />
+      </Field>
+
+      <Field label="Repetirla" htmlFor="confirmPassword" error={errors.confirmPassword?.message}>
+        <Input
+          id="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          invalid={!!errors.confirmPassword}
+          {...register('confirmPassword')}
+        />
+      </Field>
+
+      <FormError message={errors.root?.message} />
+
+      <Button type="submit" variant="outline" disabled={isSubmitting} className="self-start">
+        {isSubmitting ? 'Guardando…' : 'Cambiar contraseña'}
+      </Button>
+    </form>
+  )
+}
+
+/** Envoltura de siempre (`Panel` + `PanelHeader`) — `/admin/cuenta`, que no pliega nada. */
+export function ChangePasswordPanel() {
+  return (
     <Panel>
       <PanelHeader title="Contraseña" hint="Te pedimos la actual para confirmar que sos vos" />
-
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-6 pb-6 sm:max-w-sm" noValidate>
-        <Field label="Contraseña actual" htmlFor="currentPassword" error={errors.currentPassword?.message}>
-          <Input
-            id="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            invalid={!!errors.currentPassword}
-            {...register('currentPassword')}
-          />
-        </Field>
-
-        <Field label="Contraseña nueva" htmlFor="newPassword" error={errors.password?.message}>
-          <Input
-            id="newPassword"
-            type="password"
-            autoComplete="new-password"
-            invalid={!!errors.password}
-            {...register('password')}
-          />
-        </Field>
-
-        <Field label="Repetirla" htmlFor="confirmPassword" error={errors.confirmPassword?.message}>
-          <Input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            invalid={!!errors.confirmPassword}
-            {...register('confirmPassword')}
-          />
-        </Field>
-
-        <FormError message={errors.root?.message} />
-
-        <Button type="submit" variant="outline" disabled={isSubmitting} className="self-start">
-          {isSubmitting ? 'Guardando…' : 'Cambiar contraseña'}
-        </Button>
-      </form>
+      <div className="px-6 pb-6">
+        <ChangePasswordForm />
+      </div>
     </Panel>
   )
 }

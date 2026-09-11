@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeAsset, makeBucket, makeEntry, priceMap } from '@/test/factories'
-import { computeGain, netByAsset, summarizePortfolio, valueByAsset } from './aggregate'
+import { assetSlices, computeGain, netByAsset, summarizePortfolio, valueByAsset } from './aggregate'
 
 describe('netByAsset', () => {
   it('suma depósitos, resta retiros, y respeta escalas distintas en la misma lista', () => {
@@ -118,6 +118,32 @@ describe('computeGain', () => {
     const assets = [makeAsset({ id: 'usd', symbol: 'USD', decimals: 2 })]
     const entries = [makeEntry({ asset_id: 'usd', kind: 'withdrawal', amount: '50.00', rate_to_main: null })]
     expect(computeGain(entries, assets, 5_000)).toEqual({ costArsCents: 0, gainCents: 5_000, missingRateCount: 0 })
+  })
+})
+
+describe('assetSlices', () => {
+  it('ordena de mayor a menor valor y calcula el % sobre el total', () => {
+    const assets = [makeAsset({ id: 'ars', symbol: 'ARS' }), makeAsset({ id: 'usd', symbol: 'USD' })]
+    const nets = [
+      { assetId: 'ars', quantityUnits: 3_000 },
+      { assetId: 'usd', quantityUnits: 1_000 },
+    ]
+    const slices = assetSlices(nets, assets, priceMap({ ars: 100, usd: 100 }))
+
+    expect(slices).toEqual([
+      { assetId: 'ars', name: 'ARS', color: '#1D8F7E', cents: 3_000, pct: 75 },
+      { assetId: 'usd', name: 'USD', color: '#2F6FB8', cents: 1_000, pct: 25 },
+    ])
+  })
+
+  it('devuelve null si falta la cotización de algún activo en tenencia — mismo criterio que valueByAsset', () => {
+    const assets = [makeAsset({ id: 'btc', symbol: 'BTC', decimals: 8 })]
+    const nets = [{ assetId: 'btc', quantityUnits: 500 }]
+    expect(assetSlices(nets, assets, priceMap({}))).toBeNull()
+  })
+
+  it('sin tenencia devuelve una lista vacía, no null', () => {
+    expect(assetSlices([], [], priceMap({}))).toEqual([])
   })
 })
 

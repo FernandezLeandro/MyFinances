@@ -8,6 +8,7 @@
  * el resto de la plata en MyFinances, sólo que el factor de escala ya no está fijo en 100.
  */
 import { centsFromNumeric, unitsFromNumeric } from '@/lib/money'
+import { CATEGORY_COLORS } from '@/lib/categoryColors'
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from './api'
@@ -59,6 +60,38 @@ export function valueByAsset(nets: AssetNet[], assets: Asset[], prices: Map<stri
   }
 
   return values
+}
+
+export interface AssetSlice {
+  assetId: string
+  name: string
+  color: string
+  cents: number
+  pct: number
+}
+
+/**
+ * Composición ordenada de mayor a menor valor, con % ya calculado sobre el total de `nets` — la
+ * comparte el donut de Ahorros (top N + "Otros") y `CompositionView` (detalle completo), así el
+ * orden y el color de cada activo no se calculan dos veces. `null` si falta cotización de algún
+ * activo en tenencia (mismo criterio que `valueByAsset`).
+ */
+export function assetSlices(nets: AssetNet[], assets: Asset[], prices: Map<string, AssetPrice>): AssetSlice[] | null {
+  const assetById = new Map(assets.map((a) => [a.id, a]))
+  const values = valueByAsset(nets, assets, prices)
+  if (values == null) return null
+
+  const total = values.reduce((sum, v) => sum + v.valueCents, 0)
+  return values
+    .slice()
+    .sort((a, b) => b.valueCents - a.valueCents)
+    .map((v, i) => ({
+      assetId: v.assetId,
+      name: assetById.get(v.assetId)?.symbol ?? '?',
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length].hex,
+      cents: v.valueCents,
+      pct: total > 0 ? (v.valueCents / total) * 100 : 0,
+    }))
 }
 
 export function valueInMainCents(nets: AssetNet[], assets: Asset[], prices: Map<string, AssetPrice>): number | null {

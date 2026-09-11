@@ -57,6 +57,8 @@ export interface BucketInput {
   name: string
   singleCurrency: boolean
   includeInTotal: boolean
+  /** ARS. `null` = sin meta — el ítem no muestra barra de avance en la lista. */
+  goalCents: number | null
 }
 
 export function useCreateBucket() {
@@ -71,6 +73,7 @@ export function useCreateBucket() {
         name: input.name,
         single_currency: input.singleCurrency,
         include_in_total: input.includeInTotal,
+        goal_cents: input.goalCents,
         sort_order: 999,
       })
       if (error) throw error
@@ -91,6 +94,7 @@ export function useUpdateBucket() {
           ...(input.name !== undefined && { name: input.name }),
           ...(input.singleCurrency !== undefined && { single_currency: input.singleCurrency }),
           ...(input.includeInTotal !== undefined && { include_in_total: input.includeInTotal }),
+          ...(input.goalCents !== undefined && { goal_cents: input.goalCents }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
         })
         .eq('id', id)

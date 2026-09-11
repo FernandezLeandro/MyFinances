@@ -100,10 +100,10 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents, canEd
       title={`Editar ${asset.symbol}`}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button size="dialogFooter" onClick={handleSave} disabled={isSaving}>
             {isSaving ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
@@ -168,7 +168,7 @@ export function AssetEditDialog({ open, onClose, asset, currentPriceCents, canEd
             />
           </Field>
         ) : (
-          <p className="text-[13px] text-chalk-faint">Se valúa sola en vivo (CoinGecko) — no hace falta cargarle nada.</p>
+          <p className="text-[13px] text-fg-muted">Se valúa sola en vivo (CoinGecko) — no hace falta cargarle nada.</p>
         )}
 
         {canEditCatalog && !isFiat && (
