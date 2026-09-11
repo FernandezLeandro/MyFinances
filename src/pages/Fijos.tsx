@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { endOfMonth, parseISO, startOfMonth } from 'date-fns'
+import { format, parseISO, startOfMonth } from 'date-fns'
 import { Check, Pause, Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
@@ -25,7 +25,7 @@ import {
   useUnmarkFixedExpensePayment,
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
-import { eligibleFixedExpenses } from '@/features/fixed-expenses/period'
+import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expenses/period'
 import {
   compareFixedExpenses,
   fixedExpenseUrgency,
@@ -191,19 +191,26 @@ function HeroStat({
 }
 
 export function Fijos() {
-  const { cycle, current, isCurrent, goToPrev, goToNext } = useCycle()
+  const { cycle, current, isCurrent, goToPrev, goToNext, config } = useCycle()
   const [formOpen, setFormOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<FixedExpenseStatus | null>(null)
   const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
   const [showPaused, setShowPaused] = useState(false)
 
-  // `period` sigue siendo el MES que se está mirando (eje B: pagos, ahorros y cuotas son mensuales
-  // siempre — ver `src/lib/cycle.ts`). Mensual/quincenal nunca tocan más de un mes, así que alcanza
-  // con `cycle.months[0]`. `horizonte` es DISTINTO: la ventana que decide qué se descuenta del saldo
-  // proyectado (agujero #1 del plan) — coincide con el ciclo mirado salvo que se esté navegando a
-  // uno futuro, en cuyo caso arranca antes, en el ciclo en curso.
-  const period = cycle.months[0]
-  const month = parseISO(period)
+  // `periods` son los meses que toca el ciclo mirado (eje B: pagos, ahorros y cuotas son mensuales
+  // siempre — ver `src/lib/cycle.ts`). Mensual/quincenal nunca tocan más de uno; semanal (bloque 5)
+  // puede tocar dos — de ahí que los 4 hooks de pagos/ahorros de abajo pidan una LISTA de períodos,
+  // no uno solo. `horizonte` es DISTINTO: la ventana que decide qué se descuenta del saldo proyectado
+  // (agujero #1 del plan) — coincide con el ciclo mirado salvo que se esté navegando a uno futuro, en
+  // cuyo caso arranca antes, en el ciclo en curso.
+  const periods = cycle.months
+  // Ancla de bolsa para `summarizeFixedExpenses`: mientras se mira el ciclo que CONTIENE a hoy, usa
+  // hoy mismo — mismo criterio "en vivo" que Hoy.tsx (que siempre pasa `today`). Importa cuando la
+  // semana en curso cruza el borde del mes: `cycle.months[0]` quedaría en el mes anterior a hoy, lo
+  // que cerraría de más una bolsa mensual que en realidad sigue vigente en el mes de hoy. Navegando a
+  // otro ciclo (no el de hoy), sigue siendo el primer mes que toca, como siempre — no hay "hoy" al
+  // que anclarse ahí.
+  const month = isCurrent ? new Date() : parseISO(cycle.months[0])
   // El horizonte SÓLO alimenta el número grande del RPC (headline) — nunca la lista/desglose visible.
   // Motivo (encontrado al verificar contra la cuenta de prueba, no en el diseño original): cuando el
   // horizonte cruza a un mes anterior al que se está mirando, `rpc_projected_balance_range` acumula
@@ -219,7 +226,7 @@ export function Fijos() {
   const horizonte = useMemo(() => projectionWindow(cycle, current), [cycle, current])
 
   const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(showPaused)
-  const { data: payments } = useFixedExpensePayments(period)
+  const { data: payments } = useFixedExpensePayments(periods)
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(horizonte.from, horizonte.to)
   const { data: categories } = useCategories(true)
@@ -228,9 +235,9 @@ export function Fijos() {
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycle.from, cycle.to)
-  const { data: savings } = useCreditCardSavings(period)
-  const { data: cardPayments } = useCreditCardPayments(period)
-  const { data: purchasePayments } = useCreditPurchasePayments(period)
+  const { data: savings } = useCreditCardSavings(periods)
+  const { data: cardPayments } = useCreditCardPayments(periods)
+  const { data: purchasePayments } = useCreditPurchasePayments(periods)
 
   // Sin botón propio acá: el toggle vive en Hoy y comparte clave, así que ocultar el saldo ahí
   // también enmascara los importes de esta pantalla — un solo control, no uno por pantalla.
@@ -254,16 +261,21 @@ export function Fijos() {
 
   // Todo lo elegible del período, activo o pausado — se usa para el estado vacío general y para el
   // aviso de pausados del rail. `summarizeFixedExpenses` hace este mismo filtro puertas adentro,
-  // pero sólo para los activos: acá hace falta la lista completa.
-  const eligibleAll = useMemo(
-    () => eligibleFixedExpenses(fixedExpenses ?? [], startOfMonth(month), endOfMonth(month)),
-    [fixedExpenses, month],
-  )
+  // pero sólo para los activos: acá hace falta la lista completa. Los límites cubren TODOS los meses
+  // que toca el ciclo (no sólo el de `month`, que puede ser distinto cuando `isCurrent` ancla a hoy)
+  // — si no, un fijo que sólo se solapa con el segundo mes de una semana a caballo quedaría afuera.
+  const eligibleAll = useMemo(() => {
+    const bounds = cycleMonthsBounds(cycle.months)
+    return eligibleFixedExpenses(fixedExpenses ?? [], bounds.start, bounds.end)
+  }, [fixedExpenses, cycle])
   const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort(compareFixedExpenses)
 
+  // `month` varía con `cycle`/`isCurrent` (ya en las deps) y con el reloj dentro del mismo render,
+  // que no amerita recalcular — mismo criterio que `today` en Hoy.tsx.
   const { pending, done: doneItems, pendingTotalCents } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date(), cycle),
-    [fixedExpenses, payments, month, cycle],
+    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date(), cycle, cycle.months, config.weekStartsOn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fixedExpenses, payments, cycle, isCurrent, config],
   )
   const allStatuses = useMemo(() => [...pending, ...doneItems], [pending, doneItems])
 
@@ -286,11 +298,13 @@ export function Fijos() {
   const groups = useMemo(() => {
     const g: Record<FixedExpenseUrgency, FixedExpenseStatus[]> = { red: [], amber: [], neutral: [] }
     for (const s of oneTimePending) {
-      const urgency = isCurrent && s.fe.due_day != null ? fixedExpenseUrgency(s.fe.due_day, new Date()) : 'neutral'
+      const urgency = isCurrent && s.dueDate ? fixedExpenseUrgency(parseISO(s.dueDate), new Date()) : 'neutral'
       g[urgency].push(s)
     }
+    // Por fecha real, no por día del mes crudo: con un ciclo semanal a caballo de dos meses, "día 2"
+    // (del mes que viene) tiene que ordenar DESPUÉS de "día 25" (del mes en curso), no antes.
     for (const key of ['red', 'amber', 'neutral'] as const) {
-      g[key].sort((a, b) => (a.fe.due_day ?? 32) - (b.fe.due_day ?? 32))
+      g[key].sort((a, b) => (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))
     }
     return g
   }, [oneTimePending, isCurrent])
@@ -307,10 +321,10 @@ export function Fijos() {
   // vencido — un atrasado siempre gana. Fuera del mes en curso, simplemente el que vence primero.
   const proximo = useMemo(() => {
     if (oneTimePending.length === 0) return null
-    return [...oneTimePending].sort((a, b) => (a.fe.due_day ?? 32) - (b.fe.due_day ?? 32))[0]
+    return [...oneTimePending].sort((a, b) => (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))[0]
   }, [oneTimePending])
   const proximoUrgency: FixedExpenseUrgency =
-    proximo && isCurrent && proximo.fe.due_day != null ? fixedExpenseUrgency(proximo.fe.due_day, new Date()) : 'neutral'
+    proximo && isCurrent && proximo.dueDate ? fixedExpenseUrgency(parseISO(proximo.dueDate), new Date()) : 'neutral'
   // Sin el nombre del fijo: es texto de usuario sin límite de largo, y esta es una cifra
   // secundaria del hero — no vale la pena volver a pelear con el ancho por ella.
   const proximoHint = proximo ? (proximoUrgency === 'red' ? `Venció el ${proximo.fe.due_day}` : `Vence el ${proximo.fe.due_day}`) : undefined
@@ -498,8 +512,8 @@ export function Fijos() {
                     `w-24` que el `Money` de abajo) en vez de repetirse fila por fila. */}
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-6 pt-5 pb-2">
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                    <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas mensuales</h2>
-                    <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el mes</span>
+                    <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas</h2>
+                    <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el período</span>
                   </div>
                   {/* `hidden` entero por debajo de 768px, no sólo el texto: ahí no hay una columna de
                       valores prolija contra la cual alinearlo (cada fila apila su propio importe y
@@ -663,7 +677,10 @@ export function Fijos() {
           open={!!markingPaid}
           onClose={() => setMarkingPaid(null)}
           fixedExpense={markingPaid.fe}
-          period={period}
+          // El mes de ESTE fijo, no el primer mes del ciclo a secas: con un ciclo semanal a caballo
+          // de dos meses (bloque 5 del plan) un fijo de una sola vez puede vencer en el segundo — y
+          // una bolsa usa la misma ancla "en vivo" (`month`) que ya calculó `summarizeFixedExpenses`.
+          period={markingPaid.dueDate ? format(startOfMonth(parseISO(markingPaid.dueDate)), 'yyyy-MM-dd') : format(startOfMonth(month), 'yyyy-MM-dd')}
           alreadyPaidCents={markingPaid.paidCents}
         />
       )}

@@ -1,3 +1,4 @@
+import { parseISO } from 'date-fns'
 import { Check, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { IconSquare } from '@/components/ui/IconSquare'
@@ -32,8 +33,8 @@ export function StandalonePurchaseRow({
   onMarkPaid,
   onUnmarkPaid,
 }: StandalonePurchaseRowProps) {
-  const { purchase, item, totalCents, paid } = summary
-  const urgency = isCurrentMonth && !paid && purchase.due_day != null ? fixedExpenseUrgency(purchase.due_day, new Date()) : 'neutral'
+  const { purchase, item, totalCents, paid, dueOn } = summary
+  const urgency = isCurrentMonth && !paid && dueOn ? fixedExpenseUrgency(parseISO(dueOn), new Date()) : 'neutral'
 
   return (
     <li className="flex min-w-0 items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle">

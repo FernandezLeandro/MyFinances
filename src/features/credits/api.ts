@@ -131,30 +131,33 @@ export function useCreditInstallmentsRange(from: string, to: string) {
   })
 }
 
-/** Lo guardado de cada tarjeta para `period` — un monto por tarjeta y mes, no un historial. */
-export function useCreditCardSavings(period: string) {
+/** Lo guardado de cada tarjeta en uno o más períodos — un monto por tarjeta y mes, no un historial.
+ *  Casi siempre un solo período; con un ciclo semanal a caballo de dos meses (bloque 5 del plan) se
+ *  piden los dos que toca `cycle.months`. */
+export function useCreditCardSavings(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['credit-savings', user?.id, period],
-    enabled: !!user,
+    queryKey: ['credit-savings', user?.id, periods],
+    enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('credit_card_savings').select('*').eq('period', period)
+      const { data, error } = await supabase.from('credit_card_savings').select('*').in('period', periods)
       if (error) throw error
       return data.map(toCreditCardSaving)
     },
   })
 }
 
-/** Qué tarjetas ya están pagadas en `period` — la existencia de la fila ES el estado "pagada". */
-export function useCreditCardPayments(period: string) {
+/** Qué tarjetas ya están pagadas en uno o más períodos — la existencia de la fila ES el estado
+ *  "pagada". Mismo criterio multi-período que `useCreditCardSavings`. */
+export function useCreditCardPayments(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['credit-payments', user?.id, period],
-    enabled: !!user,
+    queryKey: ['credit-payments', user?.id, periods],
+    enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('credit_card_payments').select('*').eq('period', period)
+      const { data, error } = await supabase.from('credit_card_payments').select('*').in('period', periods)
       if (error) throw error
       return data.map(toCreditCardPayment)
     },
@@ -200,16 +203,16 @@ export function useStandalonePurchases() {
   })
 }
 
-/** Qué compras sueltas ya están pagadas en `period` — la existencia de la fila ES el estado
- *  "pagada", mismo contrato que `useCreditCardPayments`. */
-export function useCreditPurchasePayments(period: string) {
+/** Qué compras sueltas ya están pagadas en uno o más períodos — la existencia de la fila ES el
+ *  estado "pagada", mismo contrato multi-período que `useCreditCardPayments`. */
+export function useCreditPurchasePayments(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['credit-purchase-payments', user?.id, period],
-    enabled: !!user,
+    queryKey: ['credit-purchase-payments', user?.id, periods],
+    enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('credit_purchase_payments').select('*').eq('period', period)
+      const { data, error } = await supabase.from('credit_purchase_payments').select('*').in('period', periods)
       if (error) throw error
       return data.map(toCreditPurchasePayment)
     },
@@ -267,10 +270,17 @@ function invalidarCreditos(queryClient: ReturnType<typeof useQueryClient>, userI
   queryClient.invalidateQueries({ queryKey: ['credit-purchases', userId] })
   queryClient.invalidateQueries({ queryKey: ['standalone-purchases', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-installments', userId] })
+  // `credit-installments-range`/`projected-balance-range` (bloque 3): las variantes que de verdad
+  // usan Hoy/Fijos/Mis Deudas desde que existen — sin esto, la lista de cuotas y el headline "Saldo
+  // proyectado" quedaban desactualizados después de cargar/editar/pagar una tarjeta o compra, hasta
+  // recargar la página (mismo bug que en `fixed-expenses/api.ts`, encontrado al verificar el bloque 5
+  // contra la cuenta de prueba real).
+  queryClient.invalidateQueries({ queryKey: ['credit-installments-range', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-savings', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-payments', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-purchase-payments', userId] })
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
 }
 
 /** Marcar/desmarcar pagada, además, crea o borra una transacción real. */

@@ -24,7 +24,7 @@ import { useCategories, type Category } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
-import { dailySpendBars, summarizeTransactions } from '@/features/transactions/aggregate'
+import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
 import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
@@ -156,8 +156,12 @@ export function Movimientos() {
     [periodTransactions, from, to],
   )
   const bars = useMemo(() => dailySpendBars(periodTransactions ?? [], from, to), [periodTransactions, from, to])
-  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { day: 0, cents: 0 })
+  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { date: '', day: 0, cents: 0 })
   const maxBarCents = peakBar.cents
+  // Con un ciclo semanal (bloque 5 del plan) el rango puede cruzar el borde del mes — ahí "pico el
+  // 5" es ambiguo (¿de qué mes?) y el label agrega el mes. Casi siempre `true` (mensual/quincenal
+  // nunca cruzan, y la mayoría de las semanas tampoco).
+  const barsSameMonth = bars.length === 0 || bars.every((b) => b.date.slice(0, 7) === bars[0].date.slice(0, 7))
 
   function openNew() {
     setEditingTx(null)
@@ -297,14 +301,14 @@ export function Movimientos() {
                 </p>
                 {maxBarCents > 0 && (
                   <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
-                    pico el {peakBar.day} · <Money cents={peakBar.cents} tone="dim" size="inline" />
+                    pico el {dailySpendPeakLabel(peakBar, barsSameMonth)} · <Money cents={peakBar.cents} tone="dim" size="inline" />
                   </span>
                 )}
               </div>
               <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
                 {bars.map((b) => (
                   <span
-                    key={b.day}
+                    key={b.date}
                     className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
                     style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
                   />

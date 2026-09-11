@@ -41,15 +41,18 @@ export function useFixedExpenses(includeInactive = false) {
   })
 }
 
-/** Pagos de un período (día 1 del mes en `yyyy-MM-dd`): dice qué fijos ya están pagados. */
-export function useFixedExpensePayments(period: string) {
+/** Pagos de uno o más períodos (día 1 del mes en `yyyy-MM-dd`): dice qué fijos ya están pagados.
+ *  Casi siempre un solo período — mensual y quincenal nunca cruzan el mes; con ciclo semanal a
+ *  caballo de dos meses (bloque 5 del plan de ciclos), `periods` trae los dos (`cycle.months`), o un
+ *  fijo/bolsa con vencimiento o carga en el segundo mes quedaría invisible. */
+export function useFixedExpensePayments(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['fixed-expense-payments', user?.id, period],
-    enabled: !!user,
+    queryKey: ['fixed-expense-payments', user?.id, periods],
+    enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('fixed_expense_payments').select('*').eq('period', period)
+      const { data, error } = await supabase.from('fixed_expense_payments').select('*').in('period', periods)
       if (error) throw error
       return data.map(toPayment)
     },
@@ -118,9 +121,12 @@ export interface FixedExpenseInput {
   /** `null` en recurrentes: una bolsa no vence, así que no tiene sentido pedir un día. */
   dueDay: number | null
   isActive: boolean
-  /** Bolsa mensual: `cents` pasa a ser el presupuesto del mes, y se puede marcar varias veces
-   *  (ver `useMarkFixedExpensePaid`/`aggregate.ts`) en vez de una sola. */
+  /** Bolsa: `cents` pasa a ser el presupuesto del período (`bagFrequency`), y se puede marcar
+   *  varias veces (ver `useMarkFixedExpensePaid`/`aggregate.ts`) en vez de una sola. */
   isRecurring: boolean
+  /** Sólo bolsas: cada cuánto resetea el presupuesto — independiente del ciclo de caja de la
+   *  cuenta (`profiles.cycle_kind`, ver `src/lib/cycle.ts`). Ignorado si `!isRecurring`. */
+  bagFrequency: 'monthly' | 'biweekly' | 'weekly'
   endsOn: string | null
 }
 
@@ -128,6 +134,11 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   queryClient.invalidateQueries({ queryKey: ['fixed-expenses', userId] })
   queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', userId] })
   queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  // `projected-balance-range` (bloque 3): la variante que de verdad usan Hoy/Fijos/Mis Deudas desde
+  // que existe — sin esto, el headline "Saldo proyectado" quedaba desactualizado después de crear,
+  // pagar o borrar un fijo/bolsa, hasta recargar la página (bug encontrado al verificar el bloque 5
+  // contra la cuenta de prueba real, preexistente desde que se agregó la query por rango).
+  queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
   queryClient.invalidateQueries({ queryKey: ['transactions', userId] })
   queryClient.invalidateQueries({ queryKey: ['balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
@@ -150,6 +161,7 @@ export function useCreateFixedExpense() {
         due_day: input.dueDay,
         is_active: input.isActive,
         is_recurring: input.isRecurring,
+        bag_frequency: input.bagFrequency,
         ends_on: input.endsOn,
       })
       if (error) throw error
@@ -173,6 +185,7 @@ export function useUpdateFixedExpense() {
           due_day: input.dueDay,
           is_active: input.isActive,
           is_recurring: input.isRecurring,
+          bag_frequency: input.bagFrequency,
           ends_on: input.endsOn,
         })
         .eq('id', id)

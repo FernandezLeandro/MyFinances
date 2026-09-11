@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/Input'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
+import { DEFAULT_CYCLE_CONFIG, type CycleConfig } from '@/lib/cycle'
 import {
   PERIOD_PRESET_LABELS,
   PERIOD_PRESET_MOBILE_LABELS,
@@ -10,13 +11,22 @@ import {
 
 const PRESETS: PeriodPreset[] = ['month', '3m', 'custom']
 
-export function PeriodSelector({ value, onChange }: { value: Period; onChange: (period: Period) => void }) {
+export function PeriodSelector({
+  value,
+  onChange,
+  config = DEFAULT_CYCLE_CONFIG,
+}: {
+  value: Period
+  onChange: (period: Period) => void
+  /** Ciclo configurado por el usuario — sólo afecta al preset 'month' (ver `presetToRange`). */
+  config?: CycleConfig
+}) {
   function selectPreset(preset: PeriodPreset) {
     if (preset === 'custom') {
       onChange({ ...value, preset: 'custom' })
       return
     }
-    onChange({ ...value, preset, ...presetToRange(preset, value.anchor) })
+    onChange({ ...value, preset, ...presetToRange(preset, value.anchor, config) })
   }
 
   return (

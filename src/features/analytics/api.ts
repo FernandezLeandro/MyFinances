@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
+import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric } from '@/lib/money'
-import { previousRange } from '@/features/analytics/period'
 import type { CategorySpendRow } from '@/features/analytics/aggregate'
 
 export interface MonthlyPoint {
@@ -40,7 +39,11 @@ export interface CategoryComparison {
   color: string
   currentCents: number
   previousCents: number
-  /** null cuando no había gasto en el período anterior — no hay porcentaje que tenga sentido. */
+  /** Comparación por PROMEDIO diario, no por total crudo — con `preset === 'month'` (ver
+   *  `comparisonRange` en `period.ts`) el período anterior puede tener una cantidad de días
+   *  distinta (una quincena de 15 contra una de 13–16), así que comparar los totales sin más sería
+   *  peras contra manzanas. null cuando no había gasto en el período anterior — no hay porcentaje
+   *  que tenga sentido. */
   changePct: number | null
 }
 
@@ -50,14 +53,20 @@ async function fetchSpendByCategory(from: string, to: string) {
   return data ?? []
 }
 
-/** Compara el gasto por categoría del período elegido contra el período inmediatamente anterior
- * de igual duración (p.ej. "últimos 30 días" vs. los 30 anteriores a esos). */
-export function useTopCategoriesComparison(from: string, to: string) {
+function daysIn(from: string, to: string): number {
+  return differenceInCalendarDays(parseISO(to), parseISO(from)) + 1
+}
+
+/** Compara el gasto por categoría de `[from, to]` contra `[prevFrom, prevTo]` — quien llama decide
+ *  cuál es el período anterior (`comparisonRange` en `period.ts`: el ciclo real anterior con
+ *  `preset === 'month'`, o el mismo largo en días hacia atrás para el resto). */
+export function useTopCategoriesComparison(from: string, to: string, prevFrom: string, prevTo: string) {
   const { user } = useAuth()
-  const { from: prevFrom, to: prevTo } = previousRange(from, to)
+  const days = daysIn(from, to)
+  const prevDays = daysIn(prevFrom, prevTo)
 
   return useQuery({
-    queryKey: ['top-categories-comparison', user?.id, from, to],
+    queryKey: ['top-categories-comparison', user?.id, from, to, prevFrom, prevTo],
     enabled: !!user,
     queryFn: async (): Promise<CategoryComparison[]> => {
       const [current, previous] = await Promise.all([
@@ -71,13 +80,15 @@ export function useTopCategoriesComparison(from: string, to: string) {
         .map((row) => {
           const currentCents = centsFromNumeric(row.total)
           const previousCents = previousById.get(row.category_id) ?? 0
+          const currentAvg = currentCents / days
+          const previousAvg = previousCents / prevDays
           return {
             categoryId: row.category_id,
             categoryName: row.category_name,
             color: row.color,
             currentCents,
             previousCents,
-            changePct: previousCents > 0 ? ((currentCents - previousCents) / previousCents) * 100 : null,
+            changePct: previousAvg > 0 ? ((currentAvg - previousAvg) / previousAvg) * 100 : null,
           }
         })
         // `v_spend_by_category` trae TODAS las categorías (LEFT JOIN, incluidas las que no
@@ -98,16 +109,16 @@ function toCategorySpendRows(rows: Awaited<ReturnType<typeof fetchSpendByCategor
   }))
 }
 
-/** Total gastado en el período inmediatamente anterior a `[from, to]` — para el "−6,1% vs. agosto"
- *  del hero de Análisis. Sin filtrar por categoría (a diferencia de `useTopCategoriesComparison`,
- *  que sólo suma las categorías que sobrevivieron al período actual): acá hace falta el total real,
- *  aunque una categoría se haya vaciado del todo de un período al otro. */
-export function usePreviousPeriodTotal(from: string, to: string) {
+/** Total gastado en el período de comparación (`comparisonRange` en `period.ts`) — para el "−6,1%
+ *  vs. agosto" del hero de Análisis, que Analisis.tsx convierte a promedio diario antes de comparar
+ *  (mismo motivo que `useTopCategoriesComparison`). Sin filtrar por categoría (a diferencia de esa
+ *  otra, que sólo suma las categorías que sobrevivieron al período actual): acá hace falta el total
+ *  real, aunque una categoría se haya vaciado del todo de un período al otro. */
+export function usePreviousPeriodTotal(prevFrom: string, prevTo: string) {
   const { user } = useAuth()
-  const { from: prevFrom, to: prevTo } = previousRange(from, to)
 
   return useQuery({
-    queryKey: ['previous-period-total', user?.id, from, to],
+    queryKey: ['previous-period-total', user?.id, prevFrom, prevTo],
     enabled: !!user,
     queryFn: async () => {
       const rows = await fetchSpendByCategory(prevFrom, prevTo)

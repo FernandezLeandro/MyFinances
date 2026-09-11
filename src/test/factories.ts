@@ -11,7 +11,7 @@ import type {
   CreditCard,
   CreditCardPayment,
   CreditCardSaving,
-  CreditInstallment,
+  CreditInstallmentRange,
   CreditPurchase,
   CreditPurchasePayment,
 } from '@/features/credits/api'
@@ -79,14 +79,18 @@ export function makeCard(p: Partial<CreditCard> & Pick<CreditCard, 'id'>): Credi
 }
 
 export function makeInstallment(
-  p: Partial<CreditInstallment> & Pick<CreditInstallment, 'card_id' | 'amountCents'>,
-): CreditInstallment {
+  p: Partial<CreditInstallmentRange> & Pick<CreditInstallmentRange, 'card_id' | 'amountCents'>,
+): CreditInstallmentRange {
   return {
     purchase_id: `purchase-${Math.random().toString(36).slice(2)}`,
     description: 'Compra de test',
     installment_no: 1,
     installments: 1,
     category_id: null,
+    // Mismo default que `makePayment`/`makeSaving` ('2026-08-01') — así un test que no pasa `period`
+    // ni en el ítem ni en el pago los matchea sin tener que repetirlo en los dos.
+    period: '2026-08-01',
+    due_on: '2026-08-10',
     ...p,
   }
 }
@@ -220,6 +224,7 @@ export function makeFixedExpense(p: Partial<FixedExpense> & Pick<FixedExpense, '
     due_day: 10,
     is_active: true,
     is_recurring: false,
+    bag_frequency: 'monthly',
     starts_on: '2026-01-01',
     ends_on: null,
     notes: null,

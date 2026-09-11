@@ -99,13 +99,14 @@ export function Hoy() {
   // el ciclo mensual de siempre (default de todo usuario que no configuró nada en Ajustes) esto es
   // exactamente `monthStart`/`monthEnd` de antes; con quincenal/semanal, la mitad o la semana en
   // curso — el cambio de comportamiento que el bloque 3 del plan de ciclos habilita a propósito.
-  const { cycle } = useCycle()
+  const { cycle, config } = useCycle()
   const cycleFrom = cycle.from
   const cycleTo = cycle.to
   // Los pagos/ahorros/cuotas siguen atados al MES (eje B, no configurable — ver `src/lib/cycle.ts`):
   // con ciclo mensual o quincenal el rango nunca toca más de un mes (`cycle.months` tiene un solo
-  // elemento), así que alcanza con pedirlo para ese mes. El semanal (bloque 5) sí puede cruzar dos.
-  const monthOfCycle = cycle.months[0]
+  // elemento). El semanal (bloque 5) sí puede cruzar dos — `cycle.months` ya trae los que hagan
+  // falta, y los 4 hooks de abajo aceptan varios períodos a la vez.
+  const monthsOfCycle = cycle.months
 
   const balance = useCurrentBalance()
   const summary = useRangeSummary(cycleFrom, cycleTo)
@@ -117,13 +118,13 @@ export function Hoy() {
 
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(cycleFrom, cycleTo)
   const { data: fixedExpenses } = useFixedExpenses()
-  const { data: fixedPayments } = useFixedExpensePayments(monthOfCycle)
+  const { data: fixedPayments } = useFixedExpensePayments(monthsOfCycle)
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
-  const { data: savings } = useCreditCardSavings(monthOfCycle)
-  const { data: cardPayments } = useCreditCardPayments(monthOfCycle)
-  const { data: purchasePayments } = useCreditPurchasePayments(monthOfCycle)
+  const { data: savings } = useCreditCardSavings(monthsOfCycle)
+  const { data: cardPayments } = useCreditCardPayments(monthsOfCycle)
+  const { data: purchasePayments } = useCreditPurchasePayments(monthsOfCycle)
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
@@ -145,9 +146,9 @@ export function Hoy() {
   const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
 
   const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today, cycle),
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today, cycle, cycle.months, config.weekStartsOn),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
-    [fixedExpenses, fixedPayments, cycle],
+    [fixedExpenses, fixedPayments, cycle, config],
   )
 
   // Sólo lo que realmente "vence" — una bolsa mensual no tiene día de vencimiento, así que no
@@ -155,8 +156,9 @@ export function Hoy() {
   const upcoming = useMemo(
     () =>
       pendingFixed
-        .filter((s) => s.fe.due_day != null)
-        .sort((a, b) => (a.fe.due_day ?? 0) - (b.fe.due_day ?? 0))
+        .filter((s) => s.dueDate != null)
+        // Por fecha real, no por día del mes crudo — ver el mismo criterio en Fijos.tsx `groups`.
+        .sort((a, b) => (a.dueDate as string).localeCompare(b.dueDate as string))
         .slice(0, 4),
     [pendingFixed],
   )
@@ -398,7 +400,7 @@ export function Hoy() {
               <ul className="mt-2.5 flex flex-col">
                 {upcoming.map((status) => {
                   const dueDay = status.fe.due_day as number
-                  const urgency = fixedExpenseUrgency(dueDay, today)
+                  const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                   return (
                     <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
                       <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
@@ -447,7 +449,7 @@ export function Hoy() {
             <ul className="mt-2.5 flex flex-col">
               {upcoming.map((status) => {
                 const dueDay = status.fe.due_day as number
-                const urgency = fixedExpenseUrgency(dueDay, today)
+                const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                 return (
                   <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
                     <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />

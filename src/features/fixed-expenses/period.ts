@@ -1,6 +1,20 @@
-import { parseISO, startOfMonth } from 'date-fns'
-import { dueFallsInCycle, type Cycle } from '@/lib/cycle'
+import { endOfMonth, parseISO, startOfMonth } from 'date-fns'
+import { dueDateInMonth, dueFallsInCycle, type Cycle } from '@/lib/cycle'
 import type { FixedExpense } from './api'
+
+/** Cómo nombrar el período de una bolsa en la UI (MarkPaidDialog, el form) según su frecuencia
+ *  propia — "presupuesto mensual"/"este mes", "…quincenal"/"esta quincena" o "…semanal"/"esta
+ *  semana". */
+export function bagPeriodNoun(bagFrequency: FixedExpense['bag_frequency']): { adjective: string; thisPeriod: string } {
+  switch (bagFrequency) {
+    case 'biweekly':
+      return { adjective: 'quincenal', thisPeriod: 'esta quincena' }
+    case 'weekly':
+      return { adjective: 'semanal', thisPeriod: 'esta semana' }
+    default:
+      return { adjective: 'mensual', thisPeriod: 'este mes' }
+  }
+}
 
 /**
  * De todos los fijos de la cuenta, cuáles corresponden al período dado — un fijo cargado a mitad de
@@ -43,8 +57,8 @@ export function permiteActualizarPlantilla(period: string, hoy: Date): boolean {
  * nunca navega, puede pasar directo su `cycle` (horizonte y ciclo coinciden siempre ahí).
  *
  * Las bolsas (`is_recurring`, sin `due_day`) no tienen vencimiento — no las evalúa esta función, dan
- * siempre `true`: siguen 100% mensuales (bloque 4 del plan, todavía sin frecuencia propia), la
- * mensualidad la decide `statusFor` en `aggregate.ts`, no esto.
+ * siempre `true`: su remanente lo decide `statusFor` en `aggregate.ts` (bloque 4 del plan, según
+ * `fe.bag_frequency` — mensual o quincenal), no esto.
  */
 export function fijoCaeEnCiclo(
   fe: Pick<FixedExpense, 'due_day' | 'is_recurring'>,
@@ -53,4 +67,49 @@ export function fijoCaeEnCiclo(
 ): boolean {
   if (fe.is_recurring || fe.due_day == null) return true
   return dueFallsInCycle(window, monthStart, fe.due_day)
+}
+
+/**
+ * Generaliza `fijoCaeEnCiclo` a un ciclo que puede tocar más de un mes — sólo el semanal (bloque 5
+ * del plan: mensual y quincenal nunca cruzan el borde del mes, `months` siempre tiene un elemento
+ * ahí y esto es idéntico a `fijoCaeEnCiclo`). Un `due_day` se materializa distinto en cada mes que
+ * toca `months` (día 2 de septiembre no es el mismo día que día 2 de octubre) — prueba cada uno y
+ * da `true` si CUALQUIERA cae dentro de `window`.
+ */
+export function fijoCaeEnCicloMultiMes(
+  fe: Pick<FixedExpense, 'due_day' | 'is_recurring'>,
+  months: string[],
+  window: Pick<Cycle, 'from' | 'to'>,
+): boolean {
+  if (fe.is_recurring || fe.due_day == null) return true
+  return months.some((monthStart) => fijoCaeEnCiclo(fe, monthStart, window))
+}
+
+/**
+ * El vencimiento materializado de un fijo de una sola vez dentro de `window`, probando cada mes de
+ * `months` — el gemelo de `fijoCaeEnCicloMultiMes` que además devuelve LA FECHA (para
+ * `fixedExpenseUrgency`, que necesita comparar fechas reales, no sólo el día del mes — ver el
+ * agujero #4 del plan: `dueDay - today.getDate()` da cualquier cosa cuando el vencimiento cae en un
+ * mes distinto al de `today`). `null` para una bolsa, o si ningún mes lo ubica dentro de `window`
+ * (no debería pasar si `fe` ya pasó `fijoCaeEnCicloMultiMes`, pero queda defensivo).
+ */
+export function dueDateInCycle(
+  fe: Pick<FixedExpense, 'due_day' | 'is_recurring'>,
+  months: string[],
+  window: Pick<Cycle, 'from' | 'to'>,
+): string | null {
+  if (fe.is_recurring || fe.due_day == null) return null
+  for (const monthStart of months) {
+    const due = dueDateInMonth(monthStart, fe.due_day)
+    if (due >= window.from && due <= window.to) return due
+  }
+  return null
+}
+
+/** Límites calendario que cubren TODOS los meses que toca un ciclo — `[inicio del primero, fin del
+ *  último]`. Con mensual/quincenal es el único mes de siempre; con semanal a caballo de dos, cubre
+ *  ambos, para no perder de vista un fijo cuyo `starts_on`/`ends_on` sólo se solapa con el segundo
+ *  (ver `eligibleFixedExpenses`). */
+export function cycleMonthsBounds(months: string[]): { start: Date; end: Date } {
+  return { start: startOfMonth(parseISO(months[0])), end: endOfMonth(parseISO(months[months.length - 1])) }
 }

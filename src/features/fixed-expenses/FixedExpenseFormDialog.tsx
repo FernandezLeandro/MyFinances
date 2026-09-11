@@ -16,6 +16,7 @@ import {
   useUpdateFixedExpense,
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
+import { bagPeriodNoun } from '@/features/fixed-expenses/period'
 
 const schema = z
   .object({
@@ -28,6 +29,8 @@ const schema = z
     dueDay: z.string(),
     isActive: z.boolean(),
     isRecurring: z.boolean(),
+    // Sólo aplica a bolsas — ver `bagFrequency` en `FixedExpenseInput`.
+    bagFrequency: z.enum(['monthly', 'biweekly', 'weekly']),
     endsOn: z.string().optional(),
   })
   .superRefine((values, ctx) => {
@@ -61,11 +64,12 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { isActive: true, isRecurring: false },
+    defaultValues: { isActive: true, isRecurring: false, bagFrequency: 'monthly' },
   })
 
   const isActive = watch('isActive')
   const isRecurring = watch('isRecurring')
+  const bagFrequency = watch('bagFrequency')
   const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
 
   useEffect(() => {
@@ -79,9 +83,19 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
             dueDay: fixedExpense.due_day != null ? String(fixedExpense.due_day) : '',
             isActive: fixedExpense.is_active,
             isRecurring: fixedExpense.is_recurring,
+            bagFrequency: fixedExpense.bag_frequency,
             endsOn: fixedExpense.ends_on ?? '',
           }
-        : { name: '', amount: '', categoryId: '', dueDay: '10', isActive: true, isRecurring: false, endsOn: '' },
+        : {
+            name: '',
+            amount: '',
+            categoryId: '',
+            dueDay: '10',
+            isActive: true,
+            isRecurring: false,
+            bagFrequency: 'monthly',
+            endsOn: '',
+          },
     )
   }, [open, fixedExpense, reset])
 
@@ -93,6 +107,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
       dueDay: values.isRecurring ? null : Number(values.dueDay),
       isActive: values.isActive,
       isRecurring: values.isRecurring,
+      bagFrequency: values.bagFrequency,
       endsOn: values.endsOn?.trim() || null,
     }
 
@@ -130,7 +145,26 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense }: FixedExp
           </Chip>
         </div>
 
-        <Field label={isRecurring ? 'Presupuesto mensual' : 'Importe'} error={errors.amount?.message}>
+        {isRecurring && (
+          <Field label="Frecuencia del presupuesto">
+            <div className="flex gap-1.5">
+              <Chip active={bagFrequency === 'monthly'} onClick={() => setValue('bagFrequency', 'monthly')}>
+                Mensual
+              </Chip>
+              <Chip active={bagFrequency === 'biweekly'} onClick={() => setValue('bagFrequency', 'biweekly')}>
+                Quincenal
+              </Chip>
+              <Chip active={bagFrequency === 'weekly'} onClick={() => setValue('bagFrequency', 'weekly')}>
+                Semanal
+              </Chip>
+            </div>
+          </Field>
+        )}
+
+        <Field
+          label={isRecurring ? `Presupuesto ${bagPeriodNoun(bagFrequency).adjective}` : 'Importe'}
+          error={errors.amount?.message}
+        >
           <AmountInput invalid={!!errors.amount} {...register('amount')} />
         </Field>
 

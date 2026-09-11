@@ -1,7 +1,7 @@
-import { endOfMonth, format, startOfMonth } from 'date-fns'
-import type { Cycle } from '@/lib/cycle'
+import { differenceInCalendarDays, format, startOfMonth } from 'date-fns'
+import { cycleContaining, type Cycle } from '@/lib/cycle'
 import type { FixedExpense, FixedExpensePayment } from './api'
-import { eligibleFixedExpenses, fijoCaeEnCiclo } from './period'
+import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses, fijoCaeEnCicloMultiMes } from './period'
 
 /**
  * Función pura, separada de la red a propósito — mismo criterio que `credits/aggregate.ts`: se
@@ -29,37 +29,75 @@ export interface FixedExpenseStatus {
   done: boolean
   /** Sólo bolsas: cuánto se pasó del presupuesto. 0 si no es bolsa o no se excedió. */
   overspentCents: number
+  /** Vencimiento materializado (`'yyyy-MM-dd'`), sólo para un fijo de una sola vez — `null` en una
+   *  bolsa. Para `fixedExpenseUrgency`, que necesita la fecha real (bloque 5 del plan: con un ciclo
+   *  semanal a caballo de dos meses, el día del mes solo no alcanza para saber si ya venció). */
+  dueDate: string | null
 }
 
-function statusFor(fe: FixedExpense, payments: FixedExpensePayment[], period: Date, today: Date): FixedExpenseStatus {
+function statusFor(
+  fe: FixedExpense,
+  payments: FixedExpensePayment[],
+  period: Date,
+  today: Date,
+  dueDate: string | null,
+  weekStartsOn: number,
+): FixedExpenseStatus {
   const fePayments = payments
     .filter((p) => p.fixed_expense_id === fe.id)
     .sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1))
-  const paidCents = fePayments.reduce((acc, p) => acc + p.amountPaidCents, 0)
 
   if (!fe.is_recurring) {
+    const paidCents = fePayments.reduce((acc, p) => acc + p.amountPaidCents, 0)
     const done = fePayments.length > 0
-    return { fe, payments: fePayments, paidCents, remainingCents: done ? 0 : fe.cents, done, overspentCents: 0 }
+    return { fe, payments: fePayments, paidCents, remainingCents: done ? 0 : fe.cents, done, overspentCents: 0, dueDate }
   }
 
   const periodClosed = startOfMonth(period) < startOfMonth(today)
+  const isCurrentMonth = !periodClosed && startOfMonth(period).getTime() === startOfMonth(today).getTime()
+
+  // Bolsa quincenal/semanal "en vivo" (bloques 4 y 5 del plan): mientras se mira el mes EN CURSO,
+  // sólo cuenta lo cargado en el sub-período que contiene HOY (la quincena o la semana vigente,
+  // nunca más de una) para que el remanente sea el de ese sub-período, no el de todo el mes. Mes
+  // cerrado (0, más abajo) y mes futuro (presupuesto completo, sin pagos todavía) se comportan igual
+  // que una bolsa mensual: no hay "sub-período futuro" hasta que llegue. Espejo exacto de
+  // `bag_cycle_from`/`bag_cycle_to` en las migraciones `20260911040001` (quincenal) y
+  // `20260911050001` (semanal, con `weekStartsOn` — sólo importa para 'weekly', biweekly lo ignora).
+  const scopedPayments =
+    fe.bag_frequency !== 'monthly' && isCurrentMonth
+      ? (() => {
+          const subCycle = cycleContaining({ kind: fe.bag_frequency, weekStartsOn }, today)
+          return fePayments.filter((p) => {
+            const paidOn = format(new Date(p.paid_at), 'yyyy-MM-dd')
+            return paidOn >= subCycle.from && paidOn <= subCycle.to
+          })
+        })()
+      : fePayments
+
+  const paidCents = scopedPayments.reduce((acc, p) => acc + p.amountPaidCents, 0)
   const remainingCents = periodClosed ? 0 : Math.max(fe.cents - paidCents, 0)
   const overspentCents = Math.max(paidCents - fe.cents, 0)
   const done = remainingCents === 0
 
-  return { fe, payments: fePayments, paidCents, remainingCents, done, overspentCents }
+  return { fe, payments: scopedPayments, paidCents, remainingCents, done, overspentCents, dueDate: null }
 }
 
 export type FixedExpenseUrgency = 'red' | 'amber' | 'neutral'
 
 /**
- * Rojo si ya venció este mes, ámbar si vence en los próximos 7 días (hoy incluido), neutro más
- * adelante. Sólo tiene sentido para un fijo de una sola vez — una bolsa mensual no "vence", así que
- * no tiene `due_day` y no pasa por acá. Compartida por el widget de Vencimientos de Hoy y los tres
- * grupos de Fijos (Atrasado / Esta semana / Más adelante).
+ * Rojo si ya venció, ámbar si vence en los próximos 7 días (hoy incluido), neutro más adelante. Sólo
+ * tiene sentido para un fijo de una sola vez — una bolsa no "vence", así que no tiene vencimiento y
+ * no pasa por acá. Compartida por el widget de Vencimientos de Hoy, los tres grupos de Fijos
+ * (Atrasado / Esta semana / Más adelante), las tarjetas y compras de Mis Deudas.
+ *
+ * Toma la FECHA ya materializada (`FixedExpenseStatus.dueDate`, `CardSummary.dueOn`,
+ * `PurchaseSummary.dueOn`), no el día del mes crudo — antes (`dueDay - today.getDate()`) fallaba en
+ * silencio con un ciclo semanal a caballo de dos meses: el día 2 de octubre comparado contra "hoy es
+ * 29 de septiembre" daba `2 - 29 = -27` → "Venció", cuando en realidad faltan varios días (agujero #4
+ * del plan de ciclos).
  */
-export function fixedExpenseUrgency(dueDay: number, today: Date): FixedExpenseUrgency {
-  const diff = dueDay - today.getDate()
+export function fixedExpenseUrgency(dueDate: Date, today: Date): FixedExpenseUrgency {
+  const diff = differenceInCalendarDays(dueDate, today)
   if (diff < 0) return 'red'
   if (diff <= 6) return 'amber'
   return 'neutral'
@@ -85,20 +123,30 @@ export interface FixedExpensesSummary {
 }
 
 /**
- * `period` es cualquier fecha dentro del mes a resumir (como `month` en Fijos.tsx / Hoy.tsx);
- * `payments` son los pagos YA filtrados a ese período (lo que devuelve `useFixedExpensePayments`).
+ * `period` es cualquier fecha dentro del mes a resumir para efectos de BOLSA (como `month` en
+ * Fijos.tsx / Hoy.tsx — ver `statusFor`); `payments` son los pagos YA filtrados a los meses que
+ * hacen falta (lo que devuelve `useFixedExpensePayments`/`useFixedExpensePaymentsRange`).
  *
- * `window` es opcional y nuevo (bloque 3 del plan de ciclos): cuando se pasa, además del filtro de
- * vigencia de siempre se aplica `fijoCaeEnCiclo` — un fijo de una sola vez sólo cuenta si su
- * vencimiento cae dentro de esa ventana, no en cualquier punto del mes. Sin `window` (ningún
- * consumidor lo pasaba antes de este bloque) el comportamiento es IDÉNTICO al de siempre — y aunque
- * se pase, con una ventana = el mes calendario completo el filtro es un no-op (ver
- * `fijoCaeEnCiclo`), así que un usuario en ciclo mensual tampoco nota cambio.
+ * `window` es opcional (bloque 3 del plan de ciclos): cuando se pasa, además del filtro de vigencia
+ * de siempre se aplica sobre los fijos de una sola vez — sólo cuentan si su vencimiento cae dentro
+ * de esa ventana, no en cualquier punto del mes. Sin `window` (ningún consumidor lo pasaba antes del
+ * bloque 3) el comportamiento es IDÉNTICO al de siempre — y aunque se pase, con una ventana = el mes
+ * calendario completo el filtro es un no-op, así que un usuario en ciclo mensual tampoco nota
+ * cambio. Es el CICLO que se está mirando (nunca el horizonte extendido de `projectionWindow`): el
+ * cliente sólo tiene los pagos del/los mes(es) que se están mirando, así que no puede replicar la
+ * acumulación multi-ciclo que sí hace `rpc_projected_balance_range` con un horizonte más largo (ver
+ * el comentario en Fijos.tsx sobre por qué el horizonte alimenta SÓLO el headline, nunca esta lista).
  *
- * `window` no es necesariamente el ciclo que se está mirando: en una pantalla que navega, tiene que
- * ser el HORIZONTE (`projectionWindow` en `src/lib/cycle.ts`) para que este desglose coincida exacto
- * con lo que descuenta `rpc_projected_balance_range` — pasar el ciclo a secas ahí desincroniza el
- * panel del número grande en silencio (riesgo #1 del plan).
+ * `months` es opcional y nuevo (bloque 5, ciclo semanal): la lista de meses calendario que toca el
+ * ciclo mirado — normalmente uno (`[monthStart de period]`, el default si se omite, igual que
+ * siempre), hasta dos si es semanal y cruza el borde del mes. Sin esto, un fijo de una sola vez cuyo
+ * vencimiento cae en el SEGUNDO mes de una semana a caballo no aparecería nunca (su `due_day` sólo
+ * se materializa contra el primero) — ver `fijoCaeEnCicloMultiMes`/`dueDateInCycle` en `period.ts`.
+ *
+ * `weekStartsOn` es sólo para una bolsa `bag_frequency: 'weekly'` (default 1 = lunes, igual que
+ * `DEFAULT_CYCLE_CONFIG` en `src/lib/cycle.ts`) — de dónde sale la config del ciclo de CAJA de la
+ * cuenta (`useCycle().config.weekStartsOn`), reusada acá porque una bolsa semanal no tiene su propio
+ * día de inicio de semana configurable, sólo su frecuencia.
  */
 export function summarizeFixedExpenses(
   expenses: FixedExpense[],
@@ -106,13 +154,20 @@ export function summarizeFixedExpenses(
   period: Date,
   today: Date,
   window?: Pick<Cycle, 'from' | 'to'>,
+  months?: string[],
+  weekStartsOn = 1,
 ): FixedExpensesSummary {
   const monthStart = format(startOfMonth(period), 'yyyy-MM-dd')
-  const eligible = eligibleFixedExpenses(expenses, startOfMonth(period), endOfMonth(period))
+  const monthsToCheck = months ?? [monthStart]
+  const bounds = cycleMonthsBounds(monthsToCheck)
+  const fallbackWindow = { from: format(bounds.start, 'yyyy-MM-dd'), to: format(bounds.end, 'yyyy-MM-dd') }
+  const eligible = eligibleFixedExpenses(expenses, bounds.start, bounds.end)
     .filter((fe) => fe.is_active)
-    .filter((fe) => !window || fijoCaeEnCiclo(fe, monthStart, window))
+    .filter((fe) => !window || fijoCaeEnCicloMultiMes(fe, monthsToCheck, window))
   const statuses = eligible
-    .map((fe) => statusFor(fe, payments, period, today))
+    .map((fe) =>
+      statusFor(fe, payments, period, today, dueDateInCycle(fe, monthsToCheck, window ?? fallbackWindow), weekStartsOn),
+    )
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
 
   return {

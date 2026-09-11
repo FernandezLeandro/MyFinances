@@ -5,7 +5,7 @@ import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
-import { permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
+import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 import { useCan } from '@/features/access/useCan'
@@ -44,6 +44,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
   const canCuentas = useCan('cuentas')
   const [accountId, setAccountId] = useDefaultAccountId()
 
+  const bagPeriod = bagPeriodNoun(fixedExpense.bag_frequency)
   const cents = parseAmountToCents(input)
   const willUpdateTemplate = !isRecurring && permiteActualizarPlantilla(period, new Date())
   const differs = !isRecurring && cents != null && cents !== fixedExpense.cents
@@ -85,7 +86,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
           <p className="eyebrow">{fixedExpense.name}</p>
           {isRecurring ? (
             <p className="mt-1 text-[13px] text-fg-muted">
-              <Money cents={alreadyPaidCents} tone="dim" /> de <Money cents={fixedExpense.cents} tone="dim" /> este mes
+              <Money cents={alreadyPaidCents} tone="dim" /> de <Money cents={fixedExpense.cents} tone="dim" /> {bagPeriod.thisPeriod}
             </p>
           ) : (
             <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
@@ -128,7 +129,7 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
                 Después de esta carga, falta <Money cents={remainingAfter} tone="dim" />.
               </>
             ) : (
-              'Con esta carga completás el presupuesto del mes.'
+              `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`
             )}
           </p>
         )}

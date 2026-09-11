@@ -72,8 +72,8 @@ function CardCard({
   onMarkPaid: (c: CreditCard) => void
   onEditSaving: (c: CreditCard) => void
 }) {
-  const { card, items, totalCents, savedCents, missingCents, savedPercent, paid, paidAt } = summary
-  const urgency: FixedExpenseUrgency = isCurrentMonth && !paid ? fixedExpenseUrgency(card.due_day, new Date()) : 'neutral'
+  const { card, items, totalCents, savedCents, missingCents, savedPercent, paid, paidAt, dueOn } = summary
+  const urgency: FixedExpenseUrgency = isCurrentMonth && !paid && dueOn ? fixedExpenseUrgency(parseISO(dueOn), new Date()) : 'neutral'
 
   return (
     <Panel className="flex flex-col gap-3.5 p-5">
@@ -188,7 +188,7 @@ export function MisDeudas() {
   // Sólo lectura, mismo criterio que Fijos: el toggle vive en Hoy, acá se respeta la misma
   // preferencia — es el mismo saldo, ocultarlo en un lado y no en otro sería inconsistente.
   const [balanceHidden] = useHiddenBalance('saldo-actual')
-  const { cycle, current, isCurrent, goToPrev, goToNext } = useCycle()
+  const { cycle, current, isCurrent, goToPrev, goToNext, config } = useCycle()
   const [cardFormOpen, setCardFormOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
   const [purchaseFormOpen, setPurchaseFormOpen] = useState(false)
@@ -198,13 +198,18 @@ export function MisDeudas() {
   const [markPaidPurchase, setMarkPaidPurchase] = useState<CreditPurchase | null>(null)
   const [savingCard, setSavingCard] = useState<CreditCard | null>(null)
 
-  // `period` sigue siendo el MES mirado (eje B — ver el mismo comentario en Fijos.tsx). `period2`/
-  // `period3` son el adelanto fijo de "Próximos 3 meses", que se queda mensual a propósito: es una
-  // vista de planificación a futuro, no la ventana de caja del usuario.
-  const period = cycle.months[0]
-  const month = parseISO(period)
-  const period2 = format(startOfMonth(addMonths(month, 1)), 'yyyy-MM-dd')
-  const period3 = format(startOfMonth(addMonths(month, 2)), 'yyyy-MM-dd')
+  // `periods` son los meses que toca el ciclo mirado (eje B — ver el mismo comentario en Fijos.tsx).
+  // `period2`/`period3` son el adelanto fijo de "Próximos 3 meses", que se queda mensual a propósito
+  // (vista de planificación a futuro, no la ventana de caja del usuario) — siempre a partir del
+  // PRIMER mes que toca el ciclo, nunca de `month` (que puede anclar a hoy más abajo).
+  const periods = cycle.months
+  const viewedMonth = parseISO(cycle.months[0])
+  const period2 = format(startOfMonth(addMonths(viewedMonth, 1)), 'yyyy-MM-dd')
+  const period3 = format(startOfMonth(addMonths(viewedMonth, 2)), 'yyyy-MM-dd')
+  // Ancla de bolsa para `summarizeFixedExpenses` — mismo criterio "en vivo" que Fijos.tsx: mientras
+  // se mira el ciclo que contiene a hoy, ancla a hoy (importa si la semana en curso cruza el borde
+  // del mes); si no, el primer mes que toca el ciclo navegado.
+  const month = isCurrent ? new Date() : viewedMonth
   // `ventana` alimenta SÓLO el headline del saldo proyectado — nunca la lista visible de tarjetas ni
   // compras. Mismo motivo exacto que en Fijos.tsx: el cliente no tiene los pagos de un mes anterior
   // al mirado, así que no puede replicar la acumulación multi-mes que sí hace el RPC sin traer pagos
@@ -216,16 +221,16 @@ export function MisDeudas() {
   const { data: installments, isPending: isInstallmentsPending } = useCreditInstallmentsRange(cycle.from, cycle.to)
   const { data: installments2 } = useCreditInstallments(period2)
   const { data: installments3 } = useCreditInstallments(period3)
-  const { data: savings, isPending: isSavingsPending } = useCreditCardSavings(period)
-  const { data: payments, isPending: isPaymentsPending } = useCreditCardPayments(period)
-  const { data: purchasePayments, isPending: isPurchasePaymentsPending } = useCreditPurchasePayments(period)
+  const { data: savings, isPending: isSavingsPending } = useCreditCardSavings(periods)
+  const { data: payments, isPending: isPaymentsPending } = useCreditCardPayments(periods)
+  const { data: purchasePayments, isPending: isPurchasePaymentsPending } = useCreditPurchasePayments(periods)
   const { data: categories } = useCategories(true)
   const unmarkPurchasePaid = useUnmarkCreditPurchasePaid()
 
   // Cruzado con Fijos, mismo criterio que usa `Fijos.tsx` con `summarizeMisDeudas` al revés: el rail
   // de saldo proyectado desglosa fijos Y deudas sin importar en cuál de las dos pantallas estés.
   const { data: fixedExpenses } = useFixedExpenses()
-  const { data: fixedPayments } = useFixedExpensePayments(period)
+  const { data: fixedPayments } = useFixedExpensePayments(periods)
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(ventana.from, ventana.to)
 
@@ -247,9 +252,12 @@ export function MisDeudas() {
     [cards, standalonePurchases, installments, savings, payments, purchasePayments],
   )
 
+  // Mismo criterio que en Fijos.tsx: `month` varía con `cycle`/`isCurrent` (ya en las deps), no con
+  // el reloj dentro del mismo render.
   const { pending: pendingFixed, pendingTotalCents: pendingFixedCents } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], month, new Date(), cycle),
-    [fixedExpenses, fixedPayments, month, cycle],
+    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], month, new Date(), cycle, cycle.months, config.weekStartsOn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fixedExpenses, fixedPayments, cycle, isCurrent, config],
   )
   const unpaidDebtsCount = summary.perCard.filter((c) => !c.paid).length + summary.standalone.filter((s) => !s.paid).length
 
@@ -453,7 +461,7 @@ export function MisDeudas() {
                       categoryName={categoryById.get(s.purchase.category_id ?? '')?.name}
                       onEdit={() => openEditStandalonePurchase(s.purchase)}
                       onMarkPaid={() => setMarkPaidPurchase(s.purchase)}
-                      onUnmarkPaid={() => unmarkPurchasePaid.mutate({ purchaseId: s.purchase.id, period })}
+                      onUnmarkPaid={() => unmarkPurchasePaid.mutate({ purchaseId: s.purchase.id, period: s.item.period })}
                     />
                   ))}
                 </ul>
@@ -521,29 +529,27 @@ export function MisDeudas() {
           purchase={editingPurchase}
         />
       )}
-      {detailCard && (
-        <CardPeriodDetailDialog
-          open={!!detailCard}
-          onClose={() => setDetailCard(null)}
-          card={detailCard}
-          period={period}
-          summary={summary.perCard.find((c) => c.card.id === detailCard.id) ?? null}
-        />
-      )}
-      {markPaidCard && (
-        <MarkCardPaidDialog
-          open={!!markPaidCard}
-          onClose={() => setMarkPaidCard(null)}
-          card={markPaidCard}
-          period={period}
-          summary={summary.perCard.find((c) => c.card.id === markPaidCard.id) ?? null}
-        />
-      )}
+      {detailCard &&
+        (() => {
+          const s = summary.perCard.find((c) => c.card.id === detailCard.id) ?? null
+          // El período de ESTE resumen, no el primer mes del ciclo a secas — con un ciclo semanal a
+          // caballo de dos meses (bloque 5 del plan), la cuota de esta tarjeta puede estar en el
+          // segundo. Sin ítems (nada que vencer), cae al primer mes del ciclo como siempre.
+          const cardPeriod = s?.items[0]?.period ?? periods[0]
+          return <CardPeriodDetailDialog open={!!detailCard} onClose={() => setDetailCard(null)} card={detailCard} period={cardPeriod} summary={s} />
+        })()}
+      {markPaidCard &&
+        (() => {
+          const s = summary.perCard.find((c) => c.card.id === markPaidCard.id) ?? null
+          const cardPeriod = s?.items[0]?.period ?? periods[0]
+          return <MarkCardPaidDialog open={!!markPaidCard} onClose={() => setMarkPaidCard(null)} card={markPaidCard} period={cardPeriod} summary={s} />
+        })()}
       {savingCard &&
         (() => {
           const s = summary.perCard.find((c) => c.card.id === savingCard.id)
           if (!s) return null
-          return <SavedAmountDialog open onClose={() => setSavingCard(null)} card={savingCard} period={period} savedCents={s.savedCents} />
+          const cardPeriod = s.items[0]?.period ?? periods[0]
+          return <SavedAmountDialog open onClose={() => setSavingCard(null)} card={savingCard} period={cardPeriod} savedCents={s.savedCents} />
         })()}
       {markPaidPurchase &&
         (() => {
@@ -554,7 +560,7 @@ export function MisDeudas() {
               open={!!markPaidPurchase}
               onClose={() => setMarkPaidPurchase(null)}
               purchase={markPaidPurchase}
-              period={period}
+              period={s.item.period}
               installmentNo={s.item.installment_no}
               installments={s.item.installments}
               totalCents={s.totalCents}

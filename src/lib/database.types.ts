@@ -16,6 +16,7 @@ type Role = 'user' | 'admin'
 type Plan = 'test' | 'basic' | 'premium'
 type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
 type CycleKind = 'monthly' | 'biweekly' | 'weekly'
+type BagFrequency = 'monthly' | 'biweekly' | 'weekly'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
 type AssetQuoteCurrency = 'ARS' | 'USD'
@@ -255,6 +256,9 @@ export interface Database {
           due_day: number | null
           is_active: boolean
           is_recurring: boolean
+          /** Sólo relevante cuando `is_recurring`: frecuencia de reseteo propia de la bolsa,
+           *  independiente de `profiles.cycle_kind`. Ver migración `20260911040001`. */
+          bag_frequency: BagFrequency
           starts_on: string
           ends_on: string | null
           notes: string | null
@@ -269,6 +273,7 @@ export interface Database {
           due_day?: number | null
           is_active?: boolean
           is_recurring?: boolean
+          bag_frequency?: BagFrequency
           starts_on?: string
           ends_on?: string | null
           notes?: string | null
@@ -280,6 +285,7 @@ export interface Database {
           due_day: number | null
           is_active: boolean
           is_recurring: boolean
+          bag_frequency: BagFrequency
           starts_on: string
           ends_on: string | null
           notes: string | null
