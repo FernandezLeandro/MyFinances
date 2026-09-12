@@ -19,6 +19,12 @@ export type Capability =
   | 'cuentas'
   | 'compartido'
   | 'cuadrar-saldo'
+  // Bloque 4 del plan "BASIC centrado en fijos": el registro manual de un movimiento cualquiera —
+  // no la app entera. BASIC sigue viendo /movimientos (ya lo tenía por `movimientos`), pero sólo
+  // puede llegar a un movimiento pagando un fijo (ver `RegisterFixedExpenseDialog`, el selector que
+  // abre el `+` para ese plan en vez de `TransactionFormDialog`); sin esta capacidad no puede
+  // cargar uno suelto, ni desde Hoy/Movimientos ni desde el `+` de la isla.
+  | 'movimientos-manuales'
 
 const ALL_CAPABILITIES: readonly Capability[] = [
   'movimientos',
@@ -31,12 +37,13 @@ const ALL_CAPABILITIES: readonly Capability[] = [
   'cuentas',
   'compartido',
   'cuadrar-saldo',
+  'movimientos-manuales',
 ]
 
 /** `/hoy` no tiene capacidad asociada a propósito: es el home y el destino de todos los redirects,
  *  todo plan lo ve. */
 const PLAN_CAPS: Record<Plan, readonly Capability[]> = {
-  test: ['movimientos', 'fijos', 'analisis'],
+  test: ['movimientos', 'fijos', 'analisis', 'movimientos-manuales'],
   basic: ['movimientos', 'fijos'],
   premium: ALL_CAPABILITIES,
 }
