@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { cn } from '@/lib/cn'
+import { sanitizeAmountInput } from '@/lib/money'
 
 interface OpeningAmountFieldProps {
   value: string
@@ -48,7 +49,7 @@ export function OpeningAmountField({
           <input
             id={id}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => onChange(sanitizeAmountInput(e.target.value, { allowNegative: true }))}
             inputMode="decimal"
             aria-label={ariaLabel ?? label}
             className="tnum min-w-0 flex-1 bg-transparent text-[14px] text-fg outline-none"

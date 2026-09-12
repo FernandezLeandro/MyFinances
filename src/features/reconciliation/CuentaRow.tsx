@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/cn'
-import { centsToInputText, parseAmountToCents } from '@/lib/money'
+import { centsToInputText, parseAmountToCents, sanitizeAmountInput } from '@/lib/money'
 import { useUpdateBalanceLocation, type BalanceLocation } from '@/features/reconciliation/api'
 import { accountKindIcon } from '@/features/accounts/accountKind'
 
@@ -41,7 +41,7 @@ export function CuentaRow({ location, derivedCents }: { location: BalanceLocatio
       </div>
       <input
         value={amountInput}
-        onChange={(e) => setAmountInput(e.target.value)}
+        onChange={(e) => setAmountInput(sanitizeAmountInput(e.target.value, { allowNegative: true }))}
         onBlur={saveAmount}
         inputMode="decimal"
         aria-label={`Real declarado en ${location.name || 'cuenta'}`}

@@ -1,6 +1,7 @@
 import { useId } from 'react'
-import type { InputHTMLAttributes, ReactNode, Ref } from 'react'
+import type { ChangeEvent, InputHTMLAttributes, ReactNode, Ref } from 'react'
 import { cn } from '@/lib/cn'
+import { sanitizeAmountInput } from '@/lib/money'
 
 interface FieldProps {
   label: string
@@ -56,12 +57,18 @@ type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
 
 // React 19: una función puede recibir `ref` como prop normal, sin forwardRef. Hace falta que
 // llegue al <input> real para que React Hook Form (no controlado) pueda leer el valor.
-export function Input({ className, invalid, fieldSize = 'md', ref, ...props }: InputProps) {
+export function Input({ className, invalid, fieldSize = 'md', ref, onChange, ...props }: InputProps) {
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    if (props.inputMode === 'decimal') event.currentTarget.value = sanitizeAmountInput(event.currentTarget.value)
+    onChange?.(event)
+  }
+
   return (
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
       className={cn(controlBase, inputSizes[fieldSize], invalid && 'ring-1 ring-negative/60', className)}
+      onChange={handleChange}
       {...props}
     />
   )
@@ -76,8 +83,14 @@ interface AmountInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, '
  * Campo de importe: teclado numérico en el celular y tipografía display, porque es el dato que el
  * usuario mira mientras escribe. El parseo a centavos lo hace `parseAmountToCents` en el submit.
  */
-export function AmountInput({ className, invalid, ref, ...props }: AmountInputProps) {
+export function AmountInput({ className, invalid, ref, onChange, ...props }: AmountInputProps) {
   const id = useId()
+
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    event.currentTarget.value = sanitizeAmountInput(event.currentTarget.value)
+    onChange?.(event)
+  }
+
   return (
     <div
       className={cn(
@@ -99,6 +112,7 @@ export function AmountInput({ className, invalid, ref, ...props }: AmountInputPr
         placeholder="0,00"
         aria-invalid={invalid || undefined}
         className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-fg outline-none placeholder:text-border-strong"
+        onChange={handleChange}
         {...props}
       />
     </div>
