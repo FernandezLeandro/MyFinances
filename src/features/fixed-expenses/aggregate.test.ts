@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { format, parseISO, subDays } from 'date-fns'
 import { cycleContaining, type CycleConfig } from '@/lib/cycle'
 import { compareFixedExpenses, fixedExpenseUrgency, summarizeFixedExpenses } from './aggregate'
-import { makeFixedExpense, makeFixedExpensePayment } from '@/test/factories'
+import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
 // mismo gotcha documentado en `permiteActualizarPlantilla`.
@@ -279,6 +279,57 @@ describe('summarizeFixedExpenses — con months (bloque 5, semanal a caballo de 
     // `isCurrent ? new Date() : cycle.months[0]`, no `cycle.months[0]` siempre.
     expect(s.pending).toHaveLength(0)
     expect(s.done[0].remainingCents).toBe(0)
+  })
+})
+
+describe('summarizeFixedExpenses — guardado (bloque 3 del plan "BASIC centrado en fijos")', () => {
+  it('guardado parcial: no lo saca de pending, pero descuenta de lo que falta guardar', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const saving = makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00 })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
+    expect(s.pending).toHaveLength(1)
+    expect(s.pending[0].savedCents).toBe(20_000_00)
+    expect(s.pendingTotalCents).toBe(50_000_00) // el guardado no es un pago: sigue debiéndose entero
+    expect(s.savedTotalCents).toBe(20_000_00)
+    expect(s.missingToSaveCents).toBe(30_000_00)
+  })
+
+  it('guardado de más: el total guardado capa al remanente, nunca "adelanta" a otro fijo', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const savings = [
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 30_000_00 }),
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 40_000_00 }),
+    ]
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, savings)
+    expect(s.pending[0].savedCents).toBe(70_000_00) // sin capar en el status — la fila puede avisar "de más"
+    expect(s.savedTotalCents).toBe(50_000_00) // capado en el total
+    expect(s.missingToSaveCents).toBe(0)
+  })
+
+  it('un fijo ya pagado no suma a savedTotalCents, aunque tenga guardados', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'f1', amountPaidCents: 50_000_00 })
+    const saving = makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00 })
+    const s = summarizeFixedExpenses([fe], [payment], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
+    expect(s.done).toHaveLength(1)
+    expect(s.savedTotalCents).toBe(0)
+    expect(s.missingToSaveCents).toBe(0)
+  })
+
+  it('una bolsa ignora los guardados — savedCents siempre 0, no entra en savedTotalCents', () => {
+    const nafta = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true })
+    const saving = makeFixedExpenseSaving({ fixed_expense_id: 'nafta', amountCents: 20_000_00 })
+    const s = summarizeFixedExpenses([nafta], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
+    expect(s.pending[0].savedCents).toBe(0)
+    expect(s.savedTotalCents).toBe(0)
+    expect(s.missingToSaveCents).toBe(0)
+  })
+
+  it('sin `savings` (default `[]`), el comportamiento es idéntico al de siempre', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.savedTotalCents).toBe(0)
+    expect(s.missingToSaveCents).toBe(50_000_00)
   })
 })
 

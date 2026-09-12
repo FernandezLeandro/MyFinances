@@ -42,7 +42,12 @@ import {
   useCreditPurchasePayments,
   useStandalonePurchases,
 } from '@/features/credits/api'
-import { useFixedExpensePayments, useFixedExpenses, useProjectedBalanceRange } from '@/features/fixed-expenses/api'
+import {
+  useFixedExpensePayments,
+  useFixedExpenses,
+  useFixedExpenseSavings,
+  useProjectedBalanceRange,
+} from '@/features/fixed-expenses/api'
 import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
 
 // `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
@@ -119,6 +124,7 @@ export function Hoy() {
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(cycleFrom, cycleTo)
   const { data: fixedExpenses } = useFixedExpenses()
   const { data: fixedPayments } = useFixedExpensePayments(monthsOfCycle)
+  const { data: fixedSavings } = useFixedExpenseSavings(monthsOfCycle)
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
@@ -145,10 +151,24 @@ export function Hoy() {
   const unpaidStandalone = misDeudasSummary.standalone.filter((s) => !s.paid)
   const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
 
-  const { pending: pendingFixed, pendingTotalCents: pendingFixedTotal } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], fixedPayments ?? [], today, today, cycle, cycle.months, config.weekStartsOn),
+  const {
+    pending: pendingFixed,
+    pendingTotalCents: pendingFixedTotal,
+    savedTotalCents: savedFixedTotal,
+  } = useMemo(
+    () =>
+      summarizeFixedExpenses(
+        fixedExpenses ?? [],
+        fixedPayments ?? [],
+        today,
+        today,
+        cycle,
+        cycle.months,
+        config.weekStartsOn,
+        fixedSavings ?? [],
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
-    [fixedExpenses, fixedPayments, cycle, config],
+    [fixedExpenses, fixedPayments, fixedSavings, cycle, config],
   )
 
   // Sólo lo que realmente "vence" — una bolsa mensual no tiene día de vencimiento, así que no
@@ -347,6 +367,7 @@ export function Hoy() {
             currentBalanceCents={currentBalanceCents}
             pendingFixedCount={pendingFixed.length}
             pendingFixedCents={pendingFixedTotal}
+            savedFixedCents={savedFixedTotal}
             unpaidDebtsCount={unpaidDebtsCount}
             unpaidDebtsCents={misDeudasSummary.totalPendingCents}
             hidden={balanceHidden}
@@ -404,9 +425,17 @@ export function Hoy() {
                   return (
                     <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
                       <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
-                        {status.fe.name}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] font-semibold text-fg">{status.fe.name}</span>
+                        {/* Bloque 3: sólo si ya guardó algo — no vale la pena una línea en $0 por
+                            cada fijo pendiente. */}
+                        {status.savedCents > 0 && (
+                          <span className="block text-[11px] text-fg-muted">
+                            <Money cents={Math.min(status.savedCents, status.remainingCents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
+                            guardado
+                          </span>
+                        )}
+                      </div>
                       <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
                       <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
                     </li>
@@ -429,6 +458,7 @@ export function Hoy() {
           currentBalanceCents={currentBalanceCents}
           pendingFixedCount={pendingFixed.length}
           pendingFixedCents={pendingFixedTotal}
+          savedFixedCents={savedFixedTotal}
           unpaidDebtsCount={unpaidDebtsCount}
           unpaidDebtsCents={misDeudasSummary.totalPendingCents}
           hidden={balanceHidden}
@@ -453,7 +483,15 @@ export function Hoy() {
                 return (
                   <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
                     <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
-                    <span className="text-[13px] font-semibold text-fg">{status.fe.name}</span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-[13px] font-semibold text-fg">{status.fe.name}</span>
+                      {status.savedCents > 0 && (
+                        <span className="block text-[11px] text-fg-muted">
+                          <Money cents={Math.min(status.savedCents, status.remainingCents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
+                          guardado
+                        </span>
+                      )}
+                    </div>
                     <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
                     <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto" hidden={balanceHidden} />
                   </li>

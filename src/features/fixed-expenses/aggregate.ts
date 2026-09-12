@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, format, startOfMonth } from 'date-fns'
 import { cycleContaining, type Cycle } from '@/lib/cycle'
-import type { FixedExpense, FixedExpensePayment } from './api'
+import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from './api'
 import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses, fijoCaeEnCicloMultiMes } from './period'
 
 /**
@@ -33,11 +33,18 @@ export interface FixedExpenseStatus {
    *  bolsa. Para `fixedExpenseUrgency`, que necesita la fecha real (bloque 5 del plan: con un ciclo
    *  semanal a caballo de dos meses, el día del mes solo no alcanza para saber si ya venció). */
   dueDate: string | null
+  /** Bloque 3: suma de lo guardado para este período, SIN capar contra `remainingCents` — quien lo
+   *  muestre decide el tope (`summarizeFixedExpenses` usa `min(savedCents, remainingCents)` para el
+   *  total que de verdad falta guardar; una fila puede mostrarlo tal cual para "guardaste de más").
+   *  Siempre `0` en una bolsa: guardar sólo aplica a un fijo "una vez al mes" (ver el guard más abajo
+   *  y la discusión del plan — una bolsa ya se va cargando de a partes como gasto real). */
+  savedCents: number
 }
 
 function statusFor(
   fe: FixedExpense,
   payments: FixedExpensePayment[],
+  savings: FixedExpenseSaving[],
   period: Date,
   today: Date,
   dueDate: string | null,
@@ -50,7 +57,17 @@ function statusFor(
   if (!fe.is_recurring) {
     const paidCents = fePayments.reduce((acc, p) => acc + p.amountPaidCents, 0)
     const done = fePayments.length > 0
-    return { fe, payments: fePayments, paidCents, remainingCents: done ? 0 : fe.cents, done, overspentCents: 0, dueDate }
+    const savedCents = savings.filter((s) => s.fixed_expense_id === fe.id).reduce((acc, s) => acc + s.amountCents, 0)
+    return {
+      fe,
+      payments: fePayments,
+      paidCents,
+      remainingCents: done ? 0 : fe.cents,
+      done,
+      overspentCents: 0,
+      dueDate,
+      savedCents,
+    }
   }
 
   const periodClosed = startOfMonth(period) < startOfMonth(today)
@@ -79,7 +96,7 @@ function statusFor(
   const overspentCents = Math.max(paidCents - fe.cents, 0)
   const done = remainingCents === 0
 
-  return { fe, payments: scopedPayments, paidCents, remainingCents, done, overspentCents, dueDate: null }
+  return { fe, payments: scopedPayments, paidCents, remainingCents, done, overspentCents, dueDate: null, savedCents: 0 }
 }
 
 export type FixedExpenseUrgency = 'red' | 'amber' | 'neutral'
@@ -120,6 +137,14 @@ export interface FixedExpensesSummary {
    *  de `remainingCents` de TODOS los fijos activos elegibles, pagados o no (un fijo saldado ya
    *  aporta 0). */
   pendingTotalCents: number
+  /** Bloque 3: cuánto de lo que falta pagar (sólo fijos "una vez al mes" pendientes — una bolsa no
+   *  entra, ver `statusFor`) ya está guardado. Capado por fijo a su propio `remainingCents`: guardar
+   *  de más para uno no "adelanta" a otro. */
+  savedTotalCents: number
+  /** `pendingTotalCents` de los fijos de una vez pendientes, menos `savedTotalCents` — nunca
+   *  negativo. Es lo que todavía falta juntar, la cifra que muestra `FijosCicloCard` en Hoy (bloque
+   *  4) cuando hay algo guardado. */
+  missingToSaveCents: number
 }
 
 /**
@@ -147,6 +172,10 @@ export interface FixedExpensesSummary {
  * `DEFAULT_CYCLE_CONFIG` en `src/lib/cycle.ts`) — de dónde sale la config del ciclo de CAJA de la
  * cuenta (`useCycle().config.weekStartsOn`), reusada acá porque una bolsa semanal no tiene su propio
  * día de inicio de semana configurable, sólo su frecuencia.
+ *
+ * `savings` (bloque 3, opcional — `[]` por default: un consumidor que no le interesa el guardado,
+ * como los tests viejos, no nota diferencia) son TODOS los guardados de los períodos que hacen falta,
+ * mismo criterio multi-período que `payments` (`useFixedExpenseSavings`).
  */
 export function summarizeFixedExpenses(
   expenses: FixedExpense[],
@@ -156,6 +185,7 @@ export function summarizeFixedExpenses(
   window?: Pick<Cycle, 'from' | 'to'>,
   months?: string[],
   weekStartsOn = 1,
+  savings: FixedExpenseSaving[] = [],
 ): FixedExpensesSummary {
   const monthStart = format(startOfMonth(period), 'yyyy-MM-dd')
   const monthsToCheck = months ?? [monthStart]
@@ -166,13 +196,23 @@ export function summarizeFixedExpenses(
     .filter((fe) => !window || fijoCaeEnCicloMultiMes(fe, monthsToCheck, window))
   const statuses = eligible
     .map((fe) =>
-      statusFor(fe, payments, period, today, dueDateInCycle(fe, monthsToCheck, window ?? fallbackWindow), weekStartsOn),
+      statusFor(fe, payments, savings, period, today, dueDateInCycle(fe, monthsToCheck, window ?? fallbackWindow), weekStartsOn),
     )
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
 
+  const pending = statuses.filter((s) => !s.done)
+  // Sólo fijos de una vez: una bolsa ignora el guardado (`savedCents` ya viene en 0 desde
+  // `statusFor`), así que incluirla acá no cambiaría nada — el filtro es sólo para que quede
+  // explícito qué cuenta.
+  const pendingOneTime = pending.filter((s) => !s.fe.is_recurring)
+  const savedTotalCents = pendingOneTime.reduce((acc, s) => acc + Math.min(s.savedCents, s.remainingCents), 0)
+  const missingToSaveCents = Math.max(pendingOneTime.reduce((acc, s) => acc + s.remainingCents, 0) - savedTotalCents, 0)
+
   return {
-    pending: statuses.filter((s) => !s.done),
+    pending,
     done: statuses.filter((s) => s.done),
     pendingTotalCents: statuses.reduce((acc, s) => acc + s.remainingCents, 0),
+    savedTotalCents,
+    missingToSaveCents,
   }
 }

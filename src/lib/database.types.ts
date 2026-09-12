@@ -314,6 +314,27 @@ export interface Database {
         Update: Partial<{ transaction_id: string | null; note: string | null }>
         Relationships: []
       }
+      fixed_expense_savings: {
+        Row: {
+          id: string
+          user_id: string
+          fixed_expense_id: string
+          period: string
+          amount: string
+          saved_at: string
+          note: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          fixed_expense_id: string
+          period: string
+          amount: number | string
+          note?: string | null
+        }
+        Update: Partial<{ note: string | null }>
+        Relationships: []
+      }
       credit_cards: {
         Row: {
           id: string

@@ -20,6 +20,7 @@ import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
   useFixedExpensePayments,
+  useFixedExpenseSavings,
   useFixedExpenses,
   useProjectedBalanceRange,
   useUnmarkFixedExpensePayment,
@@ -64,9 +65,12 @@ function FixedExpenseRow({
   onPrimaryAction: () => void
   onOpenDetail: () => void
 }) {
-  const { fe, paidCents, remainingCents, done, overspentCents } = status
+  const { fe, paidCents, remainingCents, done, overspentCents, savedCents } = status
   const overspent = overspentCents > 0
   const pct = fe.cents > 0 ? (paidCents / fe.cents) * 100 : 0
+  // Bloque 3: sólo tiene sentido para un fijo de una vez todavía pendiente — una vez pagado ya no
+  // hay nada que "juntar", y una bolsa ignora el guardado entero (`savedCents` viene en 0 ahí).
+  const savedPct = !fe.is_recurring && !done && fe.cents > 0 ? Math.min((savedCents / fe.cents) * 100, 100) : 0
 
   return (
     <li className="flex min-w-0 items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
@@ -113,6 +117,18 @@ function FixedExpenseRow({
                   <Money cents={paidCents} tone="dim" hidden={hidden} /> de <Money cents={fe.cents} tone="dim" hidden={hidden} />
                 </span>
               )}
+            </div>
+          )}
+
+          {/* Bloque 3: mismo tratamiento visual que la barra de una bolsa, pero para "cuánto ya
+              guardaste de lo que falta pagar" — sólo aparece si hay algo guardado, para no meter
+              una barra en $0 en cada fijo de la lista. */}
+          {savedPct > 0 && (
+            <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
+              <MiniProgress pct={savedPct} tone="muted" size="wide" />
+              <span className="hidden text-[12px] whitespace-nowrap text-fg-muted lg:inline">
+                <Money cents={savedCents} tone="dim" hidden={hidden} /> guardado de <Money cents={fe.cents} tone="dim" hidden={hidden} />
+              </span>
             </div>
           )}
         </div>
@@ -227,6 +243,7 @@ export function Fijos() {
 
   const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(showPaused)
   const { data: payments } = useFixedExpensePayments(periods)
+  const { data: fixedSavings } = useFixedExpenseSavings(periods)
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(horizonte.from, horizonte.to)
   const { data: categories } = useCategories(true)
@@ -272,10 +289,20 @@ export function Fijos() {
 
   // `month` varía con `cycle`/`isCurrent` (ya en las deps) y con el reloj dentro del mismo render,
   // que no amerita recalcular — mismo criterio que `today` en Hoy.tsx.
-  const { pending, done: doneItems, pendingTotalCents } = useMemo(
-    () => summarizeFixedExpenses(fixedExpenses ?? [], payments ?? [], month, new Date(), cycle, cycle.months, config.weekStartsOn),
+  const { pending, done: doneItems, pendingTotalCents, savedTotalCents } = useMemo(
+    () =>
+      summarizeFixedExpenses(
+        fixedExpenses ?? [],
+        payments ?? [],
+        month,
+        new Date(),
+        cycle,
+        cycle.months,
+        config.weekStartsOn,
+        fixedSavings ?? [],
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fixedExpenses, payments, cycle, isCurrent, config],
+    [fixedExpenses, payments, fixedSavings, cycle, isCurrent, config],
   )
   const allStatuses = useMemo(() => [...pending, ...doneItems], [pending, doneItems])
 
@@ -579,6 +606,7 @@ export function Fijos() {
               currentBalanceCents={currentBalance ?? 0}
               pendingFixedCount={pending.length}
               pendingFixedCents={pendingTotalCents}
+              savedFixedCents={savedTotalCents}
               unpaidDebtsCount={unpaidDebtsCount}
               unpaidDebtsCents={misDeudasSummary.totalPendingCents}
               hidden={balanceHidden}
@@ -682,6 +710,7 @@ export function Fijos() {
           // una bolsa usa la misma ancla "en vivo" (`month`) que ya calculó `summarizeFixedExpenses`.
           period={markingPaid.dueDate ? format(startOfMonth(parseISO(markingPaid.dueDate)), 'yyyy-MM-dd') : format(startOfMonth(month), 'yyyy-MM-dd')}
           alreadyPaidCents={markingPaid.paidCents}
+          alreadySavedCents={markingPaid.savedCents}
         />
       )}
       {detailFixed && (

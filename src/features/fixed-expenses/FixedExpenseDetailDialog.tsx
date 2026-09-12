@@ -9,9 +9,12 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import {
   useFixedExpensePaymentHistory,
+  useFixedExpenseSavingHistory,
+  useRemoveFixedExpenseSaving,
   useUnmarkFixedExpensePayment,
   type FixedExpense,
   type FixedExpensePayment,
+  type FixedExpenseSaving,
 } from '@/features/fixed-expenses/api'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
 import { bagPeriodNoun } from '@/features/fixed-expenses/period'
@@ -48,6 +51,30 @@ function groupByPeriod(payments: FixedExpensePayment[]): PeriodGroup[] {
   return groups
 }
 
+/** Un período (mes) de guardados, agrupados igual que `groupByPeriod` — un fijo de una vez puede
+ *  tener varios guardados parciales en el mismo mes (bloque 3). */
+interface SavingGroup {
+  period: string
+  savings: FixedExpenseSaving[]
+  totalCents: number
+}
+
+function groupSavingsByPeriod(savings: FixedExpenseSaving[]): SavingGroup[] {
+  const groups: SavingGroup[] = []
+  const byPeriod = new Map<string, SavingGroup>()
+  for (const saving of savings) {
+    let group = byPeriod.get(saving.period)
+    if (!group) {
+      group = { period: saving.period, savings: [], totalCents: 0 }
+      byPeriod.set(saving.period, group)
+      groups.push(group)
+    }
+    group.savings.push(saving)
+    group.totalCents += saving.amountCents
+  }
+  return groups
+}
+
 /** Historial de pagos de un fijo, con edición de la plantilla on-demand. Mismo patrón que
  *  BucketDetailDialog en Ahorros: el detalle abierto, y desde ahí se entra a editar.
  *
@@ -58,8 +85,15 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
   const [formOpen, setFormOpen] = useState(false)
   const { data: payments, isPending } = useFixedExpensePaymentHistory(fixedExpense.id)
   const unmarkPayment = useUnmarkFixedExpensePayment()
+  // El guardado sólo aplica a un fijo "una vez al mes" — pasar `null` cuando es bolsa desactiva la
+  // query entera (mismo criterio que `enabled` en el resto de los hooks de la app).
+  const { data: savings, isPending: savingsPending } = useFixedExpenseSavingHistory(
+    fixedExpense.is_recurring ? null : fixedExpense.id,
+  )
+  const removeSaving = useRemoveFixedExpenseSaving()
 
   const groups = useMemo(() => groupByPeriod(payments ?? []), [payments])
+  const savingGroups = useMemo(() => groupSavingsByPeriod(savings ?? []), [savings])
 
   // El <dialog> nativo dispara "close" tanto al cerrarlo el usuario como cuando el propio código lo
   // cierra vía `.close()` (acá pasa al abrir "Editar" encima, porque `open` de este Dialog baja a
@@ -153,6 +187,56 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Bloque 3: sólo un fijo de una vez guarda plata — una bolsa ya se va cargando de a partes
+            como gasto real, este bloque entero no le corresponde. */}
+        {!fixedExpense.is_recurring && (
+          <>
+            <p className="eyebrow mt-5 mb-3">Guardado</p>
+            {savingsPending ? (
+              <div className="flex flex-col gap-2">
+                {[0, 1].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : savingGroups.length === 0 ? (
+              <EmptyState glyph="◷" title="Todavía no guardaste plata para este fijo" />
+            ) : (
+              <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
+                {savingGroups.map((group) => (
+                  <li key={group.period} className="border-t border-fill-subtle first:border-t-0">
+                    <div className="flex items-center gap-3 px-6 pt-3 pb-1.5">
+                      <p className="min-w-0 flex-1 truncate text-[14px] text-fg capitalize">
+                        {format(parseISO(group.period), 'MMMM yyyy', { locale: es })}
+                      </p>
+                      <Money cents={group.totalCents} tone="dim" />
+                    </div>
+                    <ul>
+                      {group.savings.map((saving) => (
+                        <li key={saving.id} className="flex items-center gap-3 px-6 py-1.5 pl-9">
+                          <p className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">
+                            {format(parseISO(saving.saved_at), "d 'de' MMMM", { locale: es })}
+                            {saving.note ? ` · ${saving.note}` : ''}
+                          </p>
+                          <Money cents={saving.amountCents} tone="dim" size="inline" />
+                          <button
+                            type="button"
+                            onClick={() => removeSaving.mutate({ savingId: saving.id })}
+                            disabled={removeSaving.isPending}
+                            aria-label="Quitar este guardado"
+                            className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
+                          >
+                            <X className="size-3" strokeWidth={1.5} aria-hidden />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </Dialog>
 
