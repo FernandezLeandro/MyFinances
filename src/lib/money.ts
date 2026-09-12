@@ -32,6 +32,20 @@ export function centsToNumeric(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
+/**
+ * Deja sólo los caracteres que forman un importe mientras se escribe o se pega un valor. Coma y
+ * punto se conservan porque la app acepta tanto el formato es-AR como el inglés al parsearlo.
+ *
+ * Los saldos de una cuenta pueden ser negativos; el resto de los importes no debería permitir el
+ * signo desde el campo.
+ */
+export function sanitizeAmountInput(input: string, options: { allowNegative?: boolean } = {}): string {
+  const numericCharacters = input.replace(/[^\d.,-]/g, '')
+  if (!options.allowNegative) return numericCharacters.replace(/-/g, '')
+
+  return numericCharacters.startsWith('-') ? `-${numericCharacters.slice(1).replace(/-/g, '')}` : numericCharacters.replace(/-/g, '')
+}
+
 /** Convierte lo que escribió el usuario ("1.234,50", "1234.5") a centavos. `null` si no es válido. */
 export function parseAmountToCents(input: string): number | null {
   const raw = input.trim()

@@ -7,6 +7,7 @@ import {
   formatQuantity,
   parseAmountToCents,
   parseQuantity,
+  sanitizeAmountInput,
   splitMoney,
   unitsFromNumeric,
   unitsToNumeric,
@@ -89,6 +90,20 @@ describe('parseAmountToCents', () => {
     // `Number('') === 0` es finito → sin el guard explícito esto devolvía `0`, un importe
     // "válido" que se podía guardar. Ver el fix en parseAmountToCents.
     expect(parseAmountToCents('abc')).toBeNull()
+  })
+})
+
+describe('sanitizeAmountInput', () => {
+  it('quita texto y símbolos, pero conserva los separadores numéricos', () => {
+    expect(sanitizeAmountInput('$ abc 1.234,50')).toBe('1.234,50')
+  })
+
+  it('no permite el signo en importes normales', () => {
+    expect(sanitizeAmountInput('-500')).toBe('500')
+  })
+
+  it('permite un único signo inicial para saldos de cuenta', () => {
+    expect(sanitizeAmountInput('-5-00', { allowNegative: true })).toBe('-500')
   })
 })
 

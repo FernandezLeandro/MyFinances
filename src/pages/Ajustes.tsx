@@ -6,7 +6,7 @@ import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { cn } from '@/lib/cn'
-import { parseAmountToCents } from '@/lib/money'
+import { parseAmountToCents, sanitizeAmountInput } from '@/lib/money'
 import { useProfile, useUpdateProfile, type CycleKind, type FxSource } from '@/features/profile/api'
 import { useUsdRate, useAssetPrices } from '@/features/fx/api'
 import { useAssets } from '@/features/assets/api'
@@ -106,7 +106,7 @@ function FxPanel() {
                   inputMode="decimal"
                   placeholder="0,00"
                   value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
+                  onChange={(e) => setManualInput(sanitizeAmountInput(e.target.value))}
                   className="tnum h-10 min-w-0 flex-1 rounded-control bg-inverse-divider px-3 text-[14px] text-on-inverse outline-none"
                 />
                 <button
