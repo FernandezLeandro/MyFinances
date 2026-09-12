@@ -48,7 +48,9 @@ export function summarizeFijoVsVariable(
 export interface CategoryMonthlyRow {
   categoryId: string
   categoryName: string
-  color: string
+  /** `null` para el grupo "Sin categoría" (`UNCATEGORIZED_ID`) — el componente decide el color de
+   *  respaldo. */
+  color: string | null
   /** Promedio mensual sobre los meses en que la cuenta tuvo actividad (ver `monthsCounted`), no
    *  sobre los 12 de la ventana. Un mes con gasto en OTRAS categorías sí cuenta acá aunque esta
    *  categoría haya quedado en 0 — de eso se trata: una categoría esporádica tiene que promediar
@@ -60,11 +62,15 @@ export interface CategoryMonthlyRow {
   deviationPct: number | null
 }
 
-/** Una fila de `v_spend_by_category` por mes, ya resuelta a centavos. */
+/** Una fila de `v_spend_by_category` por mes, ya resuelta a centavos. `categoryId` es
+ *  `UNCATEGORIZED_ID` (nunca `null`) para el grupo "Sin categoría" — ver `toCategorySpendRows` en
+ *  `analytics/api.ts` y `useSpendByCategory` en `transactions/api.ts`, que hacen esa conversión. */
 export interface CategorySpendRow {
   categoryId: string
   categoryName: string
-  color: string
+  /** `null` para "Sin categoría" — el componente que lo pinta decide el color de respaldo (mismo
+   *  criterio que "Otros" en el donut de Análisis). */
+  color: string | null
   cents: number
 }
 

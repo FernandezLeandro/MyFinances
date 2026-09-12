@@ -266,7 +266,7 @@ export function Fijos() {
   // — si no, un fijo que sólo se solapa con el segundo mes de una semana a caballo quedaría afuera.
   const eligibleAll = useMemo(() => {
     const bounds = cycleMonthsBounds(cycle.months)
-    return eligibleFixedExpenses(fixedExpenses ?? [], bounds.start, bounds.end)
+    return eligibleFixedExpenses(fixedExpenses ?? [], bounds.end)
   }, [fixedExpenses, cycle])
   const pausedItems = [...eligibleAll].filter((fe) => !fe.is_active).sort(compareFixedExpenses)
 
@@ -528,7 +528,7 @@ export function Fijos() {
                     <FixedExpenseRow
                       key={status.fe.id}
                       status={status}
-                      categoryColor={categoryById.get(status.fe.category_id ?? '')?.color}
+                      categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
                       urgency="neutral"
                       busy={unmarkPayment.isPending}
                       hidden={balanceHidden}
@@ -552,7 +552,7 @@ export function Fijos() {
                       <FixedExpenseRow
                         key={status.fe.id}
                         status={status}
-                        categoryColor={categoryById.get(status.fe.category_id ?? '')?.color}
+                        categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
                         urgency={g.key}
                         busy={unmarkPayment.isPending}
                         hidden={balanceHidden}
@@ -619,7 +619,7 @@ export function Fijos() {
                         <span
                           aria-hidden
                           className="size-[7px] shrink-0 rounded-full"
-                          style={{ backgroundColor: categoryById.get(s.fe.category_id ?? '')?.color }}
+                          style={{ backgroundColor: categoryById.get(s.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
                         />
                         <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-secondary">{s.fe.name}</span>
                         {s.fe.is_recurring && <span className="text-[11px] text-fg-faint">bolsa</span>}
@@ -656,7 +656,7 @@ export function Fijos() {
                           <span
                             aria-hidden
                             className="size-[7px] shrink-0 rounded-full opacity-50"
-                            style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color }}
+                            style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
                           />
                           <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-muted">{fe.name}</span>
                         </button>

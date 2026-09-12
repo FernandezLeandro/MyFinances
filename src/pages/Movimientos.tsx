@@ -20,7 +20,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
-import { useCategories, type Category } from '@/features/categories/api'
+import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
@@ -377,15 +377,17 @@ export function Movimientos() {
               </FilterChip>
             )}
             {filters.categoryIds.map((id) => {
+              const isUncategorized = id === UNCATEGORIZED_ID
               const category = categoryById.get(id)
+              const label = isUncategorized ? 'Sin categoría' : (category?.name ?? 'Categoría')
               return (
                 <FilterChip
                   key={id}
                   color={category?.color}
-                  removeLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
+                  removeLabel={`Quitar filtro de categoría: ${label}`}
                   onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
                 >
-                  {category?.name ?? 'Categoría'}
+                  {label}
                 </FilterChip>
               )
             })}

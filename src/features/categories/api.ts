@@ -6,6 +6,14 @@ import type { Database } from '@/lib/database.types'
 export type Category = Database['public']['Tables']['categories']['Row']
 export type CategoryKind = Category['kind']
 
+/** Sentinel para "sin categoría" en filtros y agrupaciones (donut, promedio mensual) — un id de
+ *  categoría real nunca es esta string (son uuid), así que convive sin ambigüedad con ids reales en
+ *  el mismo array. Mismo patrón que `UNASSIGNED_ACCOUNT_ID` en `transactions/api.ts`. La categoría
+ *  en sí es opcional en toda la app (Bloque 2 del plan "BASIC centrado en fijos"): un movimiento,
+ *  fijo o compra sin categoría se agrupa bajo "Sin categoría" en vez de exigir que el usuario
+ *  elija una. */
+export const UNCATEGORIZED_ID = '__sin-categoria__'
+
 export function useCategories(includeArchived = false) {
   const { user } = useAuth()
 

@@ -375,7 +375,7 @@ export function Hoy() {
                 <ul className="flex min-w-0 flex-1 flex-col gap-2">
                   {spend.slice(0, 4).map((s) => (
                     <li key={s.categoryId} className="flex items-center gap-2">
-                      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color ?? 'var(--color-border-strong)' }} />
                       <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
                       <span className="tnum text-[12px] font-semibold text-fg-secondary">
                         {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%

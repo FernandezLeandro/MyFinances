@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import { UNCATEGORIZED_ID } from '@/features/categories/api'
 import type { Database } from '@/lib/database.types'
 
 type TransactionRowRaw = Database['public']['Tables']['transactions']['Row']
@@ -49,7 +50,19 @@ export function useTransactions(filters: TransactionFilters) {
         .limit(TRANSACTIONS_ROW_LIMIT)
 
       if (filters.type) query = query.eq('type', filters.type)
-      if (filters.categoryIds?.length) query = query.in('category_id', filters.categoryIds)
+      if (filters.categoryIds?.length) {
+        const realIds = filters.categoryIds.filter((id) => id !== UNCATEGORIZED_ID)
+        const wantsUncategorized = filters.categoryIds.includes(UNCATEGORIZED_ID)
+        // `.in()` no matchea NULL — "sin categoría" (category_id IS NULL) necesita su propia rama,
+        // mismo patrón que `accountIds`/`UNASSIGNED_ACCOUNT_ID` un poco más abajo.
+        if (wantsUncategorized && realIds.length) {
+          query = query.or(`category_id.is.null,category_id.in.(${realIds.join(',')})`)
+        } else if (wantsUncategorized) {
+          query = query.is('category_id', null)
+        } else {
+          query = query.in('category_id', realIds)
+        }
+      }
       if (filters.accountIds?.length) {
         const realIds = filters.accountIds.filter((id) => id !== UNASSIGNED_ACCOUNT_ID)
         const wantsUnassigned = filters.accountIds.includes(UNASSIGNED_ACCOUNT_ID)
@@ -159,7 +172,7 @@ export function useSpendByCategory(from: string, to: string) {
       if (error) throw error
       return (data ?? [])
         .map((row) => ({
-          categoryId: row.category_id,
+          categoryId: row.category_id ?? UNCATEGORIZED_ID,
           categoryName: row.category_name,
           color: row.color,
           cents: centsFromNumeric(row.total),
@@ -187,10 +200,11 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: 
   queryClient.invalidateQueries({ queryKey: ['balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
   queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
-  // El primer término de rpc_projected_balance es el saldo histórico completo (sin tope de fecha) —
-  // cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto, el saldo
-  // proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra causa.
-  queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  // El primer término de rpc_projected_balance_range es el saldo histórico completo (sin tope de
+  // fecha) — cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto,
+  // el saldo proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra
+  // causa.
+  queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
   // El saldo derivado por cuenta (`rpc_account_balances`) suma exactamente estas mismas filas —
   // cualquier alta/edición/borrado con `account_id` lo mueve igual que mueve `balance`.
   queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })

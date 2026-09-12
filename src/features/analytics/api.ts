@@ -3,6 +3,7 @@ import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, s
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric } from '@/lib/money'
+import { UNCATEGORIZED_ID } from '@/features/categories/api'
 import type { CategorySpendRow } from '@/features/analytics/aggregate'
 
 export interface MonthlyPoint {
@@ -36,7 +37,9 @@ export function useMonthlySeries(from: string, to: string) {
 export interface CategoryComparison {
   categoryId: string
   categoryName: string
-  color: string
+  /** `null` para el grupo "Sin categoría" (`UNCATEGORIZED_ID`) — el componente decide el color de
+   *  respaldo (mismo criterio que `CategorySpendRow`). */
+  color: string | null
   currentCents: number
   previousCents: number
   /** Comparación por PROMEDIO diario, no por total crudo — con `preset === 'month'` (ver
@@ -74,16 +77,16 @@ export function useTopCategoriesComparison(from: string, to: string, prevFrom: s
         fetchSpendByCategory(prevFrom, prevTo),
       ])
 
-      const previousById = new Map(previous.map((row) => [row.category_id, centsFromNumeric(row.total)]))
+      const previousById = new Map(previous.map((row) => [row.category_id ?? UNCATEGORIZED_ID, centsFromNumeric(row.total)]))
 
       return current
         .map((row) => {
           const currentCents = centsFromNumeric(row.total)
-          const previousCents = previousById.get(row.category_id) ?? 0
+          const previousCents = previousById.get(row.category_id ?? UNCATEGORIZED_ID) ?? 0
           const currentAvg = currentCents / days
           const previousAvg = previousCents / prevDays
           return {
-            categoryId: row.category_id,
+            categoryId: row.category_id ?? UNCATEGORIZED_ID,
             categoryName: row.category_name,
             color: row.color,
             currentCents,
@@ -102,7 +105,7 @@ export function useTopCategoriesComparison(from: string, to: string, prevFrom: s
 
 function toCategorySpendRows(rows: Awaited<ReturnType<typeof fetchSpendByCategory>>): CategorySpendRow[] {
   return rows.map((row) => ({
-    categoryId: row.category_id,
+    categoryId: row.category_id ?? UNCATEGORIZED_ID,
     categoryName: row.category_name,
     color: row.color,
     cents: centsFromNumeric(row.total),

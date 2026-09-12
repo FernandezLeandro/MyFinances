@@ -161,7 +161,7 @@ export function summarizeFixedExpenses(
   const monthsToCheck = months ?? [monthStart]
   const bounds = cycleMonthsBounds(monthsToCheck)
   const fallbackWindow = { from: format(bounds.start, 'yyyy-MM-dd'), to: format(bounds.end, 'yyyy-MM-dd') }
-  const eligible = eligibleFixedExpenses(expenses, bounds.start, bounds.end)
+  const eligible = eligibleFixedExpenses(expenses, bounds.end)
     .filter((fe) => fe.is_active)
     .filter((fe) => !window || fijoCaeEnCicloMultiMes(fe, monthsToCheck, window))
   const statuses = eligible

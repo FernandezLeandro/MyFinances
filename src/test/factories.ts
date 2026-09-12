@@ -226,7 +226,6 @@ export function makeFixedExpense(p: Partial<FixedExpense> & Pick<FixedExpense, '
     is_recurring: false,
     bag_frequency: 'monthly',
     starts_on: '2026-01-01',
-    ends_on: null,
     notes: null,
     created_at: FIXED_DATE,
     ...p,

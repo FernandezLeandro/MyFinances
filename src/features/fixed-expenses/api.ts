@@ -82,24 +82,9 @@ export function useFixedExpensePaymentHistory(fixedExpenseId: string | null) {
   })
 }
 
-export function useProjectedBalance(period: string) {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['projected-balance', user?.id, period],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('rpc_projected_balance', { p_period: period })
-      if (error) throw error
-      return centsFromNumeric(String(data ?? 0))
-    },
-  })
-}
-
-/** Igual que `useProjectedBalance`, sobre un rango arbitrario — la variante "horizonte, no ventana"
- *  del bloque 3 del plan de ciclos (ver `rpc_projected_balance_range` y el comentario de
- *  `projectionWindow` en `src/lib/cycle.ts` sobre por qué `from` no siempre es el inicio del ciclo
- *  que se está mirando). Convive con `useProjectedBalance`, no la reemplaza. */
+/** Sobre un rango arbitrario — la variante "horizonte, no ventana" del bloque 3 del plan de ciclos
+ *  (ver `rpc_projected_balance_range` y el comentario de `projectionWindow` en `src/lib/cycle.ts`
+ *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */
 export function useProjectedBalanceRange(from: string, to: string) {
   const { user } = useAuth()
 
@@ -127,13 +112,11 @@ export interface FixedExpenseInput {
   /** Sólo bolsas: cada cuánto resetea el presupuesto — independiente del ciclo de caja de la
    *  cuenta (`profiles.cycle_kind`, ver `src/lib/cycle.ts`). Ignorado si `!isRecurring`. */
   bagFrequency: 'monthly' | 'biweekly' | 'weekly'
-  endsOn: string | null
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['fixed-expenses', userId] })
   queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', userId] })
-  queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
   // `projected-balance-range` (bloque 3): la variante que de verdad usan Hoy/Fijos/Mis Deudas desde
   // que existe — sin esto, el headline "Saldo proyectado" quedaba desactualizado después de crear,
   // pagar o borrar un fijo/bolsa, hasta recargar la página (bug encontrado al verificar el bloque 5
@@ -162,7 +145,6 @@ export function useCreateFixedExpense() {
         is_active: input.isActive,
         is_recurring: input.isRecurring,
         bag_frequency: input.bagFrequency,
-        ends_on: input.endsOn,
       })
       if (error) throw error
     },
@@ -186,7 +168,6 @@ export function useUpdateFixedExpense() {
           is_active: input.isActive,
           is_recurring: input.isRecurring,
           bag_frequency: input.bagFrequency,
-          ends_on: input.endsOn,
         })
         .eq('id', id)
       if (error) throw error

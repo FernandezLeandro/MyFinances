@@ -260,7 +260,6 @@ export interface Database {
            *  independiente de `profiles.cycle_kind`. Ver migración `20260911040001`. */
           bag_frequency: BagFrequency
           starts_on: string
-          ends_on: string | null
           notes: string | null
           created_at: string
         }
@@ -275,7 +274,6 @@ export interface Database {
           is_recurring?: boolean
           bag_frequency?: BagFrequency
           starts_on?: string
-          ends_on?: string | null
           notes?: string | null
         }
         Update: Partial<{
@@ -287,7 +285,6 @@ export interface Database {
           is_recurring: boolean
           bag_frequency: BagFrequency
           starts_on: string
-          ends_on: string | null
           notes: string | null
         }>
         Relationships: []
@@ -608,11 +605,9 @@ export interface Database {
       }
       v_spend_by_category: {
         Args: { p_from: string; p_to: string }
-        Returns: { category_id: string; category_name: string; color: string; total: string }[]
-      }
-      rpc_projected_balance: {
-        Args: { p_period: string }
-        Returns: number
+        // `category_id`/`color` nulos: la fila "Sin categoría" (Bloque 2) no tiene ninguno de los
+        // dos — ver `UNCATEGORIZED_ID` en `src/features/categories/api.ts`.
+        Returns: { category_id: string | null; category_name: string; color: string | null; total: string }[]
       }
       rpc_current_balance: {
         Args: Record<string, never>
