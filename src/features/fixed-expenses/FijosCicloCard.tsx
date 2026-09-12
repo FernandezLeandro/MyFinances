@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Wallet } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
@@ -19,6 +19,9 @@ interface FijosCicloCardProps {
   missingToSaveCents: number
   /** `summarizeFixedExpenses.pendingTotalCents`. */
   pendingCents: number
+  /** Sueldo asignado a este ciclo (`useCycleIncomes`), sumado — 0 si todavía no asignó nada. */
+  incomeCents: number
+  onAssignIncome: () => void
   hidden: boolean
   onRegister: () => void
 }
@@ -40,10 +43,17 @@ export function FijosCicloCard({
   savedCents,
   missingToSaveCents,
   pendingCents,
+  incomeCents,
+  onAssignIncome,
   hidden,
   onRegister,
 }: FijosCicloCardProps) {
   const hasSaved = savedCents > 0
+  const hasIncome = incomeCents > 0
+  // Con sueldo asignado, lo que más le importa al usuario deja de ser "cuánto de lo que ya sé que
+  // debo pagar me falta" y pasa a ser "de lo que cobré, cuánto me queda" — por eso pisa a las otras
+  // dos variantes en vez de sumarse como una tercera cosa a elegir.
+  const available = incomeCents - totalCents
   const paidPct = totalCents > 0 ? Math.min((paidCents / totalCents) * 100, 100) : 0
   const savedPct = totalCents > 0 ? Math.min((savedCents / totalCents) * 100, 100) : 0
   const restPct = Math.max(100 - paidPct - savedPct, 0)
@@ -52,19 +62,29 @@ export function FijosCicloCard({
     <Panel className="flex flex-col gap-5 p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow">Fijos de {cycleLabel}</p>
-        <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={onRegister}>
-          Registrar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="compact"
+            variant="outline"
+            icon={<Wallet className="size-3.5" strokeWidth={2} aria-hidden />}
+            onClick={onAssignIncome}
+          >
+            Sueldo
+          </Button>
+          <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={onRegister}>
+            Registrar
+          </Button>
+        </div>
       </div>
 
       <div>
         <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
-          {hasSaved ? 'Total del ciclo' : 'Falta pagar'}
+          {hasIncome ? 'Disponible' : hasSaved ? 'Total del ciclo' : 'Falta pagar'}
         </p>
         <Money
-          cents={hasSaved ? totalCents : pendingCents}
+          cents={hasIncome ? available : hasSaved ? totalCents : pendingCents}
           size="hero"
-          tone={hasSaved ? 'fg' : pendingCents > 0 ? 'negative' : 'fg'}
+          tone={hasIncome ? (available < 0 ? 'negative' : 'fg') : hasSaved ? 'fg' : pendingCents > 0 ? 'negative' : 'fg'}
           hidden={hidden}
           className="mt-1"
         />
@@ -79,6 +99,11 @@ export function FijosCicloCard({
       />
 
       <StatRow className="flex-wrap gap-x-7 gap-y-3">
+        {hasIncome && (
+          <Stat label="Sueldo asignado">
+            <Money cents={incomeCents} tone="fg" size="figure" hidden={hidden} />
+          </Stat>
+        )}
         <Stat label="Pagado">
           <Money cents={paidCents} tone="accent" size="figure" hidden={hidden} />
         </Stat>
@@ -87,9 +112,9 @@ export function FijosCicloCard({
             <Money cents={savedCents} tone="fg" size="figure" hidden={hidden} />
           </Stat>
         )}
-        {/* Sin nada guardado, "Falta pagar" ya es la cifra principal de arriba — repetirla acá
-            abajo es la misma cifra dos veces sin aportar nada. */}
-        {hasSaved && (
+        {/* Sin nada guardado ni sueldo asignado, "Falta pagar" ya es la cifra principal de arriba
+            — repetirla acá abajo es la misma cifra dos veces sin aportar nada. */}
+        {(hasSaved || hasIncome) && (
           <Stat label="Falta pagar">
             <Money cents={pendingCents} tone={pendingCents > 0 ? 'negative' : 'fg'} size="figure" hidden={hidden} />
           </Stat>

@@ -135,10 +135,10 @@ export function MarkPaidDialog({
             sentido "guardar para" un presupuesto que ya se va gastando de a partes. */}
         {!isRecurring && (
           <div className="flex gap-1.5">
-            <Chip active={mode === 'pay'} onClick={() => selectMode('pay')}>
+            <Chip size="lg" active={mode === 'pay'} onClick={() => selectMode('pay')}>
               Pagar
             </Chip>
-            <Chip active={mode === 'save'} onClick={() => selectMode('save')}>
+            <Chip size="lg" active={mode === 'save'} onClick={() => selectMode('save')}>
               Guardar
             </Chip>
           </div>

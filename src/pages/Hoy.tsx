@@ -52,6 +52,8 @@ import {
 import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
 import { FijosCicloCard } from '@/features/fixed-expenses/FijosCicloCard'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
+import { useCycleIncomes } from '@/features/cycle-income/api'
+import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
 
 // `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
 // la app (ver el comentario de `App.tsx`) — cargarlo de arriba le sumaba ~300kB gzip al bundle
@@ -100,6 +102,7 @@ const MOVEMENTS_GROUP_GAP = 4
 export function Hoy() {
   const [open, setOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [assignIncomeOpen, setAssignIncomeOpen] = useState(false)
   const [cuadrarOpen, setCuadrarOpen] = useState(false)
   const canCuadrar = useCan('cuadrar-saldo')
   // Bloque 4 del plan "BASIC centrado en fijos": sin `movimientos-manuales` (BASIC), Hoy no tiene
@@ -137,6 +140,10 @@ export function Hoy() {
   const { data: fixedExpenses } = useFixedExpenses()
   const { data: fixedPayments } = useFixedExpensePayments(monthsOfCycle)
   const { data: fixedSavings } = useFixedExpenseSavings(monthsOfCycle)
+  // Sólo tiene sentido para BASIC (sin `movimientos-manuales`, ver más abajo) — Premium/Test ya
+  // saben cuánto cobraron por sus movimientos de ingreso, este flujo aparte sería redundante.
+  const { data: cycleIncomes } = useCycleIncomes(cycle.kind, cycle.id)
+  const incomeCents = useMemo(() => (cycleIncomes ?? []).reduce((acc, i) => acc + i.amountCents, 0), [cycleIncomes])
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
@@ -392,6 +399,8 @@ export function Hoy() {
           savedCents={savedFixedTotal}
           missingToSaveCents={missingToSaveFixedTotal}
           pendingCents={pendingFixedTotal}
+          incomeCents={incomeCents}
+          onAssignIncome={() => setAssignIncomeOpen(true)}
           hidden={balanceHidden}
           onRegister={() => setRegisterOpen(true)}
         />
@@ -646,6 +655,15 @@ export function Hoy() {
           categorías, en vez de quedar pegado al resultado de la primera vez que se montó Hoy. */}
       {open && <TransactionFormDialog open={open} onClose={() => setOpen(false)} />}
       {registerOpen && <RegisterFixedExpenseDialog open={registerOpen} onClose={() => setRegisterOpen(false)} />}
+      {assignIncomeOpen && (
+        <AssignIncomeDialog
+          open={assignIncomeOpen}
+          onClose={() => setAssignIncomeOpen(false)}
+          cycleKind={cycle.kind}
+          cycleId={cycle.id}
+          cycleLabel={monthLabel}
+        />
+      )}
       {cuadrarOpen && <CuadrarSaldoDialog open={cuadrarOpen} onClose={() => setCuadrarOpen(false)} />}
     </div>
   )
