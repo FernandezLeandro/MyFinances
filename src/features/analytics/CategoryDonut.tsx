@@ -6,7 +6,10 @@ import { useChartColors, type ChartColorSet } from '@/lib/chartColors'
 export interface DonutSlice {
   categoryId: string
   categoryName: string
-  color: string
+  /** `null` para "Sin categoría" — el componente lo pinta con `colors.fgMuted` (mismo gris que la
+   *  porción "Otros"), no con un `var(--...)`: el `fill` de un `<Cell>` es un atributo SVG y no
+   *  resuelve variables CSS de forma confiable entre navegadores (ver `useChartColors`). */
+  color: string | null
   cents: number
 }
 
@@ -96,7 +99,7 @@ export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerO
             style={onSelect ? { cursor: 'pointer' } : undefined}
           >
             {data.map((slice) => (
-              <Cell key={slice.categoryId} fill={slice.color} />
+              <Cell key={slice.categoryId} fill={slice.color ?? colors.fgMuted} />
             ))}
           </Pie>
           <Tooltip content={makeTooltip(totalCents, colors)} />

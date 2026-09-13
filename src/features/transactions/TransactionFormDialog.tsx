@@ -33,7 +33,7 @@ const schema = z
     amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
       message: 'Ingresá un importe válido',
     }),
-    categoryId: z.string().min(1, 'Elegí una categoría'),
+    categoryId: z.string(),
     occurredOn: z.string().min(1, 'Falta la fecha'),
     description: z.string().max(140).optional(),
     accountId: z.string().optional(),
@@ -231,7 +231,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
         note: null,
         expense: {
           cents: cents - otro,
-          categoryId: values.categoryId,
+          categoryId: values.categoryId || null,
           occurredOn: values.occurredOn,
           description,
           accountId: values.accountId || null,
@@ -245,7 +245,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       type: values.type,
       cents,
       occurredOn: values.occurredOn,
-      categoryId: values.categoryId,
+      categoryId: values.categoryId || null,
       description,
       accountId: values.accountId || null,
     }
@@ -306,9 +306,9 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}>
-            <Select id="categoryId" invalid={!!errors.categoryId} {...register('categoryId')}>
-              <option value="">Elegir…</option>
+          <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
+            <Select id="categoryId" {...register('categoryId')}>
+              <option value="">Sin categoría</option>
               {categoriesForType.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

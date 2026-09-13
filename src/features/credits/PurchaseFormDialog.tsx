@@ -34,7 +34,7 @@ const schema = z
     }),
     installments: z.string().refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 120, '1 a 120'),
     firstPeriod: z.string().min(1, 'Falta el mes de la primera cuota'),
-    categoryId: z.string().min(1, 'Elegí una categoría'),
+    categoryId: z.string(),
   })
   .superRefine((values, ctx) => {
     if (values.mode === 'card' && !values.cardId) {
@@ -184,7 +184,7 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
       installmentCents: parseAmountToCents(values.installmentAmount)!,
       installments: Number(values.installments),
       firstPeriod: `${values.firstPeriod}-01`,
-      categoryId: values.categoryId,
+      categoryId: values.categoryId || null,
       dueDay: values.mode === 'standalone' ? Number(values.dueDay) : null,
     }
 
@@ -272,9 +272,9 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
             <Input id="firstPeriod" type="month" invalid={!!errors.firstPeriod} {...register('firstPeriod')} />
           </Field>
 
-          <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}>
-            <Select id="categoryId" invalid={!!errors.categoryId} {...register('categoryId')}>
-              <option value="">Elegir…</option>
+          <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
+            <Select id="categoryId" {...register('categoryId')}>
+              <option value="">Sin categoría</option>
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

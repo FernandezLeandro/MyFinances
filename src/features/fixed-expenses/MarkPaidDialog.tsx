@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
 import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
-import { useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
+import { useAddFixedExpenseSaving, useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
 import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 import { useCan } from '@/features/access/useCan'
+
+type Mode = 'pay' | 'save'
 
 interface MarkPaidDialogProps {
   open: boolean
@@ -19,6 +22,10 @@ interface MarkPaidDialogProps {
   /** Sólo bolsas: lo ya cargado en este período, para mostrar contexto ("$40.000 de $60.000"). Un
    *  fijo de una sola vez siempre abre este diálogo sin pago previo, así que vale 0. */
   alreadyPaidCents?: number
+  /** Bloque 3, sólo fijos "una vez al mes": lo ya guardado en este período — sin capar contra el
+   *  importe del fijo (mismo criterio que `FixedExpenseStatus.savedCents`). Une bolsa no guarda, así
+   *  que este prop no aplica ahí. */
+  alreadySavedCents?: number
 }
 
 /**
@@ -26,7 +33,10 @@ interface MarkPaidDialogProps {
  * en el momento de marcar como pagado.
  *
  * Fijo de una sola vez: prellenado con el importe actual y sin autofocus — el caso dominante es
- * "vino igual, confirmo", y el autofocus en mobile levanta el teclado para nada.
+ * "vino igual, confirmo", el autofocus en mobile levanta el teclado para nada. Bloque 3: además
+ * tiene los chips Pagar/Guardar — "Guardar" registra que ya se apartó plata para este fijo, sin
+ * generar movimiento (ver `useAddFixedExpenseSaving`). Una bolsa no los tiene: ya se va cargando de
+ * a partes como gasto real, guardar "para" ella no aplica (decisión del plan).
  *
  * Bolsa (`is_recurring`): cada carga es un importe distinto (la nafta de esta semana no cuesta lo
  * mismo que la de la semana pasada), así que arranca vacío y con autofocus — acá sí hay algo para
@@ -35,33 +45,61 @@ interface MarkPaidDialogProps {
  * No anida ningún otro diálogo (a diferencia de CuadrarSaldoDialog/BucketDetailDialog) — no hace
  * falta el filtro de "close" que esos dos necesitan para no cerrarse en cascada.
  */
-export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPaidCents = 0 }: MarkPaidDialogProps) {
+export function MarkPaidDialog({
+  open,
+  onClose,
+  fixedExpense,
+  period,
+  alreadyPaidCents = 0,
+  alreadySavedCents = 0,
+}: MarkPaidDialogProps) {
   const isRecurring = fixedExpense.is_recurring
+  const [mode, setMode] = useState<Mode>('pay')
+  const isSaving = !isRecurring && mode === 'save'
   const [input, setInput] = useState(() => (isRecurring ? '' : centsToInputText(fixedExpense.cents)))
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
+  const addSaving = useAddFixedExpenseSaving()
   const canCuentas = useCan('cuentas')
   const [accountId, setAccountId] = useDefaultAccountId()
 
   const bagPeriod = bagPeriodNoun(fixedExpense.bag_frequency)
   const cents = parseAmountToCents(input)
-  const willUpdateTemplate = !isRecurring && permiteActualizarPlantilla(period, new Date())
-  const differs = !isRecurring && cents != null && cents !== fixedExpense.cents
-  const remainingAfter = isRecurring ? Math.max(fixedExpense.cents - alreadyPaidCents - (cents ?? 0), 0) : 0
+  const willUpdateTemplate = !isRecurring && !isSaving && permiteActualizarPlantilla(period, new Date())
+  const differs = !isRecurring && !isSaving && cents != null && cents !== fixedExpense.cents
+  const remainingAfter = isRecurring
+    ? Math.max(fixedExpense.cents - alreadyPaidCents - (cents ?? 0), 0)
+    : isSaving
+      ? Math.max(fixedExpense.cents - alreadySavedCents - (cents ?? 0), 0)
+      : 0
+  const isPending = markPaid.isPending || addSaving.isPending
+
+  function selectMode(next: Mode) {
+    if (next === mode) return
+    setMode(next)
+    setError(null)
+    // Pagar sugiere el importe del fijo (el caso dominante: "vino igual, confirmo") — Guardar
+    // sugiere lo que todavía falta juntar, para que "guardar el resto" sea completar sin pensar.
+    setInput(next === 'pay' ? centsToInputText(fixedExpense.cents) : centsToInputText(Math.max(fixedExpense.cents - alreadySavedCents, 0)))
+  }
 
   async function handleConfirm() {
     if (cents == null || cents <= 0) {
       setError('Ingresá un importe válido')
       return
     }
-    await markPaid.mutateAsync({
-      fixedExpenseId: fixedExpense.id,
-      period,
-      cents,
-      note: note.trim() || null,
-      accountId: accountId || null,
-    })
+    if (isSaving) {
+      await addSaving.mutateAsync({ fixedExpenseId: fixedExpense.id, period, cents })
+    } else {
+      await markPaid.mutateAsync({
+        fixedExpenseId: fixedExpense.id,
+        period,
+        cents,
+        note: note.trim() || null,
+        accountId: accountId || null,
+      })
+    }
     onClose()
   }
 
@@ -69,14 +107,14 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
     <Dialog
       open={open}
       onClose={onClose}
-      title={isRecurring ? 'Registrar carga' : 'Marcar como pagado'}
+      title={isRecurring ? 'Registrar carga' : isSaving ? 'Guardar para este fijo' : 'Marcar como pagado'}
       footer={
         <>
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
-            {markPaid.isPending ? 'Guardando…' : isRecurring ? 'Registrar' : 'Marcar pagado'}
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={isPending}>
+            {isPending ? 'Guardando…' : isRecurring ? 'Registrar' : isSaving ? 'Guardar' : 'Marcar pagado'}
           </Button>
         </>
       }
@@ -93,7 +131,29 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
           )}
         </div>
 
-        <Field label={isRecurring ? 'Importe de esta carga' : 'Importe pagado'} error={error ?? undefined}>
+        {/* Sólo fijos de una sola vez: una bolsa siempre "registra una carga" (paga), no tiene
+            sentido "guardar para" un presupuesto que ya se va gastando de a partes. */}
+        {!isRecurring && (
+          <div className="flex gap-1.5">
+            <Chip size="lg" active={mode === 'pay'} onClick={() => selectMode('pay')}>
+              Pagar
+            </Chip>
+            <Chip size="lg" active={mode === 'save'} onClick={() => selectMode('save')}>
+              Guardar
+            </Chip>
+          </div>
+        )}
+
+        {!isRecurring && mode === 'pay' && alreadySavedCents > 0 && (
+          <p className="text-[12px] text-fg-muted">
+            Tenés <Money cents={alreadySavedCents} tone="dim" size="inline" /> guardado para este fijo.
+          </p>
+        )}
+
+        <Field
+          label={isRecurring ? 'Importe de esta carga' : isSaving ? 'Importe guardado' : 'Importe pagado'}
+          error={error ?? undefined}
+        >
           <AmountInput
             value={input}
             onChange={(e) => {
@@ -116,7 +176,8 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
           </Field>
         )}
 
-        {canCuentas && (
+        {/* El guardado no genera movimiento — no hay con qué pagarlo. */}
+        {canCuentas && !isSaving && (
           <Field label="Con qué lo pagué" hint="Opcional">
             <AccountSelect value={accountId} onChange={setAccountId} />
           </Field>
@@ -130,6 +191,18 @@ export function MarkPaidDialog({ open, onClose, fixedExpense, period, alreadyPai
               </>
             ) : (
               `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`
+            )}
+          </p>
+        )}
+
+        {isSaving && cents != null && cents > 0 && (
+          <p className="text-[12px] text-fg-muted">
+            {remainingAfter > 0 ? (
+              <>
+                Después de esto, te falta guardar <Money cents={remainingAfter} tone="dim" />.
+              </>
+            ) : (
+              'Con esto lo tenés cubierto.'
             )}
           </p>
         )}

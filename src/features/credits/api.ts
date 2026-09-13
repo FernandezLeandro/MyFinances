@@ -279,7 +279,6 @@ function invalidarCreditos(queryClient: ReturnType<typeof useQueryClient>, userI
   queryClient.invalidateQueries({ queryKey: ['credit-savings', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-payments', userId] })
   queryClient.invalidateQueries({ queryKey: ['credit-purchase-payments', userId] })
-  queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
   queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
 }
 

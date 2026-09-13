@@ -10,6 +10,10 @@ interface SaldoProyectadoPanelProps {
   currentBalanceCents: number
   pendingFixedCount: number
   pendingFixedCents: number
+  /** Bloque 3: cuánto de `pendingFixedCents` ya está guardado (`summarizeFixedExpenses.savedTotalCents`)
+   *  — fila informativa, no resta del proyectado (el guardado no es un pago). `undefined`/`0` la
+   *  omite: la mayoría de los usuarios no guarda nada, y una fila en $0 no aporta nada. */
+  savedFixedCents?: number
   /** Tarjetas + compras sueltas impagas de este período (ver `summarizeMisDeudas`). */
   unpaidDebtsCount: number
   unpaidDebtsCents: number
@@ -47,6 +51,7 @@ export function SaldoProyectadoPanel({
   currentBalanceCents,
   pendingFixedCount,
   pendingFixedCents,
+  savedFixedCents,
   unpaidDebtsCount,
   unpaidDebtsCents,
   hidden,
@@ -62,6 +67,9 @@ export function SaldoProyectadoPanel({
   if (showCurrentBalanceRow) rows.push({ label: 'Saldo actual', cents: currentBalanceCents })
   if (pendingFixedCount > 0) {
     rows.push({ label: `Fijos por pagar (${pendingFixedCount})`, cents: -pendingFixedCents, tone: 'negativeOnInverse' })
+  }
+  if (savedFixedCents) {
+    rows.push({ label: 'Guardado para fijos', cents: savedFixedCents, tone: 'onInverseSecondary' })
   }
   if (unpaidDebtsCount > 0) {
     rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'negativeOnInverse' })

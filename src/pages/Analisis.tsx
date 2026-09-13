@@ -74,7 +74,7 @@ function CategoryLegendRow({
   onClick,
 }: {
   name: string
-  color: string
+  color: string | null
   cents: number
   pct: number
   dim: boolean
@@ -87,10 +87,10 @@ function CategoryLegendRow({
         onClick={onClick}
         className="flex w-full items-center gap-3 rounded-chip py-2 text-left transition-opacity hover:opacity-70"
       >
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color ?? 'var(--color-border-strong)' }} />
         <span className={cn('min-w-0 flex-1 truncate text-[13.5px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
         <span className="hidden h-[5px] w-24 shrink-0 overflow-hidden rounded-pill bg-fill-subtle sm:block">
-          <span className="block h-full rounded-pill" style={{ width: `${pct * 100}%`, backgroundColor: color }} />
+          <span className="block h-full rounded-pill" style={{ width: `${pct * 100}%`, backgroundColor: color ?? 'var(--color-border-strong)' }} />
         </span>
         <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">{Math.round(pct * 100)}%</span>
         <Money cents={cents} tone={dim ? 'dim' : 'fg'} size="row" className="w-24 shrink-0 justify-end" />
@@ -111,7 +111,7 @@ function PromedioRow({
   dim,
 }: {
   name: string
-  color: string
+  color: string | null
   avgCents: number
   nowCents: number
   deviationPct: number | null
@@ -120,7 +120,7 @@ function PromedioRow({
   return (
     <div className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
       <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color ?? 'var(--color-border-strong)' }} />
         <span className={cn('truncate text-[13px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
       </span>
       <Money cents={avgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />

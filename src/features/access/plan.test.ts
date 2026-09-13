@@ -13,6 +13,7 @@ const ALL_CAPS: Capability[] = [
   'cuentas',
   'compartido',
   'cuadrar-saldo',
+  'movimientos-manuales',
 ]
 
 describe('can', () => {
@@ -20,18 +21,20 @@ describe('can', () => {
     for (const cap of ALL_CAPS) expect(can('premium', cap)).toBe(true)
   })
 
-  it('basic no tiene análisis ni nada de lo restringido a premium', () => {
+  it('basic no tiene análisis ni nada de lo restringido a premium, ni movimientos manuales', () => {
     expect(can('basic', 'movimientos')).toBe(true)
     expect(can('basic', 'fijos')).toBe(true)
     expect(can('basic', 'analisis')).toBe(false)
     expect(can('basic', 'ahorros')).toBe(false)
     expect(can('basic', 'cuentas')).toBe(false)
+    expect(can('basic', 'movimientos-manuales')).toBe(false)
   })
 
-  it('test ve análisis pero no cuentas, compartido ni cuadrar saldo', () => {
+  it('test ve análisis y movimientos manuales, pero no cuentas, compartido ni cuadrar saldo', () => {
     expect(can('test', 'movimientos')).toBe(true)
     expect(can('test', 'fijos')).toBe(true)
     expect(can('test', 'analisis')).toBe(true)
+    expect(can('test', 'movimientos-manuales')).toBe(true)
     expect(can('test', 'cuentas')).toBe(false)
     expect(can('test', 'compartido')).toBe(false)
     expect(can('test', 'cuadrar-saldo')).toBe(false)

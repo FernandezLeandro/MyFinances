@@ -83,35 +83,58 @@ const allNavItems: NavItem[] = [
  *  Más — y no crece con la nav de escritorio. */
 const OVERFLOW_ROUTES = ['/mis-deudas', '/analisis', '/ahorros', '/me-deben']
 
+/** Pone Fijos antes que Movimientos — sólo para un plan sin `movimientos-manuales` (BASIC), donde
+ *  Fijos es el core y Movimientos es sólo la consecuencia de pagarlos (ver el plan "BASIC centrado
+ *  en fijos", bloque 4). El resto de los planes no llama a esto — no-op si alguno de los dos no
+ *  está en la lista, o si Fijos ya viene antes. */
+function fijosAntesQueMovimientos(items: NavItem[]): NavItem[] {
+  const fijosIdx = items.findIndex((i) => i.to === '/fijos')
+  const movIdx = items.findIndex((i) => i.to === '/movimientos')
+  if (fijosIdx === -1 || movIdx === -1 || fijosIdx < movIdx) return items
+  const reordered = [...items]
+  const [fijos] = reordered.splice(fijosIdx, 1)
+  reordered.splice(movIdx, 0, fijos!)
+  return reordered
+}
+
 /** Barra superior de escritorio: las 7 secciones, en el orden que pidió el usuario — Hoy ·
  *  Movimientos · Fijos · Mis Deudas · Análisis · Ahorros · Me Deben — filtradas por lo que el plan
  *  de la cuenta puede ver. Un plan restringido nunca ve ni la sección en la barra ni en el drawer:
  *  la ruta detrás está igual de gateada (`RequireCapability` en `App.tsx`), esto es sólo para no
- *  ofrecer un link a algo que al clickear rebota. */
+ *  ofrecer un link a algo que al clickear rebota.
+ *
+ *  Sin `movimientos-manuales` (BASIC): Fijos pasa antes que Movimientos — es el plan de control de
+ *  fijos, Movimientos ahí es sólo el rastro de haberlos pagado. */
 export function sidebarNavItemsFor(plan: Plan): NavItem[] {
-  return allNavItems.filter((item) => !item.cap || can(plan, item.cap))
+  const items = allNavItems.filter((item) => !item.cap || can(plan, item.cap))
+  return can(plan, 'movimientos-manuales') ? items : fijosAntesQueMovimientos(items)
 }
 
-/** Tab bar de mobile: Hoy · Movimientos · Fijos, con íconos propios de 21px — no los 18px de
- *  `allNavItems` (pensados para ir al lado de un label, como en el drawer). El resto se muda al
- *  drawer (ver `overflowNavItems`), y el tab "Más" que lo abre se arma aparte en `MobileTabBar`. */
-export const tabBarNavItems: NavItem[] = [
-  {
-    to: '/hoy',
-    label: 'Hoy',
-    icon: <Clock className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
-  },
-  {
-    to: '/movimientos',
-    label: 'Movimientos',
-    icon: <ArrowDownUp className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
-  },
-  {
-    to: '/fijos',
-    label: 'Fijos',
-    icon: <Calendar className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
-  },
-]
+/** Tab bar de mobile: Hoy · Movimientos · Fijos (Hoy · Fijos · Movimientos sin
+ *  `movimientos-manuales`, mismo criterio que `sidebarNavItemsFor`), con íconos propios de 21px —
+ *  no los 18px de `allNavItems` (pensados para ir al lado de un label, como en el drawer). El resto
+ *  se muda al drawer (ver `overflowNavItems`), y el tab "Más" que lo abre se arma aparte en
+ *  `MobileTabBar`. */
+export function tabBarNavItemsFor(plan: Plan): NavItem[] {
+  const items: NavItem[] = [
+    {
+      to: '/hoy',
+      label: 'Hoy',
+      icon: <Clock className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    },
+    {
+      to: '/movimientos',
+      label: 'Movimientos',
+      icon: <ArrowDownUp className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    },
+    {
+      to: '/fijos',
+      label: 'Fijos',
+      icon: <Calendar className={islandIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    },
+  ]
+  return can(plan, 'movimientos-manuales') ? items : fijosAntesQueMovimientos(items)
+}
 
 /** Lo que no entra en la tab bar de mobile y se muestra dentro del drawer de cuenta, filtrado por
  *  plan igual que `sidebarNavItemsFor` — un plan restringido puede terminar con este grupo vacío

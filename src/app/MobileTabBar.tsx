@@ -12,6 +12,9 @@ interface MobileTabBarProps {
   /** Sólo `AppLayout` lo pasa: abre el form de nuevo movimiento desde el `+` de la isla. La nav de
    *  admin no tiene "nuevo" nada — sin esto, el separador y el círculo de acento no se dibujan. */
   onFabClick?: () => void
+  /** Qué abre el `+` — cambia con el plan (bloque 4 del plan "BASIC centrado en fijos"): sin
+   *  `movimientos-manuales` abre el selector de fijo, no el form de movimiento manual. */
+  fabLabel?: string
 }
 
 function IslandButton({ to, icon }: { to: string; icon: ReactNode }) {
@@ -41,7 +44,7 @@ function IslandButton({ to, icon }: { to: string; icon: ReactNode }) {
  * `items` trae sólo las secciones que caben fijas (Hoy · Movimientos · Fijos en la app, las 4 del
  * admin) — el resto vive en el drawer de cuenta, disparado por el tab "Más".
  */
-export function MobileTabBar({ items, drawerOpen, onOpenDrawer, onFabClick }: MobileTabBarProps) {
+export function MobileTabBar({ items, drawerOpen, onOpenDrawer, onFabClick, fabLabel = 'Nuevo movimiento' }: MobileTabBarProps) {
   return (
     <>
       {/* Vignette fija al viewport (no un mask sobre el contenido): un mask con `mask-attachment:
@@ -86,7 +89,7 @@ export function MobileTabBar({ items, drawerOpen, onOpenDrawer, onFabClick }: Mo
                 <button
                   type="button"
                   onClick={onFabClick}
-                  aria-label="Nuevo movimiento"
+                  aria-label={fabLabel}
                   className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-on-accent"
                 >
                   <Plus className="size-6" strokeWidth={2} aria-hidden />

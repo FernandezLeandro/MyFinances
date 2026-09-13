@@ -18,16 +18,15 @@ export function bagPeriodNoun(bagFrequency: FixedExpense['bag_frequency']): { ad
 
 /**
  * De todos los fijos de la cuenta, cuáles corresponden al período dado — un fijo cargado a mitad de
- * año no aplica a meses anteriores a `starts_on`, y uno dado de baja no aplica a partir de `ends_on`.
- * Compartido entre Fijos (navega mes a mes) y Hoy (siempre mes en curso), así ambas pantallas
- * calculan "cuántos fijos faltan pagar" exactamente igual.
+ * año no aplica a meses anteriores a `starts_on`. Compartido entre Fijos (navega mes a mes) y Hoy
+ * (siempre mes en curso), así ambas pantallas calculan "cuántos fijos faltan pagar" exactamente
+ * igual.
  */
-export function eligibleFixedExpenses(fixedExpenses: FixedExpense[], periodStart: Date, periodEnd: Date): FixedExpense[] {
-  return fixedExpenses.filter((fe) => {
-    if (new Date(fe.starts_on) > periodEnd) return false
-    if (fe.ends_on && new Date(fe.ends_on) < periodStart) return false
-    return true
-  })
+export function eligibleFixedExpenses(fixedExpenses: FixedExpense[], periodEnd: Date): FixedExpense[] {
+  // `parseISO`, no `new Date(string)`: `starts_on` viaja como 'yyyy-MM-dd', que `new Date` parsea
+  // como medianoche UTC — en Argentina (UTC−3) cae en el día anterior. Mismo gotcha documentado en
+  // `permiteActualizarPlantilla`, acá.
+  return fixedExpenses.filter((fe) => parseISO(fe.starts_on) <= periodEnd)
 }
 
 /**
@@ -108,8 +107,8 @@ export function dueDateInCycle(
 
 /** Límites calendario que cubren TODOS los meses que toca un ciclo — `[inicio del primero, fin del
  *  último]`. Con mensual/quincenal es el único mes de siempre; con semanal a caballo de dos, cubre
- *  ambos, para no perder de vista un fijo cuyo `starts_on`/`ends_on` sólo se solapa con el segundo
- *  (ver `eligibleFixedExpenses`). */
+ *  ambos, para no perder de vista un fijo cuyo `starts_on` sólo se solapa con el segundo (ver
+ *  `eligibleFixedExpenses`). */
 export function cycleMonthsBounds(months: string[]): { start: Date; end: Date } {
   return { start: startOfMonth(parseISO(months[0])), end: endOfMonth(parseISO(months[months.length - 1])) }
 }

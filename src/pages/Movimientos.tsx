@@ -20,7 +20,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
-import { useCategories, type Category } from '@/features/categories/api'
+import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
 import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
@@ -34,6 +34,8 @@ import {
   periodLabel,
   type MovementPeriod,
 } from '@/features/transactions/movementPeriod'
+import { useCan } from '@/features/access/useCan'
+import { useUnmarkFixedExpensePayment } from '@/features/fixed-expenses/api'
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Todos' },
@@ -113,6 +115,12 @@ export function Movimientos() {
     config: cycleConfig,
   })
 
+  // Bloque 4 del plan "BASIC centrado en fijos": sin `movimientos-manuales` no hay nada que cargar
+  // ni editar suelto — los movimientos de ese plan sólo salen de pagar un fijo, y la única acción
+  // sobre una fila es deshacer ese pago (ver `openEdit`).
+  const canMovimientosManuales = useCan('movimientos-manuales')
+  const unmarkFixedPayment = useUnmarkFixedExpensePayment()
+
   const [formOpen, setFormOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -169,6 +177,14 @@ export function Movimientos() {
   }
 
   function openEdit(tx: Transaction) {
+    // Sin `movimientos-manuales`, un movimiento generado al pagar un fijo se "deshace" con un
+    // toque, sin diálogo — mismo criterio que el desmarcado de Fijos.tsx. Un movimiento suelto que
+    // haya quedado de antes de bajar a este plan (`fixed_expense_payment_id` null) no tiene ese
+    // camino: sigue abriendo el form, que al menos deja eliminarlo.
+    if (!canMovimientosManuales && tx.fixed_expense_payment_id) {
+      unmarkFixedPayment.mutate({ paymentId: tx.fixed_expense_payment_id })
+      return
+    }
     setEditingTx(tx)
     setFormOpen(true)
   }
@@ -220,12 +236,15 @@ export function Movimientos() {
           </Button>
           {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
               criterio que el hero de Hoy) — repetirlo acá es un botón más que pelea por lugar en
-              una fila que ya tiene dos. */}
-          <div className="hidden lg:block">
-            <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNew}>
-              Nuevo movimiento
-            </Button>
-          </div>
+              una fila que ya tiene dos. Sin `movimientos-manuales` no hay nada que cargar suelto —
+              el `+` de la isla ya abre el selector de fijo, este botón no tiene equivalente acá. */}
+          {canMovimientosManuales && (
+            <div className="hidden lg:block">
+              <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNew}>
+                Nuevo movimiento
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -377,15 +396,17 @@ export function Movimientos() {
               </FilterChip>
             )}
             {filters.categoryIds.map((id) => {
+              const isUncategorized = id === UNCATEGORIZED_ID
               const category = categoryById.get(id)
+              const label = isUncategorized ? 'Sin categoría' : (category?.name ?? 'Categoría')
               return (
                 <FilterChip
                   key={id}
                   color={category?.color}
-                  removeLabel={`Quitar filtro de categoría: ${category?.name ?? 'categoría'}`}
+                  removeLabel={`Quitar filtro de categoría: ${label}`}
                   onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
                 >
-                  {category?.name ?? 'Categoría'}
+                  {label}
                 </FilterChip>
               )
             })}
@@ -430,15 +451,21 @@ export function Movimientos() {
           <EmptyState
             glyph="∅"
             title={hasFilters ? 'No hay movimientos con esos filtros' : 'Nada cargado en este período'}
-            hint={hasFilters ? 'Probá sacando algún filtro.' : 'Cargá tu primer movimiento.'}
+            hint={
+              hasFilters
+                ? 'Probá sacando algún filtro.'
+                : canMovimientosManuales
+                  ? 'Cargá tu primer movimiento.'
+                  : 'Acá vas a ver los movimientos de pagar tus fijos.'
+            }
             action={
               hasFilters ? (
                 <Button variant="outline" size="sm" onClick={clearAll}>
                   Limpiar filtros
                 </Button>
-              ) : (
+              ) : canMovimientosManuales ? (
                 <Button onClick={openNew}>Nuevo movimiento</Button>
-              )
+              ) : undefined
             }
           />
         </Panel>

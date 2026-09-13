@@ -4,12 +4,14 @@ import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
-import { overflowNavItemsFor, sidebarNavItemsFor, tabBarNavItems } from '@/app/nav'
+import { overflowNavItemsFor, sidebarNavItemsFor, tabBarNavItemsFor } from '@/app/nav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
+import { can } from '@/features/access/plan'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
+import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
 
 /**
  * Barra superior fija en desktop (logo + tabs + cuenta) — reemplaza al sidebar lateral de la
@@ -54,10 +56,11 @@ export function AppLayout() {
       </main>
 
       <MobileTabBar
-        items={tabBarNavItems}
+        items={tabBarNavItemsFor(plan)}
         drawerOpen={drawerOpen}
         onOpenDrawer={() => setDrawerOpen(true)}
         onFabClick={() => setFabDialogOpen(true)}
+        fabLabel={can(plan, 'movimientos-manuales') ? 'Nuevo movimiento' : 'Registrar en un fijo'}
       />
 
       <AccountDrawer
@@ -70,7 +73,12 @@ export function AppLayout() {
         overflowItems={overflowNavItemsFor(plan)}
       />
 
-      {fabDialogOpen && <TransactionFormDialog open={fabDialogOpen} onClose={() => setFabDialogOpen(false)} />}
+      {fabDialogOpen &&
+        (can(plan, 'movimientos-manuales') ? (
+          <TransactionFormDialog open={fabDialogOpen} onClose={() => setFabDialogOpen(false)} />
+        ) : (
+          <RegisterFixedExpenseDialog open={fabDialogOpen} onClose={() => setFabDialogOpen(false)} />
+        ))}
     </>
   )
 }

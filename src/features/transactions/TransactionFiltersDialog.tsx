@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/cn'
-import type { Category } from '@/features/categories/api'
+import { UNCATEGORIZED_ID, type Category } from '@/features/categories/api'
 import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
 import type { BalanceLocation } from '@/features/reconciliation/api'
 import {
@@ -68,11 +68,13 @@ export function TransactionFiltersDialog({
     setDraft((d) => ({
       ...d,
       type,
-      // Las categorías elegidas que ya no correspondan al tipo nuevo dejan de tener sentido.
+      // Las categorías elegidas que ya no correspondan al tipo nuevo dejan de tener sentido —
+      // `UNCATEGORIZED_ID` es la excepción: no tiene `kind` propio, así que aplica a los dos tipos
+      // por igual y sobrevive cualquier cambio de pestaña.
       categoryIds:
         type === 'all'
           ? d.categoryIds
-          : d.categoryIds.filter((id) => categories.find((c) => c.id === id)?.kind === type),
+          : d.categoryIds.filter((id) => id === UNCATEGORIZED_ID || categories.find((c) => c.id === id)?.kind === type),
     }))
   }
 
@@ -123,7 +125,9 @@ export function TransactionFiltersDialog({
     draft.categoryIds.length === 0
       ? 'Todas las categorías'
       : draft.categoryIds.length === 1
-        ? (categories.find((c) => c.id === draft.categoryIds[0])?.name ?? '1 seleccionada')
+        ? draft.categoryIds[0] === UNCATEGORIZED_ID
+          ? 'Sin categoría'
+          : (categories.find((c) => c.id === draft.categoryIds[0])?.name ?? '1 seleccionada')
         : `${draft.categoryIds.length} seleccionadas`
 
   const groups: { title?: string; items: Category[] }[] =
@@ -262,6 +266,29 @@ export function TransactionFiltersDialog({
             placeholder="Buscar categoría…"
             className="h-10 text-[14px]"
           />
+
+          {/* "Sin categoría" fuera de la lista buscable/agrupada por tipo: no es una categoría real
+              (no tiene `kind`), así que ni la búsqueda ni el agrupado Gastos/Ingresos aplican —
+              siempre visible, arriba de todo. Mismo sentinel que "Sin cuenta" en el filtro de
+              cuentas, pero acá como fila (no chip): la lista de categorías ya es de filas. */}
+          <button
+            type="button"
+            onClick={() => toggleCategory(UNCATEGORIZED_ID)}
+            className={cn(
+              'flex w-full items-center justify-between gap-3 rounded-control px-3.5 py-2.5 text-left text-[14px] transition-colors duration-150',
+              selectedIds.has(UNCATEGORIZED_ID) ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-fill-subtle',
+            )}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: 'var(--color-border-strong)' }} />
+              <span className="truncate">Sin categoría</span>
+            </span>
+            {selectedIds.has(UNCATEGORIZED_ID) && (
+              <svg aria-hidden viewBox="0 0 12 12" className="size-3.5 shrink-0 text-accent">
+                <path d="M2.5 6.5 5 9l4.5-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
 
           <div className="flex max-h-72 flex-col gap-4 overflow-y-auto">
             {noResults ? (

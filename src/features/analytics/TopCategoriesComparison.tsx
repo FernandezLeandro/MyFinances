@@ -22,7 +22,7 @@ export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }
           <li key={c.categoryId}>
             <div className="flex items-baseline justify-between gap-3">
               <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color ?? 'var(--color-border-strong)' }} />
                 <span className="truncate text-[13px] text-fg">{c.categoryName}</span>
               </span>
               <span className="flex shrink-0 items-baseline gap-2">
@@ -33,7 +33,7 @@ export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }
               </span>
             </div>
             <div className="relative mt-1.5 h-2 overflow-hidden rounded-pill bg-fill-subtle">
-              <div className="h-full rounded-pill" style={{ width: `${pct}%`, backgroundColor: c.color }} />
+              <div className="h-full rounded-pill" style={{ width: `${pct}%`, backgroundColor: c.color ?? 'var(--color-border-strong)' }} />
               <div className="absolute inset-y-0 w-[2px] bg-fg-muted" style={{ left: `${prevPct}%` }} />
             </div>
           </li>

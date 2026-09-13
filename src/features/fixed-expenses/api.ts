@@ -6,6 +6,7 @@ import type { Database } from '@/lib/database.types'
 
 type FixedExpenseRowRaw = Database['public']['Tables']['fixed_expenses']['Row']
 type PaymentRowRaw = Database['public']['Tables']['fixed_expense_payments']['Row']
+type SavingRowRaw = Database['public']['Tables']['fixed_expense_savings']['Row']
 
 export interface FixedExpense extends Omit<FixedExpenseRowRaw, 'amount'> {
   cents: number
@@ -13,6 +14,13 @@ export interface FixedExpense extends Omit<FixedExpenseRowRaw, 'amount'> {
 
 export interface FixedExpensePayment extends Omit<PaymentRowRaw, 'amount_paid'> {
   amountPaidCents: number
+}
+
+/** Un guardado (Bloque 3): plata que el usuario ya apartó para un fijo "una vez al mes", sin que eso
+ *  genere movimiento — no es un pago, es información sobre si ya juntó la plata o no. Ver
+ *  `fixed_expense_savings` (`20260912030001_fixed_expense_savings.sql`). */
+export interface FixedExpenseSaving extends Omit<SavingRowRaw, 'amount'> {
+  amountCents: number
 }
 
 function toFixedExpense(row: FixedExpenseRowRaw): FixedExpense {
@@ -23,6 +31,11 @@ function toFixedExpense(row: FixedExpenseRowRaw): FixedExpense {
 function toPayment(row: PaymentRowRaw): FixedExpensePayment {
   const { amount_paid, ...rest } = row
   return { ...rest, amountPaidCents: centsFromNumeric(amount_paid) }
+}
+
+function toSaving(row: SavingRowRaw): FixedExpenseSaving {
+  const { amount, ...rest } = row
+  return { ...rest, amountCents: centsFromNumeric(amount) }
 }
 
 export function useFixedExpenses(includeInactive = false) {
@@ -82,24 +95,46 @@ export function useFixedExpensePaymentHistory(fixedExpenseId: string | null) {
   })
 }
 
-export function useProjectedBalance(period: string) {
+/** Guardados de uno o más períodos, de TODOS los fijos — mismo criterio multi-período que
+ *  `useFixedExpensePayments` (semanal puede tocar dos meses). */
+export function useFixedExpenseSavings(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['projected-balance', user?.id, period],
-    enabled: !!user,
+    queryKey: ['fixed-expense-savings', user?.id, periods],
+    enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('rpc_projected_balance', { p_period: period })
+      const { data, error } = await supabase.from('fixed_expense_savings').select('*').in('period', periods)
       if (error) throw error
-      return centsFromNumeric(String(data ?? 0))
+      return data.map(toSaving)
     },
   })
 }
 
-/** Igual que `useProjectedBalance`, sobre un rango arbitrario — la variante "horizonte, no ventana"
- *  del bloque 3 del plan de ciclos (ver `rpc_projected_balance_range` y el comentario de
- *  `projectionWindow` en `src/lib/cycle.ts` sobre por qué `from` no siempre es el inicio del ciclo
- *  que se está mirando). Convive con `useProjectedBalance`, no la reemplaza. */
+/** Todo el historial de guardados de UN fijo, más reciente primero — mismo par que
+ *  `useFixedExpensePaymentHistory`/`useFixedExpensePayments`. */
+export function useFixedExpenseSavingHistory(fixedExpenseId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fixed-expense-savings', user?.id, 'history', fixedExpenseId],
+    enabled: !!user && !!fixedExpenseId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fixed_expense_savings')
+        .select('*')
+        .eq('fixed_expense_id', fixedExpenseId!)
+        .order('period', { ascending: false })
+        .order('saved_at', { ascending: false })
+      if (error) throw error
+      return data.map(toSaving)
+    },
+  })
+}
+
+/** Sobre un rango arbitrario — la variante "horizonte, no ventana" del bloque 3 del plan de ciclos
+ *  (ver `rpc_projected_balance_range` y el comentario de `projectionWindow` en `src/lib/cycle.ts`
+ *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */
 export function useProjectedBalanceRange(from: string, to: string) {
   const { user } = useAuth()
 
@@ -127,13 +162,15 @@ export interface FixedExpenseInput {
   /** Sólo bolsas: cada cuánto resetea el presupuesto — independiente del ciclo de caja de la
    *  cuenta (`profiles.cycle_kind`, ver `src/lib/cycle.ts`). Ignorado si `!isRecurring`. */
   bagFrequency: 'monthly' | 'biweekly' | 'weekly'
-  endsOn: string | null
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['fixed-expenses', userId] })
   queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', userId] })
-  queryClient.invalidateQueries({ queryKey: ['projected-balance', userId] })
+  // Guardados (bloque 3): no mueven el saldo proyectado ni generan movimiento, pero si esta función
+  // se llama por crear/editar/borrar un fijo (no sólo por pagar/desmarcar) igual conviene refrescarlos
+  // — invalidar de más acá es gratis, y evita un guardado "fantasma" de un fijo recién borrado.
+  queryClient.invalidateQueries({ queryKey: ['fixed-expense-savings', userId] })
   // `projected-balance-range` (bloque 3): la variante que de verdad usan Hoy/Fijos/Mis Deudas desde
   // que existe — sin esto, el headline "Saldo proyectado" quedaba desactualizado después de crear,
   // pagar o borrar un fijo/bolsa, hasta recargar la página (bug encontrado al verificar el bloque 5
@@ -162,7 +199,6 @@ export function useCreateFixedExpense() {
         is_active: input.isActive,
         is_recurring: input.isRecurring,
         bag_frequency: input.bagFrequency,
-        ends_on: input.endsOn,
       })
       if (error) throw error
     },
@@ -186,7 +222,6 @@ export function useUpdateFixedExpense() {
           is_active: input.isActive,
           is_recurring: input.isRecurring,
           bag_frequency: input.bagFrequency,
-          ends_on: input.endsOn,
         })
         .eq('id', id)
       if (error) throw error
@@ -258,6 +293,54 @@ export function useUnmarkFixedExpensePayment() {
     // período, así que "el pago de tal fijo en tal mes" ya no identifica una sola fila.
     mutationFn: async ({ paymentId }: { paymentId: string }) => {
       const { error } = await supabase.rpc('rpc_unmark_fixed_expense_payment', { p_payment_id: paymentId })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateAll(queryClient, user?.id),
+  })
+}
+
+/** Registra que ya se guardó (parcial o total) plata para un fijo "una vez al mes" — a diferencia
+ *  de `useMarkFixedExpensePaid`, inserta directo en la tabla (RLS de dueño alcanza: no hay
+ *  movimiento ni plantilla que tocar, así que no hace falta un RPC). Varios guardados del mismo
+ *  período se acumulan, igual que las cargas de una bolsa. */
+export function useAddFixedExpenseSaving() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      fixedExpenseId,
+      period,
+      cents,
+      note,
+    }: {
+      fixedExpenseId: string
+      period: string
+      cents: number
+      note?: string | null
+    }) => {
+      if (!user) throw new Error('No autenticado')
+      const { error } = await supabase.from('fixed_expense_savings').insert({
+        user_id: user.id,
+        fixed_expense_id: fixedExpenseId,
+        period,
+        amount: centsToNumeric(cents),
+        note: note ?? null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateAll(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo registrar el guardado. Probá de nuevo.' },
+  })
+}
+
+export function useRemoveFixedExpenseSaving() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ savingId }: { savingId: string }) => {
+      const { error } = await supabase.from('fixed_expense_savings').delete().eq('id', savingId)
       if (error) throw error
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),

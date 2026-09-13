@@ -18,7 +18,7 @@ import type {
 import type { BalanceLocation } from '@/features/reconciliation/api'
 import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
-import type { FixedExpense, FixedExpensePayment } from '@/features/fixed-expenses/api'
+import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from '@/features/fixed-expenses/api'
 import type { Transaction } from '@/features/transactions/api'
 
 const FIXED_DATE = '2026-01-01T00:00:00.000Z'
@@ -226,7 +226,6 @@ export function makeFixedExpense(p: Partial<FixedExpense> & Pick<FixedExpense, '
     is_recurring: false,
     bag_frequency: 'monthly',
     starts_on: '2026-01-01',
-    ends_on: null,
     notes: null,
     created_at: FIXED_DATE,
     ...p,
@@ -243,6 +242,19 @@ export function makeFixedExpensePayment(
     paid_at: FIXED_DATE,
     transaction_id: null,
     is_recurring: false,
+    note: null,
+    ...p,
+  }
+}
+
+export function makeFixedExpenseSaving(
+  p: Partial<FixedExpenseSaving> & Pick<FixedExpenseSaving, 'fixed_expense_id' | 'amountCents'>,
+): FixedExpenseSaving {
+  return {
+    id: `fe-saving-${Math.random().toString(36).slice(2)}`,
+    user_id: 'user-1',
+    period: '2026-08-01',
+    saved_at: FIXED_DATE,
     note: null,
     ...p,
   }
