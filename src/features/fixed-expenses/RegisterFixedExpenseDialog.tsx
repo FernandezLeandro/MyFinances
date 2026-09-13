@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { format, parseISO, startOfMonth } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
+import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { useCycle } from '@/lib/useCycle'
 import { useFixedExpensePayments, useFixedExpenseSavings, useFixedExpenses } from '@/features/fixed-expenses/api'
-import { summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
+import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 
 interface RegisterFixedExpenseDialogProps {
@@ -111,21 +112,31 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
             <EmptyState glyph="◷" title="Ningún fijo coincide con la búsqueda" />
           ) : (
             <ul className="-mx-6 flex max-h-[45vh] flex-col overflow-y-auto">
-              {visible.map((status) => (
-                <li key={status.fe.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(status)}
-                    className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-semibold text-fg">{status.fe.name}</p>
-                      {status.fe.is_recurring && <p className="text-[12px] text-fg-muted">bolsa</p>}
-                    </div>
-                    <Money cents={status.remainingCents} tone="fg" size="row" />
-                  </button>
-                </li>
-              ))}
+              {visible.map((status) => {
+                const urgency = status.dueDate ? fixedExpenseUrgency(parseISO(status.dueDate), today) : null
+                return (
+                  <li key={status.fe.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(status)}
+                      className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-semibold text-fg">{status.fe.name}</p>
+                        {status.fe.is_recurring && <p className="text-[12px] text-fg-muted">bolsa</p>}
+                      </div>
+                      {/* Mismo badge de urgencia que Fijos.tsx — una bolsa no vence, así que no le
+                          corresponde. */}
+                      {urgency && (
+                        <Badge variant={urgency} className="shrink-0 whitespace-nowrap">
+                          {urgency === 'red' ? `Venció el ${status.fe.due_day}` : `Vence el ${status.fe.due_day}`}
+                        </Badge>
+                      )}
+                      <Money cents={status.remainingCents} tone="fg" size="row" />
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

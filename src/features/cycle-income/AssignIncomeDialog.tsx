@@ -9,14 +9,13 @@ import { Money } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { parseAmountToCents } from '@/lib/money'
-import type { CycleKind } from '@/lib/cycle'
-import { useAddCycleIncome, useCycleIncomes, useRemoveCycleIncome } from '@/features/cycle-income/api'
+import { useCreateTransaction, useDeleteTransaction, useTransactions } from '@/features/transactions/api'
 
 interface AssignIncomeDialogProps {
   open: boolean
   onClose: () => void
-  cycleKind: CycleKind
-  cycleId: string
+  cycleFrom: string
+  cycleTo: string
   /** "septiembre" / "1–15 sep" — mismo copy que ya usa `FijosCicloCard` para el ciclo. */
   cycleLabel: string
 }
@@ -24,19 +23,21 @@ interface AssignIncomeDialogProps {
 /**
  * BASIC no registra movimientos manuales, así que no tiene otra forma de saber cuánta plata cobró
  * este ciclo — este diálogo es ese único lugar, separado a propósito de "Nuevo movimiento" (acá no
- * se paga ni se guarda para un fijo, sólo se declara el ingreso del ciclo). Ledger: cada asignación
- * queda como su propia fila (sueldo en partes, un ajuste posterior) y se puede quitar de a una, mismo
- * patrón que "Guardado" en `FixedExpenseDetailDialog`.
+ * hay categoría ni cuenta que elegir, sólo importe y detalle). A diferencia de "guardar para un
+ * fijo" (que deliberadamente NO genera movimiento — no es plata real todavía), un sueldo cobrado sí
+ * es plata real: entra como un movimiento de tipo `income` más, sin categoría, así aparece en
+ * Movimientos y suma al saldo/proyectado igual que cualquier ingreso — no hace falta una tabla
+ * aparte para esto (ver `useCreateTransaction`).
  */
-export function AssignIncomeDialog({ open, onClose, cycleKind, cycleId, cycleLabel }: AssignIncomeDialogProps) {
+export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLabel }: AssignIncomeDialogProps) {
   const [input, setInput] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const { data: incomes, isPending } = useCycleIncomes(cycleKind, cycleId)
-  const addIncome = useAddCycleIncome()
-  const removeIncome = useRemoveCycleIncome()
+  const { data: incomes, isPending } = useTransactions({ from: cycleFrom, to: cycleTo, type: 'income' })
+  const addIncome = useCreateTransaction()
+  const removeIncome = useDeleteTransaction()
 
-  const totalCents = (incomes ?? []).reduce((acc, i) => acc + i.amountCents, 0)
+  const totalCents = (incomes ?? []).reduce((acc, tx) => acc + tx.cents, 0)
   const cents = parseAmountToCents(input)
 
   async function handleAdd() {
@@ -44,7 +45,13 @@ export function AssignIncomeDialog({ open, onClose, cycleKind, cycleId, cycleLab
       setError('Ingresá un importe válido')
       return
     }
-    await addIncome.mutateAsync({ cycleKind, cycleId, cents, note: note.trim() || null })
+    await addIncome.mutateAsync({
+      type: 'income',
+      cents,
+      occurredOn: format(new Date(), 'yyyy-MM-dd'),
+      categoryId: null,
+      description: note.trim() || 'Sueldo',
+    })
     setInput('')
     setNote('')
   }
@@ -99,13 +106,13 @@ export function AssignIncomeDialog({ open, onClose, cycleKind, cycleId, cycleLab
               {incomes.map((income) => (
                 <li key={income.id} className="flex items-center gap-3 px-6 py-2">
                   <p className="min-w-0 flex-1 truncate text-[12.5px] text-fg-muted">
-                    {format(parseISO(income.received_at), "d 'de' MMMM", { locale: es })}
-                    {income.note ? ` · ${income.note}` : ''}
+                    {format(parseISO(income.occurred_on), "d 'de' MMMM", { locale: es })}
+                    {income.description ? ` · ${income.description}` : ''}
                   </p>
-                  <Money cents={income.amountCents} tone="dim" size="inline" />
+                  <Money cents={income.cents} tone="dim" size="inline" />
                   <button
                     type="button"
-                    onClick={() => removeIncome.mutate({ incomeId: income.id })}
+                    onClick={() => removeIncome.mutate(income.id)}
                     disabled={removeIncome.isPending}
                     aria-label="Quitar esta asignación"
                     className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"

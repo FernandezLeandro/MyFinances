@@ -52,7 +52,6 @@ import {
 import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
 import { FijosCicloCard } from '@/features/fixed-expenses/FijosCicloCard'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
-import { useCycleIncomes } from '@/features/cycle-income/api'
 import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
 
 // `lazy`, no import estático: `CategoryDonut` arrastra recharts, y Hoy es la única ruta eager de
@@ -140,10 +139,6 @@ export function Hoy() {
   const { data: fixedExpenses } = useFixedExpenses()
   const { data: fixedPayments } = useFixedExpensePayments(monthsOfCycle)
   const { data: fixedSavings } = useFixedExpenseSavings(monthsOfCycle)
-  // Sólo tiene sentido para BASIC (sin `movimientos-manuales`, ver más abajo) — Premium/Test ya
-  // saben cuánto cobraron por sus movimientos de ingreso, este flujo aparte sería redundante.
-  const { data: cycleIncomes } = useCycleIncomes(cycle.kind, cycle.id)
-  const incomeCents = useMemo(() => (cycleIncomes ?? []).reduce((acc, i) => acc + i.amountCents, 0), [cycleIncomes])
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
@@ -399,7 +394,7 @@ export function Hoy() {
           savedCents={savedFixedTotal}
           missingToSaveCents={missingToSaveFixedTotal}
           pendingCents={pendingFixedTotal}
-          incomeCents={incomeCents}
+          incomeCents={totalIncome}
           onAssignIncome={() => setAssignIncomeOpen(true)}
           hidden={balanceHidden}
           onRegister={() => setRegisterOpen(true)}
@@ -659,8 +654,8 @@ export function Hoy() {
         <AssignIncomeDialog
           open={assignIncomeOpen}
           onClose={() => setAssignIncomeOpen(false)}
-          cycleKind={cycle.kind}
-          cycleId={cycle.id}
+          cycleFrom={cycleFrom}
+          cycleTo={cycleTo}
           cycleLabel={monthLabel}
         />
       )}
