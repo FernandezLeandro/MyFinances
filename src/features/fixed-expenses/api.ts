@@ -111,27 +111,6 @@ export function useFixedExpenseSavings(periods: string[]) {
   })
 }
 
-/** Todo el historial de guardados de UN fijo, más reciente primero — mismo par que
- *  `useFixedExpensePaymentHistory`/`useFixedExpensePayments`. */
-export function useFixedExpenseSavingHistory(fixedExpenseId: string | null) {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['fixed-expense-savings', user?.id, 'history', fixedExpenseId],
-    enabled: !!user && !!fixedExpenseId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('fixed_expense_savings')
-        .select('*')
-        .eq('fixed_expense_id', fixedExpenseId!)
-        .order('period', { ascending: false })
-        .order('saved_at', { ascending: false })
-      if (error) throw error
-      return data.map(toSaving)
-    },
-  })
-}
-
 /** Sobre un rango arbitrario — la variante "horizonte, no ventana" del bloque 3 del plan de ciclos
  *  (ver `rpc_projected_balance_range` y el comentario de `projectionWindow` en `src/lib/cycle.ts`
  *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */
@@ -300,8 +279,9 @@ export function useUnmarkFixedExpensePayment() {
 }
 
 /** Registra que ya se guardó (parcial o total) plata para un fijo "una vez al mes" — a diferencia
- *  de `useMarkFixedExpensePaid`, inserta directo en la tabla (RLS de dueño alcanza: no hay
- *  movimiento ni plantilla que tocar, así que no hace falta un RPC). Varios guardados del mismo
+ *  de la primera versión (Bloque 3), ahora puede generar un movimiento real (`generateMovement`,
+ *  opcional): con eso hacen falta dos escrituras atómicas (transacción + guardado), así que pasó a
+ *  RPC (`rpc_add_fixed_expense_saving`) en vez de un insert directo. Varios guardados del mismo
  *  período se acumulan, igual que las cargas de una bolsa. */
 export function useAddFixedExpenseSaving() {
   const { user } = useAuth()
@@ -313,19 +293,28 @@ export function useAddFixedExpenseSaving() {
       period,
       cents,
       note,
+      generateMovement = false,
+      accountId,
     }: {
       fixedExpenseId: string
       period: string
       cents: number
       note?: string | null
+      /** Sólo tiene sentido con `movimientos-manuales` (Premium/etc) — BASIC siempre manda `false`:
+       *  ver el guard en `MarkPaidDialog`. Con `true`, esta plata sale del saldo real ahora, y
+       *  `rpc_mark_fixed_expense_paid` la descuenta del movimiento que genera el pago. */
+      generateMovement?: boolean
+      /** Con qué se guardó — sólo aplica si `generateMovement`. */
+      accountId?: string | null
     }) => {
       if (!user) throw new Error('No autenticado')
-      const { error } = await supabase.from('fixed_expense_savings').insert({
-        user_id: user.id,
-        fixed_expense_id: fixedExpenseId,
-        period,
-        amount: centsToNumeric(cents),
-        note: note ?? null,
+      const { error } = await supabase.rpc('rpc_add_fixed_expense_saving', {
+        p_fixed_expense_id: fixedExpenseId,
+        p_period: period,
+        p_amount: centsToNumeric(cents),
+        p_generate_movement: generateMovement,
+        p_note: note ?? null,
+        p_account_id: accountId ?? null,
       })
       if (error) throw error
     },
@@ -339,10 +328,14 @@ export function useRemoveFixedExpenseSaving() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    // RPC en vez de delete directo (Bloque 3 usaba delete): si el guardado generó un movimiento hay
+    // que borrar también la transacción, y si el fijo ya está pagado en ese período hay que impedirlo
+    // — el pago pudo haberse calculado restando este guardado (ver `rpc_remove_fixed_expense_saving`).
     mutationFn: async ({ savingId }: { savingId: string }) => {
-      const { error } = await supabase.from('fixed_expense_savings').delete().eq('id', savingId)
+      const { error } = await supabase.rpc('rpc_remove_fixed_expense_saving', { p_saving_id: savingId })
       if (error) throw error
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo quitar el guardado. Si el fijo ya está pagado, desmarcá el pago primero.' },
   })
 }

@@ -333,6 +333,39 @@ describe('summarizeFixedExpenses — guardado (bloque 3 del plan "BASIC centrado
   })
 })
 
+describe('summarizeFixedExpenses — guardado CON movimiento (follow-up del bloque 3)', () => {
+  it('guardado con movimiento descuenta de remainingCents/pendingTotalCents — ya salió del saldo real', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const saving = makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00, transaction_id: 'tx1' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
+    expect(s.pending[0].savedMovementCents).toBe(20_000_00)
+    expect(s.pending[0].remainingCents).toBe(30_000_00)
+    expect(s.pendingTotalCents).toBe(30_000_00)
+  })
+
+  it('guardado con movimiento que cubre todo el fijo: remainingCents 0, ya no pesa en pendingTotalCents', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const saving = makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 50_000_00, transaction_id: 'tx1' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
+    expect(s.pending[0].remainingCents).toBe(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('savedTotalCents/missingToSaveCents sólo cuentan el guardado SIN movimiento — el que ya salió del saldo no se muestra dos veces', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const savings = [
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00, transaction_id: 'tx1' }),
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 10_000_00 }),
+    ]
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, savings)
+    // remainingCents = 50.000 - 20.000 (con movimiento) = 30.000; savedTotalCents sólo cuenta el
+    // guardado aparte (10.000), no el que ya está reflejado en remainingCents.
+    expect(s.pending[0].remainingCents).toBe(30_000_00)
+    expect(s.savedTotalCents).toBe(10_000_00)
+    expect(s.missingToSaveCents).toBe(20_000_00)
+  })
+})
+
 describe('compareFixedExpenses', () => {
   it('pone todos los recurrentes antes que los de una sola vez', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', due_day: 5 })
