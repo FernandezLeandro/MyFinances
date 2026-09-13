@@ -711,6 +711,7 @@ export function Fijos() {
           period={markingPaid.dueDate ? format(startOfMonth(parseISO(markingPaid.dueDate)), 'yyyy-MM-dd') : format(startOfMonth(month), 'yyyy-MM-dd')}
           alreadyPaidCents={markingPaid.paidCents}
           alreadySavedCents={markingPaid.savedCents}
+          alreadySavedMovementCents={markingPaid.savedMovementCents}
         />
       )}
       {detailFixed && (

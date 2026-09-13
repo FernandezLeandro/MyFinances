@@ -22,10 +22,14 @@ interface MarkPaidDialogProps {
   /** Sólo bolsas: lo ya cargado en este período, para mostrar contexto ("$40.000 de $60.000"). Un
    *  fijo de una sola vez siempre abre este diálogo sin pago previo, así que vale 0. */
   alreadyPaidCents?: number
-  /** Bloque 3, sólo fijos "una vez al mes": lo ya guardado en este período — sin capar contra el
-   *  importe del fijo (mismo criterio que `FixedExpenseStatus.savedCents`). Une bolsa no guarda, así
-   *  que este prop no aplica ahí. */
+  /** Bloque 3, sólo fijos "una vez al mes": TODO lo ya guardado en este período (con y sin
+   *  movimiento) — sin capar contra el importe del fijo (mismo criterio que
+   *  `FixedExpenseStatus.savedCents`). Una bolsa no guarda, así que este prop no aplica ahí. */
   alreadySavedCents?: number
+  /** Follow-up: subconjunto de `alreadySavedCents` que además generó un movimiento — esa plata ya
+   *  salió del saldo real, así que al pagar el movimiento nuevo sale sólo por la diferencia (o no se
+   *  genera ninguno si ya está cubierto del todo). Ver `FixedExpenseStatus.savedMovementCents`. */
+  alreadySavedMovementCents?: number
 }
 
 /**
@@ -34,9 +38,11 @@ interface MarkPaidDialogProps {
  *
  * Fijo de una sola vez: prellenado con el importe actual y sin autofocus — el caso dominante es
  * "vino igual, confirmo", el autofocus en mobile levanta el teclado para nada. Bloque 3: además
- * tiene los chips Pagar/Guardar — "Guardar" registra que ya se apartó plata para este fijo, sin
- * generar movimiento (ver `useAddFixedExpenseSaving`). Una bolsa no los tiene: ya se va cargando de
- * a partes como gasto real, guardar "para" ella no aplica (decisión del plan).
+ * tiene los chips Pagar/Guardar — "Guardar" registra que ya se apartó plata para este fijo.
+ * Follow-up: ese guardado puede generar movimiento o no (switch, sólo con `movimientos-manuales` —
+ * BASIC, que no tiene esa capacidad, siempre guarda "aparte" sin movimiento). Una bolsa no tiene
+ * estos chips: ya se va cargando de a partes como gasto real, guardar "para" ella no aplica
+ * (decisión del plan).
  *
  * Bolsa (`is_recurring`): cada carga es un importe distinto (la nafta de esta semana no cuesta lo
  * mismo que la de la semana pasada), así que arranca vacío y con autofocus — acá sí hay algo para
@@ -52,6 +58,7 @@ export function MarkPaidDialog({
   period,
   alreadyPaidCents = 0,
   alreadySavedCents = 0,
+  alreadySavedMovementCents = 0,
 }: MarkPaidDialogProps) {
   const isRecurring = fixedExpense.is_recurring
   const [mode, setMode] = useState<Mode>('pay')
@@ -62,7 +69,12 @@ export function MarkPaidDialog({
   const markPaid = useMarkFixedExpensePaid()
   const addSaving = useAddFixedExpenseSaving()
   const canCuentas = useCan('cuentas')
+  const canMovimientosManuales = useCan('movimientos-manuales')
   const [accountId, setAccountId] = useDefaultAccountId()
+  // Prendido por default (decisión del usuario): guardar sí descuenta del saldo salvo que se apague
+  // a propósito. En BASIC (sin `movimientos-manuales`) ni se muestra el switch — ese plan siempre
+  // guarda "aparte", nunca genera movimiento (ver el guard más abajo y `handleConfirm`).
+  const [generateMovement, setGenerateMovement] = useState(true)
 
   const bagPeriod = bagPeriodNoun(fixedExpense.bag_frequency)
   const cents = parseAmountToCents(input)
@@ -74,6 +86,14 @@ export function MarkPaidDialog({
       ? Math.max(fixedExpense.cents - alreadySavedCents - (cents ?? 0), 0)
       : 0
   const isPending = markPaid.isPending || addSaving.isPending
+
+  // Lo guardado "aparte" (sin movimiento): informativo en el modo Pagar, pero nunca descuenta del
+  // movimiento que genera el pago — esa plata todavía no salió de ningún lado.
+  const asideSavedCents = alreadySavedCents - alreadySavedMovementCents
+  // Lo que de verdad va a generar el pago, dado el importe que se está por confirmar — sólo se
+  // conoce del lado del cliente para el aviso; el RPC hace este mismo cálculo de nuevo con lo que
+  // haya en la base al momento de pagar (ver `rpc_mark_fixed_expense_paid`).
+  const payTxAmount = !isRecurring && !isSaving && cents != null ? Math.max(cents - alreadySavedMovementCents, 0) : null
 
   function selectMode(next: Mode) {
     if (next === mode) return
@@ -90,7 +110,15 @@ export function MarkPaidDialog({
       return
     }
     if (isSaving) {
-      await addSaving.mutateAsync({ fixedExpenseId: fixedExpense.id, period, cents })
+      await addSaving.mutateAsync({
+        fixedExpenseId: fixedExpense.id,
+        period,
+        cents,
+        // BASIC no tiene el switch (siempre `false` acá, ver el guard del JSX) — en el resto de los
+        // planes manda lo que haya elegido el usuario.
+        generateMovement: canMovimientosManuales && generateMovement,
+        accountId: canMovimientosManuales && generateMovement ? accountId || null : null,
+      })
     } else {
       await markPaid.mutateAsync({
         fixedExpenseId: fixedExpense.id,
@@ -144,9 +172,25 @@ export function MarkPaidDialog({
           </div>
         )}
 
-        {!isRecurring && mode === 'pay' && alreadySavedCents > 0 && (
+        {!isRecurring && mode === 'pay' && asideSavedCents > 0 && (
           <p className="text-[12px] text-fg-muted">
-            Tenés <Money cents={alreadySavedCents} tone="dim" size="inline" /> guardado para este fijo.
+            Tenés <Money cents={asideSavedCents} tone="dim" size="inline" /> guardado (aparte, sin movimiento) para este fijo.
+          </p>
+        )}
+
+        {!isRecurring && mode === 'pay' && alreadySavedMovementCents > 0 && (
+          <p className="text-[12px] text-fg-muted">
+            {payTxAmount === 0 ? (
+              <>
+                Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: no hace falta generar
+                un movimiento nuevo.
+              </>
+            ) : (
+              <>
+                Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: el pago genera un
+                movimiento sólo por {payTxAmount != null ? <Money cents={payTxAmount} tone="dim" size="inline" /> : 'lo restante'}.
+              </>
+            )}
           </p>
         )}
 
@@ -176,9 +220,24 @@ export function MarkPaidDialog({
           </Field>
         )}
 
-        {/* El guardado no genera movimiento — no hay con qué pagarlo. */}
-        {canCuentas && !isSaving && (
-          <Field label="Con qué lo pagué" hint="Opcional">
+        {/* Follow-up: el guardado sólo genera movimiento si el plan tiene `movimientos-manuales` Y
+            el usuario lo eligió acá — BASIC no llega a ver este bloque (siempre guarda "aparte"). */}
+        {isSaving && canMovimientosManuales && (
+          <label className="flex items-center gap-2.5 text-[13px] text-fg">
+            <input
+              type="checkbox"
+              checked={generateMovement}
+              onChange={(e) => setGenerateMovement(e.target.checked)}
+              className="size-4 shrink-0 accent-accent"
+            />
+            Generar movimiento (descuenta del saldo ahora)
+          </label>
+        )}
+
+        {/* El pago siempre puede llevar cuenta. El guardado sólo si además genera movimiento — si es
+            "aparte" no hay con qué pagarlo. */}
+        {canCuentas && (!isSaving || (canMovimientosManuales && generateMovement)) && (
+          <Field label={isSaving ? 'Con qué lo guardé' : 'Con qué lo pagué'} hint="Opcional">
             <AccountSelect value={accountId} onChange={setAccountId} />
           </Field>
         )}

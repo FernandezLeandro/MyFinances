@@ -323,6 +323,7 @@ export interface Database {
           amount: string
           saved_at: string
           note: string | null
+          transaction_id: string | null
         }
         Insert: {
           id?: string
@@ -331,8 +332,9 @@ export interface Database {
           period: string
           amount: number | string
           note?: string | null
+          transaction_id?: string | null
         }
-        Update: Partial<{ note: string | null }>
+        Update: Partial<{ note: string | null; transaction_id: string | null }>
         Relationships: []
       }
       credit_cards: {
@@ -660,6 +662,21 @@ export interface Database {
       }
       rpc_unmark_fixed_expense_payment: {
         Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      rpc_add_fixed_expense_saving: {
+        Args: {
+          p_fixed_expense_id: string
+          p_period: string
+          p_amount: number | string
+          p_generate_movement?: boolean
+          p_note?: string | null
+          p_account_id?: string | null
+        }
+        Returns: undefined
+      }
+      rpc_remove_fixed_expense_saving: {
+        Args: { p_saving_id: string }
         Returns: undefined
       }
       rpc_check_invite_code: {

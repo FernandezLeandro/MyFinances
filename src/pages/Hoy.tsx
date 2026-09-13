@@ -483,7 +483,10 @@ export function Hoy() {
                             cada fijo pendiente. */}
                         {status.savedCents > 0 && (
                           <span className="block text-[11px] text-fg-muted">
-                            <Money cents={Math.min(status.savedCents, status.remainingCents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
+                            {/* Capado contra el importe total, no `remainingCents`: éste ya resta lo
+                                guardado CON movimiento (sale del saldo real), así que usarlo de tope
+                                acá mostraría de menos lo guardado apenas cubre parte del fijo. */}
+                            <Money cents={Math.min(status.savedCents, status.fe.cents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
                             guardado
                           </span>
                         )}

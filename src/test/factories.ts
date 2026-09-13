@@ -256,6 +256,10 @@ export function makeFixedExpenseSaving(
     period: '2026-08-01',
     saved_at: FIXED_DATE,
     note: null,
+    // `null` por default: la mayoría de los tests viejos son de un guardado "aparte" (sin
+    // movimiento) — pasar `transaction_id` explícito sólo hace falta para probar el caso con
+    // movimiento (follow-up de `[[basic-fijos-plan]]`).
+    transaction_id: null,
     ...p,
   }
 }
