@@ -76,7 +76,7 @@ function CardCard({
   const urgency: FixedExpenseUrgency = isCurrentMonth && !paid && dueOn ? fixedExpenseUrgency(parseISO(dueOn), new Date()) : 'neutral'
 
   return (
-    <Panel className="flex flex-col gap-3.5 p-5">
+    <Panel className="flex flex-col gap-3.5 p-panel-tight">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <Avatar initials={initialsFrom(card.name, null)} size="sm" shape="square" tone={paid ? 'neutral' : 'accent'} />
@@ -162,7 +162,7 @@ function HorizontePanel({
   hidden: boolean
 }) {
   return (
-    <Panel className="p-6">
+    <Panel className="p-panel">
       <div className="flex items-baseline justify-between gap-3">
         <p className="eyebrow">Próximos 3 meses</p>
         <span className="text-[11.5px] text-fg-muted">cuotas comprometidas</span>
@@ -339,19 +339,19 @@ export function MisDeudas() {
       </header>
 
       {isError ? (
-        <Panel className="px-6 py-10">
+        <Panel className="px-panel py-10">
           <ErrorState onRetry={() => refetch()} />
         </Panel>
       ) : isPending ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr]">
           <div className="flex flex-col gap-4">
-            <Panel className="flex flex-col gap-3 p-6">
+            <Panel className="flex flex-col gap-3 p-panel">
               <Skeleton className="h-9 w-40" />
               <Skeleton className="h-2 w-full" />
             </Panel>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {[0, 1].map((i) => (
-                <Panel key={i} className="p-5">
+                <Panel key={i} className="p-panel-tight">
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="mt-3 h-9 w-36" />
                   <Skeleton className="mt-4 h-8 w-full" />
@@ -382,7 +382,7 @@ export function MisDeudas() {
           <div className="flex min-w-0 flex-col gap-4">
             {/* Centrado verticalmente y sin "Lo más próximo" — a diferencia de Fijos, acá la pregunta
                 es sólo "cuánto pago de deudas", no "qué vence primero" (eso ya lo dice cada tarjeta). */}
-            <Panel className="flex flex-col gap-5 p-[18px] lg:flex-row lg:items-center lg:gap-9 lg:p-6">
+            <Panel className="flex flex-col gap-5 p-panel-tight lg:flex-row lg:items-center lg:gap-9 lg:p-6">
               <div className="lg:hidden">
                 <p className="eyebrow">A pagar este mes</p>
                 <Money cents={summary.totalPendingCents} size="hero" hidden={balanceHidden} className="mt-1" />
@@ -443,7 +443,7 @@ export function MisDeudas() {
 
             {summary.standalone.length > 0 && (
               <Panel className="pb-2">
-                <div className="flex items-baseline justify-between gap-3 border-b border-divider px-6 pt-5 pb-2">
+                <div className="flex items-baseline justify-between gap-3 border-b border-divider px-panel pt-5 pb-2">
                   <div className="flex items-baseline gap-2">
                     <h2 className="font-display text-[14.5px] font-semibold text-fg">Compras sin tarjeta</h2>
                     <span className="text-[11.5px] text-fg-muted">cuotas de este mes</span>
@@ -486,11 +486,11 @@ export function MisDeudas() {
 
             {(paidCards.length > 0 || paidPurchases.length > 0) && (
               <Panel>
-                <div className="flex items-baseline justify-between px-6 pt-5 pb-1">
+                <div className="flex items-baseline justify-between px-panel pt-5 pb-1">
                   <p className="eyebrow">Pagado este mes</p>
                   <Money cents={totalPaidCents} size="row" hidden={balanceHidden} />
                 </div>
-                <ul className="flex min-w-0 flex-col px-6 pb-5">
+                <ul className="flex min-w-0 flex-col px-panel pb-5">
                   {paidCards.map((c) => (
                     <li key={c.card.id} className="flex min-w-0 items-center gap-2.5 py-[7px]">
                       <span className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-inverse text-on-inverse">

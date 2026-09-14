@@ -73,7 +73,7 @@ function FixedExpenseRow({
   const savedPct = !fe.is_recurring && !done && fe.cents > 0 ? Math.min((savedCents / fe.cents) * 100, 100) : 0
 
   return (
-    <li className="flex min-w-0 items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
+    <li className="flex min-w-0 items-center gap-3 px-panel py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
       {fe.is_recurring ? (
         // Una bolsa no se "tilda" — cada carga es un pago suelto, así que el control siempre agrega
         // una carga nueva (incluso ya completa: se puede seguir cargando nafta pasado el
@@ -158,7 +158,7 @@ function FixedExpenseRow({
 /** Cabecera compartida por los tres grupos de vencimiento — título + hint + total de la sección. */
 function SectionHeader({ title, hint, totalCents, hidden }: { title: string; hint?: string; totalCents: number; hidden: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-divider px-6 pt-5 pb-2">
+    <div className="flex items-baseline justify-between gap-3 border-b border-divider px-panel pt-5 pb-2">
       <div className="flex items-baseline gap-2">
         <h2 className="font-display text-[14.5px] font-semibold text-fg">{title}</h2>
         {hint && <span className="text-[11.5px] text-fg-muted">{hint}</span>}
@@ -419,17 +419,17 @@ export function Fijos() {
       </header>
 
       {isError ? (
-        <Panel className="px-6 py-10">
+        <Panel className="px-panel py-10">
           <ErrorState onRetry={() => refetch()} />
         </Panel>
       ) : isPending ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.9fr_1fr]">
           <div className="flex flex-col gap-4">
-            <Panel className="flex flex-col gap-3 p-6">
+            <Panel className="flex flex-col gap-3 p-panel">
               <Skeleton className="h-9 w-40" />
               <Skeleton className="h-2 w-full" />
             </Panel>
-            <Panel className="flex flex-col gap-1 px-6 py-5">
+            <Panel className="flex flex-col gap-1 px-panel py-5">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="flex items-center gap-3 py-2.5">
                   <Skeleton className="size-5 shrink-0" />
@@ -458,7 +458,7 @@ export function Fijos() {
         // contenedor nunca se deja achicar.
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.9fr_1fr]">
           <div className="flex min-w-0 flex-col gap-4">
-            <Panel className="flex flex-col gap-5 p-[18px] lg:flex-row lg:items-center lg:gap-9 lg:p-6">
+            <Panel className="flex flex-col gap-5 p-panel-tight lg:flex-row lg:items-center lg:gap-9 lg:p-6">
               {/* Mobile: sin el "de $total" — con el hero ya alcanza, y es una cifra más que
                   competir por lugar en 390px. `size="hero"` (el mismo clamp del saldo de Hoy) en
                   vez de `total` fijo: si el número crece, se achica solo en vez de desbordar. */}
@@ -537,7 +537,7 @@ export function Fijos() {
                     derecho por el `justify-between`) — el hint sale en mobile, y a la derecha queda
                     "Resta" como encabezado de columna, alineado con el importe de cada fila (mismo
                     `w-24` que el `Money` de abajo) en vez de repetirse fila por fila. */}
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-6 pt-5 pb-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-panel pt-5 pb-2">
                   <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                     <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas</h2>
                     <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el período</span>
@@ -593,7 +593,7 @@ export function Fijos() {
             })}
 
             {nothingPending && (
-              <Panel className="px-6 py-5">
+              <Panel className="px-panel py-5">
                 <p className="text-[13px] text-fg-muted">No tenés nada por pagar este mes.</p>
               </Panel>
             )}
@@ -614,11 +614,11 @@ export function Fijos() {
 
             {doneStatuses.length > 0 && (
               <Panel>
-                <div className="flex items-baseline justify-between px-6 pt-5 pb-1">
+                <div className="flex items-baseline justify-between px-panel pt-5 pb-1">
                   <p className="eyebrow">Pagados este mes</p>
                   <Money cents={paidCentsTotal} size="row" hidden={balanceHidden} />
                 </div>
-                <ul className="flex min-w-0 flex-col px-6 pb-5">
+                <ul className="flex min-w-0 flex-col px-panel pb-5">
                   {doneStatuses.map((s) => (
                     <li key={s.fe.id} className="flex min-w-0 items-center gap-2.5 py-[7px]">
                       {/* Una bolsa completa no se "despaga" (sigue siendo un + que suma otra carga,

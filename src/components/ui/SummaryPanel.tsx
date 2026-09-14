@@ -61,7 +61,7 @@ export function SummaryPanel({
     <Panel
       tone={inverse ? 'inverse' : 'raised'}
       className={cn(
-        'flex flex-col p-6',
+        'flex flex-col p-panel',
         inverse && 'justify-between',
         !inverse && accent && 'ring-1 ring-accent/15',
         className,

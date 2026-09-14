@@ -62,7 +62,7 @@ function MovementTableRow({
     <button
       type="button"
       onClick={onClick}
-      className="grid w-full grid-cols-[1fr_170px_150px_130px] items-center gap-3 px-6 py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
+      className="grid w-full grid-cols-[1fr_170px_150px_130px] items-center gap-3 px-panel py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
     >
       <span className="truncate text-[13.5px] font-semibold text-fg">
         {tx.description || category?.name || 'Sin descripción'}
@@ -264,7 +264,7 @@ export function Movimientos() {
           anterior quedan apagadas acá a propósito: viven en Análisis. */}
       <Panel
         className={cn(
-          'flex-col gap-5 p-6 lg:flex-row lg:items-center lg:gap-9',
+          'flex-col gap-5 p-panel lg:flex-row lg:items-center lg:gap-9',
           summaryOpen ? 'flex' : 'hidden',
           'lg:flex',
         )}
@@ -436,7 +436,7 @@ export function Movimientos() {
         </Panel>
       ) : isPending ? (
         <Panel>
-          <ul className="flex flex-col gap-1 px-6 py-5">
+          <ul className="flex flex-col gap-1 px-panel py-5">
             {[0, 1, 2, 3].map((i) => (
               <li key={i} className="flex items-center gap-3 py-2">
                 <Skeleton className="size-2 shrink-0 rounded-full" />
@@ -472,12 +472,12 @@ export function Movimientos() {
       ) : (
         <Panel className="overflow-hidden p-0">
           {transactions?.length === TRANSACTIONS_ROW_LIMIT && (
-            <p className="px-6 pt-4 text-[12px] text-fg-muted">
+            <p className="px-panel pt-4 text-[12px] text-fg-muted">
               Mostrando los primeros {TRANSACTIONS_ROW_LIMIT} movimientos — acotá el período.
             </p>
           )}
 
-          <div className="hidden grid-cols-[1fr_170px_150px_130px] gap-3 border-b border-divider px-6 pt-3.5 pb-2.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-faint uppercase lg:grid">
+          <div className="hidden grid-cols-[1fr_170px_150px_130px] gap-3 border-b border-divider px-panel pt-3.5 pb-2.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-faint uppercase lg:grid">
             <span>Descripción</span>
             <span>Categoría</span>
             <span>Cuenta</span>
@@ -491,7 +491,7 @@ export function Movimientos() {
                 <GroupHeader
                   label={format(parseISO(day), "EEEE d 'de' MMMM", { locale: es })}
                   total={<Money cents={total} tone={total >= 0 ? 'dim' : 'negative'} signed />}
-                  className="bg-divider-list px-6 py-2.5"
+                  className="bg-divider-list px-panel py-2.5"
                 />
                 <ul className="lg:hidden">
                   {items.map((tx) => (
@@ -520,7 +520,7 @@ export function Movimientos() {
             )
           })}
 
-          <div className="flex items-center justify-between gap-3 border-t border-divider px-6 py-3 text-[12px] text-fg-muted">
+          <div className="flex items-center justify-between gap-3 border-t border-divider px-panel py-3 text-[12px] text-fg-muted">
             <span>
               {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'} del período
             </span>

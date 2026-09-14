@@ -102,9 +102,9 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
           ) : !incomes || incomes.length === 0 ? (
             <EmptyState glyph="◷" title="Todavía no asignaste nada este ciclo" />
           ) : (
-            <ul className="-mx-6 flex max-h-[35vh] flex-col overflow-y-auto">
+            <ul className="-mx-panel flex max-h-[35vh] flex-col overflow-y-auto">
               {incomes.map((income) => (
-                <li key={income.id} className="flex items-center gap-3 px-6 py-2">
+                <li key={income.id} className="flex items-center gap-3 px-panel py-2">
                   <p className="min-w-0 flex-1 truncate text-[12.5px] text-fg-muted">
                     {format(parseISO(income.occurred_on), "d 'de' MMMM", { locale: es })}
                     {income.description ? ` · ${income.description}` : ''}

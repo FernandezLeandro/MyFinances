@@ -123,10 +123,10 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
         ) : groups.length === 0 ? (
           <EmptyState glyph="◷" title="Todavía no registraste pagos de este fijo" />
         ) : fixedExpense.is_recurring ? (
-          <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
+          <ul className="-mx-panel flex max-h-[50vh] flex-col overflow-y-auto">
             {groups.map((group) => (
               <li key={group.period} className="border-t border-fill-subtle first:border-t-0">
-                <div className="flex items-center gap-3 px-6 pt-3 pb-1.5">
+                <div className="flex items-center gap-3 px-panel pt-3 pb-1.5">
                   <p className="min-w-0 flex-1 truncate text-[14px] text-fg capitalize">
                     {format(parseISO(group.period), 'MMMM yyyy', { locale: es })}
                   </p>
@@ -134,7 +134,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                 </div>
                 <ul>
                   {group.payments.map((payment) => (
-                    <li key={payment.id} className="flex items-center gap-3 px-6 py-1.5 pl-9">
+                    <li key={payment.id} className="flex items-center gap-3 px-panel py-1.5 pl-9">
                       <p className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">
                         {format(parseISO(payment.paid_at), "d 'de' MMMM", { locale: es })}
                         {payment.note ? ` · ${payment.note}` : ''}
@@ -156,12 +156,12 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
             ))}
           </ul>
         ) : (
-          <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
+          <ul className="-mx-panel flex max-h-[50vh] flex-col overflow-y-auto">
             {groups.map((group) => (
               // Fila inerte a propósito: en esta versión no se puede editar un pago histórico de un
               // fijo de una sola vez (para corregir uno, se desmarca desde Fijos y se vuelve a
               // marcar) — un botón que no hace nada es peor que ningún botón.
-              <li key={group.period} className="flex items-center gap-3 border-t border-fill-subtle px-6 py-3 first:border-t-0">
+              <li key={group.period} className="flex items-center gap-3 border-t border-fill-subtle px-panel py-3 first:border-t-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] text-fg capitalize">{format(parseISO(group.period), 'MMMM yyyy', { locale: es })}</p>
                   <p className="mt-0.5 text-[12px] text-fg-muted">
@@ -191,9 +191,9 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
             ) : (
               // Lista plana, sin agrupar por período: como sólo se muestra el mes en curso, ya no
               // hace falta un total por mes — a diferencia del historial de pagos de arriba.
-              <ul className="-mx-6 flex max-h-[45vh] flex-col overflow-y-auto">
+              <ul className="-mx-panel flex max-h-[45vh] flex-col overflow-y-auto">
                 {savings.map((saving) => (
-                  <li key={saving.id} className="flex items-center gap-3 px-6 py-2 border-t border-fill-subtle first:border-t-0">
+                  <li key={saving.id} className="flex items-center gap-3 px-panel py-2 border-t border-fill-subtle first:border-t-0">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[12px] text-fg-muted">
                         {format(parseISO(saving.saved_at), "d 'de' MMMM", { locale: es })}

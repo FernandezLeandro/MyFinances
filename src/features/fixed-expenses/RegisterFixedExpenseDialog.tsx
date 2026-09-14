@@ -112,7 +112,7 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
           {visible.length === 0 ? (
             <EmptyState glyph="◷" title="Ningún fijo coincide con la búsqueda" />
           ) : (
-            <ul className="-mx-6 flex max-h-[45vh] flex-col overflow-y-auto">
+            <ul className="-mx-panel flex max-h-[45vh] flex-col overflow-y-auto">
               {visible.map((status) => {
                 const urgency = status.dueDate ? fixedExpenseUrgency(parseISO(status.dueDate), today) : null
                 return (
@@ -120,7 +120,7 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
                     <button
                       type="button"
                       onClick={() => setSelected(status)}
-                      className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
+                      className="flex w-full items-center gap-3 px-panel py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[14px] font-semibold text-fg">{status.fe.name}</p>

@@ -78,7 +78,7 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
                 <CompositionView nets={nets} assets={assets} prices={prices} />
               </div>
             )}
-            <ul className="-mx-6 flex max-h-[50vh] flex-col overflow-y-auto">
+            <ul className="-mx-panel flex max-h-[50vh] flex-col overflow-y-auto">
             {entries.map((entry) => {
               const asset = assetById.get(entry.asset_id)
               if (!asset) return null
@@ -94,7 +94,7 @@ export function BucketDetailDialog({ open, onClose, bucket, entries, assets }: B
                   <button
                     type="button"
                     onClick={() => openEditEntry(entry)}
-                    className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
+                    className="flex w-full items-center gap-3 px-panel py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] text-fg">

@@ -4,6 +4,7 @@ import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
+import { MAIN_SHELL_CLASS } from '@/app/mainShell'
 import { adminNavItems, adminOverflowItems, adminTabBarItems } from '@/app/adminNav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
@@ -36,10 +37,7 @@ export function AdminLayout() {
       />
 
       {/* El degradado antes de la isla vive en `MobileTabBar` — ver su comentario. */}
-      {/* `md:min-h-[calc(100dvh-58px)]`: desde `md:` la `TopBar` sticky (h-[58px]) ya ocupa lugar
-          arriba — pedirle a `main` el viewport entero además de eso deja la página siempre 58px
-          más alta que la pantalla, con scroll aunque el contenido real no lo necesite. */}
-      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:min-h-[calc(100dvh-58px)] md:pt-10 md:pb-16">
+      <main className={MAIN_SHELL_CLASS}>
         <div className="mx-auto w-full max-w-[1600px] xl:w-[90%]">
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />

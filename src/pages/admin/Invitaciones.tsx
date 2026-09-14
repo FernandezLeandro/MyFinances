@@ -78,7 +78,7 @@ export function Invitaciones() {
             }
           />
 
-          <div className="px-6 pb-6">
+          <div className="px-panel pb-6">
             {isError ? (
               <ErrorState onRetry={() => refetch()} />
             ) : isPending ? (
@@ -125,7 +125,7 @@ export function Invitaciones() {
           </div>
         </Panel>
 
-        <Panel className="p-6">
+        <Panel className="p-panel">
           <p className="eyebrow">Generar código nuevo</p>
           <div className="mt-4 flex flex-col gap-3.5">
             <div className="flex gap-3">

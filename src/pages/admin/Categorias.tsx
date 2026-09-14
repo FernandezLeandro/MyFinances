@@ -57,7 +57,7 @@ function CategoryRow({
   if (isEditing) {
     return (
       <Reorder.Item value={category} dragListener={false} className="bg-surface">
-        <div className="flex items-center gap-3 border-l-2 border-accent bg-editing px-6 py-2.5">
+        <div className="flex items-center gap-3 border-l-2 border-accent bg-editing px-panel py-2.5">
           <span aria-hidden className="shrink-0 p-1 text-fg-muted opacity-30">
             <GripVertical className="size-4" fill="currentColor" />
           </span>
@@ -107,7 +107,7 @@ function CategoryRow({
       dragListener={false}
       dragControls={dragControls}
       onDragEnd={onDragEnd}
-      className={cn('flex items-center gap-3 bg-surface px-6 py-3', category.is_archived && 'opacity-50')}
+      className={cn('flex items-center gap-3 bg-surface px-panel py-3', category.is_archived && 'opacity-50')}
     >
       <button
         type="button"
@@ -164,7 +164,7 @@ function AddCategoryForm({ nextSortOrder }: { nextSortOrder: number }) {
   }
 
   return (
-    <div className="border-t border-fill-subtle p-6">
+    <div className="border-t border-fill-subtle p-panel">
       <p className="eyebrow">Agregar categoría</p>
       <p className="mt-1.5 text-[12px] text-fg-muted">Se suma al final — el orden después se arrastra.</p>
       <div className="mt-3.5 flex flex-wrap items-end gap-3.5">
@@ -290,18 +290,18 @@ export function Categorias() {
         />
 
         {isError ? (
-          <div className="px-6 pb-5">
+          <div className="px-panel pb-5">
             <ErrorState onRetry={() => refetch()} />
           </div>
         ) : isPending ? (
-          <div className="flex flex-col gap-1 px-6 pb-5">
+          <div className="flex flex-col gap-1 px-panel pb-5">
             {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
         ) : !categories || categories.length === 0 ? (
           <>
-            <div className="px-6 pb-5">
+            <div className="px-panel pb-5">
               <EmptyState glyph="▤" title="Todavía no hay categorías por defecto" />
             </div>
             <AddCategoryForm nextSortOrder={0} />

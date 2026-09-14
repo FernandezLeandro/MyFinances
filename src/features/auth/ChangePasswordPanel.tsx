@@ -121,7 +121,7 @@ export function ChangePasswordPanel() {
   return (
     <Panel>
       <PanelHeader title="Contraseña" hint="Te pedimos la actual para confirmar que sos vos" />
-      <div className="px-6 pb-6">
+      <div className="px-panel pb-6">
         <ChangePasswordForm />
       </div>
     </Panel>

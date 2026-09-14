@@ -125,9 +125,9 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
         {payments.length === 0 ? (
           <EmptyState glyph="◷" title="Todavía no registraste abonos" />
         ) : (
-          <ul className="-mx-6 flex max-h-[40vh] flex-col overflow-y-auto">
+          <ul className="-mx-panel flex max-h-[40vh] flex-col overflow-y-auto">
             {payments.map((payment) => (
-              <li key={payment.id} className="flex items-center gap-3 border-t border-fill-subtle px-6 py-2.5 first:border-t-0">
+              <li key={payment.id} className="flex items-center gap-3 border-t border-fill-subtle px-panel py-2.5 first:border-t-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] text-fg-secondary">{format(parseISO(payment.occurred_on), "d 'de' MMMM", { locale: es })}</p>
                   {payment.transaction_id && <p className="mt-0.5 text-[11px] text-fg-muted">Registró un ingreso</p>}

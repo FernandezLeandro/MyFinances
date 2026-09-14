@@ -37,7 +37,7 @@ export function StandalonePurchaseRow({
   const urgency = isCurrentMonth && !paid && dueOn ? fixedExpenseUrgency(parseISO(dueOn), new Date()) : 'neutral'
 
   return (
-    <li className="flex min-w-0 items-center gap-3 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
+    <li className="flex min-w-0 items-center gap-3 px-panel py-3.5 transition-colors duration-150 hover:bg-fill-subtle">
       <IconSquare
         active={paid}
         onClick={paid ? onUnmarkPaid : onMarkPaid}

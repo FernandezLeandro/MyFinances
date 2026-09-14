@@ -38,7 +38,7 @@ function HeroStat({ label, cents, tone, hint }: { label: string; cents: number; 
  *  componente compartido. */
 function MonthGroupHeader({ label, hint, hintTone, totalCents }: { label: string; hint: string; hintTone: 'negative' | 'muted'; totalCents: number }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-fill-subtle px-6 py-[7px]">
+    <div className="flex items-center justify-between gap-3 bg-fill-subtle px-panel py-[7px]">
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-semibold tracking-[0.1em] text-fg-secondary uppercase">{label}</span>
         <span className={cn('text-[11px] font-semibold', hintTone === 'negative' ? 'text-negative' : 'text-fg-muted')}>{hint}</span>
@@ -78,7 +78,7 @@ function ReceivableRow({
     <li className="border-b border-divider last:border-b-0">
       {/* Escritorio: avatar + nombre/nota a la izquierda, barra de avance (190px) con el abonado
           debajo, importe y el "+" de registrar abono. */}
-      <div className="hidden items-center gap-3.5 px-6 py-3 transition-colors duration-150 hover:bg-fill-subtle lg:flex">
+      <div className="hidden items-center gap-3.5 px-panel py-3 transition-colors duration-150 hover:bg-fill-subtle lg:flex">
         <Avatar initials={initials} size="sm" shape="square" tone="accent" />
         <button type="button" onClick={onOpenDetail} aria-label={`${receivable.name}: ver detalle`} className="flex min-w-0 flex-1 items-center text-left">
           <div className="min-w-0 flex-1">
@@ -105,7 +105,7 @@ function ReceivableRow({
 
       {/* Mobile: la barra de 190px no entra al lado del resto — se achica e integra en la misma
           línea que la nota, como hace el mock. */}
-      <div className="flex items-center gap-3 px-6 py-3 transition-colors duration-150 hover:bg-fill-subtle lg:hidden">
+      <div className="flex items-center gap-3 px-panel py-3 transition-colors duration-150 hover:bg-fill-subtle lg:hidden">
         <Avatar initials={initials} size="sm" shape="square" tone="accent" />
         <button type="button" onClick={onOpenDetail} aria-label={`${receivable.name}: ver detalle`} className="flex min-w-0 flex-1 items-center text-left">
           <div className="min-w-0 flex-1">
@@ -212,7 +212,7 @@ export function MeDeben() {
       </header>
 
       {isError ? (
-        <Panel className="px-6 py-10">
+        <Panel className="px-panel py-10">
           <ErrorState onRetry={() => refetch()} />
         </Panel>
       ) : isPending ? (
@@ -231,7 +231,7 @@ export function MeDeben() {
         </Panel>
       ) : (
         <div className="flex flex-col gap-4">
-          <Panel className="flex flex-col gap-6 p-[18px] lg:flex-row lg:items-center lg:gap-10 lg:p-7">
+          <Panel className="flex flex-col gap-6 p-panel-tight lg:flex-row lg:items-center lg:gap-10 lg:p-7">
             <div className="lg:hidden">
               <p className="eyebrow">Te deben en total</p>
               <Money cents={summary.totalPendingCents} size="hero" className="mt-1" />
@@ -305,7 +305,7 @@ export function MeDeben() {
               }
             />
             {summary.pendientes.length === 0 ? (
-              <p className="px-6 pt-2 pb-5 text-[13px] text-fg-muted">No tenés deudas pendientes.</p>
+              <p className="px-panel pt-2 pb-5 text-[13px] text-fg-muted">No tenés deudas pendientes.</p>
             ) : (
               <>
                 {groups.map((group) => {
@@ -332,7 +332,7 @@ export function MeDeben() {
                     </div>
                   )
                 })}
-                <div className="flex items-center justify-between gap-3 px-6 py-3.5">
+                <div className="flex items-center justify-between gap-3 px-panel py-3.5">
                   <span className="text-[12px] text-fg-muted">Total pendiente</span>
                   <Money cents={summary.totalPendingCents} size="row" />
                 </div>
@@ -341,7 +341,7 @@ export function MeDeben() {
           </Panel>
 
           {summary.cobradas.length > 0 && (
-            <Panel className="p-5">
+            <Panel className="p-panel-tight">
               <AccordionHeader
                 label={`Cobradas (${summary.cobradas.length})`}
                 extra={<Money cents={summary.cobradas.reduce((sum, s) => sum + s.receivable.amountCents, 0)} tone="dim" size="row" />}
@@ -349,7 +349,7 @@ export function MeDeben() {
                 onToggle={() => setCobradasExpanded((v) => !v)}
               />
               {cobradasExpanded && (
-                <ul className="mt-3 -mx-5">
+                <ul className="mt-3 -mx-panel-tight">
                   {summary.cobradas.map((item) => (
                     <li
                       key={item.receivable.id}

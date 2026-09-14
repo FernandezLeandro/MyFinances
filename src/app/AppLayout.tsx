@@ -4,6 +4,7 @@ import { PageSkeleton } from '@/components/ui/PageSkeleton'
 import { TopBar } from '@/app/TopBar'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { AccountDrawer } from '@/app/AccountMenu'
+import { MAIN_SHELL_CLASS } from '@/app/mainShell'
 import { overflowNavItemsFor, sidebarNavItemsFor, tabBarNavItemsFor } from '@/app/nav'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
@@ -43,10 +44,7 @@ export function AppLayout() {
           como un overlay fijo al viewport — no acá como mask del scroll (ver su comentario: un mask
           con `mask-attachment: fixed` deja lo que caiga en esa franja atenuado para siempre, sin
           que scrollear lo despeje). */}
-      {/* `md:min-h-[calc(100dvh-58px)]`: desde `md:` la `TopBar` sticky (h-[58px]) ya ocupa lugar
-          arriba — pedirle a `main` el viewport entero además de eso deja la página siempre 58px
-          más alta que la pantalla, con scroll aunque el contenido real no lo necesite. */}
-      <main className="min-h-dvh px-5 pt-8 pb-28 sm:px-8 md:min-h-[calc(100dvh-58px)] md:pt-10 md:pb-16">
+      <main className={MAIN_SHELL_CLASS}>
         <div className="mx-auto w-full max-w-[1600px] xl:w-[90%]">
           {/* Sólo el contenido suspende, no el shell (nav/header) — así no parpadea al navegar. */}
           <Suspense fallback={<PageSkeleton />}>
