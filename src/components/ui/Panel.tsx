@@ -41,7 +41,7 @@ interface PanelHeaderProps {
  *  normal y una acción a la derecha, ver `CardHeader`. */
 export function PanelHeader({ title, action, hint }: PanelHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4">
+    <div className="flex items-start justify-between gap-4 px-panel pt-5 pb-4">
       <div>
         <h2 className="eyebrow">{title}</h2>
         {hint && <p className="mt-1.5 text-[13px] text-fg-muted">{hint}</p>}
@@ -63,7 +63,7 @@ interface CardHeaderProps {
  */
 export function CardHeader({ title, action }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-2">
+    <div className="flex items-center justify-between gap-4 px-panel pt-5 pb-2">
       <h2 className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg">{title}</h2>
       {action}
     </div>

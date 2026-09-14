@@ -185,7 +185,7 @@ function ItemRow({
   return (
     <li className="border-t border-divider first:border-t-0">
       {/* Escritorio: nombre/chips a la izquierda, meta (180px), valor (120px) y las acciones explícitas. */}
-      <div className="hidden items-center gap-[18px] px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle lg:flex">
+      <div className="hidden items-center gap-[18px] px-panel py-3.5 transition-colors duration-150 hover:bg-fill-subtle lg:flex">
         <button type="button" onClick={() => onOpenDetail(bucket)} className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-left">
           <span className="flex items-center gap-2">
             <span className="text-[13.5px] font-semibold text-fg">{bucket.name}</span>
@@ -373,15 +373,15 @@ export function Ahorros() {
         <ErrorState onRetry={() => refetch()} />
       ) : isPending ? (
         <div className="flex flex-col gap-4">
-          <Panel className="p-6">
+          <Panel className="p-panel">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="mt-4 h-11 w-56" />
           </Panel>
-          <Panel className="p-6">
+          <Panel className="p-panel">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="mt-4 h-14 w-full" />
           </Panel>
-          <Panel className="p-6">
+          <Panel className="p-panel">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="mt-4 h-3 w-full rounded-pill" />
           </Panel>
@@ -398,7 +398,7 @@ export function Ahorros() {
           {/* Total guardado — el hero contesta una sola pregunta. Invertido, ganancia y el
               equivalente en dólares suben como cifras secundarias en el mismo bloque, con la barra
               de aportado vs. ganancia — no un panel aparte. */}
-          <Panel className="p-6 lg:p-7">
+          <Panel className="p-panel lg:p-7">
             <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:gap-11">
               <div className="shrink-0">
                 <p className="eyebrow">Total guardado</p>
@@ -486,7 +486,7 @@ export function Ahorros() {
 
           {/* Composición — donut cortado en 5 filas (top 4 + "Otros"), el detalle completo se abre
               en un modal aparte en vez de crecer sin límite (ver DECISIONES.md, tanda 15a). */}
-          <Panel className="p-6">
+          <Panel className="p-panel">
             {slices == null ? (
               <p className="text-[13px] text-fg-muted">Cotización no disponible para calcular la composición.</p>
             ) : slices.length === 0 ? (

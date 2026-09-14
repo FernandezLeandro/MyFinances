@@ -282,7 +282,7 @@ export function Analisis() {
       </header>
 
       {isError ? (
-        <Panel className="px-6 py-10">
+        <Panel className="px-panel py-10">
           <ErrorState onRetry={() => spendQuery.refetch()} />
         </Panel>
       ) : isPending ? (
@@ -305,7 +305,7 @@ export function Analisis() {
         </Panel>
       ) : (
         <div className="flex flex-col gap-4">
-          <Panel className="flex flex-col gap-6 p-[18px] lg:flex-row lg:items-center lg:gap-9 lg:p-6">
+          <Panel className="flex flex-col gap-6 p-panel-tight lg:flex-row lg:items-center lg:gap-9 lg:p-6">
             <div className="flex-none text-center lg:text-left">
               <p className="eyebrow">Gastaste en {heroPeriodLabel}</p>
               <div className="mt-1 flex items-baseline justify-center gap-3 lg:justify-start">
@@ -360,7 +360,7 @@ export function Analisis() {
               columna-por-columna que tiene sentido en desktop. */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.85fr_1fr] lg:items-start">
             <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-              <Panel className="order-1 p-6 lg:order-none">
+              <Panel className="order-1 p-panel lg:order-none">
                 <p className="eyebrow">En qué se fue la plata</p>
                 <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row lg:gap-8">
                   <CategoryDonut data={donutData} onSelect={goToCategory} centerLabel="gasto" size={196} />
@@ -422,7 +422,7 @@ export function Analisis() {
                 </div>
               </Panel>
 
-              <Panel className="order-4 p-6 lg:order-none">
+              <Panel className="order-4 p-panel lg:order-none">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="eyebrow">Promedio mensual por categoría</p>
                   {promedioMesesLabel && <span className="text-[11.5px] text-fg-muted">{promedioMesesLabel}</span>}
@@ -503,7 +503,7 @@ export function Analisis() {
             </div>
 
             <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-              <Panel className="order-2 p-6 lg:order-none">
+              <Panel className="order-2 p-panel lg:order-none">
                 <p className="eyebrow">Fijo vs. variable</p>
                 <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
                   <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
@@ -535,7 +535,7 @@ export function Analisis() {
                 </p>
               </Panel>
 
-              <Panel className="order-3 p-6 lg:order-none">
+              <Panel className="order-3 p-panel lg:order-none">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="eyebrow">Top categorías vs. período anterior</p>
                 </div>

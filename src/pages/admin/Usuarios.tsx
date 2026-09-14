@@ -198,7 +198,7 @@ export function Usuarios() {
             }
           />
 
-          <div className="px-6 pb-6">
+          <div className="px-panel pb-6">
             {isError ? (
               <ErrorState onRetry={() => refetch()} />
             ) : isPending ? (
@@ -228,7 +228,7 @@ export function Usuarios() {
           </div>
         </Panel>
 
-        <Panel className="p-6">
+        <Panel className="p-panel">
           <p className="eyebrow">Por plan</p>
           <div className="mt-4 flex flex-col gap-2.5">
             {PLANS.map((p) => (

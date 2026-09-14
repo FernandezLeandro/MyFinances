@@ -139,7 +139,7 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
       )}
     >
       <div className="relative flex max-h-[85vh] flex-col sm:max-h-[80vh]">
-        <div className="flex shrink-0 items-center justify-between gap-4 px-6 pt-6 pb-2">
+        <div className="flex shrink-0 items-center justify-between gap-4 px-panel pt-6 pb-2">
           <h2 id="dialog-title" className="font-display text-lg font-semibold">
             {title}
           </h2>
@@ -153,7 +153,7 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-panel py-4">{children}</div>
 
         {footer && (
           <div
@@ -165,7 +165,7 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
                   // primaria (última en el DOM) arriba y Eliminar, cuando existe, siempre al final —
                   // el orden inverso del que ya tiene sentido en escritorio, donde ese mismo `mr-auto`
                   // lo manda al extremo izquierdo en vez de al fondo de la pila.
-                  'flex flex-col-reverse gap-2 px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
+                  'flex flex-col-reverse gap-2 px-panel pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
             )}
           >
             {footer}

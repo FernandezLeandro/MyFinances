@@ -314,7 +314,7 @@ export function Hoy() {
     <div className="flex flex-col gap-4">
       {canMovimientosManuales ? (
         /* Saldo actual — la única cifra que contesta "cuánto me queda para gastar". */
-        <Panel className="flex flex-col gap-6 p-6 lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-11 lg:gap-y-5 lg:p-7">
+        <Panel className="flex flex-col gap-6 p-panel lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-11 lg:gap-y-5 lg:p-7">
           <div className="flex-none">
             <div className="flex items-center gap-2">
               <p className="eyebrow">Saldo actual</p>
@@ -424,7 +424,7 @@ export function Hoy() {
           )}
 
           {canAnalisis && (
-            <Panel className="p-[22px]">
+            <Panel className="p-panel-tight">
               <p className="eyebrow">En qué se fue el mes</p>
               {spendQuery.isError ? (
                 <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
@@ -460,7 +460,7 @@ export function Hoy() {
             </Panel>
           )}
 
-          <Panel className={cn('p-[22px]', !showDesktopExtras && 'lg:col-span-3')}>
+          <Panel className={cn('p-panel-tight', !showDesktopExtras && 'lg:col-span-3')}>
             <div className="flex items-baseline justify-between">
               <p className="eyebrow">Vencimientos</p>
               <Link to="/fijos" className="text-[12px] font-semibold text-accent-text">
@@ -523,7 +523,7 @@ export function Hoy() {
           />
         )}
 
-        <Panel className="p-[18px]">
+        <Panel className="p-panel-tight">
           <div className="flex items-baseline justify-between">
             <p className="eyebrow">Próximos vencimientos</p>
             <Link to="/fijos" className="text-[11.5px] font-semibold text-accent-text">
@@ -549,8 +549,10 @@ export function Hoy() {
                         </span>
                       )}
                     </div>
-                    <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
-                    <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto" hidden={balanceHidden} />
+                    <Badge variant={urgencyBadgeVariant[urgency]} className="shrink-0">
+                      {urgencyTag(dueDay, urgency)}
+                    </Badge>
+                    <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto shrink-0" hidden={balanceHidden} />
                   </li>
                 )
               })}
@@ -561,8 +563,12 @@ export function Hoy() {
 
       {/* Movimientos del mes · rail derecho (Libre + Mis deudas, sólo escritorio). */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
-        <Panel className="flex flex-col p-[22px]">
-          <div className="flex items-baseline justify-between">
+        {/* `py-panel-tight` sin `px`: el gutter horizontal lo pone cada hijo (título, `GroupHeader`,
+            filas), no el panel — así `TransactionRow` sangra su `px-panel` hasta el borde de la
+            tarjeta y el hover llega hasta el borde, en vez de sumarse al padding del panel y dejar
+            el punto de categoría a casi el doble de distancia que el título de arriba. */}
+        <Panel className="flex flex-col py-panel-tight">
+          <div className="flex items-baseline justify-between px-panel-tight">
             <h2 className="font-display text-[15px] font-semibold text-fg">
               Movimientos de {monthLabel}
             </h2>
@@ -576,7 +582,7 @@ export function Hoy() {
           ) : monthTransactions.isPending ? (
             <ul className="mt-4 flex flex-col gap-1">
               {[0, 1, 2].map((i) => (
-                <li key={i} className="flex items-center gap-3 py-2.5">
+                <li key={i} className="flex items-center gap-3 px-panel-tight py-2.5">
                   <Skeleton className="size-2 shrink-0 rounded-full" />
                   <Skeleton className="h-4 flex-1" />
                   <Skeleton className="h-4 w-20" />
@@ -587,7 +593,7 @@ export function Hoy() {
             <div ref={movementsListRef} className="mt-3 flex flex-col gap-1">
               {groupedRecent.map(([label, txs]) => (
                 <div key={label}>
-                  <GroupHeader label={label} className="pt-2 pb-1" />
+                  <GroupHeader label={label} className="px-panel-tight pt-2 pb-1" />
                   <ul>
                     {txs.map((tx) => (
                       <TransactionRow
@@ -620,7 +626,7 @@ export function Hoy() {
 
         <div className="hidden flex-col gap-4 lg:flex">
           {canMisDeudas && (unpaidCards.length > 0 || unpaidStandalone.length > 0) && (
-            <Panel className="p-[22px]">
+            <Panel className="p-panel-tight">
               <div className="flex items-baseline justify-between">
                 <p className="eyebrow">Mis deudas</p>
                 <Money cents={misDeudasSummary.totalPendingCents} tone="fg" size="row" hidden={balanceHidden} />

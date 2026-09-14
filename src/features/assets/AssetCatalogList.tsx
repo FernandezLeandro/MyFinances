@@ -46,7 +46,7 @@ function AssetRow({
   return (
     <li
       className={cn(
-        'flex flex-wrap items-center gap-x-4 gap-y-1.5 px-6 py-3.5 transition-colors duration-150 hover:bg-fill-subtle',
+        'flex flex-wrap items-center gap-x-4 gap-y-1.5 px-panel py-3.5 transition-colors duration-150 hover:bg-fill-subtle',
         asset.is_archived && 'opacity-50',
       )}
     >
@@ -178,11 +178,11 @@ export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false
   return (
     <>
       {isPending ? (
-        <div className="px-6 pb-5">
+        <div className="px-panel pb-5">
           <Skeleton className="h-16 w-full" />
         </div>
       ) : listedAssets.length === 0 ? (
-        <p className="px-6 pb-5 text-[13px] text-fg-muted">Todavía no hay activos cargados.</p>
+        <p className="px-panel pb-5 text-[13px] text-fg-muted">Todavía no hay activos cargados.</p>
       ) : (
         <ul className="pb-1">
           {listedAssets.map((asset) => (

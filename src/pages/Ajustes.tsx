@@ -54,7 +54,7 @@ function FxPanel() {
   const timeLabel = usdRate.updatedAt ? format(parseISO(usdRate.updatedAt), 'HH:mm') : null
 
   return (
-    <Panel tone="inverse" className="p-6">
+    <Panel tone="inverse" className="p-panel">
       {isPending ? (
         <Skeleton className="h-28 w-full bg-inverse-divider" />
       ) : (
@@ -161,7 +161,7 @@ function AccountsPanel() {
   const archivedCount = (locations ?? []).filter((l) => l.is_archived).length
 
   return (
-    <Panel className="p-5">
+    <Panel className="p-panel-tight">
       <div className="flex items-baseline justify-between gap-3">
         <p className="eyebrow">Cuentas</p>
         {locations && locations.length > 0 && (
@@ -226,7 +226,7 @@ function CiclosPanel() {
   const updateProfile = useUpdateProfile()
 
   return (
-    <Panel className="p-5">
+    <Panel className="p-panel-tight">
       <p className="eyebrow">Ciclo</p>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-muted">Con qué frecuencia mirás tu plata</p>
 
@@ -275,7 +275,7 @@ function AppearancePanel() {
   const [dark, toggle] = useTheme()
 
   return (
-    <Panel className="p-5">
+    <Panel className="p-panel-tight">
       <p className="eyebrow">Apariencia</p>
       <div className="mt-3 flex gap-2">
         <button
@@ -320,7 +320,7 @@ function SecurityPanel() {
   const [open, setOpen] = useState(false)
 
   return (
-    <Panel className="p-5">
+    <Panel className="p-panel-tight">
       <p className="eyebrow">Seguridad</p>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="mt-3 flex w-full items-center gap-3 text-left">
         <div className="min-w-0 flex-1">

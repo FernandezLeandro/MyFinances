@@ -72,6 +72,17 @@
      negative, el azul de "suma" es accent y el gris neutro es border-strong — sólo el ámbar falta. */
   --c-dot-warn: #c9a227;
 
+  /* Espaciado de chasis — gutter de pantalla y padding de tarjeta. Escalan por viewport (abajo)
+     en vez de por prefijo responsive en cada clase: el gutter es una decisión de una sola vez, no
+     algo que cada call site tenga que repetir en tres breakpoints. Los valores de mobile vuelven a
+     acercarse a los mocks del handoff (14px de pantalla / 18px de tarjeta a 390px), de los que la
+     implementación se había ido a 20+24. `panel` es el padding normal de tarjeta; `panel-tight` el
+     de las tarjetas densas, que antes convivían como 18/20/22px sin ninguna regla. */
+  --pad-screen: 32px;
+  --pad-top: 32px;
+  --pad-panel: 24px;
+  --pad-panel-tight: 20px;
+
   /* Categorías — 6 colores saturados, pensados para fondo claro */
   --c-cat-1: #1d8f7e;
   --c-cat-2: #c4402a;
@@ -122,6 +133,8 @@
   --c-editing: #1c1f38;
   --c-dot-warn: #e8b45f;
 
+  /* El espaciado no depende del tema — sólo vive en :root. */
+
   /* Categorías — mismas 6, versión clara para contrastar sobre fondo oscuro */
   --c-cat-1: #4fc9b3;
   --c-cat-2: #ff8f75;
@@ -129,6 +142,33 @@
   --c-cat-4: #a08ff0;
   --c-cat-5: #e8b45f;
   --c-cat-6: #a8d94f;
+}
+
+@media (width >= 768px) {
+  :root {
+    --pad-top: 40px;
+  }
+}
+
+/* Teléfono. Un escalón menos en todo el espaciado de chasis. */
+@media (width < 640px) {
+  :root {
+    --pad-screen: 12px;
+    --pad-top: 20px;
+    --pad-panel: 20px;
+    --pad-panel-tight: 16px;
+  }
+}
+
+/* Teléfono chico (iPhone SE, gama baja) — el texto de las filas necesita cada píxel acá. Va
+   después del `< 640px` a propósito: en 360px matchean los dos y gana este, que es más angosto. */
+@media (width < 390px) {
+  :root {
+    --pad-screen: 12px;
+    --pad-top: 16px;
+    --pad-panel: 16px;
+    --pad-panel-tight: 14px;
+  }
 }
 
 @theme inline {
@@ -198,6 +238,12 @@
   --radius-control: 10px;
   --radius-panel: 18px;
   --radius-pill: 999px;
+
+  /* Spacing de chasis — Tailwind v4 genera p-/px-/py-/m-/-mx-/gap- para cada uno. */
+  --spacing-screen: var(--pad-screen);
+  --spacing-top: var(--pad-top);
+  --spacing-panel: var(--pad-panel);
+  --spacing-panel-tight: var(--pad-panel-tight);
 
   /* Sombras: ninguna sobre tarjetas (la separación es por color de superficie). Se reservan para
      elementos flotantes de verdad — el FAB mobile y el modal lift. */

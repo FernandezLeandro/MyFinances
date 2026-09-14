@@ -136,14 +136,14 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
         {items.length === 0 ? (
           <EmptyState glyph="▤" title="Sin cuotas este mes" hint="Cargá una compra para verla acá." />
         ) : (
-          <ul className="-mx-6 mt-2 flex max-h-[40vh] flex-col overflow-y-auto">
+          <ul className="-mx-panel mt-2 flex max-h-[40vh] flex-col overflow-y-auto">
             {items.map((item) => (
               <li key={item.purchase_id ?? `${item.description}-${item.installment_no}`} className="border-t border-fill-subtle first:border-t-0">
                 <button
                   type="button"
                   onClick={() => openEditPurchase(item.purchase_id)}
                   disabled={!item.purchase_id}
-                  className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-150 hover:bg-fill-subtle disabled:hover:bg-transparent"
+                  className="flex w-full items-center gap-3 px-panel py-3 text-left transition-colors duration-150 hover:bg-fill-subtle disabled:hover:bg-transparent"
                 >
                   <span
                     aria-hidden

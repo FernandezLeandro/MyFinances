@@ -146,7 +146,7 @@ export function TransactionFiltersDialog({
       title={view === 'categories' ? 'Categorías' : 'Filtros'}
       footerBleed
       footer={
-        <div className="flex w-full items-center gap-4 bg-surface-sunken px-6 pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex w-full items-center gap-4 bg-surface-sunken px-panel pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={view === 'filters' ? clearDraft : clearCategories}

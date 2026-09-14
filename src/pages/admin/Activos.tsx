@@ -28,7 +28,7 @@ function AddAssetForm() {
   }
 
   return (
-    <div className="border-t border-fill-subtle p-6">
+    <div className="border-t border-fill-subtle p-panel">
       <p className="eyebrow">Agregar activo</p>
       <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas.</p>
       <div className="mt-3 flex flex-col gap-3">

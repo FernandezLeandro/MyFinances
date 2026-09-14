@@ -12,7 +12,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ glyph = '—', title, hint, action, className }: EmptyStateProps) {
   return (
-    <div className={cn('flex flex-col items-center px-6 py-14 text-center', className)}>
+    <div className={cn('flex flex-col items-center px-panel py-14 text-center', className)}>
       <span
         aria-hidden
         className="font-display text-[5rem] leading-none font-bold text-border-strong select-none"

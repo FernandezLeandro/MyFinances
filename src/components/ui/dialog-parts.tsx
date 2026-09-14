@@ -157,7 +157,7 @@ export function DialogBottomBar({
   secondary?: ReactNode
 }) {
   return (
-    <div className="w-full bg-surface-sunken px-6 pt-[15px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="w-full bg-surface-sunken px-panel pt-[15px] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-4">
         {(label || figure) && (
           <span className="flex shrink-0 items-baseline gap-2">

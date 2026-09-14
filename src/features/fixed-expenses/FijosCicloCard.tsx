@@ -59,7 +59,7 @@ export function FijosCicloCard({
   const restPct = Math.max(100 - paidPct - savedPct, 0)
 
   return (
-    <Panel className="flex flex-col gap-5 p-6">
+    <Panel className="flex flex-col gap-5 p-panel">
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow">Fijos de {cycleLabel}</p>
         <div className="flex gap-2">
