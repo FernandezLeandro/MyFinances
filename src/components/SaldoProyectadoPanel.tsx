@@ -1,9 +1,13 @@
+import { cycleEndNoun, cycleThisLabel, type CycleKind } from '@/lib/cycle'
 import { SummaryPanel, type SummaryRow } from '@/components/ui/SummaryPanel'
 
 interface SaldoProyectadoPanelProps {
-  /** "Saldo proyectado a fin de mes" (default, Fijos) — Hoy pasa el título más corto del hero
-   *  ("Proyectado a fin de mes"), que ya tiene su propio "Saldo actual" arriba y no necesita
-   *  repetir la palabra. */
+  /** El ciclo de caja activo (mensual/quincenal/semanal) — decide el "fin de ___" del título
+   *  default y del que arma Hoy. */
+  cycleKind: CycleKind
+  /** "Saldo proyectado a fin de {mes|quincena|semana}" (default, Fijos/Mis Deudas) — Hoy pasa el
+   *  título más corto del hero ("Proyectado a fin de {mes|quincena|semana}"), que ya tiene su
+   *  propio "Saldo actual" arriba y no necesita repetir la palabra. */
   title?: string
   projectedCents: number | undefined
   isPending: boolean
@@ -45,7 +49,8 @@ interface SaldoProyectadoPanelProps {
  * acento (`accent`) sobre una tarjeta normal.
  */
 export function SaldoProyectadoPanel({
-  title = 'Saldo proyectado a fin de mes',
+  cycleKind,
+  title,
   projectedCents,
   isPending,
   currentBalanceCents,
@@ -62,6 +67,8 @@ export function SaldoProyectadoPanel({
 }: SaldoProyectadoPanelProps) {
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
   if (hideWhenNothingPending && !isPending && nothingPending) return null
+
+  const resolvedTitle = title ?? `Saldo proyectado a fin de ${cycleEndNoun(cycleKind)}`
 
   const rows: SummaryRow[] = []
   if (showCurrentBalanceRow) rows.push({ label: 'Saldo actual', cents: currentBalanceCents })
@@ -82,7 +89,7 @@ export function SaldoProyectadoPanel({
 
   return (
     <SummaryPanel
-      title={title}
+      title={resolvedTitle}
       cents={projectedCents}
       isPending={isPending}
       hidden={hidden}
@@ -96,7 +103,7 @@ export function SaldoProyectadoPanel({
         ) : undefined
       }
       rows={rows}
-      footnote={footnote ?? (nothingPending ? 'No tenés fijos ni deudas pendientes este mes.' : undefined)}
+      footnote={footnote ?? (nothingPending ? `No tenés fijos ni deudas pendientes ${cycleThisLabel(cycleKind)}.` : undefined)}
     />
   )
 }
