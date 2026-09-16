@@ -471,6 +471,7 @@ export function MisDeudas() {
 
           <div className="flex min-w-0 flex-col gap-4">
             <SaldoProyectadoPanel
+              cycleKind={cycle.kind}
               projectedCents={projectedBalance}
               isPending={isProjectedPending}
               currentBalanceCents={currentBalance ?? 0}

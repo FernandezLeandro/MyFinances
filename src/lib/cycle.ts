@@ -173,6 +173,26 @@ export function cycleLabel(cycle: Cycle): string {
   return `${fromLabel} – ${toLabel}`
 }
 
+/** Sustantivo de "fin de ___" para los títulos del saldo proyectado — "mes" (mensual), "quincena"
+ *  (quincenal) o "semana" (semanal). Antes esos títulos traían "fin de mes" fijo en `Hoy`/`Fijos`/
+ *  `MisDeudas`, lo cual quedaba mal con un ciclo quincenal o semanal configurado. */
+export function cycleEndNoun(kind: CycleKind): string {
+  switch (kind) {
+    case 'monthly':
+      return 'mes'
+    case 'biweekly':
+      return 'quincena'
+    case 'weekly':
+      return 'semana'
+  }
+}
+
+/** "este mes" / "esta quincena" / "esta semana" — mismo uso que `cycleEndNoun` pero con el
+ *  demostrativo concordado en género, para frases tipo "No tenés fijos pendientes {esto}.". */
+export function cycleThisLabel(kind: CycleKind): string {
+  return kind === 'monthly' ? 'este mes' : `esta ${cycleEndNoun(kind)}`
+}
+
 /** Versión corta para la píldora de mobile — igual criterio que `MonthNav`'s `mobileLabel`. */
 export function cycleShortLabel(cycle: Cycle): string {
   if (cycle.kind === 'monthly') return format(parseISO(cycle.from), 'MMMM', { locale: es })
