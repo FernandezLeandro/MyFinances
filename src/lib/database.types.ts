@@ -657,6 +657,7 @@ export interface Database {
           p_amount?: number | string | null
           p_note?: string | null
           p_account_id?: string | null
+          p_occurred_on?: string | null
         }
         Returns: undefined
       }
@@ -672,6 +673,7 @@ export interface Database {
           p_generate_movement?: boolean
           p_note?: string | null
           p_account_id?: string | null
+          p_occurred_on?: string | null
         }
         Returns: undefined
       }

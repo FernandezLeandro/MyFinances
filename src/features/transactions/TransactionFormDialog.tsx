@@ -292,6 +292,15 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
+        {/* Simétrico a desmarcar desde Fijos (que borra el movimiento): un trigger en la base
+            desmarca el fijo si este movimiento se borra desde acá (`fixed_expense_payment_fecha`,
+            bloque 2). Sólo aviso, sin confirmación aparte — se borra con el mismo botón Eliminar. */}
+        {isEditing && transaction.fixed_expense_payment_id && (
+          <p className="text-[12px] text-fg-muted">
+            Este movimiento viene de pagar un fijo: si lo eliminás, el fijo vuelve a quedar pendiente.
+          </p>
+        )}
+
         <div className="flex gap-2">
           <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
             Gasto

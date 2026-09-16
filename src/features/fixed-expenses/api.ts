@@ -236,6 +236,7 @@ export function useMarkFixedExpensePaid() {
       cents,
       note,
       accountId,
+      occurredOn,
     }: {
       fixedExpenseId: string
       period: string
@@ -248,6 +249,9 @@ export function useMarkFixedExpensePaid() {
       note?: string | null
       /** Con qué se pagó — ver `p_account_id` en la migración `cuentas_en_pagos`. */
       accountId?: string | null
+      /** Fecha real del pago (`yyyy-MM-dd`) — `undefined`/`null` es "hoy", igual que antes de esta
+       *  fecha elegible. Ver la migración `fixed_expense_payment_fecha`. */
+      occurredOn?: string | null
     }) => {
       const { error } = await supabase.rpc('rpc_mark_fixed_expense_paid', {
         p_fixed_expense_id: fixedExpenseId,
@@ -255,6 +259,7 @@ export function useMarkFixedExpensePaid() {
         p_amount: centsToNumeric(cents),
         p_note: note ?? null,
         p_account_id: accountId ?? null,
+        p_occurred_on: occurredOn ?? null,
       })
       if (error) throw error
     },
@@ -295,6 +300,7 @@ export function useAddFixedExpenseSaving() {
       note,
       generateMovement = false,
       accountId,
+      occurredOn,
     }: {
       fixedExpenseId: string
       period: string
@@ -306,6 +312,9 @@ export function useAddFixedExpenseSaving() {
       generateMovement?: boolean
       /** Con qué se guardó — sólo aplica si `generateMovement`. */
       accountId?: string | null
+      /** Fecha real del movimiento generado — sólo importa si `generateMovement`. `undefined`/`null`
+       *  es "hoy". Ver la migración `fixed_expense_payment_fecha`. */
+      occurredOn?: string | null
     }) => {
       if (!user) throw new Error('No autenticado')
       const { error } = await supabase.rpc('rpc_add_fixed_expense_saving', {
@@ -315,6 +324,7 @@ export function useAddFixedExpenseSaving() {
         p_generate_movement: generateMovement,
         p_note: note ?? null,
         p_account_id: accountId ?? null,
+        p_occurred_on: occurredOn ?? null,
       })
       if (error) throw error
     },

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { format, parseISO, startOfMonth } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
@@ -65,7 +66,10 @@ export function MarkPaidDialog({
   const isSaving = !isRecurring && mode === 'save'
   const [input, setInput] = useState(() => (isRecurring ? '' : centsToInputText(fixedExpense.cents)))
   const [note, setNote] = useState('')
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const [occurredOn, setOccurredOn] = useState(today)
   const [error, setError] = useState<string | null>(null)
+  const [dateError, setDateError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
   const addSaving = useAddFixedExpenseSaving()
   const canCuentas = useCan('cuentas')
@@ -86,6 +90,16 @@ export function MarkPaidDialog({
       ? Math.max(fixedExpense.cents - alreadySavedCents - (cents ?? 0), 0)
       : 0
   const isPending = markPaid.isPending || addSaving.isPending
+  // El campo Fecha sólo tiene sentido cuando de verdad se va a generar un movimiento — pagar una
+  // bolsa/fijo siempre genera uno (o, con todo cubierto por guardados, ninguno, pero la fecha sigue
+  // siendo la del pago); guardar "aparte" no.
+  const showDateField = !isSaving || (canMovimientosManuales && generateMovement)
+  // Una bolsa ubica su carga por `paid_at`, no por el `period` que le pasó el que abrió este diálogo
+  // (el mes/quincena/semana EN CURSO al abrir) — si la fecha elegida cae en otro mes, la carga tiene
+  // que quedar en el mes de esa fecha (ver `bag_cycle_from`/`bag_cycle_to` y el `period` que arma
+  // `RegisterFixedExpenseDialog`/`Fijos.tsx`). Un fijo de una sola vez sigue usando el período que le
+  // pasaron: pagar el de septiembre el 30/8 es válido y sigue siendo el pago de septiembre.
+  const effectivePeriod = isRecurring && occurredOn ? format(startOfMonth(parseISO(occurredOn)), 'yyyy-MM-dd') : period
 
   // Lo guardado "aparte" (sin movimiento): informativo en el modo Pagar, pero nunca descuenta del
   // movimiento que genera el pago — esa plata todavía no salió de ningún lado.
@@ -99,6 +113,7 @@ export function MarkPaidDialog({
     if (next === mode) return
     setMode(next)
     setError(null)
+    setDateError(null)
     // Pagar sugiere el importe del fijo (el caso dominante: "vino igual, confirmo") — Guardar
     // sugiere lo que todavía falta juntar, para que "guardar el resto" sea completar sin pensar.
     setInput(next === 'pay' ? centsToInputText(fixedExpense.cents) : centsToInputText(Math.max(fixedExpense.cents - alreadySavedCents, 0)))
@@ -109,23 +124,30 @@ export function MarkPaidDialog({
       setError('Ingresá un importe válido')
       return
     }
+    if (showDateField && !occurredOn) {
+      setDateError('Falta la fecha')
+      return
+    }
     if (isSaving) {
+      const savingWithMovement = canMovimientosManuales && generateMovement
       await addSaving.mutateAsync({
         fixedExpenseId: fixedExpense.id,
         period,
         cents,
         // BASIC no tiene el switch (siempre `false` acá, ver el guard del JSX) — en el resto de los
         // planes manda lo que haya elegido el usuario.
-        generateMovement: canMovimientosManuales && generateMovement,
-        accountId: canMovimientosManuales && generateMovement ? accountId || null : null,
+        generateMovement: savingWithMovement,
+        accountId: savingWithMovement ? accountId || null : null,
+        occurredOn: savingWithMovement ? occurredOn : null,
       })
     } else {
       await markPaid.mutateAsync({
         fixedExpenseId: fixedExpense.id,
-        period,
+        period: effectivePeriod,
         cents,
         note: note.trim() || null,
         accountId: accountId || null,
+        occurredOn,
       })
     }
     onClose()
@@ -208,6 +230,21 @@ export function MarkPaidDialog({
             autoFocus={isRecurring}
           />
         </Field>
+
+        {showDateField && (
+          <Field label="Fecha" error={dateError ?? undefined}>
+            <Input
+              type="date"
+              value={occurredOn}
+              max={today}
+              invalid={!!dateError}
+              onChange={(e) => {
+                setOccurredOn(e.target.value)
+                setDateError(null)
+              }}
+            />
+          </Field>
+        )}
 
         {isRecurring && (
           <Field label="Detalle" hint="Opcional — es lo que se ve en el movimiento">
