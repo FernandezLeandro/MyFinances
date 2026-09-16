@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { Field, Input } from '@/components/ui/Input'
+import { Field, Input, PasswordInput } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { FormError } from '@/components/ui/FormError'
 import { supabase } from '@/lib/supabase'
@@ -47,9 +47,8 @@ export function Login() {
       </Field>
 
       <Field label="Contraseña" htmlFor="password" error={errors.password?.message}>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           fieldSize="auth"
           autoComplete="current-password"
           invalid={!!errors.password}
