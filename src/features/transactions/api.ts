@@ -265,6 +265,15 @@ export function useDeleteTransaction() {
       const { error } = await supabase.from('transactions').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidateAll(queryClient, user?.id),
+    onSuccess: () => {
+      invalidateAll(queryClient, user?.id)
+      // Borrar el movimiento de un pago desmarca el fijo en la base (trigger
+      // `transactions_unmark_fixed_payment`, migración `fixed_expense_payment_fecha`) — sin esto,
+      // Fijos/Hoy/`RegisterFixedExpenseDialog` seguían mostrando el fijo como pagado hasta el
+      // próximo refetch por otra causa. Sólo en delete, no en create/update: `invalidateAll` es
+      // compartida por las tres.
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-savings', user?.id] })
+    },
   })
 }

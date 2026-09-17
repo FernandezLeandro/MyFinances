@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useLocation } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Plus, SlidersHorizontal } from 'lucide-react'
@@ -18,16 +18,17 @@ import { GroupHeader } from '@/components/ui/GroupHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Pagination } from '@/components/ui/Pagination'
 import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
-import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
 import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
+import { PAGE_SIZE_OPTIONS, usePageSize, type PageSize } from '@/features/transactions/usePageSize'
 import {
   MOVEMENT_PERIOD_PRESET_LABELS,
   defaultMovementPeriod,
@@ -90,6 +91,7 @@ export function Movimientos() {
   // asignar" en Cuadrar Saldo (el filtro de cuenta en sí, con un período bien amplio para no
   // limitarlo al mes actual).
   const location = useLocation()
+  const navigate = useNavigate()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
   const cycleConfig = useCycleConfig()
 
@@ -122,13 +124,18 @@ export function Movimientos() {
   const unmarkFixedPayment = useUnmarkFixedExpensePayment()
 
   const [formOpen, setFormOpen] = useState(false)
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
   // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
   // el resumen del período.
   const [summaryOpen, setSummaryOpen] = useState(false)
+
+  // Paginación del lado del cliente: se sigue trayendo el período entero (tope `TRANSACTIONS_ROW_LIMIT`
+  // más abajo) y se corta en páginas acá — el contador de la barra de filtros, el pie de la tabla, el
+  // resumen y "Exportar CSV" siguen usando la lista completa, sin paginar.
+  const [pageSize, setPageSize] = usePageSize()
+  const [page, setPage] = useState(1)
 
   const { data: transactions, isPending, isError, refetch } = useTransactions({
     from,
@@ -149,15 +156,58 @@ export function Movimientos() {
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
 
+  const totalCount = transactions?.length ?? 0
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
+  // Clampeada en el render, no sólo en el `useEffect` de abajo — si la lista se achica sola (ej. se
+  // borró el último movimiento de la última página) y `page` quedó fuera de rango, esto evita un
+  // frame con la tabla vacía antes de que el effect corrija el estado.
+  const effectivePage = Math.min(page, pageCount)
+
+  // Vuelve a la página 1 apenas cambia lo que determina QUÉ se lista — si no, cambiar de mes con la
+  // página en 3 podría mostrar una página vacía o, peor, un tercer grupo de días que no tiene nada
+  // que ver con el período nuevo.
+  useEffect(() => {
+    setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, filters.type, categoryIds, accountIds, search, pageSize])
+
+  // Persiste el clamp del render de arriba en el estado, para que "anterior" desde acá siga dando
+  // la página correcta.
+  useEffect(() => {
+    setPage(effectivePage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePage])
+
+  const pagedTransactions = useMemo(
+    () => (transactions ?? []).slice((effectivePage - 1) * pageSize, effectivePage * pageSize),
+    [transactions, effectivePage, pageSize],
+  )
+
+  // Neto de cada DÍA, sobre la lista completa — si un día queda partido entre dos páginas, el
+  // encabezado sigue mostrando el total real de ese día, no sólo el de lo que entró en esta página.
+  const dayTotals = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const tx of transactions ?? []) {
+      const delta = tx.type === 'income' ? tx.cents : -tx.cents
+      totals.set(tx.occurred_on, (totals.get(tx.occurred_on) ?? 0) + delta)
+    }
+    return totals
+  }, [transactions])
+
   const byDay = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
-    for (const tx of transactions ?? []) {
+    for (const tx of pagedTransactions) {
       const list = groups.get(tx.occurred_on) ?? []
       list.push(tx)
       groups.set(tx.occurred_on, list)
     }
     return [...groups.entries()]
-  }, [transactions])
+  }, [pagedTransactions])
+
+  function goToPage(next: number) {
+    setPage(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const summary = useMemo(
     () => summarizeTransactions(periodTransactions ?? [], from, to, new Date()),
@@ -231,7 +281,7 @@ export function Movimientos() {
           >
             Exportar CSV
           </Button>
-          <Button variant="outline" size="compact" onClick={() => setCategoriesOpen(true)}>
+          <Button variant="outline" size="compact" onClick={() => navigate('/categorias')}>
             Categorías
           </Button>
           {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
@@ -485,7 +535,7 @@ export function Movimientos() {
           </div>
 
           {byDay.map(([day, items]) => {
-            const total = items.reduce((acc, t) => acc + (t.type === 'income' ? t.cents : -t.cents), 0)
+            const total = dayTotals.get(day) ?? 0
             return (
               <div key={day}>
                 <GroupHeader
@@ -520,6 +570,19 @@ export function Movimientos() {
             )
           })}
 
+          {/* Sólo si hay algo que paginar — con 10 o menos, ningún tamaño de página corta nada. */}
+          {totalCount > 10 && (
+            <Pagination
+              page={effectivePage}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              total={totalCount}
+              onPageChange={goToPage}
+              onPageSizeChange={(size) => setPageSize(size as PageSize)}
+            />
+          )}
+
           <div className="flex items-center justify-between gap-3 border-t border-divider px-panel py-3 text-[12px] text-fg-muted">
             <span>
               {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'} del período
@@ -535,7 +598,6 @@ export function Movimientos() {
       {formOpen && (
         <TransactionFormDialog open={formOpen} onClose={() => setFormOpen(false)} transaction={editingTx} />
       )}
-      {categoriesOpen && <CategoryManagerDialog open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />}
       {filtersOpen && (
         <TransactionFiltersDialog
           open={filtersOpen}

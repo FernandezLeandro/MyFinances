@@ -7,13 +7,17 @@ interface ColorPickerProps {
   className?: string
 }
 
-/** Los 8 swatches de `CATEGORY_COLORS` — el elegido lleva un anillo doble (hueco de `surface` +
- *  el propio color) en vez de un borde simple, para que se note incluso al lado de un swatch de
- *  color parecido. Reemplaza el picker libre de antes: una categoría nueva ya no elige un hex a
- *  mano, elige uno de estos ocho. */
+/** Los swatches de `CATEGORY_COLORS` — el elegido lleva un anillo doble (hueco de `surface` + el
+ *  propio color) en vez de un borde simple, para que se note incluso al lado de un swatch de color
+ *  parecido. Reemplaza el picker libre de antes: una categoría nueva ya no elige un hex a mano,
+ *  elige uno de estos.
+ *
+ *  `flex-wrap` con un ancho tope de 7 por fila: en una sola línea los 14 no entran ni de cerca en el
+ *  editor de fila en mobile (`CategoryRowEditor`), donde comparten renglón con "Cancelar"/"Guardar".
+ *  200px encierra exactamente 7 (22px + 6px de gap cada uno) sin dejar lugar a un octavo. */
 export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
   return (
-    <div className={cn('flex gap-1.5', className)}>
+    <div className={cn('flex max-w-[200px] flex-wrap gap-1.5', className)}>
       {CATEGORY_COLORS.map((c) => {
         const selected = value.toLowerCase() === c.hex.toLowerCase()
         return (

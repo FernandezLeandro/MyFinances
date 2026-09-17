@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
@@ -15,6 +16,7 @@ import { ChangePasswordForm } from '@/features/auth/ChangePasswordPanel'
 import { useBalanceLocations } from '@/features/reconciliation/api'
 import { accountKindIcon } from '@/features/accounts/accountKind'
 import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
+import { useCategories } from '@/features/categories/api'
 import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
 import { useCan } from '@/features/access/useCan'
@@ -200,6 +202,49 @@ function AccountsPanel() {
   )
 }
 
+/** Mismo patrón que `AccountsPanel`: chips de las activas + link a la pantalla completa
+ *  (`/categorias`), donde vive archivar/eliminar con sus confirmaciones. */
+function CategoriesPanel() {
+  const { data: categories } = useCategories(true)
+  const active = (categories ?? []).filter((c) => !c.is_archived)
+  const archivedCount = (categories ?? []).filter((c) => c.is_archived).length
+
+  return (
+    <Panel className="p-panel-tight">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="eyebrow">Categorías</p>
+        {categories && categories.length > 0 && (
+          <span className="shrink-0 text-[11.5px] text-fg-muted">
+            {active.length} activa{active.length === 1 ? '' : 's'}
+            {archivedCount > 0 && ` · ${archivedCount} archivada${archivedCount === 1 ? '' : 's'}`}
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-muted">Con qué se agrupa cada movimiento</p>
+
+      <div className="mt-3.5 flex flex-wrap gap-1.5">
+        {active.length === 0 ? (
+          <p className="text-[13px] text-fg-muted">Todavía no cargaste ninguna.</p>
+        ) : (
+          active.map((c) => (
+            <span
+              key={c.id}
+              className="inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken py-1.5 pr-[11px] pl-2.5 text-[12px] text-fg"
+            >
+              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+              {c.name}
+            </span>
+          ))
+        )}
+      </div>
+
+      <Link to="/categorias" className="mt-4 inline-block text-[12.5px] font-semibold text-accent hover:opacity-80">
+        Administrar categorías
+      </Link>
+    </Panel>
+  )
+}
+
 const cycleKinds: { value: CycleKind; label: string }[] = [
   { value: 'monthly', label: 'Mensual' },
   { value: 'biweekly', label: 'Quincenal' },
@@ -367,15 +412,18 @@ export function Ajustes() {
           </div>
           <div className="flex flex-col gap-4">
             <AccountsPanel />
+            <CategoriesPanel />
             <CiclosPanel />
             <AppearancePanel />
             <SecurityPanel />
           </div>
         </div>
       ) : (
-        // Plan restringido: sin dólar, activos ni cuentas — nada que gestionar todavía. Sólo lo que
-        // pidió Lean para test/basic, ciclo, tema y seguridad, en una sola columna angosta.
+        // Plan restringido: sin dólar ni cuentas — nada que gestionar todavía ahí. Categorías sí
+        // aplica (fijos y movimientos manuales la usan), sumada a lo que ya pedía Lean para
+        // test/basic: ciclo, tema y seguridad, en una sola columna angosta.
         <div className="flex max-w-[420px] flex-col gap-4">
+          <CategoriesPanel />
           <CiclosPanel />
           <AppearancePanel />
           <SecurityPanel />

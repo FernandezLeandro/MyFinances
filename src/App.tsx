@@ -12,6 +12,7 @@ import { Movimientos } from '@/pages/Movimientos'
 import { Fijos } from '@/pages/Fijos'
 import { MisDeudas } from '@/pages/MisDeudas'
 import { MeDeben } from '@/pages/MeDeben'
+import { Categorias } from '@/pages/Categorias'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -24,7 +25,7 @@ import { ResetPassword } from '@/pages/auth/ResetPassword'
 // peso de gráficos y drag-and-drop que ni siquiera usa. El resto queda eager (ver Suspense abajo).
 const Analisis = lazy(() => import('@/pages/Analisis').then((m) => ({ default: m.Analisis })))
 const Ahorros = lazy(() => import('@/pages/Ahorros').then((m) => ({ default: m.Ahorros })))
-const Categorias = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
+const CategoriasAdmin = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
 const Activos = lazy(() => import('@/pages/admin/Activos').then((m) => ({ default: m.Activos })))
 const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones').then((m) => ({ default: m.Invitaciones })))
 const Usuarios = lazy(() => import('@/pages/admin/Usuarios').then((m) => ({ default: m.Usuarios })))
@@ -71,6 +72,7 @@ export default function App() {
             <Route path="me-deben" element={<RequireCapability cap="me-deben"><MeDeben /></RequireCapability>} />
             <Route path="analisis" element={<RequireCapability cap="analisis"><Analisis /></RequireCapability>} />
             <Route path="ahorros" element={<RequireCapability cap="ahorros"><Ahorros /></RequireCapability>} />
+            <Route path="categorias" element={<Categorias />} />
             <Route path="ajustes" element={<Ajustes />} />
             {/* Rutas viejas: por si alguien tiene el link guardado. */}
             <Route path="invitaciones" element={<Navigate to="/ajustes" replace />} />
@@ -88,7 +90,7 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="/admin/categorias" replace />} />
-            <Route path="categorias" element={<Categorias />} />
+            <Route path="categorias" element={<CategoriasAdmin />} />
             <Route path="activos" element={<Activos />} />
             <Route path="invitaciones" element={<Invitaciones />} />
             <Route path="usuarios" element={<Usuarios />} />

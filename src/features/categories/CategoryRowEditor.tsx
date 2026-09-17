@@ -17,7 +17,7 @@ interface CategoryRowEditorProps {
 /**
  * Fila-editor de una categoría: nombre, tipo y color entran en la propia fila en vez de un
  * formulario fijo aparte — un solo lugar para crear y para editar (20c). Compartida por
- * `CategoryManagerDialog` (cuenta común) y `pages/admin/Categorias.tsx` (catálogo global).
+ * `pages/Categorias.tsx` (cuenta común) y `pages/admin/Categorias.tsx` (catálogo global).
  */
 export function CategoryRowEditor({
   name,

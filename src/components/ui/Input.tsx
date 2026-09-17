@@ -1,5 +1,6 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import type { ChangeEvent, InputHTMLAttributes, ReactNode, Ref } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { sanitizeAmountInput } from '@/lib/money'
 
@@ -71,6 +72,36 @@ export function Input({ className, invalid, fieldSize = 'md', ref, onChange, ...
       onChange={handleChange}
       {...props}
     />
+  )
+}
+
+type PasswordInputProps = Omit<InputProps, 'type'>
+
+/**
+ * Campo de contraseña con el ojo para ver/ocultar lo tipeado. El botón va dentro del control (de
+ * ahí el padding derecho extra) y queda fuera del Tab: el orden natural es campo → submit.
+ */
+export function PasswordInput({ className, ...props }: PasswordInputProps) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <div className="relative">
+      <Input type={visible ? 'text' : 'password'} className={cn('pr-11', className)} {...props} />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-fg-muted transition-colors hover:text-fg"
+      >
+        {visible ? (
+          <EyeOff className="size-4" strokeWidth={1.3} aria-hidden />
+        ) : (
+          <Eye className="size-4" strokeWidth={1.3} aria-hidden />
+        )}
+      </button>
+    </div>
   )
 }
 

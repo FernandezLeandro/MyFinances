@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
 import { useCycle } from '@/lib/useCycle'
-import { cycleShortLabel } from '@/lib/cycle'
+import { cycleEndNoun, cycleShortLabel } from '@/lib/cycle'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { EyeToggle } from '@/components/ui/EyeToggle'
@@ -410,7 +410,8 @@ export function Hoy() {
         <div className={cn('grid gap-4', showDesktopExtras && 'lg:grid-cols-3')}>
           {canMovimientosManuales && (
             <SaldoProyectadoPanel
-              title="Proyectado a fin de mes"
+              cycleKind={cycle.kind}
+              title={`Proyectado a fin de ${cycleEndNoun(cycle.kind)}`}
               projectedCents={projectedBalance}
               isPending={isProjectedPending}
               currentBalanceCents={currentBalanceCents}
@@ -508,7 +509,8 @@ export function Hoy() {
       <div className="flex flex-col gap-4 lg:hidden">
         {canMovimientosManuales && (
           <SaldoProyectadoPanel
-            title="Proyectado a fin de mes"
+            cycleKind={cycle.kind}
+            title={`Proyectado a fin de ${cycleEndNoun(cycle.kind)}`}
             projectedCents={projectedBalance}
             isPending={isProjectedPending}
             currentBalanceCents={currentBalanceCents}

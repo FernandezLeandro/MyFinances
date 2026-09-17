@@ -159,7 +159,7 @@ function AccountEditForm({ location, onDone }: { location: BalanceLocation; onDo
 
 /**
  * Administra las cuentas (antes "lugares") y sus transferencias. Se abre desde Cuadrar Saldo y
- * desde Ajustes/perfil — a diferencia de `CategoryManagerDialog`, el alta acá pide un tipo además
+ * desde Ajustes/perfil — a diferencia de `pages/Categorias.tsx`, el alta acá pide un tipo además
  * del nombre, y cada fila expone "predeterminada" y "archivar" porque son las dos cosas que el
  * selector de cuenta del formulario de movimientos necesita resolver solo (ver `AccountSelect`).
  *

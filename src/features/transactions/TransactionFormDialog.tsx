@@ -101,7 +101,10 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   const isEditing = !!transaction
   const canCuentas = useCan('cuentas')
   const canCompartido = useCan('compartido')
-  const { data: categories } = useCategories()
+  // `true`: incluye archivadas — si el movimiento ya tenía una categoría que después se archivó, el
+  // select tiene que poder seguir mostrándola (ver `categoriesForType` más abajo), o guardar sin
+  // tocar nada le pisa la categoría en silencio.
+  const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
   const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
   const createTx = useCreateTransaction()
@@ -202,7 +205,12 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compartido])
 
-  const categoriesForType = (categories ?? []).filter((c) => c.kind === type)
+  // Activas del tipo elegido, más la actual si está archivada — así no desaparece del select de
+  // abajo al abrir para editar un movimiento viejo.
+  const selectedCategoryId = watch('categoryId')
+  const categoriesForType = (categories ?? []).filter(
+    (c) => c.kind === type && (!c.is_archived || c.id === selectedCategoryId),
+  )
   const totalCents = parseAmountToCents(amount)
   const otroCents =
     compartido && totalCents != null
@@ -292,6 +300,15 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
+        {/* Simétrico a desmarcar desde Fijos (que borra el movimiento): un trigger en la base
+            desmarca el fijo si este movimiento se borra desde acá (`fixed_expense_payment_fecha`,
+            bloque 2). Sólo aviso, sin confirmación aparte — se borra con el mismo botón Eliminar. */}
+        {isEditing && transaction.fixed_expense_payment_id && (
+          <p className="text-[12px] text-fg-muted">
+            Este movimiento viene de pagar un fijo: si lo eliminás, el fijo vuelve a quedar pendiente.
+          </p>
+        )}
+
         <div className="flex gap-2">
           <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
             Gasto
@@ -312,6 +329,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
               {categoriesForType.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                  {c.is_archived && ' (archivada)'}
                 </option>
               ))}
             </Select>

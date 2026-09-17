@@ -39,7 +39,9 @@ export function CardPeriodDetailDialog({ open, onClose, card, period, summary }:
 
   const { data: purchases } = useCreditPurchases(card.id)
   const { data: payments } = useCreditCardPayments([period])
-  const { data: categories } = useCategories()
+  // `true`: una compra de un período viejo puede tener una categoría ya archivada — sin esto se
+  // mostraba como "Sin categoría" en vez de la que realmente tuvo.
+  const { data: categories } = useCategories(true)
   const unmarkPaid = useUnmarkCreditCardPaid()
 
   const purchaseById = useMemo(() => new Map((purchases ?? []).map((p) => [p.id, p])), [purchases])
