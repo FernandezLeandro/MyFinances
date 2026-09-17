@@ -6,7 +6,9 @@ import { Mail } from 'lucide-react'
 import { Link } from 'react-router'
 import { Field, Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { FormError } from '@/components/ui/FormError'
 import { supabase } from '@/lib/supabase'
+import { siteUrl } from '@/lib/site-url'
 
 const schema = z.object({ email: z.string().email('Ingresá un email válido') })
 type FormValues = z.infer<typeof schema>
@@ -16,13 +18,24 @@ export function ForgotPassword() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   async function onSubmit(values: FormValues) {
-    await supabase.auth.resetPasswordForEmail(values.email, {
-      redirectTo: `${window.location.origin}/restablecer`,
+    const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+      redirectTo: siteUrl('/restablecer'),
     })
+
+    // Mirar el error NO filtra qué emails están registrados: `resetPasswordForEmail` devuelve lo
+    // mismo exista o no la cuenta. Lo que llega acá es que el mail no se pudo mandar —rate limit
+    // del SMTP, servidor caído— y antes eso se mostraba igual como éxito: el usuario esperaba un
+    // mail que nunca iba a llegar.
+    if (error) {
+      setError('root', { message: 'No se pudo enviar el mail. Probá de nuevo en unos minutos.' })
+      return
+    }
+
     // Mismo mensaje exista o no la cuenta: no confirmamos qué emails están registrados.
     setSent(true)
   }
@@ -54,6 +67,8 @@ export function ForgotPassword() {
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
         <Input id="email" type="email" fieldSize="auth" autoComplete="email" invalid={!!errors.email} {...register('email')} />
       </Field>
+
+      <FormError message={errors.root?.message} />
 
       <Button type="submit" size="auth" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? 'Enviando…' : 'Enviar link'}

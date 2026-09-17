@@ -43,10 +43,18 @@ En `.env.local` (y en las variables de entorno de Cloudflare Pages):
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_SITE_URL=          # opcional
 ```
 
 La `anon key` viaja en el bundle y eso es correcto: es una clave pública, y lo que protege los datos es
 RLS. La `service_role key` **nunca** toca el front.
+
+`VITE_SITE_URL` es el dominio con el que se arman los links que Supabase manda por mail (recuperar
+contraseña). Si no está definida se usa `window.location.origin`, así que en dev local no hace falta
+tocarla; en Cloudflare Pages se setea **sólo en Production**, para que un preview no genere links que
+devuelvan al preview. Ojo: esto decide qué dominio pide la app, no cuál acepta Supabase — la allow-list
+del proyecto y el resto de la config de Auth están en **[`docs/supabase-auth.md`](docs/supabase-auth.md)**,
+que es lo primero a revisar si un link de mail termina en `localhost`.
 
 ## Tests
 
