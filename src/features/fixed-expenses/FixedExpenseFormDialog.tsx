@@ -52,7 +52,9 @@ interface FixedExpenseFormDialogProps {
 export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted }: FixedExpenseFormDialogProps) {
   const isEditing = !!fixedExpense
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const { data: categories } = useCategories()
+  // `true`: incluye archivadas — si el fijo ya tenía una categoría que después se archivó, el select
+  // sigue mostrándola (ver `expenseCategories`) en vez de perderla en silencio al guardar.
+  const { data: categories } = useCategories(true)
   const createFixed = useCreateFixedExpense()
   const updateFixed = useUpdateFixedExpense()
 
@@ -71,7 +73,10 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
   const isActive = watch('isActive')
   const isRecurring = watch('isRecurring')
   const bagFrequency = watch('bagFrequency')
-  const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
+  const selectedCategoryId = watch('categoryId')
+  const expenseCategories = (categories ?? []).filter(
+    (c) => c.kind === 'expense' && (!c.is_archived || c.id === selectedCategoryId),
+  )
 
   useEffect(() => {
     if (!open) return
@@ -194,6 +199,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
                 {expenseCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
+                    {c.is_archived && ' (archivada)'}
                   </option>
                 ))}
               </Select>

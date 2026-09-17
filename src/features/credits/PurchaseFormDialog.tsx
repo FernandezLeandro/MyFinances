@@ -71,11 +71,12 @@ interface PurchaseFormDialogProps {
 export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCardId }: PurchaseFormDialogProps) {
   const isEditing = !!purchase
   const { user } = useAuth()
-  const { data: categories } = useCategories()
+  // `true`: incluye archivadas — si la compra ya tenía una categoría que después se archivó, el
+  // select sigue mostrándola (ver `expenseCategories` más abajo) en vez de perderla al guardar.
+  const { data: categories } = useCategories(true)
   const createPurchase = useCreatePurchase()
   const updatePurchase = useUpdatePurchase()
   const deletePurchase = useDeletePurchase()
-  const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
 
   const {
     register,
@@ -108,6 +109,10 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
   const cardId = watch('cardId')
   const installmentAmount = watch('installmentAmount')
   const installments = watch('installments')
+  const selectedCategoryId = watch('categoryId')
+  const expenseCategories = (categories ?? []).filter(
+    (c) => c.kind === 'expense' && (!c.is_archived || c.id === selectedCategoryId),
+  )
   const firstPeriod = watch('firstPeriod')
 
   const canToggleMode = !isEditing && !defaultCardId && cards.length > 0
@@ -278,6 +283,7 @@ export function PurchaseFormDialog({ open, onClose, cards, purchase, defaultCard
               {expenseCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                  {c.is_archived && ' (archivada)'}
                 </option>
               ))}
             </Select>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Plus, SlidersHorizontal } from 'lucide-react'
@@ -22,7 +22,6 @@ import { Pagination } from '@/components/ui/Pagination'
 import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
-import { CategoryManagerDialog } from '@/features/categories/CategoryManagerDialog'
 import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
@@ -92,6 +91,7 @@ export function Movimientos() {
   // asignar" en Cuadrar Saldo (el filtro de cuenta en sí, con un período bien amplio para no
   // limitarlo al mes actual).
   const location = useLocation()
+  const navigate = useNavigate()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
   const cycleConfig = useCycleConfig()
 
@@ -124,7 +124,6 @@ export function Movimientos() {
   const unmarkFixedPayment = useUnmarkFixedExpensePayment()
 
   const [formOpen, setFormOpen] = useState(false)
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
@@ -282,7 +281,7 @@ export function Movimientos() {
           >
             Exportar CSV
           </Button>
-          <Button variant="outline" size="compact" onClick={() => setCategoriesOpen(true)}>
+          <Button variant="outline" size="compact" onClick={() => navigate('/categorias')}>
             Categorías
           </Button>
           {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
@@ -599,7 +598,6 @@ export function Movimientos() {
       {formOpen && (
         <TransactionFormDialog open={formOpen} onClose={() => setFormOpen(false)} transaction={editingTx} />
       )}
-      {categoriesOpen && <CategoryManagerDialog open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />}
       {filtersOpen && (
         <TransactionFiltersDialog
           open={filtersOpen}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeAsset, makeBucket, makeEntry, priceMap } from '@/test/factories'
+import { CATEGORY_COLORS } from '@/lib/categoryColors'
 import { assetSlices, computeGain, netByAsset, summarizePortfolio, valueByAsset } from './aggregate'
 
 describe('netByAsset', () => {
@@ -131,8 +132,8 @@ describe('assetSlices', () => {
     const slices = assetSlices(nets, assets, priceMap({ ars: 100, usd: 100 }))
 
     expect(slices).toEqual([
-      { assetId: 'ars', name: 'ARS', color: '#1D8F7E', cents: 3_000, pct: 75 },
-      { assetId: 'usd', name: 'USD', color: '#2F6FB8', cents: 1_000, pct: 25 },
+      { assetId: 'ars', name: 'ARS', color: CATEGORY_COLORS[0].hex, cents: 3_000, pct: 75 },
+      { assetId: 'usd', name: 'USD', color: CATEGORY_COLORS[1].hex, cents: 1_000, pct: 25 },
     ])
   })
 
