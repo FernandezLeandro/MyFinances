@@ -20,6 +20,12 @@ dist-ssr
 # de módulo si algún test futuro importa (aunque sea transitivamente) algo que llegue ahí.
 !.env.test
 
+# Instrucciones de Claude Code (reglas de trabajo y credenciales de la cuenta de prueba): sólo
+# locales, nunca al repo, que es público. El `*.local` de arriba no cubre a CLAUDE.local.md — el
+# archivo termina en `.md`.
+CLAUDE.md
+CLAUDE.local.md
+
 # Coverage de Vitest
 coverage/
 

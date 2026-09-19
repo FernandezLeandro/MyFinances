@@ -1,20 +1,14 @@
--- Promoción de la cuenta admin real de Lean (alias de Gmail, cuenta separada de su uso personal —
--- ver plan "Rol de administrador"). Falla explícito si la cuenta todavía no existe o no completó
--- el alta (sin perfil), en vez de un UPDATE silencioso que no toca ninguna fila.
-do $$
-declare
-  v_uid uuid;
-begin
-  select id into v_uid from auth.users where email = 'leanfernandez97+admin@gmail.com';
-
-  if v_uid is null then
-    raise exception 'No existe ninguna cuenta con ese email todavía';
-  end if;
-
-  if not exists (select 1 from public.profiles where id = v_uid) then
-    raise exception 'La cuenta existe pero todavía no redimió el código de invitación';
-  end if;
-
-  update public.profiles set role = 'admin' where id = v_uid;
-end;
-$$;
+-- Histórico: esta migración promovía a admin una cuenta concreta, buscándola por su email (un alias
+-- de Gmail, separado del uso personal — ver el plan "Rol de administrador"). Ya se aplicó en
+-- producción, así que ese perfil sigue con `role = 'admin'`: vaciar el cuerpo no lo cambia.
+--
+-- Se vació a propósito, por dos motivos:
+--   1. El repo es público y no van emails ni `uuid` de cuentas reales en el código (ver CLAUDE.md).
+--   2. Tal como estaba hacía `raise exception` si la cuenta no existía — o sea, rompía cualquier
+--      `supabase db reset` contra una base nueva, donde `auth.users` arranca vacío.
+--
+-- Promover una cuenta a admin está atado a un email/`uuid` concreto, así que no es una migración:
+-- se hace desde `/admin/usuarios` (el toggle "Admin", que llama a `rpc_admin_set_user_role`), desde
+-- `supabase/seed.sql` o a mano en el dashboard. Ver "Convenciones que no se rompen" en README.md.
+--
+-- El archivo no se borra: su versión ya está registrada en el historial de migraciones de la base.
