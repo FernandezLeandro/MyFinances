@@ -155,7 +155,7 @@ las agregaciones de cada feature (`src/features/*/aggregate.ts`, `period.ts`). L
 compartidas están en `src/test/factories.ts`.
 
 Nada de jsdom ni Testing Library todavía: los hooks de React y los componentes se verifican a mano en
-el navegador antes de cada cambio (con la cuenta de prueba, ver `CLAUDE.md`), no tienen test de
+el navegador antes de cada cambio (con una cuenta de prueba), no tienen test de
 regresión automático — si tocás alguno, volvé a probarlo en el navegador, no lo va a agarrar el CI.
 
 Toda lógica nueva o modificada se testea, y todo bug real que se corrige deja un test de regresión
