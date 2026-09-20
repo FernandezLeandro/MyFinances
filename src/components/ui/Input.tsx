@@ -41,6 +41,10 @@ export const controlBase =
   'transition-colors duration-150 outline-none ' +
   'hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
+/** Campo inválido: fondo y texto rojos suaves con borde `negative` — se lee como error aunque el
+ *  mensaje no esté a la vista. El `border` va sólo acá (los controles normales no lo llevan). */
+export const invalidControl = 'border border-negative bg-badge-red-bg text-badge-red-fg hover:bg-badge-red-bg focus:bg-badge-red-bg'
+
 type InputSize = 'md' | 'auth'
 
 const inputSizes: Record<InputSize, string> = {
@@ -68,7 +72,7 @@ export function Input({ className, invalid, fieldSize = 'md', ref, onChange, ...
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(controlBase, inputSizes[fieldSize], invalid && 'ring-1 ring-negative/60', className)}
+      className={cn(controlBase, inputSizes[fieldSize], invalid && invalidControl, className)}
       onChange={handleChange}
       {...props}
     />
@@ -127,7 +131,8 @@ export function AmountInput({ className, invalid, ref, onChange, ...props }: Amo
       className={cn(
         'flex items-center gap-2 rounded-control bg-fill-subtle pl-4 transition-colors duration-150',
         'focus-within:bg-fill-subtle',
-        invalid && 'ring-1 ring-negative/60',
+        // El borde existe siempre (transparente) para que marcar el error no agrande el campo 2px.
+        invalid ? 'border border-negative bg-badge-red-bg focus-within:bg-badge-red-bg' : 'border border-transparent',
         className,
       )}
     >

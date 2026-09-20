@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
-import { DialogSummaryBlock } from '@/components/ui/dialog-parts'
+import { DialogFooterBar, DialogSaveError, DialogSummaryBlock } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
 import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
+import { mensajeDeError } from '@/lib/errors'
+import { showToast } from '@/lib/toast'
 import { useCan } from '@/features/access/useCan'
 import { useAdjustAccountBalance, type AdjustMode, type BalanceLocation } from '@/features/accounts/api'
-import { planAdjustment } from '@/features/accounts/aggregate'
+import { adjustFormState, adjustResultText, planAdjustment } from '@/features/accounts/aggregate'
 import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
 import { summarizeReceivables } from '@/features/receivables/aggregate'
 
 interface AdjustBalanceDialogProps {
-  open: boolean
   onClose: () => void
   account: BalanceLocation
   /** El saldo de la cuenta según la app hoy. */
@@ -26,8 +28,11 @@ interface AdjustBalanceDialogProps {
  *
  * La diferencia final la calcula la base (`rpc_adjust_account_balance`) contra el saldo del momento;
  * lo que se muestra acá es una vista previa con el saldo que el cliente tiene cargado.
+ *
+ * Se monta sólo mientras está abierto, así el importe arranca precargado con el saldo actual cada
+ * vez. Validación y falla de guardado adentro del diálogo (patrón 5b); el resultado sale como aviso.
  */
-export function AdjustBalanceDialog({ open, onClose, account, derivedCents }: AdjustBalanceDialogProps) {
+export function AdjustBalanceDialog({ onClose, account, derivedCents }: AdjustBalanceDialogProps) {
   const adjust = useAdjustAccountBalance()
   const canMeDeben = useCan('me-deben')
   const { data: receivables } = useReceivables()
@@ -35,9 +40,10 @@ export function AdjustBalanceDialog({ open, onClose, account, derivedCents }: Ad
 
   const [realInput, setRealInput] = useState(() => centsToInputText(derivedCents))
   const [mode, setMode] = useState<AdjustMode>('movement')
-  const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const realCents = parseAmountToCents(realInput)
+  const form = adjustFormState(realInput, derivedCents)
   const plan = realCents === null ? null : planAdjustment({ derivedCents, openingCents: account.openingCents, realCents })
 
   // Prestar plata no genera un movimiento: lo que te deben sigue "dentro" del saldo de la app aunque
@@ -48,56 +54,67 @@ export function AdjustBalanceDialog({ open, onClose, account, derivedCents }: Ad
     [receivables, payments],
   )
 
-  async function handleConfirm() {
-    if (realCents === null) {
-      setError('Ingresá un importe válido')
-      return
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (!form.canSubmit || realCents === null || !plan || adjust.isPending) return
+    setSaveError(null)
+    try {
+      await adjust.mutateAsync({ accountId: account.id, realCents, mode })
+      const { title, detail } = adjustResultText({
+        accountName: account.name,
+        realCents,
+        diffCents: plan.diffCents,
+        mode,
+      })
+      showToast(title, 'ok', { detail })
+      onClose()
+    } catch (error) {
+      setSaveError(mensajeDeError(error))
     }
-    if (plan?.diffCents === 0) {
-      setError('Ya coincide con el saldo actual: no hay nada que reajustar')
-      return
-    }
-    setError(null)
-    await adjust.mutateAsync({ accountId: account.id, realCents, mode })
-    onClose()
   }
+
+  const primaryLabel = adjust.isPending ? 'Reajustando…' : saveError ? 'Reintentar' : 'Reajustar'
 
   return (
     <Dialog
-      open={open}
+      open
       onClose={onClose}
       title="Reajustar saldo"
+      footerBleed
+      ownsPending
       footer={
-        <>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
+        <DialogFooterBar>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose} disabled={adjust.isPending}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={adjust.isPending}>
-            {adjust.isPending ? 'Reajustando…' : 'Reajustar'}
+          <Button
+            type="submit"
+            form="adjust-form"
+            size="dialogFooter"
+            disabled={!form.canSubmit}
+            loading={adjust.isPending}
+          >
+            {primaryLabel}
           </Button>
-        </>
+        </DialogFooterBar>
       }
     >
-      <div className="flex flex-col gap-4">
-        <DialogSummaryBlock
-          title="Según la app"
-          hint={account.name || '(sin nombre)'}
-          figure={formatMoney(derivedCents)}
-        />
+      <form id="adjust-form" onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <DialogSummaryBlock title="Según la app" hint={account.name || '(sin nombre)'} figure={formatMoney(derivedCents)} />
 
         <div className="flex flex-col gap-1.5">
           <OpeningAmountField
             label={`¿Cuánto tenés hoy en ${account.name || 'esta cuenta'}?`}
-            hint="El saldo real, lo que ves en tu banco o billetera, o el efectivo que tenés en la mano."
+            hint="El saldo real: lo que ves en tu banco o billetera, o el efectivo que tenés en la mano."
+            error={form.error ?? undefined}
             value={realInput}
             onChange={(value) => {
               setRealInput(value)
-              setError(null)
+              setSaveError(null)
             }}
             ariaLabel="Saldo real de la cuenta"
           />
-          {error && <p className="text-[12px] text-negative">{error}</p>}
-          {plan && plan.diffCents !== 0 && (
+          {plan && plan.diffCents !== 0 && !form.error && (
             <p className="text-[12.5px] text-fg-secondary">
               Diferencia:{' '}
               <span className={plan.diffCents > 0 ? 'font-semibold text-accent' : 'font-semibold text-negative'}>
@@ -109,15 +126,15 @@ export function AdjustBalanceDialog({ open, onClose, account, derivedCents }: Ad
 
         <div className="flex flex-col gap-2">
           <p className="eyebrow">Qué hacemos con la diferencia</p>
-          <div className="flex flex-wrap gap-1.5">
-            <Chip active={mode === 'movement'} onClick={() => setMode('movement')}>
+          <div className="flex flex-wrap gap-2">
+            <Chip size="md" active={mode === 'movement'} onClick={() => setMode('movement')}>
               Registrar un ajuste
             </Chip>
-            <Chip active={mode === 'opening'} onClick={() => setMode('opening')}>
+            <Chip size="md" active={mode === 'opening'} onClick={() => setMode('opening')}>
               Corregir el saldo inicial
             </Chip>
           </div>
-          <p className="text-[12px] leading-snug text-fg-muted">
+          <p className="text-[12px] leading-normal text-fg-muted text-pretty">
             {mode === 'movement'
               ? plan?.movement
                 ? `Queda en Movimientos como "Ajuste de saldo" (${plan.movement.type === 'income' ? 'ingreso' : 'gasto'} de ${formatMoney(plan.movement.cents)}), afuera de Análisis.`
@@ -129,12 +146,18 @@ export function AdjustBalanceDialog({ open, onClose, account, derivedCents }: Ad
         </div>
 
         {canMeDeben && lentCents > 0 && (
-          <p className="rounded-control bg-badge-amber-bg px-3 py-2 text-[12px] leading-snug text-badge-amber-fg">
+          <p className="rounded-float bg-badge-amber-bg px-3.5 py-2.5 text-[12px] leading-snug text-badge-amber-fg text-pretty">
             Te deben {formatMoney(lentCents)} que todavía cuentan en tu saldo (prestar plata no genera un movimiento). Si
             ya no tenés esa plata en la mano, descontala desde Me Deben en vez de ajustarla acá.
           </p>
         )}
-      </div>
+
+        {saveError && (
+          <DialogSaveError title="No se pudo guardar el reajuste">
+            {saveError} Tus datos siguen acá.
+          </DialogSaveError>
+        )}
+      </form>
     </Dialog>
   )
 }

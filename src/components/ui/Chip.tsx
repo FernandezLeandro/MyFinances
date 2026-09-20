@@ -10,14 +10,16 @@ interface ChipProps {
   className?: string
   /** Para chips cuya acción no es obvia por el texto visible (ej. quitar un filtro con una ✕ decorativa). */
   ariaLabel?: string
-  /** `sm` (default): la etiqueta densa de categorías/filtros. `lg`: un control de verdad — ej. el
-   *  Gasto/Ingreso de "Nuevo movimiento", donde la elección es la primera decisión del formulario,
-   *  no una entre diez chips juntos. */
-  size?: 'sm' | 'lg'
+  /** `sm` (default): la etiqueta densa de categorías/filtros. `md`: un selector de pocas opciones
+   *  dentro de un diálogo (tipo de cuenta, qué hacer con la diferencia). `lg`: un control de verdad
+   *  — ej. el Gasto/Ingreso de "Nuevo movimiento", donde la elección es la primera decisión del
+   *  formulario, no una entre diez chips juntos. */
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const sizeClass: Record<NonNullable<ChipProps['size']>, string> = {
   sm: 'gap-1.5 rounded-chip px-2 py-1 text-[12px] leading-none',
+  md: 'gap-1.5 rounded-chip-md px-3 py-2 text-[12.5px] leading-tight',
   lg: 'gap-2 rounded-control px-4 py-2 text-[14px] leading-none',
 }
 

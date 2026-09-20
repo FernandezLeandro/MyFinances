@@ -33,7 +33,8 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
 - **Me Deben** (Premium): plata prestada a otras personas, con abonos parciales.
 - **Ahorros** (Premium): ítems multi-activo (pesos, dólares, cripto, acciones), con metas opcionales.
 - **Cuentas** (Test y Premium): efectivo, billeteras virtuales y bancos. El saldo de la app es la suma
-  de las cuentas. Transferencias entre cuentas, archivar, eliminar (con sus movimientos) y reajustar
+  de las cuentas activas: archivar una la saca del saldo hasta que se reactiva. Transferencias entre
+  cuentas, eliminar (con sus movimientos) y reajustar
   el saldo de una cuenta a pedido — como movimiento de ajuste o corrigiendo el saldo inicial.
 - **Categorías** (todos los planes): propias por cuenta, con un catálogo por defecto al darse de alta.
 - **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad. Dólar en uso y catálogo de

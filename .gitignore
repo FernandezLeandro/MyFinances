@@ -43,3 +43,4 @@ supabase/.temp/
 *.sln
 *.sw?
 design_handoff_rediseno_v2/*
+design_handoff_rediseno_cuentas/*

@@ -1,12 +1,16 @@
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { format } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogFooterBar, DialogSaveError } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
-import { Field, Input, AmountInput } from '@/components/ui/Input'
-import { parseAmountToCents } from '@/lib/money'
+import { Field, Input } from '@/components/ui/Input'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
+import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { mensajeDeError } from '@/lib/errors'
+import { showToast } from '@/lib/toast'
 import { useBalanceLocations } from '@/features/accounts/api'
 import { useCreateAccountTransfer } from '@/features/accounts/transfers-api'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
@@ -30,28 +34,33 @@ const schema = z
 type FormValues = z.infer<typeof schema>
 
 interface TransferDialogProps {
-  open: boolean
   onClose: () => void
-  /** Cuenta de origen ya elegida (al transferir desde una fila de Cuentas). */
+  /** Cuenta de origen ya elegida (al transferir desde el menú de una cuenta). */
   fromAccountId?: string
 }
 
 /** Mover plata entre tus propias cuentas (sacar efectivo del banco, pasar a Mercado Pago…) — no es
  *  gasto ni ingreso, así que no aparece en Movimientos ni mueve el saldo global. Ver
- *  `account_transfers` en la migración `cuentas_y_medios_de_pago`. */
-export function TransferDialog({ open, onClose, fromAccountId = "" }: TransferDialogProps) {
+ *  `account_transfers` en la migración `cuentas_y_medios_de_pago`.
+ *
+ *  Se monta sólo mientras está abierto: el formulario arranca de cero cada vez, con el origen que
+ *  llegue por prop. El botón queda apagado hasta que el formulario es válido; una falla al guardar
+ *  se muestra adentro y no cierra el diálogo. */
+export function TransferDialog({ onClose, fromAccountId = '' }: TransferDialogProps) {
   const { data: locations } = useBalanceLocations()
   const createTransfer = useCreateAccountTransfer()
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
-    reset,
-    formState: { errors, isSubmitting },
+    trigger,
+    formState: { errors, isSubmitting, isValid },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onChange',
     defaultValues: {
       fromAccountId,
       toAccountId: '',
@@ -61,50 +70,75 @@ export function TransferDialog({ open, onClose, fromAccountId = "" }: TransferDi
     },
   })
 
-  useEffect(() => {
-    if (open) reset({ fromAccountId, toAccountId: '', amount: '', occurredOn: format(new Date(), 'yyyy-MM-dd'), description: '' })
-  }, [open, reset, fromAccountId])
+  // Sólo las activas: una archivada no se ofrece en los selectores, así que no alcanza para transferir.
+  const active = (locations ?? []).filter((l) => !l.is_archived)
+  const hasEnoughAccounts = active.length >= 2
 
-  async function onSubmit(values: FormValues) {
-    await createTransfer.mutateAsync({
-      fromAccountId: values.fromAccountId,
-      toAccountId: values.toAccountId,
-      cents: parseAmountToCents(values.amount)!,
-      occurredOn: values.occurredOn,
-      description: values.description?.trim() || null,
-    })
-    onClose()
+  // "Dos cuentas distintas" es un error de Hacia aunque lo dispare cambiar Desde: RHF sólo revalida
+  // el campo que cambió, así que se pide revalidar los dos.
+  function pickAccount(field: 'fromAccountId' | 'toAccountId', accountId: string) {
+    setValue(field, accountId, { shouldValidate: true, shouldDirty: true })
+    void trigger(['fromAccountId', 'toAccountId'])
+    setSaveError(null)
   }
 
-  // Sólo las activas: una archivada no se ofrece en los selectores, así que no alcanza para transferir.
-  const hasEnoughAccounts = (locations ?? []).filter((l) => !l.is_archived).length >= 2
+  async function onSubmit(values: FormValues) {
+    setSaveError(null)
+    const cents = parseAmountToCents(values.amount)!
+    try {
+      await createTransfer.mutateAsync({
+        fromAccountId: values.fromAccountId,
+        toAccountId: values.toAccountId,
+        cents,
+        occurredOn: values.occurredOn,
+        description: values.description?.trim() || null,
+      })
+      const nameOf = (id: string) => active.find((l) => l.id === id)?.name || 'la cuenta'
+      showToast('Transferencia hecha', 'ok', {
+        detail: `${nameOf(values.fromAccountId)} → ${nameOf(values.toAccountId)} · ${formatMoney(cents)}`,
+      })
+      onClose()
+    } catch (error) {
+      setSaveError(mensajeDeError(error))
+    }
+  }
+
+  const primaryLabel = isSubmitting ? 'Transfiriendo…' : saveError ? 'Reintentar' : 'Transferir'
 
   return (
     <Dialog
-      open={open}
+      open
       onClose={onClose}
       title="Transferir entre cuentas"
+      footerBleed
+      ownsPending
       footer={
-        <>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
+        <DialogFooterBar>
+          <Button variant="ghost" size="dialogFooter" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || !hasEnoughAccounts}>
-            {isSubmitting ? 'Transfiriendo…' : 'Transferir'}
+          <Button
+            type="submit"
+            form="transfer-form"
+            size="dialogFooter"
+            disabled={!hasEnoughAccounts || !isValid}
+            loading={isSubmitting}
+          >
+            {primaryLabel}
           </Button>
-        </>
+        </DialogFooterBar>
       }
     >
       {!hasEnoughAccounts ? (
         <p className="text-[13px] text-fg-muted">Necesitás al menos dos cuentas para transferir entre ellas.</p>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          <div className="grid grid-cols-2 gap-4">
+        <form id="transfer-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
+          <div className="grid grid-cols-2 gap-3.5">
             <Field label="Desde" htmlFor="fromAccountId" error={errors.fromAccountId?.message}>
               <AccountSelect
                 id="fromAccountId"
                 value={watch('fromAccountId')}
-                onChange={(v) => setValue('fromAccountId', v)}
+                onChange={(v) => pickAccount('fromAccountId', v)}
                 emptyLabel="Elegir…"
               />
             </Field>
@@ -113,23 +147,41 @@ export function TransferDialog({ open, onClose, fromAccountId = "" }: TransferDi
               <AccountSelect
                 id="toAccountId"
                 value={watch('toAccountId')}
-                onChange={(v) => setValue('toAccountId', v)}
+                onChange={(v) => pickAccount('toAccountId', v)}
                 emptyLabel="Elegir…"
               />
             </Field>
           </div>
 
-          <Field label="Importe" error={errors.amount?.message}>
-            <AmountInput invalid={!!errors.amount} {...register('amount')} />
-          </Field>
+          <OpeningAmountField
+            label="Importe"
+            allowNegative={false}
+            value={watch('amount')}
+            onChange={(v) => {
+              setValue('amount', v, { shouldValidate: true, shouldDirty: true })
+              setSaveError(null)
+            }}
+            error={errors.amount?.message}
+            ariaLabel="Importe a transferir"
+          />
 
-          <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
-            <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
-          </Field>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[170px_minmax(0,1fr)]">
+            <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
+              <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
+            </Field>
 
-          <Field label="Descripción" htmlFor="description" hint="Opcional">
-            <Input id="description" autoComplete="off" {...register('description')} />
-          </Field>
+            <Field label="Descripción" labelAddon={<span className="text-[11px] text-fg-faint">opcional</span>} htmlFor="description">
+              <Input id="description" autoComplete="off" placeholder="Retiro del cajero…" {...register('description')} />
+            </Field>
+          </div>
+
+          <p className="-mt-1 text-[12px] leading-normal text-fg-muted text-pretty">
+            No es gasto ni ingreso: el total no cambia, solo cambia de lugar.
+          </p>
+
+          {saveError && (
+            <DialogSaveError title="No se pudo hacer la transferencia">{saveError} Tus datos siguen acá.</DialogSaveError>
+          )}
         </form>
       )}
     </Dialog>

@@ -105,9 +105,9 @@ describe('auto-dismiss por tono', () => {
     expect(getToasts()).toHaveLength(0)
   })
 
-  it('un ok dura 3000ms', () => {
+  it('un ok dura 4000ms', () => {
     showToast('listo', 'ok')
-    vi.advanceTimersByTime(2999)
+    vi.advanceTimersByTime(3999)
     expect(getToasts()).toHaveLength(1)
     vi.advanceTimersByTime(1)
     expect(getToasts()).toHaveLength(0)
@@ -149,3 +149,36 @@ describe('getToasts — estabilidad de referencia', () => {
   })
 })
 
+
+describe('avisos con detalle y acción', () => {
+  it('guarda el detalle y la acción tal como llegan', () => {
+    const onClick = vi.fn()
+    showToast('No se pudo archivar', 'error', { detail: 'Revisá la conexión.', action: { label: 'Reintentar', onClick } })
+    const [toast] = getToasts()
+    expect(toast.detail).toBe('Revisá la conexión.')
+    expect(toast.action?.label).toBe('Reintentar')
+    toast.action?.onClick()
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('un aviso con botón no se apaga solo', () => {
+    // Si se fuera a los 6s, el `Reintentar` desaparecería justo cuando alguien lo busca.
+    showToast('No se pudo archivar', 'error', { action: { label: 'Reintentar', onClick: () => {} } })
+    vi.advanceTimersByTime(60_000)
+    expect(getToasts()).toHaveLength(1)
+  })
+
+  it('el mismo título con otro detalle NO se deduplica', () => {
+    // Bug a evitar: al pasar a título + detalle, "Saldo reajustado" de dos cuentas distintas
+    // colapsaba en un solo aviso y el segundo se perdía.
+    showToast('Saldo reajustado', 'ok', { detail: 'Efectivo queda en $ 100,00' })
+    showToast('Saldo reajustado', 'ok', { detail: 'ICBC queda en $ 200,00' })
+    expect(getToasts()).toHaveLength(2)
+  })
+
+  it('el mismo título y detalle sí se deduplica', () => {
+    showToast('Saldo reajustado', 'ok', { detail: 'Efectivo queda en $ 100,00' })
+    showToast('Saldo reajustado', 'ok', { detail: 'Efectivo queda en $ 100,00' })
+    expect(getToasts()).toHaveLength(1)
+  })
+})

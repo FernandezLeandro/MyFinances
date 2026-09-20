@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { cn } from '@/lib/cn'
 
@@ -7,7 +7,8 @@ interface MenuProps {
   onClose: () => void
   /** Ref del botón que abre el menú — se excluye del cierre por click-afuera y recupera el foco al cerrar. */
   triggerRef: RefObject<HTMLElement | null>
-  /** Clases de posicionamiento (el padre sabe si ancla hacia arriba o hacia la derecha). */
+  /** Clases de posicionamiento (el padre sabe si ancla hacia arriba o hacia la derecha). Si abre
+   *  hacia abajo (`top-full`) y no entra en el viewport, el menú se da vuelta solo. */
   anchorClassName: string
   children: ReactNode
 }
@@ -50,13 +51,34 @@ export function Menu({ open, onClose, triggerRef, anchorClassName, children }: M
     }
   }, [open, onClose, triggerRef])
 
+  // Una sola pasada, al abrir: si el menú se sale por abajo y hay lugar arriba del botón, se ancla
+  // arriba. No se re-mide después (scroll, resize) — un menú abierto es momentáneo. Es una
+  // escritura directa al estilo y no un `setState`: evita el render extra y el parpadeo entre los
+  // dos, y al cerrarse el nodo se desmonta y la próxima apertura vuelve a medir de cero.
+  useLayoutEffect(() => {
+    const menu = ref.current
+    const trigger = triggerRef.current
+    if (!open || !menu || !trigger || !anchorClassName.includes('top-full')) return
+
+    const menuRect = menu.getBoundingClientRect()
+    const triggerRect = trigger.getBoundingClientRect()
+    const overflowsBelow = menuRect.bottom > window.innerHeight - VIEWPORT_MARGIN
+    const fitsAbove = triggerRect.top - menuRect.height - VIEWPORT_MARGIN >= 0
+    if (overflowsBelow && fitsAbove) {
+      menu.style.top = 'auto'
+      menu.style.bottom = '100%'
+      menu.style.marginTop = '0'
+      menu.style.marginBottom = '4px'
+    }
+  }, [open, triggerRef, anchorClassName])
+
   if (!open) return null
 
   return (
     <div
       ref={ref}
       className={cn(
-        'absolute z-30 animate-menu-in overflow-hidden rounded-control bg-fill-subtle py-1.5 shadow-lift ring-1 ring-border-strong',
+        'absolute z-30 animate-menu-in rounded-float border border-border bg-surface p-1.5 shadow-lift',
         anchorClassName,
       )}
     >
@@ -65,10 +87,21 @@ export function Menu({ open, onClose, triggerRef, anchorClassName, children }: M
   )
 }
 
+/** Aire mínimo entre el menú y el borde del viewport para dar por bueno que "entra". */
+const VIEWPORT_MARGIN = 8
+
+/** La línea que separa lo de todos los días de lo que cierra o destruye. */
+export function MenuDivider() {
+  return <div role="separator" className="mx-2 my-[5px] h-px bg-divider-list" />
+}
+
 interface MenuItemProps {
   onClick: () => void
   children: ReactNode
-  tone?: 'default' | 'danger'
+  /** `quiet` baja un escalón el peso de una opción secundaria (Archivar). `danger` sólo se pone rojo
+   *  al pasar el mouse (cerrar sesión); `destructive` es rojo siempre (Eliminar) porque lo que hace
+   *  no se deshace. */
+  tone?: 'default' | 'quiet' | 'danger' | 'destructive'
   icon?: ReactNode
   /** `md` para el drawer de mobile (más texto, más tap target); `sm` es el default para el popover
    *  de desktop, donde un menú chico al lado del mouse tiene más sentido. */
@@ -81,9 +114,12 @@ export function MenuItem({ onClick, children, tone = 'default', icon, size = 'sm
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2.5 text-left transition-colors duration-150',
-        size === 'md' ? 'px-3.5 py-2.5 text-[15px]' : 'px-3.5 py-2 text-[13px]',
-        tone === 'danger' ? 'text-fg-secondary hover:bg-fill-subtle hover:text-negative' : 'text-fg-secondary hover:bg-fill-subtle hover:text-fg',
+        'flex w-full items-center gap-2.5 rounded-item text-left transition-colors duration-150',
+        size === 'md' ? 'px-3.5 py-2.5 text-[15px]' : 'px-3 py-[9px] text-[13px] font-medium',
+        tone === 'default' && 'text-fg hover:bg-surface-sunken',
+        tone === 'quiet' && 'text-fg-secondary hover:bg-surface-sunken hover:text-fg',
+        tone === 'danger' && 'text-fg-secondary hover:bg-surface-sunken hover:text-negative',
+        tone === 'destructive' && 'text-negative hover:bg-badge-red-bg',
       )}
     >
       {icon}

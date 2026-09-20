@@ -14,6 +14,13 @@ interface DialogProps {
   /** El footer ocupa todo el ancho y pone su propio padding — para la barra inferior de los
    *  diálogos-herramienta (`DialogBottomBar`), que lleva fondo propio a sangre completa. */
   footerBleed?: boolean
+  /** `sm` (420px) para las confirmaciones cortas. Va acá y no por `className`: `cn()` no dedupea,
+   *  así que dos anchos `sm:w-[…]` competirían con un ganador impredecible. */
+  size?: 'md' | 'sm'
+  /** El diálogo muestra su propio estado de "guardando" (un botón con spinner): apaga el velo con
+   *  spinner que tapa todo mientras hay una mutación en curso. Sólo para los que lo resuelven
+   *  adentro — el resto sigue con el velo, que es lo que evita un doble envío. */
+  ownsPending?: boolean
   className?: string
 }
 
@@ -45,7 +52,7 @@ function unlockBodyScroll() {
  * scrolleando la página de atrás en vez del contenido — el bug reportado en los diálogos largos y en
  * los formularios largos.
  */
-export function Dialog({ open, onClose, title, children, footer, footerBleed, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, footer, footerBleed, size = 'md', ownsPending, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   // Un <dialog> abierto con showModal() vive en el "top layer" del navegador, siempre por
   // encima de cualquier overlay position:fixed normal sin importar su z-index. Por eso el
@@ -134,7 +141,8 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
         // borde de abajo también se ve (antes sólo hacía falta arriba, pegado como estaba).
         'fixed inset-x-0 top-auto bottom-3 z-50 m-0 w-full max-w-none overflow-hidden rounded-panel bg-surface p-0 text-fg',
         'overscroll-contain animate-sheet-in backdrop:bg-black/75',
-        'sm:inset-0 sm:m-auto sm:h-fit sm:w-[min(30rem,calc(100vw-2rem))] sm:rounded-panel',
+        'sm:inset-0 sm:m-auto sm:h-fit sm:rounded-panel',
+        size === 'sm' ? 'sm:w-[min(26.25rem,calc(100vw-2rem))]' : 'sm:w-[min(30rem,calc(100vw-2rem))]',
         className,
       )}
     >
@@ -172,7 +180,7 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, cl
           </div>
         )}
 
-        {isMutating > 0 && (
+        {isMutating > 0 && !ownsPending && (
           <div
             role="status"
             aria-live="polite"

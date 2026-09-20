@@ -6,6 +6,24 @@ describe('mensajeDeError', () => {
     vi.unstubAllGlobals()
   })
 
+  it('un fallo de red que supabase-js devuelve envuelto en un objeto → sin conexión', () => {
+    // Regresión: supabase-js no tira el TypeError de fetch, lo devuelve como { message: 'TypeError:
+    // Failed to fetch' }. Antes caía en el mensaje genérico y no se distinguía de un error de la base.
+    for (const message of ['TypeError: Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.']) {
+      expect(mensajeDeError({ message })).toBe('Sin conexión. Revisá internet y probá de nuevo.')
+    }
+  })
+
+  it('un TypeError de fetch de cualquier navegador → sin conexión', () => {
+    expect(mensajeDeError(new TypeError('Load failed'))).toBe('Sin conexión. Revisá internet y probá de nuevo.')
+  })
+
+  it('un TypeError que NO es de red no se confunde con uno', () => {
+    expect(mensajeDeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe(
+      'No se pudo guardar. Probá de nuevo.',
+    )
+  })
+
   it('FK violation (23503) → sugiere archivar en vez de eliminar', () => {
     expect(mensajeDeError({ code: '23503', message: 'update or delete on table "assets" violates foreign key constraint' })).toBe(
       'No se puede eliminar: hay movimientos que lo usan. Probá archivarlo.',

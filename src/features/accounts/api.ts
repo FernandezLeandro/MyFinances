@@ -24,7 +24,7 @@ function toBalanceLocation(row: BalanceLocationRowRaw): BalanceLocation {
 // ---------------------------------------------------------------------------------------------
 
 /** Las cuentas del usuario — pocas filas, sin período: siempre "el estado actual". Archivadas al
- *  final: siguen existiendo (suman al saldo y los movimientos viejos las referencian) pero no hay
+ *  final: siguen existiendo (no suman al saldo, pero los movimientos viejos las referencian) y no hay
  *  que verlas primero al elegir cuenta. */
 export function useBalanceLocations() {
   const { user } = useAuth()
@@ -87,6 +87,10 @@ export function useAccountDeleteImpact(id: string | null) {
 
 type QueryClient = ReturnType<typeof useQueryClient>
 
+// Todas las mutaciones de cuentas son `silent` (ver `mutationMeta` en main.tsx): la pantalla de
+// Cuentas es quien las llama y decide cómo avisar la falla — un bloque adentro del diálogo, o un
+// aviso con `Reintentar` si la acción no tiene diálogo. Nunca los dos por el mismo fallo.
+
 /** Lo que mueve cualquier cambio en las cuentas que toque el saldo: la lista, el saldo por cuenta,
  *  el saldo actual y el proyectado (que parte de él). */
 function invalidarCuentasYSaldo(queryClient: QueryClient, userId?: string) {
@@ -106,6 +110,7 @@ export function useCreateBalanceLocation() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async (input: { name: string; kind: AccountKind; openingCents: number }) => {
       if (!user) throw new Error('No autenticado')
       const { count, error: countError } = await supabase
@@ -150,6 +155,7 @@ export function useUpdateBalanceLocation() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async ({ id, name, kind }: { id: string; name: string; kind: AccountKind }) => {
       const { error } = await supabase
         .from('balance_locations')
@@ -170,6 +176,7 @@ export function useSetDefaultBalanceLocation() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No autenticado')
       const { error: clearError } = await supabase
@@ -185,14 +192,15 @@ export function useSetDefaultBalanceLocation() {
   })
 }
 
-/** Archivar saca la cuenta de los selectores pero NO de la suma del saldo. Si era la
- *  predeterminada deja de serlo (un selector no puede traer una cuenta archivada) y pasa a serlo la
- *  activa más vieja. */
+/** Archivar saca la cuenta de los selectores Y del saldo (`rpc_current_balance` sólo suma las activas);
+ *  reactivarla la vuelve a sumar. Si era la predeterminada deja de serlo (un selector no puede traer
+ *  una cuenta archivada) y pasa a serlo la activa más vieja. */
 export function useArchiveAccount() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
       const { data: row, error: readError } = await supabase.from('balance_locations').select('is_default').eq('id', id).single()
       if (readError) throw readError
@@ -222,7 +230,8 @@ export function useArchiveAccount() {
         }
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['balance-locations', user?.id] }),
+    // Archivar o reactivar mueve el saldo de la app (y el proyectado, que parte de él), no sólo la lista.
+    onSuccess: () => invalidarCuentasYSaldo(queryClient, user?.id),
   })
 }
 
@@ -237,6 +246,7 @@ export function useAdjustAccountBalance() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async (input: { accountId: string; realCents: number; mode: AdjustMode }) => {
       const { error } = await supabase.rpc('rpc_adjust_account_balance', {
         p_account_id: input.accountId,
@@ -261,6 +271,7 @@ export function useDeleteAccount() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc('rpc_delete_account', { p_account_id: id })
       if (error) throw error

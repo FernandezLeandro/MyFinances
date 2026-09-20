@@ -5,7 +5,7 @@
  * cuenta y qué se le dice a quien va a eliminar una.
  */
 import { z } from 'zod'
-import { parseAmountToCents } from '@/lib/money'
+import { formatMoney, parseAmountToCents } from '@/lib/money'
 import type { MovementPeriod } from '@/features/transactions/movementPeriod'
 import type { AccountKind, BalanceLocation } from './api'
 
@@ -46,8 +46,10 @@ export function effectiveDefaultAccountId(locations: readonly BalanceLocation[])
 
 export interface AccountsTotals {
   activeCents: number
+  /** Lo que tienen las archivadas: se muestra en su lista, pero NO entra en el total. */
   archivedCents: number
-  /** Es el saldo actual de la app: las archivadas también suman. */
+  /** Es el saldo actual de la app (`rpc_current_balance`): sólo las cuentas activas. Archivar una la
+   *  saca de acá; reactivarla la vuelve a sumar. */
   totalCents: number
 }
 
@@ -61,7 +63,7 @@ export function accountsTotals(locations: readonly BalanceLocation[], derivedCen
     if (l.is_archived) archivedCents += cents
     else activeCents += cents
   }
-  return { activeCents, archivedCents, totalCents: activeCents + archivedCents }
+  return { activeCents, archivedCents, totalCents: activeCents }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -181,7 +183,7 @@ export function movimientosDeCuentaState(accountId: string, today: string): { ac
 const MAX_ABS_CENTS = 1e12
 
 export const accountFormSchema = z.object({
-  name: z.string().trim().min(1, 'Falta el nombre').max(60, 'Máximo 60 caracteres'),
+  name: z.string().trim().min(1, 'Ponele un nombre a la cuenta.').max(60, 'Máximo 60 caracteres'),
   kind: z.enum(['cash', 'wallet', 'bank']),
   /** Cuánto tenés hoy. Puede ser negativo (un banco en descubierto es plata real). Sólo en el alta. */
   opening: z.string().refine(
@@ -194,3 +196,200 @@ export const accountFormSchema = z.object({
 })
 
 export type AccountFormValues = z.infer<typeof accountFormSchema>
+
+// ---------------------------------------------------------------------------------------------
+// Reajustar: formulario y aviso
+// ---------------------------------------------------------------------------------------------
+
+/** Tope de `numeric(12, 2)` en centavos — el RPC de reajuste rechaza `abs >= 1e10` en pesos. */
+const MAX_ABS_CENTS_ADJUST = 1e12
+
+export interface AdjustFormState {
+  /** Se puede mandar: el importe se entiende y mueve el saldo. */
+  canSubmit: boolean
+  /** Sólo cuando lo escrito NO es un importe (vacío, letras, fuera de rango) — se muestra al lado
+   *  del campo, en rojo. Un saldo igual al actual no es un error: el botón queda apagado sin gritar,
+   *  porque el campo arranca precargado con ese mismo valor. */
+  error: string | null
+}
+
+/** Estado del formulario de "Reajustar saldo" (validación dentro del diálogo, patrón 5b).
+ *
+ *  Un saldo real de cero o negativo ES válido: quien gastó todo lo que tenía, o está en descubierto
+ *  en el banco, tiene que poder reajustar hacia ahí. Por eso NO se exige `> 0`. */
+export function adjustFormState(realInput: string, derivedCents: number): AdjustFormState {
+  const realCents = parseAmountToCents(realInput)
+  if (realCents === null || Math.abs(realCents) >= MAX_ABS_CENTS_ADJUST) {
+    return { canSubmit: false, error: 'Ingresá un importe válido para poder reajustar.' }
+  }
+  return { canSubmit: realCents !== derivedCents, error: null }
+}
+
+/** El aviso de archivar. Archivar saca la cuenta del saldo, y como no hay un diálogo de confirmación
+ *  que lo explique, lo dice el aviso: cuánto baja el total (o que no cambia, si estaba en cero). */
+export function archiveResultText(accountName: string, balanceCents: number): { title: string; detail: string } {
+  const name = accountName || 'La cuenta'
+  return {
+    title: 'Cuenta archivada',
+    detail:
+      balanceCents === 0
+        ? `${name} deja de ofrecerse al cargar algo nuevo.`
+        : `${name} deja de sumar a tu saldo: el total ${balanceCents > 0 ? 'baja' : 'sube'} ${formatMoney(Math.abs(balanceCents))}.`,
+  }
+}
+
+/** El aviso de reactivar: la cuenta vuelve a sumar, así que el total se mueve por su saldo. */
+export function reactivateResultText(accountName: string, balanceCents: number): { title: string; detail: string } {
+  const name = accountName || 'La cuenta'
+  return {
+    title: 'Cuenta reactivada',
+    detail:
+      balanceCents === 0
+        ? `${name} vuelve a ofrecerse al cargar algo nuevo.`
+        : `${name} vuelve a sumar a tu saldo: el total ${balanceCents > 0 ? 'sube' : 'baja'} ${formatMoney(Math.abs(balanceCents))}.`,
+  }
+}
+
+/** El aviso de un reajuste que salió bien: título y detalle del toast. */
+export function adjustResultText(input: {
+  accountName: string
+  realCents: number
+  diffCents: number
+  mode: 'movement' | 'opening'
+}): { title: string; detail: string } {
+  const queda = `${input.accountName || 'La cuenta'} queda en ${formatMoney(input.realCents)}`
+  const detail =
+    input.mode === 'movement'
+      ? `${queda} · ajuste de ${formatMoney(Math.abs(input.diffCents))}`
+      : `${queda} · saldo inicial corregido`
+  return { title: 'Saldo reajustado', detail }
+}
+
+// ---------------------------------------------------------------------------------------------
+// La grilla: orden, colores y composición
+// ---------------------------------------------------------------------------------------------
+
+export interface AccountsGrid {
+  /** Las activas, con la predeterminada primero y el resto en el orden en que vienen. */
+  accounts: BalanceLocation[]
+  archived: BalanceLocation[]
+  /** La que viene elegida en los formularios (la predeterminada, o la activa más vieja si ninguna
+   *  lo es explícitamente). `''` sin cuentas activas. */
+  defaultId: string
+}
+
+export function accountsForGrid(locations: readonly BalanceLocation[]): AccountsGrid {
+  const active = locations.filter((l) => !l.is_archived)
+  const defaultId = effectiveDefaultAccountId(locations)
+  const first = active.find((l) => l.id === defaultId)
+  return {
+    accounts: first ? [first, ...active.filter((l) => l.id !== first.id)] : active,
+    archived: locations.filter((l) => l.is_archived),
+    defaultId,
+  }
+}
+
+/** Paleta de categorías que se reusa para las cuentas. Se salta `cat-2`: es el coral de "gasto",
+ *  y una cuenta en rojo se leería como una alerta que no es. */
+const ACCOUNT_COLOR_SLOTS = [1, 3, 5, 4, 6] as const
+
+/** El color de la cuenta en la posición `position` de la lista (activas, después archivadas). Es por
+ *  POSICIÓN y no por tipo: dos bancos son dos colores distintos. Da vuelta si hay más de cinco. */
+export function accountColor(position: number): string {
+  return `var(--c-cat-${ACCOUNT_COLOR_SLOTS[position % ACCOUNT_COLOR_SLOTS.length]})`
+}
+
+export interface CompositionSlice {
+  id: string
+  name: string
+  cents: number
+  /** 0–100, sin redondear: es el ancho del segmento de la barra. */
+  pct: number
+  color: string
+}
+
+/** De qué está hecho el total: una porción por cuenta ACTIVA con saldo positivo. Las archivadas no
+ *  entran porque el total no las cuenta.
+ *
+ *  Un saldo negativo o cero no aporta porción (no hay "ancho negativo"), pero SÍ ocupa su lugar en
+ *  la lista de colores, así el color de una cuenta no cambia cuando otra pasa a cero. */
+export function accountComposition(
+  locations: readonly BalanceLocation[],
+  derivedCents: ReadonlyMap<string, number>,
+): CompositionSlice[] {
+  const { accounts } = accountsForGrid(locations)
+  const ordered = accounts.map((l, position) => ({
+    l,
+    position,
+    cents: derivedCents.get(l.id) ?? l.openingCents,
+  }))
+  const positive = ordered.filter((x) => x.cents > 0)
+  const total = positive.reduce((sum, x) => sum + x.cents, 0)
+  if (total <= 0) return []
+  return positive.map(({ l, position, cents }) => ({
+    id: l.id,
+    name: l.name,
+    cents,
+    pct: (cents / total) * 100,
+    color: accountColor(position),
+  }))
+}
+
+/** Qué tamaño de cifra lleva el total en la columna angosta (340px) de escritorio. `total` es de 46px
+ *  fijos y entra hasta 7 dígitos enteros; más largo se desbordaría de la tarjeta, así que baja a
+ *  `figure`, que se achica solo. Cuenta el signo menos como un dígito más. Una sola pasada sobre el
+ *  texto, sin medir el DOM. */
+export function totalFigureSize(cents: number): 'total' | 'figure' {
+  const integerDigits = String(Math.trunc(Math.abs(cents) / 100)).length + (cents < 0 ? 1 : 0)
+  return integerDigits <= 7 ? 'total' : 'figure'
+}
+
+/** El porcentaje de la leyenda: entero, y "<1%" para lo que existe pero redondearía a cero. */
+export function formatShare(pct: number): string {
+  if (pct > 0 && pct < 1) return '<1%'
+  return `${Math.round(pct)}%`
+}
+
+// ---------------------------------------------------------------------------------------------
+// El menú de la cuenta
+// ---------------------------------------------------------------------------------------------
+
+export type AccountMenuActionId = 'adjust' | 'edit' | 'setDefault' | 'transfer' | 'viewMovements' | 'archive' | 'delete'
+type MenuTone = 'default' | 'quiet' | 'destructive'
+
+export type AccountMenuEntry =
+  | { kind: 'action'; id: AccountMenuActionId; label: string; tone: MenuTone }
+  | { kind: 'divider' }
+
+/** Los ítems del menú `⋯` de una cuenta ACTIVA, en orden. Una sola fuente para el popover de
+ *  escritorio y la hoja del celular.
+ *
+ *  - "Reajustar saldo" es el botón de la tarjeta, así que en el popover no está; en la hoja sí y va
+ *    primero, porque ahí es el único menú.
+ *  - "Archivar" no se ofrece sobre la última cuenta activa (`archiveBlocker`): los movimientos
+ *    nuevos se quedarían sin una cuenta para elegir.
+ *  - "Hacer predeterminada" no se ofrece sobre la que ya lo es; "Transferir" pide otra cuenta a la
+ *    que mandar. */
+export function accountMenuEntries(input: {
+  surface: 'popover' | 'sheet'
+  isDefault: boolean
+  activeCount: number
+}): AccountMenuEntry[] {
+  const action = (id: AccountMenuActionId, label: string, tone: MenuTone = 'default'): AccountMenuEntry => ({
+    kind: 'action',
+    id,
+    label,
+    tone,
+  })
+
+  const entries: AccountMenuEntry[] = []
+  if (input.surface === 'sheet') entries.push(action('adjust', 'Reajustar saldo'))
+  entries.push(action('edit', 'Editar cuenta'))
+  if (!input.isDefault) entries.push(action('setDefault', 'Hacer predeterminada'))
+  if (input.activeCount >= 2) entries.push(action('transfer', 'Transferir desde acá'))
+  entries.push(action('viewMovements', 'Ver movimientos'))
+  entries.push({ kind: 'divider' })
+  if (archiveBlocker(input.activeCount) === null) entries.push(action('archive', 'Archivar', 'quiet'))
+  entries.push(action('delete', 'Eliminar', 'destructive'))
+  return entries
+}

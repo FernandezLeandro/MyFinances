@@ -46,6 +46,7 @@ export function useCreateAccountTransfer() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true }, // ver `mutationMeta` en main.tsx: el diálogo de transferir muestra la falla
     mutationFn: async (input: {
       fromAccountId: string
       toAccountId: string
@@ -73,6 +74,7 @@ export function useDeleteAccountTransfer() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true }, // ver `mutationMeta` en main.tsx: la pantalla avisa con un toast propio
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('account_transfers').delete().eq('id', id)
       if (error) throw error
