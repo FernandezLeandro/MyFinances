@@ -156,70 +156,76 @@ export function Cuentas() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-flow-dense grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-[18px] lg:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]">
-          <AccountTotalCard
-            totalCents={totals.totalCents}
-            isBalancePending={isBalancePending}
-            composition={composition}
-            canTransfer={accounts.length >= 2}
-            onCreate={() => setDialog({ kind: 'create' })}
-            onTransfer={() => setDialog({ kind: 'transfer', fromAccountId: '' })}
-          />
-
-          {accounts.map((account, index) => (
-            <AccountCard
-              key={account.id}
-              account={account}
-              balanceCents={balanceOf(account)}
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-[18px] lg:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]">
+            <AccountTotalCard
+              totalCents={totals.totalCents}
               isBalancePending={isBalancePending}
-              isDefault={account.id === defaultId}
-              onAdjust={() => setDialog({ kind: 'adjust', accountId: account.id })}
-              menu={
-                <AccountActionsMenu
-                  accountName={account.name}
-                  balanceCents={balanceOf(account)}
-                  color={accountColor(index)}
-                  isDefault={account.id === defaultId}
-                  activeCount={accounts.length}
-                  open={openMenuId === account.id}
-                  onOpenChange={(open) => setOpenMenuId(open ? account.id : null)}
-                  onAction={(id) => handleAction(account, id)}
-                  onInverse={account.id === defaultId}
-                />
-              }
+              composition={composition}
+              canTransfer={accounts.length >= 2}
+              onCreate={() => setDialog({ kind: 'create' })}
+              onTransfer={() => setDialog({ kind: 'transfer', fromAccountId: '' })}
             />
-          ))}
-
-          {archived.length > 0 && (
-            <CollapsibleCell
-              label={`Archivadas (${archived.length})`}
-              note="no suman al total"
-              open={archivedOpen}
-              onToggle={() => setArchivedOpen((open) => !open)}
-            >
-              <ArchivedAccountsList
-                accounts={archived}
-                balanceOf={balanceOf}
+  
+            {accounts.map((account, index) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                balanceCents={balanceOf(account)}
                 isBalancePending={isBalancePending}
-                onReactivate={actions.reactivateAccount}
+                isDefault={account.id === defaultId}
+                onAdjust={() => setDialog({ kind: 'adjust', accountId: account.id })}
+                menu={
+                  <AccountActionsMenu
+                    accountName={account.name}
+                    balanceCents={balanceOf(account)}
+                    color={accountColor(index)}
+                    isDefault={account.id === defaultId}
+                    activeCount={accounts.length}
+                    open={openMenuId === account.id}
+                    onOpenChange={(open) => setOpenMenuId(open ? account.id : null)}
+                    onAction={(id) => handleAction(account, id)}
+                    onInverse={account.id === defaultId}
+                  />
+                }
               />
-            </CollapsibleCell>
+            ))}
+          </div>
+  
+          {(archived.length > 0 || recentTransfers.length > 0) && (
+            <div className="grid grid-flow-dense grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-[18px]">
+              {archived.length > 0 && (
+                <CollapsibleCell
+                  label={`Archivadas (${archived.length})`}
+                  note="no suman al total"
+                  open={archivedOpen}
+                  onToggle={() => setArchivedOpen((open) => !open)}
+                >
+                  <ArchivedAccountsList
+                    accounts={archived}
+                    balanceOf={balanceOf}
+                    isBalancePending={isBalancePending}
+                    onReactivate={actions.reactivateAccount}
+                  />
+                </CollapsibleCell>
+              )}
+  
+              {recentTransfers.length > 0 && (
+                <CollapsibleCell
+                  label="Últimas transferencias"
+                  open={transfersOpen}
+                  onToggle={() => setTransfersOpen((open) => !open)}
+                >
+                  <RecentTransfersList
+                    transfers={recentTransfers}
+                    nameOf={(id) => byId.get(id)?.name || '?'}
+                    onDelete={actions.removeTransfer}
+                  />
+                </CollapsibleCell>
+              )}
+            </div>
           )}
-
-          {recentTransfers.length > 0 && (
-            <CollapsibleCell
-              label="Últimas transferencias"
-              open={transfersOpen}
-              onToggle={() => setTransfersOpen((open) => !open)}
-            >
-              <RecentTransfersList
-                transfers={recentTransfers}
-                nameOf={(id) => byId.get(id)?.name || '?'}
-                onDelete={actions.removeTransfer}
-              />
-            </CollapsibleCell>
-          )}
-        </div>
+        </>
       )}
 
       {dialog?.kind === 'create' && (

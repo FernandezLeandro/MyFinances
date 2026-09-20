@@ -12,11 +12,11 @@ interface CollapsibleCellProps {
 }
 
 /**
- * Una celda de la grilla que arranca plegada: un botón punteado con el rótulo (Archivadas,
- * Últimas transferencias) y, abierta, una tarjeta con su lista. Lo secundario de la pantalla no le
- * quita lugar a las cuentas, pero sigue a un toque.
+ * Una celda que arranca plegada: un botón punteado con el rótulo (Archivadas, Últimas
+ * transferencias) y, abierta, una tarjeta con su lista. Vive en su propia grilla, debajo de la de las
+ * cuentas: lo secundario no se mezcla con ellas, pero sigue a un toque.
  *
- * Abierta ocupa dos columnas, y el grid es `dense` para que no deje un hueco atrás.
+ * Abierta ocupa las dos columnas de esa grilla, que es `dense` para que no deje un hueco atrás.
  */
 export function CollapsibleCell({ label, note, open, onToggle, children }: CollapsibleCellProps) {
   const heading = (
