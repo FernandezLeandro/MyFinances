@@ -32,7 +32,9 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
 - **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado previo.
 - **Me Deben** (Premium): plata prestada a otras personas, con abonos parciales.
 - **Ahorros** (Premium): ítems multi-activo (pesos, dólares, cripto, acciones), con metas opcionales.
-- **Cuadrar saldo** (Premium): concilia el saldo de la app contra la plata real, por cuenta.
+- **Cuentas** (Test y Premium): efectivo, billeteras virtuales y bancos. El saldo de la app es la suma
+  de las cuentas. Transferencias entre cuentas, archivar, eliminar (con sus movimientos) y reajustar
+  el saldo de una cuenta a pedido — como movimiento de ajuste o corrigiendo el saldo inicial.
 - **Categorías** (todos los planes): propias por cuenta, con un catálogo por defecto al darse de alta.
 - **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad. Dólar en uso y catálogo de
   activos son Premium.
@@ -57,8 +59,8 @@ usuario o de administración). La fuente de verdad de qué habilita cada plan es
 | Movimientos (carga manual) | | ✓ | ✓ |
 | Análisis | | ✓ | ✓ |
 | Mis Deudas, Me Deben, Ahorros | | | ✓ |
-| Cuentas, transferencias, gasto compartido | | | ✓ |
-| Cuadrar saldo | | | ✓ |
+| Cuentas y transferencias | | ✓ | ✓ |
+| Gasto compartido | | | ✓ |
 | Ajustes completos (dólar, activos) | | | ✓ |
 
 El plan lo fija el código de invitación con el que se registra una cuenta, y sólo un admin puede

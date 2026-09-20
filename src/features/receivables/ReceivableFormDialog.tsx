@@ -13,7 +13,7 @@ import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable, useUpdateReceivable, type Receivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 
 /** Las tres respuestas a "¿qué pasa con tu saldo?" — `descontar` es la única que además dispara un
@@ -47,8 +47,7 @@ interface ReceivableFormDialogProps {
   open: boolean
   onClose: () => void
   receivable?: Receivable | null
-  /** En alta rápida desde Cuadrar Saldo arranca en "sigue en mi saldo": el caso que trae a esa
-   *  pantalla es por definición "presté efectivo y el cuadre no da". */
+  /** Arranca en "sigue en mi saldo" o en "ya gastado" según el punto de entrada. */
   defaultAlreadyExpensed?: boolean
   /** Si la deuda ya tiene abonos registrados, la respuesta a "¿qué pasa con tu saldo?" no se puede
    *  tocar más — ver el comentario de los chips de abajo. */
@@ -72,22 +71,23 @@ export function ReceivableFormDialog({
   const isEditing = !!receivable
   // Si "descontala ahora" ya generó un gasto real, este form (un `update` directo, no un RPC) no
   // puede tocar `already_expensed` sin dejar ese gasto huérfano: volver a "sigue en mi saldo" desde
-  // acá contaría esa plata dos veces (el gasto real en Movimientos Y la deuda de nuevo en Cuadrar
-  // Saldo). El único camino de vuelta es "Deshacer descuento" en el detalle, que sí borra el gasto.
+  // acá contaría esa plata dos veces (el gasto real en Movimientos Y la deuda de nuevo dentro del
+  // saldo). El único camino de vuelta es "Deshacer descuento" en el detalle, que sí borra el gasto.
   const lockedByExpense = isEditing && receivable.expense_transaction_id != null
   const locked = hasPayments || lockedByExpense
   const createReceivable = useCreateReceivable()
   const updateReceivable = useUpdateReceivable()
   const { data: categories } = useCategories()
   const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
-  const { data: locations } = useBalanceLocations()
-  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
+  const picker = useAccountPicker()
+  const defaultAccountId = picker.defaultId
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     formState: { errors, isSubmitting, dirtyFields },
   } = useForm<FormValues>({
@@ -164,6 +164,11 @@ export function ReceivableFormDialog({
   }, [open, receivable, defaultAccountId, dirtyFields.expenseAccountId, setValue])
 
   async function onSubmit(values: FormValues) {
+    // El gasto que se genera al descontar es un movimiento nuevo: lleva cuenta como cualquiera.
+    if (values.saldoOption === 'descontar' && picker.show && !values.expenseAccountId) {
+      setError('expenseAccountId', { message: 'Elegí una cuenta' })
+      return
+    }
     const cents = parseAmountToCents(values.amount)!
     const payload = {
       name: values.name.trim(),
@@ -280,13 +285,16 @@ export function ReceivableFormDialog({
               <Field label="Fecha del gasto" htmlFor="expenseOccurredOn">
                 <Input id="expenseOccurredOn" type="date" {...register('expenseOccurredOn')} />
               </Field>
-              <Field label="Con qué lo pagué" htmlFor="expenseAccountId" hint="Opcional">
-                <AccountSelect
-                  id="expenseAccountId"
-                  value={watch('expenseAccountId') ?? ''}
-                  onChange={(v) => setValue('expenseAccountId', v, { shouldDirty: true })}
-                />
-              </Field>
+              {picker.show && (
+                <Field label="Con qué lo pagué" htmlFor="expenseAccountId" error={errors.expenseAccountId?.message}>
+                  <AccountSelect
+                    id="expenseAccountId"
+                    required
+                    value={watch('expenseAccountId') ?? ''}
+                    onChange={(v) => setValue('expenseAccountId', v, { shouldDirty: true })}
+                  />
+                </Field>
+              )}
             </div>
           )}
         </div>

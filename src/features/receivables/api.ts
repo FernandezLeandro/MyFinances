@@ -46,7 +46,7 @@ export function useReceivables() {
 }
 
 /** Todos los abonos de todas las deudas del usuario — son pocas decenas de filas, y tanto /me-deben
- *  como Cuadrar Saldo necesitan el set completo para calcular lo pendiente de cada una (ver
+ *  como el reajuste de una cuenta necesitan el set completo para calcular lo pendiente de cada una (ver
  *  `summarizeReceivables`). Un hook por deuda daría N queries en la lista. */
 export function useReceivablePayments() {
   const { user } = useAuth()

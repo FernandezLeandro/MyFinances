@@ -12,7 +12,6 @@ const ALL_CAPS: Capability[] = [
   'ajustes-completo',
   'cuentas',
   'compartido',
-  'cuadrar-saldo',
   'movimientos-manuales',
 ]
 
@@ -30,14 +29,14 @@ describe('can', () => {
     expect(can('basic', 'movimientos-manuales')).toBe(false)
   })
 
-  it('test ve análisis y movimientos manuales, pero no cuentas, compartido ni cuadrar saldo', () => {
+  it('test ve análisis, movimientos manuales y cuentas, pero no compartido ni los ajustes completos', () => {
     expect(can('test', 'movimientos')).toBe(true)
     expect(can('test', 'fijos')).toBe(true)
     expect(can('test', 'analisis')).toBe(true)
     expect(can('test', 'movimientos-manuales')).toBe(true)
-    expect(can('test', 'cuentas')).toBe(false)
+    expect(can('test', 'cuentas')).toBe(true)
     expect(can('test', 'compartido')).toBe(false)
-    expect(can('test', 'cuadrar-saldo')).toBe(false)
+    expect(can('test', 'ahorros')).toBe(false)
     expect(can('test', 'ajustes-completo')).toBe(false)
   })
 

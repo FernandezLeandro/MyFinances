@@ -21,9 +21,9 @@ interface OpeningAmountFieldProps {
  * costado. Se usa en los tres lugares donde se declara plata que ya estaba — alta de cuenta,
  * edición de cuenta y el aporte de `SavingsEntryFormDialog`.
  *
- * No es el mismo campo que el real declarado de Cuadrar saldo, que va alineado a la derecha: ahí
- * hay una columna de montos comparables entre sí y el ojo los lee en vertical. Acá el monto está
- * solo, así que alinearlo a la derecha lo despega de su rótulo sin ganar nada.
+ * Va con los dígitos a la izquierda y no alineado a la derecha: una columna de montos comparables
+ * entre sí se lee en vertical y pide alineación a la derecha, pero acá el monto está solo, así que
+ * alinearlo a la derecha lo despega de su rótulo sin ganar nada.
  */
 export function OpeningAmountField({
   value,

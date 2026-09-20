@@ -42,6 +42,14 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError({ code: 'P0001', message: 'not_authenticated' })).toBe('Se venció tu sesión. Volvé a entrar.')
   })
 
+  it('P0001 de cuentas → mensajes propios de Cuentas (reajuste y borrado)', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'account_not_found' })).toBe('Esa cuenta ya no existe.')
+    expect(mensajeDeError({ code: 'P0001', message: 'account_adjust_nothing_to_adjust' })).toBe(
+      'Ya coincide: no hay nada que reajustar.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'account_adjust_invalid_amount' })).toBe('Ingresá un importe válido.')
+  })
+
   it('TypeError de "Failed to fetch" → sin conexión', () => {
     expect(mensajeDeError(new TypeError('Failed to fetch'))).toBe('Sin conexión. Revisá internet y probá de nuevo.')
   })

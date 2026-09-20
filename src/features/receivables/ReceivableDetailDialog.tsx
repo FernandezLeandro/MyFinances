@@ -94,8 +94,8 @@ export function ReceivableDetailDialog({ open, onClose, summary }: ReceivableDet
           </div>
 
           {/* Link de texto y no un botón más en el footer: ya tiene tres (Eliminar/Cerrar/Editar +
-              Registrar abono) y un quinto ahí desborda en mobile. Mismo patrón que "+ Agregar lugar"
-              de Cuadrar Saldo. */}
+              Registrar abono) y un quinto ahí desborda en mobile. Mismo patrón que "+ Nueva cuenta"
+              de Cuentas. */}
           {!cobrada &&
             (!receivable.already_expensed ? (
               <button

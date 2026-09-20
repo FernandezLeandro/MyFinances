@@ -640,6 +640,14 @@ export interface Database {
         Args: Record<string, never>
         Returns: { account_id: string; derived: string }[]
       }
+      rpc_adjust_account_balance: {
+        Args: { p_account_id: string; p_real_amount: number | string; p_mode: 'movement' | 'opening'; p_occurred_on?: string | null }
+        Returns: number
+      }
+      rpc_delete_account: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
       rpc_monthly_series: {
         Args: { p_from: string; p_to: string }
         Returns: {

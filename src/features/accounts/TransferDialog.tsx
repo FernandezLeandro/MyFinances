@@ -7,7 +7,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
 import { parseAmountToCents } from '@/lib/money'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
 import { useCreateAccountTransfer } from '@/features/accounts/transfers-api'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 
@@ -32,12 +32,14 @@ type FormValues = z.infer<typeof schema>
 interface TransferDialogProps {
   open: boolean
   onClose: () => void
+  /** Cuenta de origen ya elegida (al transferir desde una fila de Cuentas). */
+  fromAccountId?: string
 }
 
 /** Mover plata entre tus propias cuentas (sacar efectivo del banco, pasar a Mercado Pago…) — no es
  *  gasto ni ingreso, así que no aparece en Movimientos ni mueve el saldo global. Ver
  *  `account_transfers` en la migración `cuentas_y_medios_de_pago`. */
-export function TransferDialog({ open, onClose }: TransferDialogProps) {
+export function TransferDialog({ open, onClose, fromAccountId = "" }: TransferDialogProps) {
   const { data: locations } = useBalanceLocations()
   const createTransfer = useCreateAccountTransfer()
 
@@ -51,7 +53,7 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      fromAccountId: '',
+      fromAccountId,
       toAccountId: '',
       amount: '',
       occurredOn: format(new Date(), 'yyyy-MM-dd'),
@@ -60,8 +62,8 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
   })
 
   useEffect(() => {
-    if (open) reset({ fromAccountId: '', toAccountId: '', amount: '', occurredOn: format(new Date(), 'yyyy-MM-dd'), description: '' })
-  }, [open, reset])
+    if (open) reset({ fromAccountId, toAccountId: '', amount: '', occurredOn: format(new Date(), 'yyyy-MM-dd'), description: '' })
+  }, [open, reset, fromAccountId])
 
   async function onSubmit(values: FormValues) {
     await createTransfer.mutateAsync({
@@ -74,7 +76,8 @@ export function TransferDialog({ open, onClose }: TransferDialogProps) {
     onClose()
   }
 
-  const hasEnoughAccounts = (locations ?? []).length >= 2
+  // Sólo las activas: una archivada no se ofrece en los selectores, así que no alcanza para transferir.
+  const hasEnoughAccounts = (locations ?? []).filter((l) => !l.is_archived).length >= 2
 
   return (
     <Dialog

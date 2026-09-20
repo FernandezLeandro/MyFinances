@@ -32,7 +32,7 @@ function StatusLine({ status, children }: { status: DialogStatus; children: Reac
 
 /**
  * Bloque de resumen de un diálogo: rótulo, una línea de contexto y la cifra a la derecha, sobre la
- * superficie hundida. Es el dato que no se toca — en Cuadrar saldo, el saldo según la app; en las
+ * superficie hundida. Es el dato que no se toca — en Reajustar saldo, el saldo según la app; en las
  * confirmaciones de pago, el detalle de lo que se va a generar.
  */
 export function DialogSummaryBlock({

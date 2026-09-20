@@ -13,9 +13,8 @@ import { useUsdRate, useAssetPrices } from '@/features/fx/api'
 import { useAssets } from '@/features/assets/api'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
 import { ChangePasswordForm } from '@/features/auth/ChangePasswordPanel'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
 import { accountKindIcon } from '@/features/accounts/accountKind'
-import { CuentasManagerDialog } from '@/features/accounts/CuentasManagerDialog'
 import { useCategories } from '@/features/categories/api'
 import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
@@ -154,11 +153,11 @@ function AssetsPanel() {
 }
 
 /** Sin la cifra y sin "Transferir" (27a) — esos compiten con la tarjeta del dólar, la única cifra
- *  que esta pantalla destaca. Transferir vive dentro del diálogo, donde se ve el efecto de mover
- *  plata entre dos cuentas. */
+ *  que esta pantalla destaca. Mismo patrón que `CategoriesPanel`: chips de las activas + link a la
+ *  pantalla completa (`/cuentas`), donde viven el saldo, el reajuste, las transferencias y el
+ *  archivar/eliminar. */
 function AccountsPanel() {
   const { data: locations } = useBalanceLocations()
-  const [open, setOpen] = useState(false)
   const active = (locations ?? []).filter((l) => !l.is_archived)
   const archivedCount = (locations ?? []).filter((l) => l.is_archived).length
 
@@ -194,10 +193,9 @@ function AccountsPanel() {
         )}
       </div>
 
-      <button type="button" onClick={() => setOpen(true)} className="mt-4 text-[12.5px] font-semibold text-accent hover:opacity-80">
+      <Link to="/cuentas" className="mt-4 inline-block text-[12.5px] font-semibold text-accent hover:opacity-80">
         Administrar cuentas
-      </button>
-      {open && <CuentasManagerDialog open={open} onClose={() => setOpen(false)} />}
+      </Link>
     </Panel>
   )
 }
@@ -396,6 +394,7 @@ function SecurityPanel() {
 
 export function Ajustes() {
   const canCompleto = useCan('ajustes-completo')
+  const canCuentas = useCan('cuentas')
 
   return (
     <div className="flex flex-col gap-8">
@@ -411,7 +410,7 @@ export function Ajustes() {
             <AssetsPanel />
           </div>
           <div className="flex flex-col gap-4">
-            <AccountsPanel />
+            {canCuentas && <AccountsPanel />}
             <CategoriesPanel />
             <CiclosPanel />
             <AppearancePanel />
@@ -419,10 +418,11 @@ export function Ajustes() {
           </div>
         </div>
       ) : (
-        // Plan restringido: sin dólar ni cuentas — nada que gestionar todavía ahí. Categorías sí
-        // aplica (fijos y movimientos manuales la usan), sumada a lo que ya pedía Lean para
-        // test/basic: ciclo, tema y seguridad, en una sola columna angosta.
+        // Plan restringido: sin dólar — nada que gestionar todavía ahí. Cuentas aplica a Test (no a
+        // Básico) y Categorías a los dos (fijos y movimientos manuales la usan), sumadas a lo que ya
+        // pedía Lean para test/basic: ciclo, tema y seguridad, en una sola columna angosta.
         <div className="flex max-w-[420px] flex-col gap-4">
+          {canCuentas && <AccountsPanel />}
           <CategoriesPanel />
           <CiclosPanel />
           <AppearancePanel />

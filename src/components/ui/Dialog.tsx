@@ -42,7 +42,7 @@ function unlockBodyScroll() {
  * Altura acotada + sólo el cuerpo scrollea (header y footer quedan fijos): sin esto, un contenido
  * más alto que la pantalla quedaba cortado por el `overflow-hidden` de más abajo, y al no haber
  * ninguna zona scrolleable adentro del diálogo, deslizar el dedo sobre el popup terminaba
- * scrolleando la página de atrás en vez del contenido — el bug reportado en Cuadrar saldo y en
+ * scrolleando la página de atrás en vez del contenido — el bug reportado en los diálogos largos y en
  * los formularios largos.
  */
 export function Dialog({ open, onClose, title, children, footer, footerBleed, className }: DialogProps) {

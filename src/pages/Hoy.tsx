@@ -7,6 +7,7 @@ import { useCycle } from '@/lib/useCycle'
 import { cycleEndNoun, cycleShortLabel } from '@/lib/cycle'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/button-styles'
 import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
@@ -31,9 +32,8 @@ import {
   type Transaction,
 } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
 import { useCan } from '@/features/access/useCan'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
@@ -102,8 +102,7 @@ export function Hoy() {
   const [open, setOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [assignIncomeOpen, setAssignIncomeOpen] = useState(false)
-  const [cuadrarOpen, setCuadrarOpen] = useState(false)
-  const canCuadrar = useCan('cuadrar-saldo')
+  const canCuentas = useCan('cuentas')
   // Bloque 4 del plan "BASIC centrado en fijos": sin `movimientos-manuales` (BASIC), Hoy no tiene
   // con qué mostrar saldo/proyectado (no hay movimientos manuales) — el hero pasa a ser
   // `FijosCicloCard` y el "Proyectado a fin de mes" desaparece entero. Análisis y Mis deudas se
@@ -363,8 +362,8 @@ export function Hoy() {
           </div>
 
           {/* En mobile van debajo del saldo — el `+` de la isla duplica "Nuevo movimiento", pero es el
-              atajo más a mano y "Cuadrar saldo" no tiene ningún otro lugar desde donde abrirse ahí.
-              En escritorio quedan apiladas en una columna angosta.
+              atajo más a mano y "Cuentas" (de donde sale este saldo) no tiene ningún otro lugar desde
+              donde abrirse ahí. En escritorio quedan apiladas en una columna angosta.
 
               `flex-wrap` + `grow shrink-0` en vez de `flex-1`: los dos botones tienen
               `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con `flex-1`
@@ -379,10 +378,10 @@ export function Hoy() {
             >
               Nuevo movimiento
             </Button>
-            {canCuadrar && (
-              <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
-                Cuadrar saldo
-              </Button>
+            {canCuentas && (
+              <Link to="/cuentas" className={buttonClasses({ variant: 'outline', className: 'grow shrink-0 lg:grow-0' })}>
+                Cuentas
+              </Link>
             )}
           </div>
         </Panel>
@@ -670,7 +669,6 @@ export function Hoy() {
           cycleLabel={monthLabel}
         />
       )}
-      {cuadrarOpen && <CuadrarSaldoDialog open={cuadrarOpen} onClose={() => setCuadrarOpen(false)} />}
     </div>
   )
 }

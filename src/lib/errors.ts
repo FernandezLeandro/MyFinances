@@ -40,6 +40,9 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /invalid_plan/.test(message)) return 'Ese plan no existe.'
   if (code === 'P0001' && /cannot_demote_self/.test(message)) return 'No podés sacarte el admin a vos mismo.'
   if (code === 'P0001' && /cannot_delete_self/.test(message)) return 'No podés eliminar tu propia cuenta desde acá.'
+  if (code === 'P0001' && /account_not_found/.test(message)) return 'Esa cuenta ya no existe.'
+  if (code === 'P0001' && /account_adjust_nothing_to_adjust/.test(message)) return 'Ya coincide: no hay nada que reajustar.'
+  if (code === 'P0001' && /account_adjust_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
 
   return DEFAULT_MESSAGE
 }

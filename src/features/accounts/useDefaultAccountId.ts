@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
+import { effectiveDefaultAccountId } from '@/features/accounts/aggregate'
 
 /**
  * Estado de "con qué lo pagué" para los diálogos de pago que no usan react-hook-form (Fijos,
@@ -15,7 +16,9 @@ import { useBalanceLocations } from '@/features/reconciliation/api'
  */
 export function useDefaultAccountId(): [string, (id: string) => void] {
   const { data: locations } = useBalanceLocations()
-  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
+  // La predeterminada activa, si no la activa más vieja: el mismo orden con el que la base completa la
+  // cuenta de un movimiento que llega sin una (trigger `transactions_account`).
+  const defaultAccountId = effectiveDefaultAccountId(locations ?? [])
   const [accountId, setAccountIdState] = useState('')
   const touchedRef = useRef(false)
 

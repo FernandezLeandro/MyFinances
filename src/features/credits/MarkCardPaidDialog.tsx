@@ -9,6 +9,7 @@ import { etiquetaCuota } from '@/features/credits/format'
 import type { CardSummary } from '@/features/credits/aggregate'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 
 interface MarkCardPaidDialogProps {
   open: boolean
@@ -34,6 +35,7 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
   const { data: categories } = useCategories()
   const markPaid = useMarkCreditCardPaid()
   const [accountId, setAccountId] = useDefaultAccountId()
+  const picker = useAccountPicker()
 
   const groups = useMemo<CategoryGroup[]>(() => {
     const items = summary?.items ?? []
@@ -73,7 +75,7 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending || (picker.show && !accountId)}>
             {markPaid.isPending ? 'Guardando…' : 'Marcar pagada'}
           </Button>
         </>
@@ -115,9 +117,11 @@ export function MarkCardPaidDialog({ open, onClose, card, period, summary }: Mar
             : 'Se va a generar un movimiento con el detalle de lo abonado en la descripción.'}
         </p>
 
-        <Field label="Con qué lo pagué" hint="Opcional — se usa en todos los movimientos que genere">
-          <AccountSelect value={accountId} onChange={setAccountId} />
-        </Field>
+        {picker.show && (
+          <Field label="Con qué lo pagué" hint="Se usa en todos los movimientos que genere">
+            <AccountSelect required value={accountId} onChange={setAccountId} />
+          </Field>
+        )}
       </div>
     </Dialog>
   )

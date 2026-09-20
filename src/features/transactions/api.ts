@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
 import { UNCATEGORIZED_ID } from '@/features/categories/api'
+import { TRANSACTION_QUERY_KEYS } from '@/features/transactions/queryKeys'
 import type { Database } from '@/lib/database.types'
 
 type TransactionRowRaw = Database['public']['Tables']['transactions']['Row']
@@ -195,20 +196,14 @@ export interface TransactionInput {
   accountId?: string | null
 }
 
-function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
-  queryClient.invalidateQueries({ queryKey: ['transactions', userId] })
-  queryClient.invalidateQueries({ queryKey: ['balance', userId] })
-  queryClient.invalidateQueries({ queryKey: ['monthly-summary', userId] })
-  queryClient.invalidateQueries({ queryKey: ['spend-by-category', userId] })
-  // El primer término de rpc_projected_balance_range es el saldo histórico completo (sin tope de
-  // fecha) — cualquier alta/edición/borrado de un movimiento, en cualquier mes, lo mueve. Sin esto,
-  // el saldo proyectado de Fijos/Mis Deudas queda desactualizado hasta el próximo refetch por otra
-  // causa.
-  queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
-  // El saldo derivado por cuenta (`rpc_account_balances`) suma exactamente estas mismas filas —
-  // cualquier alta/edición/borrado con `account_id` lo mueve igual que mueve `balance`.
-  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
+/** Qué se invalida y por qué vive en `queryKeys.ts` (con su test). */
+export function invalidateTransactionQueries(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
+  for (const key of TRANSACTION_QUERY_KEYS) {
+    queryClient.invalidateQueries({ queryKey: [key, userId] })
+  }
 }
+
+const invalidateAll = invalidateTransactionQueries
 
 export function useCreateTransaction() {
   const { user } = useAuth()

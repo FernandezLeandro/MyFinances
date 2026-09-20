@@ -1,7 +1,7 @@
 import { Money } from '@/components/ui/Money'
 import type { Category } from '@/features/categories/api'
 import type { Transaction } from '@/features/transactions/api'
-import type { BalanceLocation } from '@/features/reconciliation/api'
+import type { BalanceLocation } from '@/features/accounts/api'
 
 export function TransactionRow({
   tx,

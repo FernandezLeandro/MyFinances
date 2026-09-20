@@ -15,9 +15,8 @@ import type {
   CreditPurchase,
   CreditPurchasePayment,
 } from '@/features/credits/api'
-import type { BalanceLocation } from '@/features/reconciliation/api'
+import type { BalanceLocation } from '@/features/accounts/api'
 import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
-import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from '@/features/fixed-expenses/api'
 import type { Transaction } from '@/features/transactions/api'
 
@@ -146,7 +145,7 @@ export function makePurchasePayment(
   }
 }
 
-export function makeLocation(p: Partial<BalanceLocation> & Pick<BalanceLocation, 'amountCents'>): BalanceLocation {
+export function makeLocation(p: Partial<BalanceLocation> = {}): BalanceLocation {
   return {
     id: `location-${Math.random().toString(36).slice(2)}`,
     user_id: 'user-1',
@@ -189,29 +188,6 @@ export function makeReceivablePayment(
     transaction_id: null,
     created_at: FIXED_DATE,
     ...p,
-  }
-}
-
-/** Summary armado a mano, para los tests de `reconciliar()`: ahí lo único que importa es
- *  `pendingCents` + el flag, no cómo se llegó a ese pendiente (eso lo cubre
- *  `receivables/aggregate.test.ts`). Evita que los tests del cuadre tengan que construir abonos. */
-export function makeReceivableSummary(p: {
-  pendingCents: number
-  alreadyExpensed?: boolean
-  cobrada?: boolean
-  receivable?: Partial<Receivable>
-}): ReceivableSummary {
-  const alreadyExpensed = p.alreadyExpensed ?? false
-  const cobrada = p.cobrada ?? false
-  return {
-    receivable: makeReceivable({ amountCents: p.pendingCents, already_expensed: alreadyExpensed, ...p.receivable }),
-    payments: [],
-    paidCents: 0,
-    pendingCents: p.pendingCents,
-    overpaidCents: 0,
-    cobrada,
-    vencida: false,
-    cuentaEnCuadre: !alreadyExpensed && !cobrada,
   }
 }
 

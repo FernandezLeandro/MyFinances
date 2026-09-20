@@ -14,7 +14,8 @@ import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
+import { accountFieldMode, effectiveDefaultAccountId } from '@/features/accounts/aggregate'
 import { useCan } from '@/features/access/useCan'
 import {
   useCreateTransaction,
@@ -84,8 +85,6 @@ interface TransactionFormDialogProps {
   onClose: () => void
   /** Si viene, el dialog edita esta transacción en vez de crear una nueva. */
   transaction?: Transaction | null
-  /** Precarga tipo e importe en un alta nueva (ej. "Ajustar saldo" → "Registrar como movimiento"). Se ignora si viene `transaction`. */
-  prefill?: { type: TransactionType; cents: number }
 }
 
 const emptySplitDefaults = {
@@ -97,7 +96,7 @@ const emptySplitDefaults = {
   splitExpectedPeriod: '',
 }
 
-export function TransactionFormDialog({ open, onClose, transaction, prefill }: TransactionFormDialogProps) {
+export function TransactionFormDialog({ open, onClose, transaction }: TransactionFormDialogProps) {
   const isEditing = !!transaction
   const canCuentas = useCan('cuentas')
   const canCompartido = useCan('compartido')
@@ -106,7 +105,17 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   // tocar nada le pisa la categoría en silencio.
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
-  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
+  const defaultAccountId = effectiveDefaultAccountId(locations ?? [])
+  const activeAccountCount = (locations ?? []).filter((l) => !l.is_archived).length
+  // `required`: todo movimiento nuevo lleva cuenta (el saldo es la suma de las cuentas). `legacy`: un
+  // movimiento viejo sin cuenta que se edita — no se le pide una, asignársela contaría esa plata dos
+  // veces (ya está en la apertura de las cuentas). `hidden`: plan sin Cuentas, o todavía sin ninguna.
+  const accountMode = accountFieldMode({
+    canCuentas,
+    activeCount: activeAccountCount,
+    isEditing,
+    txAccountId: transaction?.account_id ?? null,
+  })
   const createTx = useCreateTransaction()
   const updateTx = useUpdateTransaction()
   const deleteTx = useDeleteTransaction()
@@ -117,6 +126,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     formState: { errors, isSubmitting, dirtyFields },
   } = useForm<FormValues>({
@@ -169,8 +179,8 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             ...emptySplitDefaults,
           }
         : {
-            type: prefill?.type ?? 'expense',
-            amount: prefill ? centsToInputText(prefill.cents) : '',
+            type: 'expense',
+            amount: '',
             categoryId: '',
             occurredOn: format(new Date(), 'yyyy-MM-dd'),
             description: '',
@@ -178,7 +188,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             ...emptySplitDefaults,
           },
     )
-  }, [open, transaction, prefill, reset])
+  }, [open, transaction, reset])
 
   // Precarga la cuenta predeterminada en un alta nueva — sólo escribe el campo `accountId`, nunca
   // el resto del form, y sólo mientras el usuario no lo haya tocado (`dirtyFields`, que `setValue`
@@ -191,14 +201,14 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       appliedDefaultAccountRef.current = false
       return
     }
-    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId || !canCuentas) return
+    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId || accountMode !== 'required') return
     setValue('accountId', defaultAccountId)
     appliedDefaultAccountRef.current = true
-  }, [open, transaction, defaultAccountId, dirtyFields.accountId, canCuentas, setValue])
+  }, [open, transaction, defaultAccountId, dirtyFields.accountId, accountMode, setValue])
 
   // El mes esperado de cobro arranca en el mes de la fecha del movimiento — es el caso dominante
-  // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en
-  // el grupo "Entra este mes" de Cuadrar Saldo sin que el usuario tenga que completar nada más.
+  // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en el
+  // mes en curso de Me Deben sin que el usuario tenga que completar nada más.
   useEffect(() => {
     if (!compartido) return
     setValue('splitExpectedPeriod', occurredOn ? occurredOn.slice(0, 7) : '')
@@ -219,6 +229,10 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   const miParteCents = totalCents != null && otroCents != null ? totalCents - otroCents : null
 
   async function onSubmit(values: FormValues) {
+    if (accountMode === 'required' && !values.accountId) {
+      setError('accountId', { message: 'Elegí una cuenta' })
+      return
+    }
     const cents = parseAmountToCents(values.amount)!
     const description = values.description?.trim() || null
 
@@ -233,8 +247,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
         cents: otro,
         expectedPeriod: values.splitExpectedPeriod ? `${values.splitExpectedPeriod}-01` : null,
         // `false`: la app sólo registró tu parte como gasto, así que lo que quedó en deuda todavía
-        // no salió de tu saldo — sigue contando como plata tuya en Cuadrar Saldo hasta que te la
-        // devuelvan (ver la tabla de verificación de `deudas_flujo_movimientos`).
+        // no salió de tu saldo — sigue contando como plata tuya hasta que te la devuelvan (ver la tabla de verificación de `deudas_flujo_movimientos`).
         alreadyExpensed: false,
         note: null,
         expense: {
@@ -340,16 +353,20 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
           </Field>
         </div>
 
-        {canCuentas && (
-          <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
+        {accountMode === 'required' && (
+          <Field label="Cuenta" htmlFor="accountId" error={errors.accountId?.message}>
             <AccountSelect
               id="accountId"
+              required
               value={watch('accountId') ?? ''}
               // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
               // de la predeterminada pise una elección manual no vería esta elección como manual.
               onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
             />
           </Field>
+        )}
+        {accountMode === 'legacy' && (
+          <p className="text-[12px] text-fg-muted">Movimiento anterior a tus cuentas: no suma al saldo actual.</p>
         )}
 
         <Field label="Descripción" htmlFor="description" hint="Opcional">

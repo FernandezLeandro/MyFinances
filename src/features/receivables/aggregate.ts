@@ -20,15 +20,16 @@ export interface ReceivableSummary {
   /** Te pagaron de más (intereses, redondeo). 0 en el caso normal. */
   overpaidCents: number
   /** Se cobró entera. Exige `amountCents > 0` además de `paidCents >= amountCents`: sin esa
-   *  guarda, una fila fantasma de $0 (las que dejaba el alta inline vieja de Cuadrar Saldo)
+   *  guarda, una fila fantasma de $0 (las que dejaba un alta inline vieja)
    *  aparecería como cobrada sin que nadie la haya pagado. */
   cobrada: boolean
   /** Pasó el mes en que esperabas cobrarla y todavía debe. Las que no tienen mes esperado nunca
    *  vencen — "me deben, no sé cuándo" es un estado válido, no un atraso. */
   vencida: boolean
-  /** Suma del lado de "Tenés" en Cuadrar Saldo: `!already_expensed && !cobrada`. Se calcula acá y
-   *  no en `reconciliation/aggregate.ts` para que la regla del flag viva en un solo lugar. */
-  cuentaEnCuadre: boolean
+  /** Sigue contando como plata tuya en el saldo: `!already_expensed && !cobrada`. Prestar plata no
+   *  genera un movimiento, así que esa plata no salió del saldo hasta que se "descuenta". La regla
+   *  del flag vive acá, en un solo lugar. */
+  cuentaEnSaldo: boolean
 }
 
 function summarizeOne(receivable: Receivable, payments: ReceivablePayment[], today: Date): ReceivableSummary {
@@ -53,7 +54,7 @@ function summarizeOne(receivable: Receivable, payments: ReceivablePayment[], tod
     overpaidCents,
     cobrada,
     vencida,
-    cuentaEnCuadre: !receivable.already_expensed && !cobrada,
+    cuentaEnSaldo: !receivable.already_expensed && !cobrada,
   }
 }
 
@@ -64,9 +65,9 @@ export interface ReceivablesSummary {
   cobradas: ReceivableSummary[]
   /** Todo lo que te deben, sin importar el flag — el número grande de /me-deben. */
   totalPendingCents: number
-  /** Sólo `!already_expensed`: lo que suma en Cuadrar Saldo. */
+  /** Sólo `!already_expensed`: lo que todavía cuenta dentro del saldo. */
   contadoEnSaldoCents: number
-  /** Sólo `already_expensed`: plata que va a volver pero que NO suma en el cuadre porque ya salió
+  /** Sólo `already_expensed`: plata que va a volver pero que NO cuenta en el saldo porque ya salió
    *  como gasto. Se muestra aparte para que el usuario entienda por qué el total no coincide. */
   yaGastadoPendingCents: number
   vencidasCount: number
@@ -102,7 +103,7 @@ export function summarizeReceivables(
     pendientes,
     cobradas,
     totalPendingCents: statuses.reduce((sum, s) => sum + s.pendingCents, 0),
-    contadoEnSaldoCents: statuses.filter((s) => s.cuentaEnCuadre).reduce((sum, s) => sum + s.pendingCents, 0),
+    contadoEnSaldoCents: statuses.filter((s) => s.cuentaEnSaldo).reduce((sum, s) => sum + s.pendingCents, 0),
     yaGastadoPendingCents: statuses
       .filter((s) => s.receivable.already_expensed && !s.cobrada)
       .reduce((sum, s) => sum + s.pendingCents, 0),
@@ -117,35 +118,6 @@ export interface MesGroup {
   period: string | null
   items: ReceivableSummary[]
   totalPendingCents: number
-}
-
-export interface HorizonteReceivables {
-  /** Se esperan cobrar este mes o antes (incluye vencidas — venció en agosto y estamos en
-   *  septiembre es, si acaso, más accionable que una del mes que viene). */
-  esteMes: ReceivableSummary[]
-  /** Mes que viene en adelante, o sin fecha esperada — "no sé cuándo" no es "este mes". */
-  masAdelante: ReceivableSummary[]
-}
-
-/** Parte una lista de deudas (ya filtradas por lo que le importa a cada pantalla — Cuadrar Saldo le
- *  pasa sólo `cuentaEnCuadre`) según si entran este mes o no. Es sólo presentación: la suma de las
- *  dos partes es la lista de entrada completa, así que no cambia ningún total ya calculado en
- *  `reconciliar()` — filtrar la suma en sí sería fabricar un faltante falso en el cuadre (ver el
- *  comentario de `reconciliation/aggregate.ts`). `today` por parámetro, nunca `new Date()` adentro,
- *  mismo criterio que `summarizeReceivables`. */
-export function particionarPorHorizonte(items: ReceivableSummary[], today: Date): HorizonteReceivables {
-  const limite = startOfMonth(today)
-  const esteMes: ReceivableSummary[] = []
-  const masAdelante: ReceivableSummary[] = []
-  for (const item of items) {
-    const period = item.receivable.expected_period
-    if (period != null && startOfMonth(parseISO(period)) <= limite) {
-      esteMes.push(item)
-    } else {
-      masAdelante.push(item)
-    }
-  }
-  return { esteMes, masAdelante }
 }
 
 /** Agrupa las pendientes por mes esperado preservando el orden de entrada (ya viene ordenado por

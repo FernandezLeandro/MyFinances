@@ -22,7 +22,7 @@ import { Pagination } from '@/components/ui/Pagination'
 import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
-import { useBalanceLocations, type BalanceLocation } from '@/features/reconciliation/api'
+import { useBalanceLocations, type BalanceLocation } from '@/features/accounts/api'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
@@ -87,9 +87,9 @@ function MovementTableRow({
 }
 
 export function Movimientos() {
-  // Llega acá desde el drill-down de Análisis (categoría + período) o desde el "ver" de "Sin
-  // asignar" en Cuadrar Saldo (el filtro de cuenta en sí, con un período bien amplio para no
-  // limitarlo al mes actual).
+  // Llega acá desde el drill-down de Análisis (categoría + período) o desde "Ver movimientos" de una
+  // cuenta en Cuentas (el filtro de cuenta en sí, con un período bien amplio para no limitarlo al
+  // mes actual).
   const location = useLocation()
   const navigate = useNavigate()
   const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null

@@ -10,6 +10,7 @@ import { useExpenseReceivable } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 
 interface ExpenseReceivableDialogProps {
   open: boolean
@@ -21,8 +22,8 @@ interface ExpenseReceivableDialogProps {
  * "Descontala ahora" sobre una deuda que se había cargado como "sigue en mi saldo": pide categoría
  * y fecha del gasto y llama a `useExpenseReceivable`, que via `rpc_expense_receivable` crea el gasto
  * por lo pendiente y prende `already_expensed`. Compartido por `ReceivableDetailDialog` (el detalle
- * de una deuda) y `CuadrarSaldoDialog` (sacar una deuda del cuadre sin ir a Movimientos) — mismos
- * dos puntos de entrada que ya comparten `RegistrarAbonoDialog`.
+ * de una deuda) y la lista de Me Deben — mismos dos puntos de entrada que ya comparten
+ * `RegistrarAbonoDialog`.
  */
 export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseReceivableDialogProps) {
   const { receivable, pendingCents } = summary
@@ -33,6 +34,7 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
   const [occurredOn, setOccurredOn] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const expenseReceivable = useExpenseReceivable()
   const [accountId, setAccountId] = useDefaultAccountId()
+  const picker = useAccountPicker()
 
   async function handleConfirm() {
     await expenseReceivable.mutateAsync({
@@ -54,7 +56,7 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={expenseReceivable.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={expenseReceivable.isPending || (picker.show && !accountId)}>
             {expenseReceivable.isPending ? 'Guardando…' : 'Descontar'}
           </Button>
         </>
@@ -88,13 +90,15 @@ export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseRecei
           />
         </Field>
 
-        <Field label="Con qué lo pagué" hint="Opcional">
-          <AccountSelect value={accountId} onChange={setAccountId} />
-        </Field>
+        {picker.show && (
+          <Field label="Con qué lo pagué">
+            <AccountSelect required value={accountId} onChange={setAccountId} />
+          </Field>
+        )}
 
         <p className="text-[12px] text-fg-muted">
-          Esa plata deja de contar como tuya en Cuadrar saldo — cuando te la devuelvan se va a
-          registrar como un ingreso.
+          Esa plata deja de contar en tu saldo — cuando te la devuelvan se va a registrar como un
+          ingreso.
         </p>
       </div>
     </Dialog>
