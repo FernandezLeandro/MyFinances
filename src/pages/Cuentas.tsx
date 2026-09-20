@@ -216,7 +216,16 @@ export function Cuentas() {
             {isBalancePending ? (
               <Skeleton className="mt-2 h-9 w-48" />
             ) : (
-              <Money cents={totals.totalCents} tone="accent" size="total" className="mt-2 block" />
+              <>
+                {/* `total` es de 46px fijos: un saldo de 9 cifras no entra en 320px. En mobile va el
+                    `hero` (mismo clamp que el saldo de Hoy y Fijos), que se achica solo. */}
+                <div className="mt-2 lg:hidden">
+                  <Money cents={totals.totalCents} tone="accent" size="hero" />
+                </div>
+                <div className="mt-2 hidden lg:block">
+                  <Money cents={totals.totalCents} tone="accent" size="total" />
+                </div>
+              </>
             )}
             <p className="mt-2 max-w-md text-[13px] text-fg-muted">Es tu saldo actual: la suma de todas tus cuentas.</p>
           </div>
