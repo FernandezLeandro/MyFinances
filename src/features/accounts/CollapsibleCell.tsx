@@ -37,7 +37,7 @@ export function CollapsibleCell({ label, note, open, onToggle, children }: Colla
         type="button"
         onClick={onToggle}
         aria-expanded={false}
-        className="flex min-h-14 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-panel-sm border border-dashed border-border-strong bg-transparent px-[18px] py-4 text-left transition-colors duration-150 hover:bg-fill-subtle sm:rounded-panel sm:px-6 sm:py-[22px]"
+        className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-panel-sm border border-dashed border-border-strong bg-transparent px-[18px] py-3.5 text-left transition-colors duration-150 hover:bg-fill-subtle sm:min-h-14 sm:rounded-panel sm:px-6 sm:py-[22px]"
       >
         {heading}
       </button>

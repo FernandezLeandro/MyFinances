@@ -60,7 +60,8 @@ export function AccountActionsMenu({
         aria-haspopup="true"
         aria-expanded={open}
         className={cn(
-          'grid size-11 place-items-center rounded-item border text-[15px] leading-none transition-colors duration-150 sm:size-8 sm:border-transparent',
+          // 32px también en el celular (handoff); el toque sigue siendo de 44 por el `after` invisible.
+          'relative grid size-8 place-items-center rounded-item border text-[15px] leading-none transition-colors duration-150 max-sm:after:absolute max-sm:after:-inset-1.5 sm:border-transparent',
           onInverse
             ? 'border-inverse-divider text-on-inverse-secondary hover:bg-inverse-divider'
             : 'border-border-strong text-fg-muted hover:bg-fill-subtle',

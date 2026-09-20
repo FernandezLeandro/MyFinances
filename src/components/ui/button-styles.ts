@@ -43,9 +43,10 @@ const sizes: Record<ButtonSize, string> = {
   // y el mismo patrón en Fijos/Mis Deudas/Me Deben/Ahorros) — 38px, entre `sm` y `md`.
   compact: 'h-[38px] px-[15px] text-[13px] gap-1.5',
   md: 'h-11 px-5 text-sm gap-2',
-  // Botones apilados a todo el ancho de una tarjeta (Nueva cuenta / Transferir): 44px de alto en el
-  // celular y 40 en escritorio, donde la tarjeta es angosta y dos botones altos pesan.
-  block: 'h-11 w-full px-4 text-[13px] gap-2 sm:h-10',
+  // Botones apilados a todo el ancho de una tarjeta (Nueva cuenta / Transferir): 38px y 12.5px en el
+  // celular como en el handoff (el toque sigue siendo de 44 por el `after` invisible) y 40 en escritorio.
+  block:
+    'relative h-[38px] w-full px-4 text-[12.5px] gap-2 max-sm:after:absolute max-sm:after:inset-x-0 max-sm:after:-inset-y-[3px] sm:h-10 sm:text-[13px]',
   // El footer de los 24 diálogos (arquetipos 1-3): 38px en escritorio como pide el mock, pero a
   // todo el ancho y 48px en mobile — las reglas transversales piden que ahí no queden los botones
   // chicos alineados a la derecha del escritorio. Todo en un solo `size` (no un className aparte)

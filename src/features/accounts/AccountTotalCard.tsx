@@ -20,7 +20,8 @@ interface AccountTotalCardProps {
  * "Nueva cuenta" arriba y "Transferir entre cuentas" abajo, apiladas.
  *
  * La cifra: en escritorio ocupa una columna de 340px, donde el `total` de 46px fijos sólo entra hasta
- * 7 dígitos (`totalFigureSize`); en el celular va siempre la `figure`, que se achica sola.
+ * 7 dígitos (`totalFigureSize`); más largo baja a `figure`, que se achica sola. En el celular la
+ * cifra es la de 34px del handoff (`accountTotal`) con el mismo corte por largo.
  */
 export function AccountTotalCard({
   totalCents,
@@ -31,16 +32,16 @@ export function AccountTotalCard({
   onTransfer,
 }: AccountTotalCardProps) {
   return (
-    <div className="flex flex-col rounded-panel-sm bg-surface p-5 sm:col-span-2 sm:rounded-panel sm:p-6 lg:col-span-1 lg:row-span-2 lg:px-7 lg:py-[26px]">
+    <div className="flex flex-col rounded-panel bg-surface px-5 py-[18px] sm:col-span-2 sm:p-6 lg:col-span-1 lg:row-span-2 lg:px-7 lg:py-[26px]">
       <p className="eyebrow">Total en tus cuentas</p>
 
-      <div className="mt-3.5">
+      <div className="mt-2.5 sm:mt-3.5">
         {isBalancePending ? (
           <Skeleton className="h-9 w-48 lg:h-11" />
         ) : (
           <>
             <div className="lg:hidden">
-              <Money cents={totalCents} size="figure" />
+              <Money cents={totalCents} size={totalFigureSize(totalCents) === 'total' ? 'accountTotal' : 'figure'} />
             </div>
             <div className="hidden lg:block">
               <Money cents={totalCents} size={totalFigureSize(totalCents)} />
@@ -55,7 +56,7 @@ export function AccountTotalCard({
 
       <StackedBar
         thin
-        className="mt-5 lg:mt-6"
+        className="mt-[18px] lg:mt-6"
         segments={composition.map((slice) => ({ pct: slice.pct, color: slice.color }))}
       />
       {composition.length > 0 && (
@@ -71,7 +72,7 @@ export function AccountTotalCard({
       )}
 
       {/* `outline` no define peso (sólo `primary` es semibold); el handoff pide 600 en los dos botones. */}
-      <div className="mt-6 flex flex-col gap-2 lg:mt-auto lg:pt-7">
+      <div className="mt-[18px] flex flex-col gap-2 sm:mt-6 lg:mt-auto lg:pt-7">
         <Button size="block" onClick={onCreate} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
           Nueva cuenta
         </Button>
