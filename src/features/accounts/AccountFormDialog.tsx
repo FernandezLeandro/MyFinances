@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input } from '@/components/ui/Input'
 import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
-import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
 import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
+import { useCurrentBalance } from '@/features/transactions/api'
 import {
+  useAccountBalances,
+  useBalanceLocations,
   useCreateBalanceLocation,
   useUpdateBalanceLocation,
   type AccountKind,
@@ -18,22 +21,24 @@ import {
 import {
   DEFAULT_NEW_ACCOUNT_KIND,
   DEFAULT_NEW_ACCOUNT_NAME,
+  UNASSIGNED_ACCOUNT_NAME,
   accountFormSchema,
+  accountsTotals,
+  createAccountResultText,
+  defaultFundingAccountId,
+  firstAccountSplit,
+  fundingError,
   nameForKindChange,
+  newAccountEffect,
+  type NewAccountSource,
 } from '@/features/accounts/aggregate'
+import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { ACCOUNT_KIND_LABEL, ACCOUNT_KIND_NAME_PLACEHOLDER } from '@/features/accounts/accountKind'
 
 const KINDS: AccountKind[] = ['cash', 'wallet', 'bank']
 
 type AccountFormDialogProps = { onClose: () => void } & (
-  | {
-      mode: 'create'
-      /** "Cuánto tenés hoy" ya escrito — la primera cuenta viene con el saldo actual de la app para
-       *  que crearla no lo mueva. */
-      initialOpening?: string
-      /** Sólo para la primera cuenta: aclara de dónde sale el importe precargado. */
-      firstAccountNote?: boolean
-    }
+  | { mode: 'create' }
   | {
       mode: 'edit'
       account: BalanceLocation
@@ -50,6 +55,11 @@ type AccountFormDialogProps = { onClose: () => void } & (
  * hoy", que queda como la apertura; la edición sólo toca nombre y tipo — la apertura no se edita a
  * mano, después de crearla sólo cambia con "Reajustar saldo".
  *
+ * Crear una cuenta no mueve el saldo salvo que el usuario lo diga. La primera viene con el saldo
+ * actual de la app; si declara menos, el resto queda en una cuenta «Sin repartir» (o lo suelta con
+ * "No los tengo"). Con cuentas ya cargadas, la apertura es plata nueva o sale de otra cuenta por una
+ * transferencia. Lo resuelve `rpc_create_account`; acá se muestra en vivo qué le pasa al saldo.
+ *
  * El nombre sigue al tipo mientras el usuario no lo toque (`nameForKindChange`): Efectivo se
  * autocompleta "Efectivo"; Billetera y Banco piden el nombre.
  *
@@ -64,10 +74,27 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
   const isCreate = props.mode === 'create'
   const createLocation = useCreateBalanceLocation()
   const updateLocation = useUpdateBalanceLocation()
+  const { data: locations } = useBalanceLocations()
+  const { data: balances } = useAccountBalances()
+  const { data: currentBalanceCents } = useCurrentBalance()
+
+  // De dónde sale la plata de una cuenta nueva. Sin cuentas: el saldo de la app, que el alta puede
+  // dejar aparte o soltar. Con cuentas activas: plata nueva, o una transferencia desde otra.
+  const all = locations ?? []
+  const derivedCents = balances ?? new Map<string, number>()
+  const hasAccounts = all.length > 0
+  const isFirst = isCreate && !hasAccounts
+  const canFund = isCreate && all.some((l) => !l.is_archived)
+  const balanceCents = hasAccounts ? accountsTotals(all, derivedCents).totalCents : currentBalanceCents
 
   const [kind, setKind] = useState<AccountKind>(isCreate ? DEFAULT_NEW_ACCOUNT_KIND : props.account.kind)
   const [name, setName] = useState(isCreate ? DEFAULT_NEW_ACCOUNT_NAME : props.account.name)
-  const [opening, setOpening] = useState(isCreate ? (props.initialOpening ?? '') : '0')
+  // La primera cuenta viene con el saldo actual de la app: crearla tal cual no mueve nada.
+  const [opening, setOpening] = useState(() =>
+    !isCreate ? '0' : !hasAccounts && currentBalanceCents !== undefined ? centsToInputText(currentBalanceCents) : '',
+  )
+  const [source, setSource] = useState<NewAccountSource>(hasAccounts ? 'new' : 'hold')
+  const [fromId, setFromId] = useState(() => defaultFundingAccountId(all, derivedCents))
   const [touched, setTouched] = useState({ name: false, opening: false })
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -77,7 +104,26 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
   // El mensaje aparece cuando el campo ya se tocó: un alta recién abierta no arranca en rojo.
   const nameError = touched.name ? fieldErrors.name?.[0] : undefined
   const openingError = isCreate && touched.opening ? fieldErrors.opening?.[0] : undefined
-  const canSubmit = parsed.success && !pending
+
+  const openingCents = isCreate && parsed.success ? parseAmountToCents(parsed.data.opening) : null
+  const split =
+    isFirst && openingCents !== null && balanceCents !== undefined ? firstAccountSplit(openingCents, balanceCents) : null
+  const holdRest = split?.kind === 'rest' && source === 'hold'
+  const fromAccountId = canFund && source === 'from' ? fromId : undefined
+  const fromName = fromAccountId ? (all.find((l) => l.id === fromAccountId)?.name ?? '') : null
+  const sourceError = canFund ? fundingError(source, fromId, openingCents) : null
+  const effect =
+    openingCents !== null && balanceCents !== undefined
+      ? newAccountEffect({
+          hasAccounts,
+          source,
+          openingCents,
+          balanceCents,
+          accountName: parsed.success ? parsed.data.name : '',
+          fromName: fromName ?? undefined,
+        })
+      : null
+  const canSubmit = parsed.success && !pending && !sourceError
 
   function changeKind(next: AccountKind) {
     setName((current) => nameForKindChange(kind, next, current))
@@ -91,12 +137,21 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
     setSaveError(null)
     try {
       if (props.mode === 'create') {
+        const cents = parseAmountToCents(parsed.data.opening)!
         await createLocation.mutateAsync({
           name: parsed.data.name,
           kind: parsed.data.kind,
-          openingCents: parseAmountToCents(parsed.data.opening)!,
+          openingCents: cents,
+          holdRest,
+          fromAccountId,
         })
-        showToast('Cuenta agregada', 'ok', { detail: parsed.data.name })
+        const { title, detail } = createAccountResultText({
+          name: parsed.data.name,
+          openingCents: cents,
+          heldRestCents: holdRest && split ? split.restCents : 0,
+          fromName,
+        })
+        showToast(title, 'ok', { detail })
       } else {
         await updateLocation.mutateAsync({ id: props.account.id, name: parsed.data.name, kind: parsed.data.kind })
         showToast('Cuenta actualizada', 'ok', { detail: parsed.data.name })
@@ -148,10 +203,10 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
             figure={formatMoney(props.balanceCents)}
           />
         )}
-        {props.mode === 'create' && props.firstAccountNote && (
+        {isFirst && balanceCents !== undefined && balanceCents > 0 && (
           <p className="text-[13px] leading-normal text-fg-secondary text-pretty">
-            Es tu saldo actual en la app. Si tu plata está repartida en varias cuentas, poné sólo lo de esta y después
-            sumás las otras.
+            Viene cargado tu saldo actual en la app. Si tu plata está repartida en varias cuentas, poné sólo lo de esta:
+            el resto queda guardado para que lo repartas después.
           </p>
         )}
 
@@ -185,7 +240,13 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
         {props.mode === 'create' && (
           <OpeningAmountField
             label="Apertura"
-            hint="Lo que ya tenías antes de cargar el primer movimiento. Si no sabés, dejalo en cero y reajustá después."
+            hint={
+              fromAccountId
+                ? `Sale de ${fromName || 'esa cuenta'}: se registra como una transferencia por este importe.`
+                : isFirst && balanceCents !== undefined && balanceCents > 0
+                  ? 'Lo que tenés hoy en esta cuenta, no en toda la app.'
+                  : 'Lo que ya tenías antes de cargar el primer movimiento. Si no sabés, dejalo en cero y reajustá después.'
+            }
             error={openingError}
             value={opening}
             onChange={(value) => {
@@ -195,6 +256,52 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
             }}
             ariaLabel="Cuánto tenés hoy en la cuenta nueva"
           />
+        )}
+
+        {props.mode === 'create' && (split?.kind === 'rest' || canFund) && (
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">
+              {split?.kind === 'rest' ? `¿Y los otros ${formatMoney(split.restCents)}?` : '¿De dónde sale esta plata?'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {split?.kind === 'rest' ? (
+                <>
+                  <Chip size="md" active={source === 'hold'} onClick={() => setSource('hold')}>
+                    Dejarlos en «{UNASSIGNED_ACCOUNT_NAME}»
+                  </Chip>
+                  <Chip size="md" active={source === 'drop'} onClick={() => setSource('drop')}>
+                    No los tengo
+                  </Chip>
+                </>
+              ) : (
+                <>
+                  <Chip size="md" active={source === 'new'} onClick={() => setSource('new')}>
+                    Es plata nueva
+                  </Chip>
+                  <Chip size="md" active={source === 'from'} onClick={() => setSource('from')}>
+                    Sale de otra cuenta
+                  </Chip>
+                </>
+              )}
+            </div>
+            {source === 'from' && canFund && (
+              <Field label="Sale de" htmlFor="account-from" error={sourceError ?? undefined}>
+                <AccountSelect
+                  id="account-from"
+                  required
+                  value={fromId}
+                  onChange={(id) => {
+                    setFromId(id)
+                    setSaveError(null)
+                  }}
+                />
+              </Field>
+            )}
+          </div>
+        )}
+
+        {props.mode === 'create' && effect && (
+          <p className="-mt-2 text-[12px] leading-normal text-fg-muted text-pretty">{effect.note}</p>
         )}
 
         {saveError && (

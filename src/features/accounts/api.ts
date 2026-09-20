@@ -100,52 +100,47 @@ function invalidarCuentasYSaldo(queryClient: QueryClient, userId?: string) {
   queryClient.invalidateQueries({ queryKey: ['projected-balance-range', userId] })
 }
 
-/** La apertura es "cuánto tenés hoy" al crearla y no se vuelve a editar a mano: después sólo cambia
- *  con `useAdjustAccountBalance` en modo `opening`. La primera cuenta ACTIVA nace predeterminada,
- *  así los diálogos de pago ya traen una cuenta elegida; una cuenta nueva cuando ya hay otras no le
- *  quita el lugar (sin predeterminada explícita, la activa más vieja hace de tal — ver
- *  `effectiveDefaultAccountId`). */
+export interface CreateAccountInput {
+  name: string
+  kind: AccountKind
+  openingCents: number
+  /** Primera cuenta: el sobrante del saldo queda en una segunda cuenta «Sin repartir», así crear la
+   *  cuenta no lo mueve. La base lo calcula (`rpc_create_account`). */
+  holdRest?: boolean
+  /** La apertura sale de esta cuenta por una transferencia: la nueva nace en cero y el total no se mueve. */
+  fromAccountId?: string
+}
+
+/** Crea la cuenta en un solo RPC (`rpc_create_account`): las variantes que no mueven el saldo escriben
+ *  dos filas que tienen que vivir o morir juntas. La apertura es "cuánto tenés hoy" al crearla y no se
+ *  vuelve a editar a mano: después sólo cambia con `useAdjustAccountBalance` en modo `opening`. La
+ *  primera cuenta ACTIVA nace predeterminada, así los diálogos de pago ya traen una cuenta elegida; una
+ *  cuenta nueva cuando ya hay otras no le quita el lugar (sin predeterminada explícita, la activa más
+ *  vieja hace de tal — ver `effectiveDefaultAccountId`). Manda la fecha LOCAL: `current_date` de
+ *  Supabase es UTC y en Argentina, desde las 21 h, ya es mañana. */
 export function useCreateBalanceLocation() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
     meta: { silent: true },
-    mutationFn: async (input: { name: string; kind: AccountKind; openingCents: number }) => {
-      if (!user) throw new Error('No autenticado')
-      const { count, error: countError } = await supabase
-        .from('balance_locations')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_archived', false)
-      if (countError) throw countError
-      const isFirstActive = (count ?? 0) === 0
-      if (isFirstActive) {
-        // El índice único parcial de `is_default` también cuenta las archivadas: si una quedó como
-        // predeterminada (el cliente viejo archivaba sin apagarlo), hay que soltarla antes.
-        const { error: clearError } = await supabase
-          .from('balance_locations')
-          .update({ is_default: false })
-          .eq('user_id', user.id)
-          .eq('is_default', true)
-        if (clearError) throw clearError
-      }
-      const { data, error } = await supabase
-        .from('balance_locations')
-        .insert({
-          user_id: user.id,
-          name: input.name,
-          opening_amount: centsToNumeric(input.openingCents),
-          kind: input.kind,
-          is_default: isFirstActive,
-        })
-        .select()
-        .single()
+    mutationFn: async (input: CreateAccountInput) => {
+      const { error } = await supabase.rpc('rpc_create_account', {
+        p_name: input.name,
+        p_kind: input.kind,
+        p_opening: centsToNumeric(input.openingCents),
+        p_hold_rest: input.holdRest ?? false,
+        p_from_account_id: input.fromAccountId ?? null,
+        p_occurred_on: format(new Date(), 'yyyy-MM-dd'),
+      })
       if (error) throw error
-      return toBalanceLocation(data)
     },
     // Crear la primera cuenta cambia de qué está hecho el saldo (de "suma de movimientos" a "suma de
     // cuentas"), así que también se refresca el saldo.
-    onSuccess: () => invalidarCuentasYSaldo(queryClient, user?.id),
+    onSuccess: (_data, variables) => {
+      invalidarCuentasYSaldo(queryClient, user?.id)
+      if (variables.fromAccountId) queryClient.invalidateQueries({ queryKey: ['account-transfers', user?.id] })
+    },
   })
 }
 

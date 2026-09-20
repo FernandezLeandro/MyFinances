@@ -6,6 +6,7 @@ export type MoneyTone =
   | 'negative'
   | 'fg'
   | 'dim'
+  | 'faint'
   // Texto sobre una tarjeta invertida (fondo oscuro fijo, ver `Panel` tone="inverse") — siempre claro,
   // a diferencia de `fg`/`dim` que resuelven distinto según el tema de la app.
   | 'onInverse'
@@ -31,6 +32,7 @@ const tones: Record<MoneyTone, string> = {
   negative: 'text-negative',
   fg: 'text-fg',
   dim: 'text-fg-secondary',
+  faint: 'text-fg-faint',
   onInverse: 'text-on-inverse',
   onInverseSecondary: 'text-on-inverse-secondary',
   negativeOnInverse: 'text-negative-on-inverse',

@@ -36,6 +36,8 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
   de las cuentas activas: archivar una la saca del saldo hasta que se reactiva. Transferencias entre
   cuentas, eliminar (con sus movimientos) y reajustar
   el saldo de una cuenta a pedido — como movimiento de ajuste o corrigiendo el saldo inicial.
+  Crear una cuenta no mueve el saldo salvo que se pida: la primera viene con el saldo actual y lo que
+  no se declare queda en una cuenta «Sin repartir»; las siguientes pueden salir de otra cuenta.
 - **Categorías** (todos los planes): propias por cuenta, con un catálogo por defecto al darse de alta.
 - **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad. Dólar en uso y catálogo de
   activos son Premium.

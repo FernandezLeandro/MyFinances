@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Money } from '@/components/ui/Money'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { centsToInputText } from '@/lib/money'
 import { showToast } from '@/lib/toast'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
@@ -87,8 +87,8 @@ export function Cuentas() {
   const canArchive = archiveBlocker(accounts.length) === null
 
   const hasNoAccounts = !isPending && !isError && all.length === 0
-  // La primera cuenta viene con el saldo actual de la app — crearla no debería mover el saldo.
-  const initialOpening = hasNoAccounts && currentBalanceCents !== undefined ? centsToInputText(currentBalanceCents) : ''
+  // Sin cuentas el saldo sigue siendo la suma de los movimientos: se muestra, así se ve lo que hay que repartir.
+  const unassignedCents = hasNoAccounts && currentBalanceCents !== undefined && currentBalanceCents > 0 ? currentBalanceCents : 0
 
   function balanceOf(account: BalanceLocation): number {
     return balanceMap.get(account.id) ?? account.openingCents
@@ -145,11 +145,13 @@ export function Cuentas() {
         </div>
       ) : hasNoAccounts ? (
         <div className="rounded-panel-sm bg-surface px-6 py-[30px] text-center sm:rounded-panel">
-          <p className="tnum font-display text-[32px] leading-none font-bold tracking-[-0.045em] text-fg-faint">
-            <span className="text-[20px]">$ </span>0<span className="text-[17px]">,00</span>
-          </p>
+          <div className="flex justify-center">
+            <Money cents={unassignedCents} size="display" tone="faint" />
+          </div>
           <p className="mx-auto mt-3.5 max-w-[330px] text-[13px] leading-[1.55] text-fg-secondary text-pretty">
-            Todavía no cargaste ninguna cuenta. Creá la primera con lo que tengas hoy y la app arranca desde ahí.
+            {unassignedCents > 0
+              ? 'Tu saldo todavía no está repartido en cuentas. Creá la primera con lo que tengas ahí; el resto queda guardado hasta que cargues las demás.'
+              : 'Todavía no cargaste ninguna cuenta. Creá la primera con lo que tengas hoy y la app arranca desde ahí.'}
           </p>
           <Button className="mt-[18px]" onClick={() => setDialog({ kind: 'create' })} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
             Nueva cuenta
@@ -229,12 +231,7 @@ export function Cuentas() {
       )}
 
       {dialog?.kind === 'create' && (
-        <AccountFormDialog
-          mode="create"
-          onClose={closeDialog}
-          initialOpening={initialOpening}
-          firstAccountNote={hasNoAccounts}
-        />
+        <AccountFormDialog mode="create" onClose={closeDialog} />
       )}
       {dialog?.kind === 'edit' && target && (
         <AccountFormDialog

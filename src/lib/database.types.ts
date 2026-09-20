@@ -644,6 +644,17 @@ export interface Database {
         Args: { p_account_id: string; p_real_amount: number | string; p_mode: 'movement' | 'opening'; p_occurred_on?: string | null }
         Returns: number
       }
+      rpc_create_account: {
+        Args: {
+          p_name: string
+          p_kind: AccountKind
+          p_opening: number | string
+          p_hold_rest?: boolean
+          p_from_account_id?: string | null
+          p_occurred_on?: string | null
+        }
+        Returns: string
+      }
       rpc_delete_account: {
         Args: { p_account_id: string }
         Returns: undefined

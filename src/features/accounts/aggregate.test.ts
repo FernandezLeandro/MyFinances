@@ -14,14 +14,20 @@ import {
   adjustResultText,
   archiveBlocker,
   archiveResultText,
+  createAccountResultText,
+  defaultFundingAccountId,
   deleteImpactText,
   effectiveDefaultAccountId,
+  firstAccountSplit,
   formatShare,
+  fundingError,
   movimientosDeCuentaState,
   nameForKindChange,
+  newAccountEffect,
   totalFigureSize,
   planAdjustment,
   reactivateResultText,
+  UNASSIGNED_ACCOUNT_NAME,
 } from './aggregate'
 
 describe('nameForKindChange', () => {
@@ -489,5 +495,179 @@ describe('totalFigureSize', () => {
   it('cero y centavos sueltos', () => {
     expect(totalFigureSize(0)).toBe('total')
     expect(totalFigureSize(5)).toBe('total')
+  })
+})
+
+describe('firstAccountSplit', () => {
+  it('declarar menos que el saldo deja un resto para guardar aparte', () => {
+    expect(firstAccountSplit(200_000_00, 998_800_00)).toEqual({ restCents: 798_800_00, kind: 'rest' })
+  })
+
+  it('declarar todo el saldo no deja resto', () => {
+    expect(firstAccountSplit(998_800_00, 998_800_00)).toEqual({ restCents: 0, kind: 'exact' })
+  })
+
+  it('declarar de más NO es un resto negativo: es plata nueva, sin nada que guardar aparte', () => {
+    expect(firstAccountSplit(1_000_000_00, 998_800_00)).toEqual({ restCents: 0, kind: 'over' })
+  })
+
+  it('con saldo en cero o negativo no hay nada que repartir', () => {
+    expect(firstAccountSplit(50_000_00, 0)).toEqual({ restCents: 0, kind: 'over' })
+    expect(firstAccountSplit(0, -30_000_00)).toEqual({ restCents: 0, kind: 'over' })
+    expect(firstAccountSplit(0, 0)).toEqual({ restCents: 0, kind: 'exact' })
+  })
+
+  it('una apertura negativa (banco en descubierto) hace crecer el resto', () => {
+    expect(firstAccountSplit(-10_000_00, 100_000_00)).toEqual({ restCents: 110_000_00, kind: 'rest' })
+  })
+})
+
+describe('newAccountEffect', () => {
+  const base = { accountName: 'Efectivo', balanceCents: 998_800_00 }
+
+  it('primera cuenta con resto, dejándolo en «Sin repartir»: el saldo no se mueve', () => {
+    const effect = newAccountEffect({ ...base, hasAccounts: false, source: 'hold', openingCents: 200_000_00 })
+    expect(effect.totalAfterCents).toBe(998_800_00)
+    expect(effect.note).toContain(UNASSIGNED_ACCOUNT_NAME)
+    expect(effect.note).toContain(formatMoney(998_800_00))
+  })
+
+  it('primera cuenta con resto, sin declararlo: el saldo baja a lo declarado y el aviso lo dice', () => {
+    const effect = newAccountEffect({ ...base, hasAccounts: false, source: 'drop', openingCents: 200_000_00 })
+    expect(effect.totalAfterCents).toBe(200_000_00)
+    expect(effect.note).toBe(`Tu saldo pasa de ${formatMoney(998_800_00)} a ${formatMoney(200_000_00)}. Lo que no declares deja de contar.`)
+  })
+
+  it('primera cuenta que declara todo: el saldo no cambia', () => {
+    const effect = newAccountEffect({ ...base, hasAccounts: false, source: 'hold', openingCents: 998_800_00 })
+    expect(effect.totalAfterCents).toBe(998_800_00)
+    expect(effect.note).toContain('no cambia')
+  })
+
+  it('primera cuenta que declara de más: el saldo sube, y "hold" no aplica sin resto', () => {
+    const effect = newAccountEffect({ ...base, hasAccounts: false, source: 'hold', openingCents: 1_000_000_00 })
+    expect(effect.totalAfterCents).toBe(1_000_000_00)
+    expect(effect.note).toBe(`Tu saldo sube de ${formatMoney(998_800_00)} a ${formatMoney(1_000_000_00)}.`)
+  })
+
+  it('ya hay cuentas y sale de otra: el total no cambia y nombra las dos', () => {
+    const effect = newAccountEffect({
+      ...base,
+      accountName: 'Banco',
+      hasAccounts: true,
+      source: 'from',
+      openingCents: 300_000_00,
+      fromName: UNASSIGNED_ACCOUNT_NAME,
+    })
+    expect(effect.totalAfterCents).toBe(998_800_00)
+    expect(effect.note).toBe(`Tu saldo no cambia: la plata se mueve de ${UNASSIGNED_ACCOUNT_NAME} a Banco.`)
+  })
+
+  it('ya hay cuentas y es plata nueva: el total sube por la apertura', () => {
+    const effect = newAccountEffect({ ...base, hasAccounts: true, source: 'new', openingCents: 1_200_00 })
+    expect(effect.totalAfterCents).toBe(998_800_00 + 1_200_00)
+    expect(effect.note).toBe(`Tu saldo sube de ${formatMoney(998_800_00)} a ${formatMoney(1_000_000_00)}.`)
+  })
+
+  it('plata nueva negativa (descubierto) baja el total; en cero no lo mueve', () => {
+    const negative = newAccountEffect({ ...base, hasAccounts: true, source: 'new', openingCents: -5_000_00 })
+    expect(negative.totalAfterCents).toBe(993_800_00)
+    expect(negative.note).toContain('baja')
+    const zero = newAccountEffect({ ...base, hasAccounts: true, source: 'new', openingCents: 0 })
+    expect(zero).toEqual({ totalAfterCents: 998_800_00, note: 'Tu saldo no cambia.' })
+  })
+})
+
+describe('defaultFundingAccountId', () => {
+  it('elige la cuenta activa con más saldo', () => {
+    const banco = makeLocation({ id: 'banco', name: 'Banco', kind: 'bank' })
+    const sinRepartir = makeLocation({ id: 'sr', name: UNASSIGNED_ACCOUNT_NAME })
+    const derived = new Map([
+      ['banco', 10_000_00],
+      ['sr', 798_800_00],
+    ])
+    expect(defaultFundingAccountId([banco, sinRepartir], derived)).toBe('sr')
+  })
+
+  it('ante un empate gana la predeterminada, esté donde esté en la lista', () => {
+    const a = makeLocation({ id: 'a' })
+    const b = makeLocation({ id: 'b', is_default: true })
+    expect(defaultFundingAccountId([a, b], new Map())).toBe('b')
+  })
+
+  it('sin dato derivado cae en la apertura', () => {
+    const a = makeLocation({ id: 'a', openingCents: 5_000_00 })
+    const b = makeLocation({ id: 'b', openingCents: 9_000_00 })
+    expect(defaultFundingAccountId([a, b], new Map())).toBe('b')
+  })
+
+  it('una archivada nunca se ofrece, aunque tenga más plata', () => {
+    const activa = makeLocation({ id: 'act' })
+    const archivada = makeLocation({ id: 'arch', is_archived: true })
+    expect(defaultFundingAccountId([activa, archivada], new Map([['arch', 1_000_000_00]]))).toBe('act')
+  })
+
+  it('sin cuentas activas devuelve vacío', () => {
+    expect(defaultFundingAccountId([], new Map())).toBe('')
+    expect(defaultFundingAccountId([makeLocation({ is_archived: true })], new Map())).toBe('')
+  })
+
+  it('un saldo negativo también puede ser el único candidato', () => {
+    const a = makeLocation({ id: 'a' })
+    expect(defaultFundingAccountId([a], new Map([['a', -20_00]]))).toBe('a')
+  })
+})
+
+describe('fundingError', () => {
+  it('sólo valida cuando la apertura sale de otra cuenta', () => {
+    expect(fundingError('new', '', 0)).toBeNull()
+    expect(fundingError('hold', '', 0)).toBeNull()
+    expect(fundingError('drop', '', -5)).toBeNull()
+  })
+
+  it('falta elegir de qué cuenta sale', () => {
+    expect(fundingError('from', '', 50_000_00)).toBe('Elegí de qué cuenta sale.')
+  })
+
+  it('importe cero o negativo no puede salir de otra cuenta (la transferencia exige > 0)', () => {
+    expect(fundingError('from', 'a', 0)).toContain('mayor a cero')
+    expect(fundingError('from', 'a', -100)).toContain('mayor a cero')
+  })
+
+  it('con un importe que no se entiende no lo marca: eso lo dice el propio campo', () => {
+    expect(fundingError('from', 'a', null)).toBeNull()
+  })
+
+  it('con origen e importe válidos no hay error', () => {
+    expect(fundingError('from', 'a', 50_000_00)).toBeNull()
+  })
+})
+
+describe('createAccountResultText', () => {
+  it('con resto guardado avisa cuánto quedó en «Sin repartir» y que el saldo no cambia', () => {
+    const { title, detail } = createAccountResultText({
+      name: 'Efectivo',
+      openingCents: 200_000_00,
+      heldRestCents: 798_800_00,
+      fromName: null,
+    })
+    expect(title).toBe('Cuenta agregada')
+    expect(detail).toContain(formatMoney(798_800_00))
+    expect(detail).toContain(UNASSIGNED_ACCOUNT_NAME)
+    expect(detail).toContain('no cambia')
+  })
+
+  it('con origen dice de dónde salió la apertura', () => {
+    const { detail } = createAccountResultText({
+      name: 'Banco',
+      openingCents: 300_000_00,
+      heldRestCents: 0,
+      fromName: UNASSIGNED_ACCOUNT_NAME,
+    })
+    expect(detail).toBe(`Banco · ${formatMoney(300_000_00)} desde ${UNASSIGNED_ACCOUNT_NAME}`)
+  })
+
+  it('en el caso simple sólo nombra la cuenta', () => {
+    expect(createAccountResultText({ name: 'Efectivo', openingCents: 0, heldRestCents: 0, fromName: null }).detail).toBe('Efectivo')
   })
 })

@@ -393,3 +393,127 @@ export function accountMenuEntries(input: {
   entries.push(action('delete', 'Eliminar', 'destructive'))
   return entries
 }
+
+// ---------------------------------------------------------------------------------------------
+// Nueva cuenta sin mover el saldo
+// ---------------------------------------------------------------------------------------------
+
+/** El nombre de la cuenta que guarda el sobrante al crear la primera. La base tiene el suyo (en
+ *  `rpc_create_account`): si cambia uno, cambia el otro. */
+export const UNASSIGNED_ACCOUNT_NAME = 'Sin repartir'
+
+/** Qué hacer con la plata de una cuenta nueva. `hold`/`drop` sólo existen para la PRIMERA cuenta (dejar
+ *  el sobrante en «Sin repartir», o no declararlo); `from`/`new` sólo cuando ya hay cuentas activas
+ *  (sale de otra cuenta, o es plata que la app no conocía). */
+export type NewAccountSource = 'hold' | 'drop' | 'from' | 'new'
+
+export interface FirstAccountSplit {
+  /** Lo que la app cree que tenés y la primera cuenta no declara. Sólo es positivo con `kind: 'rest'`. */
+  restCents: number
+  /** `rest`: declaró menos que el saldo; `exact`: igual; `over`: declaró de más (es plata nueva, no
+   *  hay nada que guardar aparte). */
+  kind: 'rest' | 'exact' | 'over'
+}
+
+/** Cómo se reparte el saldo de la app entre lo que declara la primera cuenta y lo que sobra. */
+export function firstAccountSplit(openingCents: number, balanceCents: number): FirstAccountSplit {
+  const rest = balanceCents - openingCents
+  if (rest > 0) return { restCents: rest, kind: 'rest' }
+  return { restCents: 0, kind: rest === 0 ? 'exact' : 'over' }
+}
+
+const fromTo = (fromCents: number, toCents: number) => `de ${formatMoney(fromCents)} a ${formatMoney(toCents)}`
+
+/** Lo que le pasa al saldo al crear la cuenta, y la frase que lo dice — se muestra en vivo debajo del
+ *  importe, para que el saldo no cambie sin que se haya visto venir.
+ *
+ *  `balanceCents` es el saldo de hoy: el actual de la app si todavía no hay cuentas, la suma de las
+ *  activas si ya hay. `fromName` sólo se usa con `source: 'from'`. */
+export function newAccountEffect(input: {
+  hasAccounts: boolean
+  source: NewAccountSource
+  openingCents: number
+  balanceCents: number
+  accountName: string
+  fromName?: string
+}): { totalAfterCents: number; note: string } {
+  const { openingCents, balanceCents } = input
+
+  if (!input.hasAccounts) {
+    const split = firstAccountSplit(openingCents, balanceCents)
+    if (split.kind === 'rest' && input.source === 'hold') {
+      return {
+        totalAfterCents: balanceCents,
+        note: `Quedan en «${UNASSIGNED_ACCOUNT_NAME}» y tu saldo sigue en ${formatMoney(balanceCents)}. Después la renombrás, o movés esa plata a las cuentas que te falten cargar.`,
+      }
+    }
+    if (split.kind === 'exact') {
+      return { totalAfterCents: balanceCents, note: `Tu saldo no cambia: sigue en ${formatMoney(balanceCents)}.` }
+    }
+    const verb = split.kind === 'rest' ? 'pasa' : 'sube'
+    const tail = split.kind === 'rest' ? ' Lo que no declares deja de contar.' : ''
+    return { totalAfterCents: openingCents, note: `Tu saldo ${verb} ${fromTo(balanceCents, openingCents)}.${tail}` }
+  }
+
+  if (input.source === 'from') {
+    return {
+      totalAfterCents: balanceCents,
+      note: `Tu saldo no cambia: la plata se mueve de ${input.fromName || 'esa cuenta'} a ${input.accountName || 'la cuenta nueva'}.`,
+    }
+  }
+
+  if (openingCents === 0) return { totalAfterCents: balanceCents, note: 'Tu saldo no cambia.' }
+  return {
+    totalAfterCents: balanceCents + openingCents,
+    note: `Tu saldo ${openingCents > 0 ? 'sube' : 'baja'} ${fromTo(balanceCents, balanceCents + openingCents)}.`,
+  }
+}
+
+/** La cuenta de la que conviene sacar la apertura de una nueva: la activa con más plata, y ante un
+ *  empate la predeterminada. Recién creada «Sin repartir» es casi siempre ella. `''` sin activas. */
+export function defaultFundingAccountId(
+  locations: readonly BalanceLocation[],
+  derivedCents: ReadonlyMap<string, number>,
+): string {
+  const { accounts, defaultId } = accountsForGrid(locations)
+  let best: BalanceLocation | undefined
+  let bestCents = -Infinity
+  for (const l of accounts) {
+    const cents = derivedCents.get(l.id) ?? l.openingCents
+    if (cents > bestCents || (cents === bestCents && l.id === defaultId)) {
+      best = l
+      bestCents = cents
+    }
+  }
+  return best?.id ?? ''
+}
+
+/** El error del origen de la apertura (validación dentro del diálogo, patrón 5b), o `null`. Sólo
+ *  aplica con `source: 'from'`. El importe inválido (`null`) lo marca el propio campo. */
+export function fundingError(source: NewAccountSource, fromAccountId: string, openingCents: number | null): string | null {
+  if (source !== 'from') return null
+  if (!fromAccountId) return 'Elegí de qué cuenta sale.'
+  if (openingCents !== null && openingCents <= 0) return 'Para sacarla de otra cuenta, el importe tiene que ser mayor a cero.'
+  return null
+}
+
+/** El aviso de una cuenta creada. `heldRestCents` es lo que quedó en «Sin repartir» (0 si nada);
+ *  `fromName`, la cuenta de la que salió la apertura (`null` si no salió de ninguna). */
+export function createAccountResultText(input: {
+  name: string
+  openingCents: number
+  heldRestCents: number
+  fromName: string | null
+}): { title: string; detail: string } {
+  const name = input.name || 'La cuenta'
+  if (input.heldRestCents > 0) {
+    return {
+      title: 'Cuenta agregada',
+      detail: `${name} · ${formatMoney(input.heldRestCents)} quedaron en «${UNASSIGNED_ACCOUNT_NAME}». Tu saldo no cambia.`,
+    }
+  }
+  if (input.fromName !== null) {
+    return { title: 'Cuenta agregada', detail: `${name} · ${formatMoney(input.openingCents)} desde ${input.fromName || 'otra cuenta'}` }
+  }
+  return { title: 'Cuenta agregada', detail: name }
+}
