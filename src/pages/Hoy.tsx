@@ -365,21 +365,23 @@ export function Hoy() {
               atajo más a mano y "Cuentas" (de donde sale este saldo) no tiene ningún otro lugar desde
               donde abrirse ahí. En escritorio quedan apiladas en una columna angosta.
 
-              `flex-wrap` + `grow shrink-0` en vez de `flex-1`: los dos botones tienen
-              `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con `flex-1`
-              (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta hasta
-              60px en pantallas de 360-414px. Así se acomodan solos: lado a lado si entran, uno arriba
-              del otro si no, y `grow` los estira a lo que quede libre en su fila. */}
+              `flex-wrap` + `basis` de la mitad + `grow shrink-0` en vez de `flex-1`: los dos botones
+              tienen `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con
+              `flex-1` (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta
+              hasta 60px en pantallas de 360-414px. Con la base en 50% (menos medio gap) quedan de
+              igual ancho cuando entran lado a lado; si el texto no entra en la mitad, el ancho mínimo
+              del contenido los hace saltar de fila y `grow` los estira a todo el ancho. En escritorio
+              (columna) la base vuelve a `auto`, si no mediría alto. */}
           <div className="flex flex-none flex-wrap gap-2 lg:ml-auto lg:w-[186px] lg:flex-col lg:flex-nowrap">
             <Button
-              className="grow shrink-0 lg:grow-0"
+              className="basis-[calc(50%-4px)] grow shrink-0 lg:basis-auto lg:grow-0"
               onClick={() => setOpen(true)}
               icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
             >
               Nuevo movimiento
             </Button>
             {canCuentas && (
-              <Link to="/cuentas" className={buttonClasses({ variant: 'outline', className: 'grow shrink-0 lg:grow-0' })}>
+              <Link to="/cuentas" className={buttonClasses({ variant: 'outline', className: 'basis-[calc(50%-4px)] grow shrink-0 lg:basis-auto lg:grow-0' })}>
                 Cuentas
               </Link>
             )}
