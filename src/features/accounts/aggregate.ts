@@ -489,12 +489,39 @@ export function defaultFundingAccountId(
 }
 
 /** El error del origen de la apertura (validación dentro del diálogo, patrón 5b), o `null`. Sólo
- *  aplica con `source: 'from'`. El importe inválido (`null`) lo marca el propio campo. */
-export function fundingError(source: NewAccountSource, fromAccountId: string, openingCents: number | null): string | null {
+ *  aplica con `source: 'from'`. El importe inválido (`null`) lo marca el propio campo.
+ *
+ *  No se puede sacar más de lo que la cuenta de origen tiene: a diferencia de un gasto, esto no es un
+ *  descubierto que el usuario declara, es plata que se mueve, y la que no existe no se puede mover.
+ *  `fromBalanceCents` es el saldo del cliente; la base lo vuelve a comprobar contra el suyo. */
+export function fundingError(input: {
+  source: NewAccountSource
+  fromAccountId: string
+  openingCents: number | null
+  fromBalanceCents?: number
+  fromName?: string
+}): string | null {
+  const { source, fromAccountId, openingCents, fromBalanceCents } = input
   if (source !== 'from') return null
   if (!fromAccountId) return 'Elegí de qué cuenta sale.'
-  if (openingCents !== null && openingCents <= 0) return 'Para sacarla de otra cuenta, el importe tiene que ser mayor a cero.'
+  if (openingCents === null) return null
+  if (openingCents <= 0) return 'Para sacarla de otra cuenta, el importe tiene que ser mayor a cero.'
+  if (fromBalanceCents !== undefined && openingCents > fromBalanceCents) {
+    const name = input.fromName || 'Esa cuenta'
+    return fromBalanceCents > 0
+      ? `${name} tiene ${formatMoney(fromBalanceCents)}: no podés sacar más que eso.`
+      : `${name} no tiene saldo para sacar.`
+  }
   return null
+}
+
+/** Lo que se muestra bajo el selector "Sale de": cuánto tiene esa cuenta hoy y, si ya escribió un
+ *  importe válido que entra, cuánto le queda. Un importe que no entra lo dice `fundingError`. */
+export function fundingBalanceNote(fromName: string, balanceCents: number, openingCents: number | null): string {
+  const name = fromName || 'Esa cuenta'
+  const tiene = `${name} tiene ${formatMoney(balanceCents)}`
+  if (openingCents === null || openingCents <= 0 || openingCents > balanceCents) return `${tiene}.`
+  return `${tiene} y le quedan ${formatMoney(balanceCents - openingCents)}.`
 }
 
 /** El aviso de una cuenta creada. `heldRestCents` es lo que quedó en «Sin repartir» (0 si nada);

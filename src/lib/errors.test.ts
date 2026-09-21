@@ -66,6 +66,10 @@ describe('mensajeDeError', () => {
       'Ya coincide: no hay nada que reajustar.',
     )
     expect(mensajeDeError({ code: 'P0001', message: 'account_adjust_invalid_amount' })).toBe('Ingresá un importe válido.')
+    // Crear una cuenta sacando la plata de otra: la base rechaza sacar más de lo que tiene.
+    expect(mensajeDeError({ code: 'P0001', message: 'account_insufficient_funds' })).toBe('Esa cuenta no tiene tanta plata: bajá el importe.')
+    expect(mensajeDeError({ code: 'P0001', message: 'account_invalid_amount' })).toBe('Ingresá un importe válido.')
+    expect(mensajeDeError({ code: 'P0001', message: 'account_invalid_name' })).toBe('Ponele un nombre a la cuenta.')
   })
 
   it('TypeError de "Failed to fetch" → sin conexión', () => {

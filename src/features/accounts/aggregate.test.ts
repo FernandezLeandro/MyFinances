@@ -20,6 +20,7 @@ import {
   effectiveDefaultAccountId,
   firstAccountSplit,
   formatShare,
+  fundingBalanceNote,
   fundingError,
   movimientosDeCuentaState,
   nameForKindChange,
@@ -619,27 +620,80 @@ describe('defaultFundingAccountId', () => {
 })
 
 describe('fundingError', () => {
+  const from = { source: 'from' as const, fromAccountId: 'a', openingCents: 50_000_00, fromBalanceCents: 100_000_00, fromName: 'Banco' }
+
   it('sólo valida cuando la apertura sale de otra cuenta', () => {
-    expect(fundingError('new', '', 0)).toBeNull()
-    expect(fundingError('hold', '', 0)).toBeNull()
-    expect(fundingError('drop', '', -5)).toBeNull()
+    expect(fundingError({ ...from, source: 'new', fromAccountId: '', openingCents: 0 })).toBeNull()
+    expect(fundingError({ ...from, source: 'hold', fromAccountId: '', openingCents: 0 })).toBeNull()
+    expect(fundingError({ ...from, source: 'drop', fromAccountId: '', openingCents: 999_999_00 })).toBeNull()
   })
 
   it('falta elegir de qué cuenta sale', () => {
-    expect(fundingError('from', '', 50_000_00)).toBe('Elegí de qué cuenta sale.')
+    expect(fundingError({ ...from, fromAccountId: '' })).toBe('Elegí de qué cuenta sale.')
   })
 
   it('importe cero o negativo no puede salir de otra cuenta (la transferencia exige > 0)', () => {
-    expect(fundingError('from', 'a', 0)).toContain('mayor a cero')
-    expect(fundingError('from', 'a', -100)).toContain('mayor a cero')
+    expect(fundingError({ ...from, openingCents: 0 })).toContain('mayor a cero')
+    expect(fundingError({ ...from, openingCents: -100 })).toContain('mayor a cero')
   })
 
   it('con un importe que no se entiende no lo marca: eso lo dice el propio campo', () => {
-    expect(fundingError('from', 'a', null)).toBeNull()
+    expect(fundingError({ ...from, openingCents: null })).toBeNull()
   })
 
-  it('con origen e importe válidos no hay error', () => {
-    expect(fundingError('from', 'a', 50_000_00)).toBeNull()
+  it('con origen e importe que entran no hay error', () => {
+    expect(fundingError(from)).toBeNull()
+  })
+
+  it('sacar justo todo lo que tiene entra: la cuenta queda en cero', () => {
+    expect(fundingError({ ...from, openingCents: 100_000_00 })).toBeNull()
+  })
+
+  it('no se puede sacar más de lo que tiene: el mensaje dice cuánto tiene', () => {
+    // El importe se mueve de una cuenta a otra: si la de origen no lo tiene, esa plata no existe.
+    const error = fundingError({ ...from, openingCents: 100_000_01 })
+    expect(error).toBe(`Banco tiene ${formatMoney(100_000_00)}: no podés sacar más que eso.`)
+  })
+
+  it('una cuenta sin saldo o en descubierto no puede prestar nada', () => {
+    expect(fundingError({ ...from, fromBalanceCents: 0, openingCents: 1 })).toBe('Banco no tiene saldo para sacar.')
+    expect(fundingError({ ...from, fromBalanceCents: -20_00, openingCents: 1_00 })).toBe('Banco no tiene saldo para sacar.')
+  })
+
+  it('sin saldo conocido todavía (cargando) no bloquea: lo valida la base', () => {
+    expect(fundingError({ ...from, fromBalanceCents: undefined, openingCents: 999_999_00 })).toBeNull()
+  })
+
+  it('sin nombre no queda un hueco', () => {
+    expect(fundingError({ ...from, fromName: '', openingCents: 200_000_00 })).toContain('Esa cuenta tiene')
+  })
+})
+
+describe('fundingBalanceNote', () => {
+  it('sin importe válido sólo dice cuánto tiene la cuenta', () => {
+    expect(fundingBalanceNote('Sin repartir', 798_800_00, null)).toBe(`Sin repartir tiene ${formatMoney(798_800_00)}.`)
+    expect(fundingBalanceNote('Sin repartir', 798_800_00, 0)).toBe(`Sin repartir tiene ${formatMoney(798_800_00)}.`)
+  })
+
+  it('con importe dice cuánto le queda', () => {
+    expect(fundingBalanceNote('Sin repartir', 798_800_00, 300_000_00)).toBe(
+      `Sin repartir tiene ${formatMoney(798_800_00)} y le quedan ${formatMoney(498_800_00)}.`,
+    )
+  })
+
+  it('vaciar la cuenta deja cero', () => {
+    expect(fundingBalanceNote('Efectivo', 50_000_00, 50_000_00)).toBe(
+      `Efectivo tiene ${formatMoney(50_000_00)} y le quedan ${formatMoney(0)}.`,
+    )
+  })
+
+  it('un importe que no entra no promete un saldo negativo: de eso se ocupa fundingError', () => {
+    expect(fundingBalanceNote('Efectivo', 50_000_00, 80_000_00)).toBe(`Efectivo tiene ${formatMoney(50_000_00)}.`)
+    expect(fundingBalanceNote('Banco', -10_000_00, 5_000_00)).toBe(`Banco tiene ${formatMoney(-10_000_00)}.`)
+  })
+
+  it('sin nombre no queda un hueco', () => {
+    expect(fundingBalanceNote('', 1_000_00, null)).toBe(`Esa cuenta tiene ${formatMoney(1_000_00)}.`)
   })
 })
 

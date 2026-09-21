@@ -50,6 +50,9 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /account_not_found/.test(message)) return 'Esa cuenta ya no existe.'
   if (code === 'P0001' && /account_adjust_nothing_to_adjust/.test(message)) return 'Ya coincide: no hay nada que reajustar.'
   if (code === 'P0001' && /account_adjust_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
+  if (code === 'P0001' && /account_insufficient_funds/.test(message)) return 'Esa cuenta no tiene tanta plata: bajá el importe.'
+  if (code === 'P0001' && /account_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
+  if (code === 'P0001' && /account_invalid_name/.test(message)) return 'Ponele un nombre a la cuenta.'
 
   return DEFAULT_MESSAGE
 }

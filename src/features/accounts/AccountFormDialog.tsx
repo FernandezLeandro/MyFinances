@@ -27,6 +27,7 @@ import {
   createAccountResultText,
   defaultFundingAccountId,
   firstAccountSplit,
+  fundingBalanceNote,
   fundingError,
   nameForKindChange,
   newAccountEffect,
@@ -111,7 +112,11 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
   const holdRest = split?.kind === 'rest' && source === 'hold'
   const fromAccountId = canFund && source === 'from' ? fromId : undefined
   const fromName = fromAccountId ? (all.find((l) => l.id === fromAccountId)?.name ?? '') : null
-  const sourceError = canFund ? fundingError(source, fromId, openingCents) : null
+  const fromLocation = fromAccountId ? all.find((l) => l.id === fromAccountId) : undefined
+  const fromBalanceCents = fromLocation ? (derivedCents.get(fromLocation.id) ?? fromLocation.openingCents) : undefined
+  const sourceError = canFund
+    ? fundingError({ source, fromAccountId: fromId, openingCents, fromBalanceCents, fromName: fromName ?? undefined })
+    : null
   const effect =
     openingCents !== null && balanceCents !== undefined
       ? newAccountEffect({
@@ -297,10 +302,15 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
                 />
               </Field>
             )}
+            {source === 'from' && canFund && fromBalanceCents !== undefined && !sourceError && (
+              <p className="text-[12.5px] text-fg-secondary">
+                {fundingBalanceNote(fromName ?? '', fromBalanceCents, openingCents)}
+              </p>
+            )}
           </div>
         )}
 
-        {props.mode === 'create' && effect && (
+        {props.mode === 'create' && effect && !sourceError && (
           <p className="-mt-2 text-[12px] leading-normal text-fg-muted text-pretty">{effect.note}</p>
         )}
 
