@@ -22,6 +22,8 @@ import {
   formatShare,
   fundingBalanceNote,
   fundingError,
+  maxFromAccountCents,
+  overdrawError,
   movimientosDeCuentaState,
   nameForKindChange,
   newAccountEffect,
@@ -666,6 +668,44 @@ describe('fundingError', () => {
 
   it('sin nombre no queda un hueco', () => {
     expect(fundingError({ ...from, fromName: '', openingCents: 200_000_00 })).toContain('Esa cuenta tiene')
+  })
+})
+
+describe('overdrawError', () => {
+  it('un importe que entra no es error, ni siquiera si vacía la cuenta', () => {
+    expect(overdrawError('Banco', 100_000_00, 50_000_00)).toBeNull()
+    expect(overdrawError('Banco', 100_000_00, 100_000_00)).toBeNull()
+  })
+
+  it('pasarse por un centavo ya es error, y dice cuánto tiene', () => {
+    expect(overdrawError('Banco', 100_000_00, 100_000_01)).toBe(`Banco tiene ${formatMoney(100_000_00)}: no podés sacar más que eso.`)
+  })
+
+  it('una cuenta en cero o en descubierto no tiene nada para sacar', () => {
+    expect(overdrawError('Banco', 0, 1)).toBe('Banco no tiene saldo para sacar.')
+    expect(overdrawError('Banco', -20_00, 1)).toBe('Banco no tiene saldo para sacar.')
+  })
+
+  it('sin nombre no queda un hueco', () => {
+    expect(overdrawError('', 10_00, 20_00)).toBe(`Esa cuenta tiene ${formatMoney(10_00)}: no podés sacar más que eso.`)
+  })
+})
+
+describe('maxFromAccountCents', () => {
+  it('es todo el saldo de la cuenta de origen', () => {
+    expect(maxFromAccountCents(798_800_00)).toBe(798_800_00)
+    expect(maxFromAccountCents(1)).toBe(1)
+  })
+
+  it('sin nada que sacar no hay máximo: el botón no se ofrece', () => {
+    expect(maxFromAccountCents(0)).toBeNull()
+    expect(maxFromAccountCents(-5_00)).toBeNull()
+    expect(maxFromAccountCents(undefined)).toBeNull()
+  })
+
+  it('lo que devuelve siempre pasa la validación de sobregiro', () => {
+    const max = maxFromAccountCents(123_456_78)!
+    expect(overdrawError('Banco', 123_456_78, max)).toBeNull()
   })
 })
 

@@ -19,6 +19,10 @@ interface OpeningAmountFieldProps {
   /** "$" por default. El aporte de `SavingsEntryFormDialog` lo pisa con el símbolo del activo
    *  elegido (USD, BTC…) — ahí el campo no siempre declara pesos. */
   symbol?: string
+  /** Botón "MÁX." pegado al campo: rellena el importe con el tope que corresponda (el saldo de la
+   *  cuenta de la que sale la plata). Sin esta prop no se dibuja. `title` dice cuánto es. */
+  onMax?: () => void
+  maxTitle?: string
   ariaLabel?: string
   className?: string
 }
@@ -40,6 +44,8 @@ export function OpeningAmountField({
   allowNegative = true,
   error,
   symbol = '$',
+  onMax,
+  maxTitle,
   ariaLabel,
   className,
 }: OpeningAmountFieldProps) {
@@ -71,12 +77,34 @@ export function OpeningAmountField({
             className={cn('tnum min-w-0 flex-1 bg-transparent text-[14px] outline-none', error ? 'text-badge-red-fg' : 'text-fg')}
           />
         </div>
+        {onMax && (
+          <button
+            type="button"
+            onClick={onMax}
+            title={maxTitle}
+            aria-label={maxTitle ? `Usar el máximo: ${maxTitle}` : 'Usar el máximo'}
+            className="h-10 shrink-0 rounded-control border border-border px-3 text-[12px] font-bold tracking-wide text-accent-text hover:bg-accent-soft"
+          >
+            MÁX.
+          </button>
+        )}
+        {/* Con el botón al lado el texto casi no entra en el celular: en vez de apretarse a 100px,
+            pasa a la línea de abajo (la base de 12rem es lo que dispara el salto). */}
         {error ? (
-          <p id={`${id}-error`} role="alert" className="min-w-0 flex-1 text-[12.5px] leading-snug font-medium text-badge-red-fg">
+          <p
+            id={`${id}-error`}
+            role="alert"
+            className={cn(
+              'min-w-0 text-[12.5px] leading-snug font-medium text-badge-red-fg',
+              onMax ? 'flex-[1_1_12rem]' : 'flex-1',
+            )}
+          >
             {error}
           </p>
         ) : (
-          hint && <p className="min-w-0 flex-1 text-[12px] leading-snug text-fg-muted">{hint}</p>
+          hint && (
+            <p className={cn('min-w-0 text-[12px] leading-snug text-fg-muted', onMax ? 'flex-[1_1_12rem]' : 'flex-1')}>{hint}</p>
+          )
         )}
       </div>
     </div>

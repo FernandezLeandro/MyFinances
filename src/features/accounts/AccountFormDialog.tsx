@@ -29,6 +29,7 @@ import {
   firstAccountSplit,
   fundingBalanceNote,
   fundingError,
+  maxFromAccountCents,
   nameForKindChange,
   newAccountEffect,
   type NewAccountSource,
@@ -114,6 +115,7 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
   const fromName = fromAccountId ? (all.find((l) => l.id === fromAccountId)?.name ?? '') : null
   const fromLocation = fromAccountId ? all.find((l) => l.id === fromAccountId) : undefined
   const fromBalanceCents = fromLocation ? (derivedCents.get(fromLocation.id) ?? fromLocation.openingCents) : undefined
+  const maxFromCents = fromAccountId ? maxFromAccountCents(fromBalanceCents) : null
   const sourceError = canFund
     ? fundingError({ source, fromAccountId: fromId, openingCents, fromBalanceCents, fromName: fromName ?? undefined })
     : null
@@ -259,6 +261,16 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
               setTouched((t) => ({ ...t, opening: true }))
               setSaveError(null)
             }}
+            onMax={
+              maxFromCents === null
+                ? undefined
+                : () => {
+                    setOpening(centsToInputText(maxFromCents))
+                    setTouched((t) => ({ ...t, opening: true }))
+                    setSaveError(null)
+                  }
+            }
+            maxTitle={maxFromCents === null ? undefined : formatMoney(maxFromCents)}
             ariaLabel="Cuánto tenés hoy en la cuenta nueva"
           />
         )}

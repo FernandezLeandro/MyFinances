@@ -8,10 +8,11 @@ import { DialogFooterBar, DialogSaveError } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Input'
 import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
-import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
 import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
-import { useBalanceLocations } from '@/features/accounts/api'
+import { useAccountBalances, useBalanceLocations } from '@/features/accounts/api'
+import { fundingBalanceNote, maxFromAccountCents, overdrawError } from '@/features/accounts/aggregate'
 import { useCreateAccountTransfer } from '@/features/accounts/transfers-api'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 
@@ -48,6 +49,7 @@ interface TransferDialogProps {
  *  se muestra adentro y no cierra el diálogo. */
 export function TransferDialog({ onClose, fromAccountId = '' }: TransferDialogProps) {
   const { data: locations } = useBalanceLocations()
+  const { data: balances } = useAccountBalances()
   const createTransfer = useCreateAccountTransfer()
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -73,6 +75,16 @@ export function TransferDialog({ onClose, fromAccountId = '' }: TransferDialogPr
   // Sólo las activas: una archivada no se ofrece en los selectores, así que no alcanza para transferir.
   const active = (locations ?? []).filter((l) => !l.is_archived)
   const hasEnoughAccounts = active.length >= 2
+
+  // No se transfiere más de lo que tiene la cuenta de origen (la base lo vuelve a comprobar).
+  const fromLocation = active.find((l) => l.id === watch('fromAccountId'))
+  const fromBalanceCents = fromLocation ? (balances?.get(fromLocation.id) ?? fromLocation.openingCents) : undefined
+  const amountCents = parseAmountToCents(watch('amount'))
+  const overdraw =
+    fromLocation && fromBalanceCents !== undefined && amountCents !== null && amountCents > 0
+      ? overdrawError(fromLocation.name, fromBalanceCents, amountCents)
+      : null
+  const maxCents = maxFromAccountCents(fromBalanceCents)
 
   // "Dos cuentas distintas" es un error de Hacia aunque lo dispare cambiar Desde: RHF sólo revalida
   // el campo que cambió, así que se pide revalidar los dos.
@@ -121,7 +133,7 @@ export function TransferDialog({ onClose, fromAccountId = '' }: TransferDialogPr
             type="submit"
             form="transfer-form"
             size="dialogFooter"
-            disabled={!hasEnoughAccounts || !isValid}
+            disabled={!hasEnoughAccounts || !isValid || !!overdraw}
             loading={isSubmitting}
           >
             {primaryLabel}
@@ -161,7 +173,21 @@ export function TransferDialog({ onClose, fromAccountId = '' }: TransferDialogPr
               setValue('amount', v, { shouldValidate: true, shouldDirty: true })
               setSaveError(null)
             }}
-            error={errors.amount?.message}
+            error={errors.amount?.message ?? overdraw ?? undefined}
+            hint={
+              fromLocation && fromBalanceCents !== undefined
+                ? fundingBalanceNote(fromLocation.name, fromBalanceCents, amountCents)
+                : undefined
+            }
+            onMax={
+              maxCents === null
+                ? undefined
+                : () => {
+                    setValue('amount', centsToInputText(maxCents), { shouldValidate: true, shouldDirty: true })
+                    setSaveError(null)
+                  }
+            }
+            maxTitle={maxCents === null ? undefined : formatMoney(maxCents)}
             ariaLabel="Importe a transferir"
           />
 
