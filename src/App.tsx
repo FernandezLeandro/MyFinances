@@ -14,6 +14,7 @@ import { MisDeudas } from '@/pages/MisDeudas'
 import { MeDeben } from '@/pages/MeDeben'
 import { Categorias } from '@/pages/Categorias'
 import { Cuentas } from '@/pages/Cuentas'
+import { CuentasAyuda } from '@/pages/CuentasAyuda'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -74,6 +75,7 @@ export default function App() {
             <Route path="analisis" element={<RequireCapability cap="analisis"><Analisis /></RequireCapability>} />
             <Route path="ahorros" element={<RequireCapability cap="ahorros"><Ahorros /></RequireCapability>} />
             <Route path="cuentas" element={<RequireCapability cap="cuentas"><Cuentas /></RequireCapability>} />
+            <Route path="cuentas/ayuda" element={<RequireCapability cap="cuentas"><CuentasAyuda /></RequireCapability>} />
             <Route path="categorias" element={<Categorias />} />
             <Route path="ajustes" element={<Ajustes />} />
             {/* Rutas viejas: por si alguien tiene el link guardado. */}

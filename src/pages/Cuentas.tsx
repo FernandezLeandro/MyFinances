@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { format } from 'date-fns'
-import { Plus } from 'lucide-react'
+import { CircleHelp, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/button-styles'
 import { Money } from '@/components/ui/Money'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { PageBreadcrumb } from '@/components/ui/PageBreadcrumb'
@@ -123,14 +124,25 @@ export function Cuentas() {
     <div className="flex flex-col gap-4">
       <PageBreadcrumb to="/ajustes" label="Ajustes" />
 
-      <header className="mb-1">
-        <h1 className="font-display text-figure font-semibold">Cuentas</h1>
-        <p className="mt-2.5 max-w-[620px] text-[13px] leading-normal text-fg-secondary text-pretty">
-          <span className="sm:hidden">Reajustá una cuenta cuando el saldo real no coincide.</span>
-          <span className="hidden sm:inline">
-            Con qué pagás cada movimiento. Reajustá una cuenta cuando el saldo real no coincide con el de la app.
-          </span>
-        </p>
+      <header className="mb-1 flex flex-wrap items-start justify-between gap-[18px]">
+        <div className="min-w-0 flex-1 basis-[260px]">
+          <h1 className="font-display text-figure font-semibold">Cuentas</h1>
+          <p className="mt-2.5 max-w-[620px] text-[13px] leading-normal text-fg-secondary text-pretty">
+            <span className="sm:hidden">Reajustá una cuenta cuando el saldo real no coincide.</span>
+            <span className="hidden sm:inline">
+              Con qué pagás cada movimiento. Reajustá una cuenta cuando el saldo real no coincide con el de la app.
+            </span>
+          </p>
+        </div>
+        {/* Un `Link` de verdad (push: el back vuelve acá). En el celular queda sólo el ícono, de 38px. */}
+        <Link
+          to="/cuentas/ayuda"
+          aria-label="Ayuda"
+          className={buttonClasses({ variant: 'outline', size: 'compact', className: 'shrink-0 font-semibold max-sm:w-[38px] max-sm:px-0' })}
+        >
+          <CircleHelp className="size-4 text-accent" strokeWidth={1.8} aria-hidden />
+          <span className="max-sm:hidden">Ayuda</span>
+        </Link>
       </header>
 
       {isError ? (
