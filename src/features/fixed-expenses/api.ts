@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import { isPgError, mensajeDeError } from '@/lib/errors'
+import { showToast } from '@/lib/toast'
 import type { Database } from '@/lib/database.types'
 
 type FixedExpenseRowRaw = Database['public']['Tables']['fixed_expenses']['Row']
@@ -268,19 +271,68 @@ export function useMarkFixedExpensePaid() {
   })
 }
 
+/** `force`: sin él, la base rechaza (`payment_before_accounts`) quitar un pago cuyo movimiento es
+ *  anterior a la primera cuenta del usuario — esa plata ya está descontada de la apertura, y
+ *  volver a pagarlo la resta dos veces. Usar directo sólo cuando ya se confirmó con el usuario (ver
+ *  `useUnmarkWithLegacyConfirm`, que es lo que llaman las pantallas). */
 export function useUnmarkFixedExpensePayment() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
+    meta: { silent: true },
     // Por id de pago, no por (fijo, período): una bolsa puede tener varias filas en el mismo
     // período, así que "el pago de tal fijo en tal mes" ya no identifica una sola fila.
-    mutationFn: async ({ paymentId }: { paymentId: string }) => {
-      const { error } = await supabase.rpc('rpc_unmark_fixed_expense_payment', { p_payment_id: paymentId })
+    mutationFn: async ({ paymentId, force = false }: { paymentId: string; force?: boolean }) => {
+      const { error } = await supabase.rpc('rpc_unmark_fixed_expense_payment', { p_payment_id: paymentId, p_force: force })
       if (error) throw error
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
   })
+}
+
+/** Envuelve `useUnmarkFixedExpensePayment` para manejar el freno `payment_before_accounts`: si la
+ *  base lo rechaza, abre un diálogo de confirmación (`UnmarkBeforeAccountsDialog`) en vez de mostrar
+ *  el toast genérico; cualquier otro error sí se avisa con toast. Una sola fuente para los cuatro
+ *  lugares que pueden desmarcar un pago o borrar su movimiento (Fijos, el detalle del fijo,
+ *  Movimientos en Básico, y el botón Eliminar de `TransactionFormDialog` — N4 del QA: antes ese
+ *  último borraba el movimiento con un toque, sin pasar por este freno).
+ *
+ *  `onSuccess` es opcional: lo usa `TransactionFormDialog` para cerrarse a sí mismo — los demás
+ *  llamadores no tienen un diálogo propio que cerrar. */
+export function useUnmarkWithLegacyConfirm(options: { onSuccess?: () => void } = {}) {
+  const unmark = useUnmarkFixedExpensePayment()
+  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null)
+
+  function unmarkPayment(paymentId: string) {
+    unmark.mutate(
+      { paymentId },
+      {
+        onSuccess: options.onSuccess,
+        onError: (error) => {
+          if (isPgError(error, 'payment_before_accounts')) setPendingPaymentId(paymentId)
+          else showToast('No se pudo quitar el pago', 'error', { detail: mensajeDeError(error) })
+        },
+      },
+    )
+  }
+
+  function confirmForce() {
+    if (!pendingPaymentId) return
+    unmark.mutate(
+      { paymentId: pendingPaymentId, force: true },
+      { onSuccess: options.onSuccess, onError: (error) => showToast('No se pudo quitar el pago', 'error', { detail: mensajeDeError(error) }) },
+    )
+    setPendingPaymentId(null)
+  }
+
+  return {
+    unmarkPayment,
+    isPending: unmark.isPending,
+    confirmOpen: pendingPaymentId !== null,
+    confirmForce,
+    cancelConfirm: () => setPendingPaymentId(null),
+  }
 }
 
 /** Registra que ya se guardó (parcial o total) plata para un fijo "una vez al mes" — a diferencia

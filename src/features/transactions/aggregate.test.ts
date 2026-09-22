@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from './aggregate'
+import { dailySpendBars, dailySpendPeakLabel, dayNetTotals, movementCategoryLabel, summarizeTransactions } from './aggregate'
 import { makeTransaction } from '@/test/factories'
 
 // Constructor local (mes 0-indexado), no `new Date('2026-09-05')` — mismo gotcha documentado en
@@ -92,5 +92,47 @@ describe('dailySpendPeakLabel', () => {
 
   it('día y mes cuando el rango cruza de mes — evita la ambigüedad de dos "día 2" distintos', () => {
     expect(dailySpendPeakLabel({ date: '2026-10-02', day: 2, cents: 100 }, false)).toBe('2 oct')
+  })
+})
+
+describe('movementCategoryLabel', () => {
+  it('un ajuste de saldo se distingue de un gasto común, sin importar la categoría', () => {
+    expect(movementCategoryLabel({ is_adjustment: true, is_credit_card_payment: false }, 'Servicios')).toBe(
+      'Ajuste de saldo · afuera de Análisis',
+    )
+  })
+
+  it('un pago de tarjeta suma "· Tarjeta" a la categoría', () => {
+    expect(movementCategoryLabel({ is_adjustment: false, is_credit_card_payment: true }, 'Servicios')).toBe('Servicios · Tarjeta')
+  })
+
+  it('sin categoría, dice "Sin categoría"', () => {
+    expect(movementCategoryLabel({ is_adjustment: false, is_credit_card_payment: false }, undefined)).toBe('Sin categoría')
+  })
+
+  it('el caso común: sólo la categoría', () => {
+    expect(movementCategoryLabel({ is_adjustment: false, is_credit_card_payment: false }, 'Supermercado')).toBe('Supermercado')
+  })
+})
+
+// Regresión de N7 (re-test de QA): un "Ajuste de saldo" (típicamente de "Dejar de usar Cuentas",
+// millones de pesos) se sumaba al subtotal del día como si fuera un gasto real.
+describe('dayNetTotals', () => {
+  it('excluye los ajustes del neto del día', () => {
+    const gasto = makeTransaction({ id: 't1', occurred_on: '2026-09-05', type: 'expense', cents: 10_00 })
+    const ajuste = makeTransaction({ id: 't2', occurred_on: '2026-09-05', type: 'expense', cents: 3_000_000_00, is_adjustment: true })
+    const totals = dayNetTotals([gasto, ajuste])
+    expect(totals.get('2026-09-05')).toBe(-10_00)
+  })
+
+  it('un día con SÓLO un ajuste no aparece en el mapa (nada real que sumar)', () => {
+    const ajuste = makeTransaction({ id: 't1', occurred_on: '2026-09-05', type: 'income', cents: 100_00, is_adjustment: true })
+    expect(dayNetTotals([ajuste]).has('2026-09-05')).toBe(false)
+  })
+
+  it('sin ajustes de por medio, se comporta igual que sumar todo (comportamiento previo intacto)', () => {
+    const a = makeTransaction({ id: 't1', occurred_on: '2026-09-05', type: 'income', cents: 50_00 })
+    const b = makeTransaction({ id: 't2', occurred_on: '2026-09-05', type: 'expense', cents: 20_00 })
+    expect(dayNetTotals([a, b]).get('2026-09-05')).toBe(30_00)
   })
 })

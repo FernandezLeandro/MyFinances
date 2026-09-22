@@ -60,7 +60,8 @@ describe('ayuda de Cuentas', () => {
       .filter(([id, info]) => !info.shownAlways && id !== 'adjust')
       .map(([id]) => id)
       .sort()
-    // Si el menú suma otra acción condicional, hay que sumarla también a `actionsFootnote`.
-    expect(conditional).toEqual(['archive', 'setDefault', 'transfer'])
+    // Si el menú suma otra acción condicional, hay que sumarla también a `actionsFootnote`. «Eliminar»
+    // se sumó acá cuando pasó a bloquearse también sobre la última cuenta activa (antes sólo Archivar).
+    expect(conditional).toEqual(['archive', 'delete', 'setDefault', 'transfer'])
   })
 })

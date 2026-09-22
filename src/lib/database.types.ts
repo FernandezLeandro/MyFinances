@@ -659,6 +659,10 @@ export interface Database {
         Args: { p_account_id: string }
         Returns: undefined
       }
+      rpc_stop_using_accounts: {
+        Args: { p_occurred_on?: string | null }
+        Returns: undefined
+      }
       rpc_monthly_series: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -681,7 +685,7 @@ export interface Database {
         Returns: undefined
       }
       rpc_unmark_fixed_expense_payment: {
-        Args: { p_payment_id: string }
+        Args: { p_payment_id: string; p_force?: boolean }
         Returns: undefined
       }
       rpc_add_fixed_expense_saving: {

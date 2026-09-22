@@ -19,6 +19,17 @@ function isErrorLike(error: unknown): error is ErrorLike {
   return typeof error === 'object' && error !== null
 }
 
+/** True si `error` es un `raise exception` (`P0001`) de plpgsql cuyo mensaje es `pgCode` — el texto
+ *  que se le pasó a `raise exception`. Para cuando quien llama necesita reaccionar a un error
+ *  puntual con algo más que un toast (abrir un diálogo, ofrecer confirmar igual) sin repetir el
+ *  parseo que ya hace `mensajeDeError`. */
+export function isPgError(error: unknown, pgCode: string): boolean {
+  if (!isErrorLike(error)) return false
+  const code = typeof error.code === 'string' ? error.code : ''
+  const message = typeof error.message === 'string' ? error.message : ''
+  return code === 'P0001' && new RegExp(pgCode).test(message)
+}
+
 /** El fallo de red que cada navegador escribe a su manera: Chrome "Failed to fetch", Safari "Load
  *  failed", Firefox "NetworkError when attempting to fetch resource". */
 const NETWORK_FAILURE = /failed to fetch|load failed|networkerror|network request failed/i
@@ -39,6 +50,10 @@ export function mensajeDeError(error: unknown): string {
   const message = typeof error.message === 'string' ? error.message : ''
 
   if (code === '23503') return 'No se puede eliminar: hay movimientos que lo usan. Probá archivarlo.'
+  // Más específico que el 23505 genérico de abajo: el índice único de nombres de cuenta
+  // (`balance_locations_user_name_idx`, N6 del QA) — sólo se llega crudo acá por una carrera, ya que
+  // `rpc_create_account` lo comprueba antes y devuelve `account_duplicate_name` (ver más abajo).
+  if (code === '23505' && /balance_locations_user_name_idx/.test(message)) return 'Ya tenés una cuenta con ese nombre.'
   if (code === '23505') return 'Ya existe algo con esos datos.'
   if (code === '42501' || /row-level security/i.test(message)) return 'No tenés permiso para hacer eso.'
   if (code === 'PGRST301' || /jwt/i.test(message)) return 'Se venció tu sesión. Volvé a entrar.'
@@ -53,6 +68,12 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /account_insufficient_funds/.test(message)) return 'Esa cuenta no tiene tanta plata: bajá el importe.'
   if (code === 'P0001' && /account_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /account_invalid_name/.test(message)) return 'Ponele un nombre a la cuenta.'
+  if (code === 'P0001' && /account_last_active/.test(message))
+    return 'Es tu última cuenta activa: para dejar de usar Cuentas, desactivalas desde Ajustes.'
+  if (code === 'P0001' && /account_duplicate_name/.test(message)) return 'Ya tenés una cuenta con ese nombre.'
+  if (code === 'P0001' && /no_accounts_to_stop/.test(message)) return 'Ya no tenés cuentas.'
+  if (code === 'P0001' && /payment_before_accounts/.test(message))
+    return 'Este pago es de antes de tener cuentas: quitarlo y volver a pagarlo descuenta la plata dos veces.'
 
   return DEFAULT_MESSAGE
 }

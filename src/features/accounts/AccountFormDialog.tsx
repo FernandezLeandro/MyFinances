@@ -23,9 +23,11 @@ import {
   DEFAULT_NEW_ACCOUNT_NAME,
   UNASSIGNED_ACCOUNT_NAME,
   accountFormSchema,
+  accountNameError,
   accountsTotals,
   createAccountResultText,
   defaultFundingAccountId,
+  firstAccountRestNote,
   firstAccountSplit,
   fundingBalanceNote,
   fundingError,
@@ -47,8 +49,10 @@ type AccountFormDialogProps = { onClose: () => void } & (
       /** Su saldo hoy, para el bloque de contexto. */
       balanceCents: number
       isDefault: boolean
-      /** Pasa a la confirmación de eliminar (el diálogo actual se cierra). */
-      onDelete: () => void
+      /** Pasa a la confirmación de eliminar (el diálogo actual se cierra). `undefined` sobre la
+       *  última cuenta activa: ahí no se ofrece eliminar (ver `Cuentas.tsx`), la salida es el
+       *  interruptor «Cuentas» de Ajustes. */
+      onDelete?: () => void
     }
 )
 
@@ -103,8 +107,12 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
   const pending = createLocation.isPending || updateLocation.isPending
   const parsed = accountFormSchema.safeParse({ name, kind, opening })
   const fieldErrors = parsed.success ? {} : parsed.error.flatten().fieldErrors
+  // Nombre repetido entre cuentas activas (N6 del QA): se calcula siempre (no sólo cuando el campo
+  // ya se tocó) porque también bloquea `canSubmit` — el mensaje en rojo sí espera el toque, como
+  // cualquier otro error de este campo.
+  const duplicateNameError = accountNameError({ name, locations: all, excludeId: !isCreate ? props.account.id : undefined })
   // El mensaje aparece cuando el campo ya se tocó: un alta recién abierta no arranca en rojo.
-  const nameError = touched.name ? fieldErrors.name?.[0] : undefined
+  const nameError = touched.name ? (fieldErrors.name?.[0] ?? duplicateNameError ?? undefined) : undefined
   const openingError = isCreate && touched.opening ? fieldErrors.opening?.[0] : undefined
 
   const openingCents = isCreate && parsed.success ? parseAmountToCents(parsed.data.opening) : null
@@ -130,7 +138,7 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
           fromName: fromName ?? undefined,
         })
       : null
-  const canSubmit = parsed.success && !pending && !sourceError
+  const canSubmit = parsed.success && !pending && !sourceError && !duplicateNameError
 
   function changeKind(next: AccountKind) {
     setName((current) => nameForKindChange(kind, next, current))
@@ -181,7 +189,8 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
       footer={
         <DialogFooterBar
           start={
-            props.mode === 'edit' && (
+            props.mode === 'edit' &&
+            props.onDelete && (
               <button
                 type="button"
                 onClick={props.onDelete}
@@ -280,6 +289,9 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
             <p className="eyebrow">
               {split?.kind === 'rest' ? `¿Y los otros ${formatMoney(split.restCents)}?` : '¿De dónde sale esta plata?'}
             </p>
+            {split?.kind === 'rest' && openingCents !== null && firstAccountRestNote(openingCents) && (
+              <p className="-mt-1 text-[12px] text-fg-muted">{firstAccountRestNote(openingCents)}</p>
+            )}
             <div className="flex flex-wrap gap-2">
               {split?.kind === 'rest' ? (
                 <>

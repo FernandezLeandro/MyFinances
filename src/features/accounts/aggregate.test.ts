@@ -7,6 +7,7 @@ import {
   accountFieldMode,
   accountFormSchema,
   accountMenuEntries,
+  accountNameError,
   accountSelectGroups,
   accountsForGrid,
   accountsTotals,
@@ -16,8 +17,9 @@ import {
   archiveResultText,
   createAccountResultText,
   defaultFundingAccountId,
-  deleteImpactText,
+  describeAccountDelete,
   effectiveDefaultAccountId,
+  firstAccountRestNote,
   firstAccountSplit,
   formatShare,
   fundingBalanceNote,
@@ -30,6 +32,7 @@ import {
   totalFigureSize,
   planAdjustment,
   reactivateResultText,
+  stopUsingAccountsSummary,
   UNASSIGNED_ACCOUNT_NAME,
 } from './aggregate'
 
@@ -152,19 +155,61 @@ describe('archiveBlocker', () => {
   })
 })
 
-describe('deleteImpactText', () => {
+describe('describeAccountDelete', () => {
+  function impact(overrides: Partial<Parameters<typeof describeAccountDelete>[0]> = {}) {
+    return { movimientos: 0, transferencias: 0, balanceCents: 0, isArchived: false, ...overrides }
+  }
+
   it('plurales y singulares', () => {
-    expect(deleteImpactText({ transactions: 12, transfers: 2 }, false)).toBe('Se borran 12 movimientos y 2 transferencias.')
-    expect(deleteImpactText({ transactions: 1, transfers: 0 }, false)).toBe('Se borra 1 movimiento.')
-    expect(deleteImpactText({ transactions: 0, transfers: 1 }, false)).toBe('Se borra 1 transferencia.')
+    expect(describeAccountDelete(impact({ movimientos: 12, transferencias: 2 })).summary).toContain('Se borran 12 movimientos y 2 transferencias.')
+    expect(describeAccountDelete(impact({ movimientos: 1 })).summary).toContain('Se borra 1 movimiento.')
+    expect(describeAccountDelete(impact({ transferencias: 1 })).summary).toContain('Se borra 1 transferencia.')
   })
 
   it('cuenta vacía', () => {
-    expect(deleteImpactText({ transactions: 0, transfers: 0 }, false)).toBe('No tiene movimientos ni transferencias.')
+    expect(describeAccountDelete(impact()).summary).toContain('No tiene movimientos ni transferencias.')
   })
 
-  it('la última cuenta avisa que el saldo vuelve a ser la suma de movimientos', () => {
-    expect(deleteImpactText({ transactions: 3, transfers: 0 }, true)).toContain('Es tu última cuenta')
+  // Regresión de N1 (re-test de QA): el preview viejo (`rpc_account_delete_preview`) calculaba mal
+  // el efecto en otra cuenta — con el pliegue de `20260923020001_eliminar_cuenta_solo_lo_suyo.sql`
+  // ya no hay otro efecto que calcular, y el texto lo dice siempre, tenga o no movimientos.
+  it('siempre dice que las demás cuentas no cambian — es la garantía del pliegue, no un cálculo', () => {
+    expect(describeAccountDelete(impact()).summary).toContain('Las demás cuentas no cambian.')
+    expect(describeAccountDelete(impact({ movimientos: 5, transferencias: 3, balanceCents: 60000 })).summary).toContain(
+      'Las demás cuentas no cambian.',
+    )
+  })
+
+  it('sin movimientos ni saldo propio: "Eliminar" a secas, sin recomendar archivar', () => {
+    const d = describeAccountDelete(impact())
+    expect(d.balanceChangeText).toBeNull()
+    expect(d.recommendArchive).toBe(false)
+    expect(d.deleteLabel).toBe('Eliminar')
+  })
+
+  it('con saldo propio activo: baja el saldo total y recomienda archivar', () => {
+    const d = describeAccountDelete(impact({ balanceCents: 60000 }))
+    expect(d.balanceChangeText).toBe(`Tu saldo baja ${formatMoney(60000)}.`)
+    expect(d.recommendArchive).toBe(true)
+    expect(d.deleteLabel).toBe('Eliminar igual')
+  })
+
+  it('con saldo propio negativo (en descubierto): eliminarla SUBE el saldo total', () => {
+    const d = describeAccountDelete(impact({ balanceCents: -5000 }))
+    expect(d.balanceChangeText).toBe(`Tu saldo sube ${formatMoney(5000)}.`)
+    expect(d.recommendArchive).toBe(true)
+  })
+
+  it('sólo movimientos (saldo en $0): recomienda archivar por el historial, aunque el total no se mueva', () => {
+    const d = describeAccountDelete(impact({ movimientos: 4 }))
+    expect(d.balanceChangeText).toBeNull()
+    expect(d.recommendArchive).toBe(true)
+    expect(d.deleteLabel).toBe('Eliminar igual')
+  })
+
+  it('una archivada con saldo propio no mueve el total (no cuenta para `rpc_current_balance`)', () => {
+    const d = describeAccountDelete(impact({ balanceCents: 60000, isArchived: true }))
+    expect(d.balanceChangeText).toBeNull()
   })
 })
 
@@ -252,30 +297,41 @@ describe('accountFormSchema', () => {
 
 describe('adjustFormState', () => {
   it('un importe que difiere del saldo actual se puede mandar', () => {
-    expect(adjustFormState('12.400,00', 9_600_00)).toEqual({ canSubmit: true, error: null })
+    const state = adjustFormState('12.400,00', 9_600_00, 0)
+    expect(state.canSubmit).toBe(true)
+    expect(state.error).toBeNull()
+    expect(state.plan?.diffCents).toBe(12_400_00 - 9_600_00)
   })
 
   it('el mismo saldo que el actual apaga el botón SIN error — el campo arranca precargado así', () => {
-    expect(adjustFormState('9.600,00', 9_600_00)).toEqual({ canSubmit: false, error: null })
+    const state = adjustFormState('9.600,00', 9_600_00, 0)
+    expect(state.canSubmit).toBe(false)
+    expect(state.error).toBeNull()
   })
 
-  it('vacío o sin dígitos → error de importe', () => {
+  it('vacío o sin dígitos → error de importe, y sin plan que mostrar', () => {
     for (const input of ['', '   ', '-', 'abc']) {
-      const state = adjustFormState(input, 100_00)
+      const state = adjustFormState(input, 100_00, 0)
       expect(state.canSubmit).toBe(false)
       expect(state.error).toBe('Ingresá un importe válido para poder reajustar.')
+      expect(state.plan).toBeNull()
     }
   })
 
   it('cero y negativo son válidos: quien gastó todo o está en descubierto tiene que poder reajustar', () => {
     // Regresión de diseño: el mock pedía "importe > 0", pero un saldo real de $ 0 (o en descubierto)
     // es un dato legítimo y el RPC lo acepta.
-    expect(adjustFormState('0', 100_00)).toEqual({ canSubmit: true, error: null })
-    expect(adjustFormState('-4.500,00', 100_00)).toEqual({ canSubmit: true, error: null })
+    expect(adjustFormState('0', 100_00, 0).canSubmit).toBe(true)
+    expect(adjustFormState('-4.500,00', 100_00, 0).canSubmit).toBe(true)
   })
 
-  it('un importe fuera del tope de la base es un error, no un botón habilitado', () => {
-    expect(adjustFormState('10.000.000.000,00', 100_00).error).not.toBeNull()
+  // Regresión de M1 (QA): con 11 cifras el diálogo mostraba a la vez "Ingresá un importe válido…" Y
+  // el efecto calculado con ese mismo importe fuera de rango ("…ingreso de $100.000.000.499,00").
+  // El plan tiene que ser `null` exactamente cuando hay error, para que no haya nada que mostrar.
+  it('un importe fuera del tope de la base es un error, y el plan viene null — nunca los dos juntos', () => {
+    const state = adjustFormState('99.999.999.999,00', 100_00, 0)
+    expect(state.error).not.toBeNull()
+    expect(state.plan).toBeNull()
   })
 })
 
@@ -421,12 +477,15 @@ describe('accountMenuEntries', () => {
     expect(ids(accountMenuEntries({ surface: 'popover', isDefault: true, activeCount: 3 }))).not.toContain('setDefault')
   })
 
-  it('con una sola cuenta activa no hay Transferir ni Archivar', () => {
-    // Archivar la última dejaría los movimientos nuevos sin una cuenta para elegir (archiveBlocker).
+  // Regresión de N5/C2 (QA): sobre la última cuenta activa ni Archivar NI Eliminar se ofrecen — los
+  // dos dejarían al usuario sin ninguna cuenta activa. La única salida es el interruptor «Cuentas»
+  // de Ajustes (`StopUsingAccountsDialog`), que no es un ítem de este menú.
+  it('con una sola cuenta activa no hay Transferir, ni Archivar, ni Eliminar', () => {
     const entries = ids(accountMenuEntries({ surface: 'popover', isDefault: true, activeCount: 1 }))
     expect(entries).not.toContain('transfer')
     expect(entries).not.toContain('archive')
-    expect(entries).toContain('delete')
+    expect(entries).not.toContain('delete')
+    expect(entries).not.toContain('—')
   })
 
   it('Eliminar es siempre lo último y destructivo; Archivar es la opción quieta', () => {
@@ -763,5 +822,57 @@ describe('createAccountResultText', () => {
 
   it('en el caso simple sólo nombra la cuenta', () => {
     expect(createAccountResultText({ name: 'Efectivo', openingCents: 0, heldRestCents: 0, fromName: null }).detail).toBe('Efectivo')
+  })
+})
+
+// Regresión de N6 (QA): se podían tener dos cuentas con el mismo nombre, indistinguibles en
+// cualquier selector ("Sin repartir" / "Sin repartir"). Mismo criterio que el índice único de la
+// base (`balance_locations_user_name_idx`): sin distinguir mayúsculas ni espacios, y sólo activas.
+describe('accountNameError', () => {
+  const efectivo = makeLocation({ id: 'e', name: 'Efectivo' })
+  const archivedEfectivo = makeLocation({ id: 'e2', name: 'Efectivo', is_archived: true })
+
+  it('nombre nuevo: sin error', () => {
+    expect(accountNameError({ name: 'Mercado Pago', locations: [efectivo] })).toBeNull()
+  })
+
+  it('mismo nombre exacto en otra activa: error', () => {
+    expect(accountNameError({ name: 'Efectivo', locations: [efectivo] })).not.toBeNull()
+  })
+
+  it('sin distinguir mayúsculas ni espacios al principio/final', () => {
+    expect(accountNameError({ name: '  EFECTIVO  ', locations: [efectivo] })).not.toBeNull()
+  })
+
+  it('una archivada con el mismo nombre no choca — no se ofrece en ningún selector', () => {
+    expect(accountNameError({ name: 'Efectivo', locations: [archivedEfectivo] })).toBeNull()
+  })
+
+  it('editar sin cambiar el nombre no choca consigo misma (`excludeId`)', () => {
+    expect(accountNameError({ name: 'Efectivo', locations: [efectivo], excludeId: 'e' })).toBeNull()
+  })
+
+  it('vacío no es un error acá — lo bloquea `accountFormSchema`', () => {
+    expect(accountNameError({ name: '   ', locations: [efectivo] })).toBeNull()
+  })
+})
+
+// Regresión de M2 (QA): con apertura negativa, "los otros $X" de `firstAccountSplit` da un número
+// mayor a TODO el saldo que el usuario tenía, y alarma aunque cierre matemáticamente.
+describe('firstAccountRestNote', () => {
+  it('con apertura negativa, aclara por qué "el resto" es más grande que el saldo', () => {
+    expect(firstAccountRestNote(-500_00)).not.toBeNull()
+  })
+
+  it('con apertura cero o positiva, no hace falta aclarar nada', () => {
+    expect(firstAccountRestNote(0)).toBeNull()
+    expect(firstAccountRestNote(100_00)).toBeNull()
+  })
+})
+
+describe('stopUsingAccountsSummary', () => {
+  it('plurales y singulares', () => {
+    expect(stopUsingAccountsSummary(1)).toContain('1 cuenta')
+    expect(stopUsingAccountsSummary(3)).toContain('3 cuentas')
   })
 })

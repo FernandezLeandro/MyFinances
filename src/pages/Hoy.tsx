@@ -1,5 +1,5 @@
 import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { format, isSameDay, parseISO, subDays } from 'date-fns'
+import { format, getDate, isSameDay, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
@@ -147,6 +147,10 @@ export function Hoy() {
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
+  // Básico "en pausa" (bloque E): si el usuario baja de plan con cuentas ya cargadas, quedan intactas
+  // pero Básico no las ve — mismo criterio que `useAccountPicker`, sin el hook para no repetir el
+  // fetch de `locations` que esta pantalla ya tiene.
+  const showAccounts = canCuentas && (locations ?? []).some((l) => !l.is_archived)
   const animatedBalance = useCountUp(balance.data ?? 0)
   const misDeudasSummary = useMemo(
     () =>
@@ -474,7 +478,9 @@ export function Hoy() {
             ) : (
               <ul className="mt-2.5 flex flex-col">
                 {upcoming.map((status) => {
-                  const dueDay = status.fe.due_day as number
+                  // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
+                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
+                  const dueDay = getDate(parseISO(status.dueDate as string))
                   const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                   return (
                     <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
@@ -538,7 +544,9 @@ export function Hoy() {
           ) : (
             <ul className="mt-2.5 flex flex-col">
               {upcoming.map((status) => {
-                const dueDay = status.fe.due_day as number
+                // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
+                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
+                  const dueDay = getDate(parseISO(status.dueDate as string))
                 const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                 return (
                   <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
@@ -603,7 +611,7 @@ export function Hoy() {
                         key={tx.id}
                         tx={tx}
                         category={categoryById.get(tx.category_id ?? '')}
-                        account={accountById.get(tx.account_id ?? '')}
+                        account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
                       />
                     ))}
                   </ul>

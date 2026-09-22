@@ -36,6 +36,26 @@ describe('mensajeDeError', () => {
     )
   })
 
+  // N6 del QA: `rpc_create_account` frena con `account_duplicate_name` antes de llegar al índice, pero
+  // una edición directa (`useUpdateBalanceLocation`) puede chocar con el índice crudo en una carrera.
+  it('unique violation sobre el índice de nombres de cuenta → mensaje específico, no el genérico', () => {
+    expect(
+      mensajeDeError({ code: '23505', message: 'duplicate key value violates unique constraint "balance_locations_user_name_idx"' }),
+    ).toBe('Ya tenés una cuenta con ese nombre.')
+  })
+
+  it('account_duplicate_name (P0001) → mismo mensaje que el índice', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'account_duplicate_name' })).toBe('Ya tenés una cuenta con ese nombre.')
+  })
+
+  it('account_last_active (P0001) → apunta al interruptor de Ajustes, no a "Dejar de usar Cuentas"', () => {
+    // Regresión: el texto viejo mencionaba un botón que ya no existe (era parte del diálogo de
+    // eliminar la última cuenta, que se sacó cuando esa salida pasó a ser sólo el interruptor).
+    expect(mensajeDeError({ code: 'P0001', message: 'account_last_active' })).toBe(
+      'Es tu última cuenta activa: para dejar de usar Cuentas, desactivalas desde Ajustes.',
+    )
+  })
+
   it('permission denied (42501) → sin permiso', () => {
     expect(mensajeDeError({ code: '42501', message: 'permission denied for table profiles' })).toBe(
       'No tenés permiso para hacer eso.',

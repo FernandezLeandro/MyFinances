@@ -58,25 +58,22 @@ export function useAccountBalances() {
   })
 }
 
-/** Cuánto se lleva puesto eliminar una cuenta — para decirlo en la confirmación. Sólo corre con el
- *  diálogo abierto (`id` no nulo): son dos conteos que no hace falta pagar en cada visita. */
-export function useAccountDeleteImpact(id: string | null) {
+/** Cuántos movimientos tiene una cuenta — para la confirmación de eliminar (`DeleteAccountDialog`).
+ *  Desde `20260923020001_eliminar_cuenta_solo_lo_suyo.sql` eliminar una cuenta ya no cambia el saldo
+ *  de ninguna otra (se pliegan sus transferencias en la apertura de la otra punta antes de borrarlas),
+ *  así que no hace falta un RPC de preview aparte: el saldo propio sale de `useAccountBalances`, las
+ *  transferencias de `useAccountTransfers` (ya cargadas en Cuentas), y esto es lo único que falta.
+ *  Sólo corre con el diálogo abierto (`id` no nulo). */
+export function useAccountMovementCount(id: string | null) {
   const { user } = useAuth()
 
   return useQuery({
-    queryKey: ['account-delete-impact', user?.id, id],
+    queryKey: ['account-movement-count', user?.id, id],
     enabled: !!user && !!id,
     queryFn: async () => {
-      const [transactionsRes, transfersRes] = await Promise.all([
-        supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('account_id', id!),
-        supabase
-          .from('account_transfers')
-          .select('id', { count: 'exact', head: true })
-          .or(`from_account_id.eq.${id},to_account_id.eq.${id}`),
-      ])
-      if (transactionsRes.error) throw transactionsRes.error
-      if (transfersRes.error) throw transfersRes.error
-      return { transactions: transactionsRes.count ?? 0, transfers: transfersRes.count ?? 0 }
+      const { count, error } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('account_id', id!)
+      if (error) throw error
+      return count ?? 0
     },
   })
 }
@@ -188,8 +185,11 @@ export function useSetDefaultBalanceLocation() {
 }
 
 /** Archivar saca la cuenta de los selectores Y del saldo (`rpc_current_balance` sólo suma las activas);
- *  reactivarla la vuelve a sumar. Si era la predeterminada deja de serlo (un selector no puede traer
- *  una cuenta archivada) y pasa a serlo la activa más vieja. */
+ *  reactivarla la vuelve a sumar. Al archivar, la base suelta `is_default` sola
+ *  (`trg_block_archive_last_active`, `20260923010001_cuentas_integridad.sql`) — no hace falta
+ *  promover una nueva predeterminada a mano: sin ninguna fila marcada, tanto el trigger que completa
+ *  la cuenta de un movimiento nuevo (`trg_transactions_account`) como el cliente
+ *  (`effectiveDefaultAccountId`) eligen la misma activa más vieja como si lo fuera. */
 export function useArchiveAccount() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -197,33 +197,11 @@ export function useArchiveAccount() {
   return useMutation({
     meta: { silent: true },
     mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
-      const { data: row, error: readError } = await supabase.from('balance_locations').select('is_default').eq('id', id).single()
-      if (readError) throw readError
-
-      const patch: Database['public']['Tables']['balance_locations']['Update'] = {
-        is_archived: archived,
-        updated_at: new Date().toISOString(),
-      }
-      if (archived) patch.is_default = false
-      const { error } = await supabase.from('balance_locations').update(patch).eq('id', id)
+      const { error } = await supabase
+        .from('balance_locations')
+        .update({ is_archived: archived, updated_at: new Date().toISOString() })
+        .eq('id', id)
       if (error) throw error
-
-      if (archived && row.is_default) {
-        const { data: next, error: nextError } = await supabase
-          .from('balance_locations')
-          .select('id')
-          .eq('is_archived', false)
-          .neq('id', id)
-          .order('created_at')
-          .order('id')
-          .limit(1)
-          .maybeSingle()
-        if (nextError) throw nextError
-        if (next) {
-          const { error: promoteError } = await supabase.from('balance_locations').update({ is_default: true }).eq('id', next.id)
-          if (promoteError) throw promoteError
-        }
-      }
     },
     // Archivar o reactivar mueve el saldo de la app (y el proyectado, que parte de él), no sólo la lista.
     onSuccess: () => invalidarCuentasYSaldo(queryClient, user?.id),
@@ -269,6 +247,24 @@ export function useDeleteAccount() {
     meta: { silent: true },
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc('rpc_delete_account', { p_account_id: id })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
+  })
+}
+
+/** La salida ordenada sobre la última cuenta activa (`rpc_stop_using_accounts`,
+ *  `20260922030001_ultima_cuenta_activa.sql`): borra TODAS las cuentas del usuario, pero antes anota
+ *  el saldo actual y lo deja como un movimiento de ajuste — los movimientos existentes no se tocan
+ *  (quedan sin cuenta, como historial), así que el saldo termina exactamente igual que antes. Toca
+ *  todo lo que toca eliminar una cuenta: se invalida entero. */
+export function useStopUsingAccounts() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('rpc_stop_using_accounts', { p_occurred_on: format(new Date(), 'yyyy-MM-dd') })
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries(),

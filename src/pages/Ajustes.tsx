@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
 import { Panel, PanelHeader } from '@/components/ui/Panel'
@@ -8,12 +8,15 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { cn } from '@/lib/cn'
 import { parseAmountToCents, sanitizeAmountInput } from '@/lib/money'
+import { showToast } from '@/lib/toast'
 import { useProfile, useUpdateProfile, type CycleKind, type FxSource } from '@/features/profile/api'
 import { useUsdRate, useAssetPrices } from '@/features/fx/api'
 import { useAssets } from '@/features/assets/api'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
 import { ChangePasswordForm } from '@/features/auth/ChangePasswordPanel'
-import { useBalanceLocations } from '@/features/accounts/api'
+import { useCurrentBalance } from '@/features/transactions/api'
+import { useBalanceLocations, useStopUsingAccounts } from '@/features/accounts/api'
+import { StopUsingAccountsDialog } from '@/features/accounts/AccountConfirmDialogs'
 import { accountKindIcon } from '@/features/accounts/accountKind'
 import { useCategories } from '@/features/categories/api'
 import { useTheme } from '@/lib/useTheme'
@@ -156,16 +159,42 @@ function AssetsPanel() {
  *  que esta pantalla destaca. Mismo patrón que `CategoriesPanel`: chips de las activas + link a la
  *  pantalla completa (`/cuentas`), donde viven el saldo, el reajuste, las transferencias y el
  *  archivar/eliminar. */
+const accountsToggleOptions = [
+  { value: 'on', label: 'Activadas' },
+  { value: 'off', label: 'Desactivadas' },
+] as const
+
+/** El interruptor de Cuentas: la app decide de menos a más, y ésta es la decisión de "uso" — no hay
+ *  columna nueva en `profiles` para esto, el estado es simplemente "tiene alguna cuenta o no".
+ *  Activar navega a `/cuentas` con el alta de la primera cuenta ya abierta (`state: { startAccounts:
+ *  true }`, ver `Cuentas.tsx`); desactivar pide confirmar acá mismo y llama a
+ *  `rpc_stop_using_accounts` (`useStopUsingAccounts`), que guarda el saldo de hoy como un ajuste y no
+ *  toca ningún movimiento — apagar y prender no pierde nada. */
 function AccountsPanel() {
-  const { data: locations } = useBalanceLocations()
-  const active = (locations ?? []).filter((l) => !l.is_archived)
-  const archivedCount = (locations ?? []).filter((l) => l.is_archived).length
+  const navigate = useNavigate()
+  const { data: locations, isPending } = useBalanceLocations()
+  const { data: currentBalanceCents } = useCurrentBalance()
+  const stopUsingAccounts = useStopUsingAccounts()
+  const [confirmOff, setConfirmOff] = useState(false)
+
+  const all = locations ?? []
+  const active = all.filter((l) => !l.is_archived)
+  const archivedCount = all.filter((l) => l.is_archived).length
+  const isOn = all.length > 0
+
+  function handleToggle(next: 'on' | 'off') {
+    if (next === 'on') {
+      if (!isOn) navigate('/cuentas', { state: { startAccounts: true } })
+      return
+    }
+    if (isOn) setConfirmOff(true)
+  }
 
   return (
     <Panel className="p-panel-tight">
       <div className="flex items-baseline justify-between gap-3">
         <p className="eyebrow">Cuentas</p>
-        {locations && locations.length > 0 && (
+        {isOn && (
           <span className="shrink-0 text-[11.5px] text-fg-muted">
             {active.length} activa{active.length === 1 ? '' : 's'}
             {archivedCount > 0 && ` · ${archivedCount} archivada${archivedCount === 1 ? '' : 's'}`}
@@ -174,28 +203,54 @@ function AccountsPanel() {
       </div>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-muted">Con qué pagás cada movimiento</p>
 
-      <div className="mt-3.5 flex flex-wrap gap-1.5">
-        {active.length === 0 ? (
-          <p className="text-[13px] text-fg-muted">Todavía no cargaste ninguna.</p>
-        ) : (
-          active.map((l) => {
-            const Icon = accountKindIcon(l.kind)
-            return (
-              <span
-                key={l.id}
-                className="inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken py-1.5 pr-[11px] pl-2.5 text-[12px] text-fg"
-              >
-                <Icon className="size-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
-                {l.name || '(sin nombre)'}
-              </span>
-            )
-          })
-        )}
-      </div>
+      {isPending ? (
+        <Skeleton className="mt-3.5 h-9 w-full" />
+      ) : (
+        <>
+          <SegmentedToggle value={isOn ? 'on' : 'off'} options={accountsToggleOptions} onChange={handleToggle} className="mt-3.5" />
 
-      <Link to="/cuentas" className="mt-4 inline-block text-[12.5px] font-semibold text-accent hover:opacity-80">
-        Administrar cuentas
-      </Link>
+          {isOn ? (
+            <>
+              <div className="mt-3.5 flex flex-wrap gap-1.5">
+                {active.map((l) => {
+                  const Icon = accountKindIcon(l.kind)
+                  return (
+                    <span
+                      key={l.id}
+                      className="inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken py-1.5 pr-[11px] pl-2.5 text-[12px] text-fg"
+                    >
+                      <Icon className="size-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
+                      {l.name || '(sin nombre)'}
+                    </span>
+                  )
+                })}
+              </div>
+
+              <Link to="/cuentas" className="mt-4 inline-block text-[12.5px] font-semibold text-accent hover:opacity-80">
+                Administrar cuentas
+              </Link>
+            </>
+          ) : (
+            <p className="mt-3.5 text-[12.5px] leading-relaxed text-fg-muted">
+              Cargás tus movimientos sin decir con qué cuenta se pagaron.
+            </p>
+          )}
+        </>
+      )}
+
+      {confirmOff && (
+        <StopUsingAccountsDialog
+          onClose={() => setConfirmOff(false)}
+          balanceCents={currentBalanceCents ?? 0}
+          accountCount={all.length}
+          isCountsPending={currentBalanceCents === undefined}
+          onConfirm={async () => {
+            await stopUsingAccounts.mutateAsync()
+            showToast('Cuentas desactivado', 'ok', { detail: 'Tu saldo y tus movimientos quedaron igual que antes.' })
+            setConfirmOff(false)
+          }}
+        />
+      )}
     </Panel>
   )
 }

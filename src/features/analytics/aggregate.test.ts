@@ -52,6 +52,16 @@ describe('summarizeFijoVsVariable', () => {
     expect(s.committedPct).toBe(76)
     expect(s.variablePct).toBe(24)
   })
+
+  // Regresión de N7 (re-test de QA): un ajuste de saldo tipo gasto (ej. al "Dejar de usar Cuentas",
+  // montos de millones) contaba entero como "variable" — no es una decisión de gasto real.
+  it('un ajuste de saldo no cuenta ni como comprometido ni como variable', () => {
+    const gasto = makeTransaction({ id: 't1', cents: 8_000, occurred_on: '2026-09-05' })
+    const ajuste = makeTransaction({ id: 't2', cents: 3_000_000_00, occurred_on: '2026-09-05', is_adjustment: true })
+    const s = summarizeFijoVsVariable([gasto, ajuste], new Set())
+    expect(s.totalCents).toBe(8_000)
+    expect(s.variableCents).toBe(8_000)
+  })
 })
 
 describe('summarizeCategoryMonthlyAverages', () => {

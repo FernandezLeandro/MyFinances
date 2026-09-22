@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { format } from 'date-fns'
 import { CircleHelp, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ import { showToast } from '@/lib/toast'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
   useAccountBalances,
+  useAccountMovementCount,
   useArchiveAccount,
   useBalanceLocations,
   useDeleteAccount,
@@ -56,8 +57,9 @@ type DialogState =
  *   y el resto va en el menú `⋯`.
  * - Archivar la saca de los selectores y del saldo; Archivadas muestra lo que tiene cada una y al
  *   reactivarla vuelve a sumar.
- * - Eliminar borra la cuenta con sus movimientos y transferencias; lo que se pagó desde ahí sigue
- *   como pagado.
+ * - Eliminar se lleva SÓLO LO SUYO (su saldo y sus movimientos); las demás cuentas quedan iguales.
+ *   Lo que se pagó desde ahí sigue como pagado. Sobre la última cuenta activa no se ofrece ni
+ *   Archivar ni Eliminar — la salida es el interruptor «Cuentas» de Ajustes.
  * - La apertura no se edita: la primera vez se pregunta "¿cuánto tenés hoy?", y después sólo cambia
  *   con "Reajustar saldo → corregir el saldo inicial".
  * - Los diálogos muestran adentro sus errores y validaciones; el resultado (y las fallas de lo que no
@@ -65,6 +67,7 @@ type DialogState =
  */
 export function Cuentas() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { data: locations, isPending, isError, refetch } = useBalanceLocations()
   const { data: balances, isPending: isBalancePending } = useAccountBalances()
   const { data: transfers } = useAccountTransfers()
@@ -90,6 +93,17 @@ export function Cuentas() {
   const hasNoAccounts = !isPending && !isError && all.length === 0
   // Sin cuentas el saldo sigue siendo la suma de los movimientos: se muestra, así se ve lo que hay que repartir.
   const unassignedCents = hasNoAccounts && currentBalanceCents !== undefined && currentBalanceCents > 0 ? currentBalanceCents : 0
+
+  // Activar Cuentas desde el interruptor de Ajustes navega acá con este estado: abre el alta de la
+  // primera cuenta directo, sin que haya que tocar "Nueva cuenta" de nuevo. Se limpia enseguida (con
+  // `replace`) para que no se reabra solo con el back o un refresh.
+  const cameToStart = Boolean((location.state as { startAccounts?: boolean } | null)?.startAccounts)
+  useEffect(() => {
+    if (!cameToStart || isPending) return
+    if (all.length === 0) setDialog({ kind: 'create' })
+    navigate('.', { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameToStart, isPending, all.length])
 
   function balanceOf(account: BalanceLocation): number {
     return balanceMap.get(account.id) ?? account.openingCents
@@ -119,6 +133,10 @@ export function Cuentas() {
 
   const target = dialog && 'accountId' in dialog ? byId.get(dialog.accountId) : undefined
   const closeDialog = () => setDialog(null)
+
+  const deleteTargetId = dialog?.kind === 'delete' ? dialog.accountId : null
+  const { data: deleteMovementCount, isPending: isDeleteCountPending } = useAccountMovementCount(deleteTargetId)
+  const deleteTransferCount = target ? (transfers ?? []).filter((t) => t.from_account_id === target.id || t.to_account_id === target.id).length : 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -166,7 +184,7 @@ export function Cuentas() {
               : 'Todavía no cargaste ninguna cuenta. Creá la primera con lo que tengas hoy y la app arranca desde ahí.'}
           </p>
           <Button className="mt-[18px]" onClick={() => setDialog({ kind: 'create' })} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
-            Nueva cuenta
+            Empezar a usar Cuentas
           </Button>
         </div>
       ) : (
@@ -252,7 +270,9 @@ export function Cuentas() {
           account={target}
           balanceCents={balanceOf(target)}
           isDefault={target.id === defaultId}
-          onDelete={() => setDialog({ kind: 'delete', accountId: target.id })}
+          // Sobre la última cuenta activa no se ofrece "Eliminar cuenta": la salida es el interruptor
+          // «Cuentas» de Ajustes. `accounts` son sólo las activas, así que esto es "hay otra además de ésta".
+          onDelete={accounts.length > 1 ? () => setDialog({ kind: 'delete', accountId: target.id }) : undefined}
         />
       )}
       {dialog?.kind === 'adjust' && target && (
@@ -263,7 +283,10 @@ export function Cuentas() {
         <DeleteAccountDialog
           onClose={closeDialog}
           account={target}
-          isLastAccount={all.length === 1}
+          movimientos={deleteMovementCount ?? 0}
+          transferencias={deleteTransferCount}
+          balanceCents={balanceOf(target)}
+          isCountPending={isDeleteCountPending}
           onArchive={
             !target.is_archived && canArchive
               ? async () => {

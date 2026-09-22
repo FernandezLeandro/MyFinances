@@ -10,7 +10,7 @@ import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import { useCan } from '@/features/access/useCan'
 import { useAdjustAccountBalance, type AdjustMode, type BalanceLocation } from '@/features/accounts/api'
-import { adjustFormState, adjustResultText, planAdjustment } from '@/features/accounts/aggregate'
+import { adjustFormState, adjustResultText } from '@/features/accounts/aggregate'
 import { useReceivablePayments, useReceivables } from '@/features/receivables/api'
 import { summarizeReceivables } from '@/features/receivables/aggregate'
 
@@ -43,8 +43,11 @@ export function AdjustBalanceDialog({ onClose, account, derivedCents }: AdjustBa
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const realCents = parseAmountToCents(realInput)
-  const form = adjustFormState(realInput, derivedCents)
-  const plan = realCents === null ? null : planAdjustment({ derivedCents, openingCents: account.openingCents, realCents })
+  const form = adjustFormState(realInput, derivedCents, account.openingCents)
+  // `form.plan` ya es `null` cuando `form.error` no lo es (M1 del QA: antes este cálculo repetía la
+  // validación de `adjustFormState` y se salteaba con un importe sin sentido, así que el error y el
+  // efecto — "…ingreso de $100.000.000.499,00" — se mostraban a la vez).
+  const plan = form.plan
 
   // Prestar plata no genera un movimiento: lo que te deben sigue "dentro" del saldo de la app aunque
   // el efectivo ya no esté en la mano. Reajustar contra lo que hay en la mano fabricaría un gasto

@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, startOfMonth } from 'date-fns'
-import { cycleContaining, type Cycle } from '@/lib/cycle'
+import { cycleContaining, withMonthCarry, type Cycle } from '@/lib/cycle'
 import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from './api'
 import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses, fijoCaeEnCicloMultiMes } from './period'
 
@@ -182,6 +182,11 @@ export interface FixedExpensesSummary {
  * acumulación multi-ciclo que sí hace `rpc_projected_balance_range` con un horizonte más largo (ver
  * el comentario en Fijos.tsx sobre por qué el horizonte alimenta SÓLO el headline, nunca esta lista).
  *
+ * Adentro se ensancha con `withMonthCarry` (N2 del re-test de QA): un fijo de una sola vez vencido
+ * en un ciclo ANTERIOR del mismo mes se arrastra como atrasado al ciclo actual, en vez de
+ * desaparecer — los pagos de ese mes ya están entre `payments` (se piden por mes, no por mitad de
+ * mes), así que no hace falta traer nada más para saber si sigue impago.
+ *
  * `months` es opcional y nuevo (bloque 5, ciclo semanal): la lista de meses calendario que toca el
  * ciclo mirado — normalmente uno (`[monthStart de period]`, el default si se omite, igual que
  * siempre), hasta dos si es semanal y cruza el borde del mes. Sin esto, un fijo de una sola vez cuyo
@@ -211,12 +216,13 @@ export function summarizeFixedExpenses(
   const monthsToCheck = months ?? [monthStart]
   const bounds = cycleMonthsBounds(monthsToCheck)
   const fallbackWindow = { from: format(bounds.start, 'yyyy-MM-dd'), to: format(bounds.end, 'yyyy-MM-dd') }
+  const carriedWindow = window ? withMonthCarry(window) : undefined
   const eligible = eligibleFixedExpenses(expenses, bounds.end)
     .filter((fe) => fe.is_active)
-    .filter((fe) => !window || fijoCaeEnCicloMultiMes(fe, monthsToCheck, window))
+    .filter((fe) => !carriedWindow || fijoCaeEnCicloMultiMes(fe, monthsToCheck, carriedWindow))
   const statuses = eligible
     .map((fe) =>
-      statusFor(fe, payments, savings, period, today, dueDateInCycle(fe, monthsToCheck, window ?? fallbackWindow), weekStartsOn),
+      statusFor(fe, payments, savings, period, today, dueDateInCycle(fe, monthsToCheck, carriedWindow ?? fallbackWindow), weekStartsOn),
     )
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
 
@@ -241,5 +247,47 @@ export function summarizeFixedExpenses(
     pendingTotalCents: statuses.reduce((acc, s) => acc + s.remainingCents, 0),
     savedTotalCents,
     missingToSaveCents,
+  }
+}
+
+export interface PreAccountsPaymentCopy {
+  title: string
+  confirmLabel: string
+  paragraphs: string[]
+}
+
+/**
+ * Texto del freno `payment_before_accounts`: el pago es de antes de la primera cuenta, así que ya
+ * está descontado de la apertura, y volver a pagarlo lo restaría dos veces.
+ *
+ * Básico no ve Cuentas (las suyas, si las tuvo, quedan en pausa), así que ahí el texto no las nombra
+ * ni aconseja editar el movimiento o reajustar el saldo — dos cosas que ese plan no puede hacer.
+ */
+export function preAccountsPaymentCopy({
+  action,
+  canCuentas,
+  canEditMovement,
+}: {
+  action: 'unmark' | 'delete'
+  canCuentas: boolean
+  canEditMovement: boolean
+}): PreAccountsPaymentCopy {
+  const isDelete = action === 'delete'
+  const verb = isDelete ? 'eliminás' : 'quitás'
+  const risk = `Si lo ${verb} y lo volvés a pagar, se descuenta dos veces.`
+  const paragraphs = [
+    canCuentas
+      ? `Este pago es de antes de que crearas tus cuentas: esa plata ya está descontada del saldo con el que arrancaron. ${risk}`
+      : `Este pago ya está descontado. ${risk}`,
+  ]
+  const advice = [
+    canEditMovement && !isDelete ? 'Para cambiar el importe o la fecha, editá el movimiento.' : null,
+    canCuentas ? 'Si en realidad no lo pagaste, después reajustá el saldo de la cuenta.' : null,
+  ].filter((s): s is string => s != null)
+  if (advice.length > 0) paragraphs.push(advice.join(' '))
+  return {
+    title: isDelete ? '¿Eliminar este movimiento?' : '¿Quitar este pago?',
+    confirmLabel: isDelete ? 'Eliminar igual' : 'Quitar igual',
+    paragraphs,
   }
 }

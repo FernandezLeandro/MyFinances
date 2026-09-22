@@ -103,12 +103,12 @@ export const ACCOUNTS_HELP = {
       destructive: true,
       effect: { label: 'Se borra el historial', tone: 'red' },
       description:
-        'Borra la cuenta con sus movimientos y transferencias. Si sólo querés dejar de usarla, archivala.',
+        'Borra la cuenta con sus movimientos y transferencias. Se lleva sólo lo suyo: si financió o recibió plata de otra cuenta, esa otra queda exactamente igual. Si sólo querés dejar de usarla, archivala.',
     },
   ] satisfies AccountHelpAction[],
 
   actionsFootnote:
-    'No siempre vas a ver todas: «Hacer predeterminada» no aparece en la cuenta que ya lo es, «Transferir» necesita al menos dos cuentas y «Archivar» no se ofrece sobre tu última cuenta activa.',
+    'No siempre vas a ver todas: «Hacer predeterminada» no aparece en la cuenta que ya lo es, «Transferir» necesita al menos dos cuentas, y sobre tu última cuenta activa no se ofrecen ni «Archivar» ni «Eliminar» — para eso está el interruptor «Cuentas» en Ajustes.',
 
   faq: [
     {
@@ -122,7 +122,17 @@ export const ACCOUNTS_HELP = {
     {
       question: '¿Archivar o eliminar?',
       answer:
-        'Archivar si dejaste de usar la cuenta pero querés conservar su historial. Eliminar sólo si la cargaste por error.',
+        'Archivar si dejaste de usar la cuenta pero querés conservar su historial. Eliminar sólo si la cargaste por error — se lleva sólo lo suyo, no afecta a las demás cuentas.',
+    },
+    {
+      question: '¿Qué pasa con lo que cargué antes de crear mis cuentas?',
+      answer:
+        'Queda como historial en Movimientos y Análisis, pero no suma al saldo actual: esa plata ya está contada en el «cuánto tenés hoy» con el que arrancó tu primera cuenta. Si quitás el pago de un fijo que pagaste antes de tener cuentas, la app te avisa antes de dejarte volver a pagarlo — si no, se descontaría dos veces.',
+    },
+    {
+      question: '¿Puedo dejar de usar Cuentas?',
+      answer:
+        'Sí, desde el interruptor «Cuentas» en Ajustes: al desactivarlo guardamos tu saldo de hoy y conservamos todos tus movimientos, así la app vuelve a verse como antes de crear cuentas. Podés volver a activarlo cuando quieras.',
     },
   ] satisfies HelpFaqItem[],
 }

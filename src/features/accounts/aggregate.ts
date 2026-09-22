@@ -99,25 +99,64 @@ export function archiveBlocker(activeCount: number): 'last-active' | null {
   return activeCount <= 1 ? 'last-active' : null
 }
 
-function plural(n: number, singular: string, pluralForm: string): string {
+/** Exportada porque también la usa `StopUsingAccountsDialog` (`AccountConfirmDialogs.tsx`). */
+export function plural(n: number, singular: string, pluralForm: string): string {
   return `${n} ${n === 1 ? singular : pluralForm}`
 }
 
-/** Qué se lleva puesto eliminar una cuenta. */
-export function deleteImpactText(counts: { transactions: number; transfers: number }, isLastAccount: boolean): string {
-  const { transactions, transfers } = counts
+export interface DeleteAccountImpact {
+  movimientos: number
+  transferencias: number
+  /** El saldo PROPIO de la cuenta (`rpc_account_balances`), no el total de la app. Desde
+   *  `20260923020001_eliminar_cuenta_solo_lo_suyo.sql`, eliminar una cuenta pliega sus transferencias
+   *  en la apertura de la otra punta antes de borrarlas: ninguna otra cuenta cambia de saldo, así que
+   *  el único número que hace falta es éste. */
+  balanceCents: number
+  /** Una archivada no suma al total (`rpc_current_balance` sólo cuenta activas): borrarla no mueve
+   *  el saldo aunque tenga plata propia. */
+  isArchived: boolean
+}
+
+export interface DeleteAccountDescription {
+  /** "Se borran 2 movimientos y 1 transferencia. Las demás cuentas no cambian." */
+  summary: string
+  /** "Tu saldo baja $866.359,65." — `null` si el saldo total no se mueve (archivada, o en $0). */
+  balanceChangeText: string | null
+  /** Hay plata o historial de por medio: "Archivar" pasa a ser la salida recomendada, "Eliminar
+   *  igual" queda como secundaria. Sin nada en juego, el botón es "Eliminar" a secas — ver `deleteLabel`. */
+  recommendArchive: boolean
+  /** "Eliminar" cuando no hay nada en juego (cuenta vacía, en $0); "Eliminar igual" cuando sí. */
+  deleteLabel: string
+}
+
+/** Qué se lleva puesto eliminar una cuenta. Ya no hace falta un RPC de preview aparte
+ *  (`rpc_account_delete_preview`, retirado en la misma migración): con el pliegue, el único efecto en
+ *  otra cuenta es CERO, así que acá sólo se arma el texto a partir de datos que el cliente ya tiene
+ *  (`useAccountBalances`, `useAccountTransfers`) o puede pedir con un conteo simple
+ *  (`useAccountMovementCount`). Antes, una fórmula aparte en SQL calculaba "cómo queda cada cuenta
+ *  afectada" y se desalineó de la real (N1 del re-test de QA: prometía que el saldo subía cuando
+ *  bajaba). Sin una segunda fórmula, no hay como desalinearse. */
+export function describeAccountDelete(impact: DeleteAccountImpact): DeleteAccountDescription {
+  const { movimientos, transferencias, balanceCents, isArchived } = impact
+
   const parts: string[] = []
-  if (transactions > 0) parts.push(plural(transactions, 'movimiento', 'movimientos'))
-  if (transfers > 0) parts.push(plural(transfers, 'transferencia', 'transferencias'))
+  if (movimientos > 0) parts.push(plural(movimientos, 'movimiento', 'movimientos'))
+  if (transferencias > 0) parts.push(plural(transferencias, 'transferencia', 'transferencias'))
+  const summary =
+    parts.length === 0
+      ? 'No tiene movimientos ni transferencias. Las demás cuentas no cambian.'
+      : `Se ${movimientos + transferencias === 1 ? 'borra' : 'borran'} ${parts.join(' y ')}. Las demás cuentas no cambian.`
 
-  let text: string
-  if (parts.length === 0) text = 'No tiene movimientos ni transferencias.'
-  else text = `Se ${transactions + transfers === 1 ? 'borra' : 'borran'} ${parts.join(' y ')}.`
+  const movesBalance = !isArchived && balanceCents !== 0
+  const balanceChangeText = movesBalance ? `Tu saldo ${balanceCents > 0 ? 'baja' : 'sube'} ${formatMoney(Math.abs(balanceCents))}.` : null
 
-  if (isLastAccount) {
-    text += ' Es tu última cuenta: sin cuentas, el saldo vuelve a ser la suma de todos tus movimientos.'
+  const somethingAtStake = movesBalance || movimientos > 0
+  return {
+    summary,
+    balanceChangeText,
+    recommendArchive: somethingAtStake,
+    deleteLabel: somethingAtStake ? 'Eliminar igual' : 'Eliminar',
   }
-  return text
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -176,6 +215,22 @@ export function movimientosDeCuentaState(accountId: string, today: string): { ac
 }
 
 // ---------------------------------------------------------------------------------------------
+// Nombre único (N6)
+// ---------------------------------------------------------------------------------------------
+
+/** Nombre duplicado entre cuentas ACTIVAS del usuario, sin distinguir mayúsculas ni espacios —
+ *  mismo criterio que el índice único de la base (`balance_locations_user_name_idx`,
+ *  `20260923010001_cuentas_integridad.sql`, que también sólo mira activas: una archivada puede
+ *  compartir nombre con cualquier otra porque no se ofrece en ningún selector). `excludeId` es la
+ *  propia cuenta al editar, para no chocar consigo misma. */
+export function accountNameError(input: { name: string; locations: readonly BalanceLocation[]; excludeId?: string }): string | null {
+  const normalized = input.name.trim().toLowerCase()
+  if (!normalized) return null
+  const clash = input.locations.some((l) => !l.is_archived && l.id !== input.excludeId && l.name.trim().toLowerCase() === normalized)
+  return clash ? 'Ya tenés una cuenta activa con ese nombre.' : null
+}
+
+// ---------------------------------------------------------------------------------------------
 // Formulario de alta/edición
 // ---------------------------------------------------------------------------------------------
 
@@ -211,18 +266,23 @@ export interface AdjustFormState {
    *  del campo, en rojo. Un saldo igual al actual no es un error: el botón queda apagado sin gritar,
    *  porque el campo arranca precargado con ese mismo valor. */
   error: string | null
+  /** El plan de ajuste con ese importe, o `null` cuando `error` no es `null`. Antes el diálogo
+   *  calculaba el plan aparte con el mismo `realCents` que ya era inválido (M1 del QA: con 11 cifras
+   *  se veían a la vez «Ingresá un importe válido…» Y «…ingreso de $100.000.000.499,00»). Con el plan
+   *  adentro de este mismo estado, mostrar el error implica no tener plan que mostrar. */
+  plan: AdjustmentPlan | null
 }
 
 /** Estado del formulario de "Reajustar saldo" (validación dentro del diálogo, patrón 5b).
  *
  *  Un saldo real de cero o negativo ES válido: quien gastó todo lo que tenía, o está en descubierto
  *  en el banco, tiene que poder reajustar hacia ahí. Por eso NO se exige `> 0`. */
-export function adjustFormState(realInput: string, derivedCents: number): AdjustFormState {
+export function adjustFormState(realInput: string, derivedCents: number, openingCents: number): AdjustFormState {
   const realCents = parseAmountToCents(realInput)
   if (realCents === null || Math.abs(realCents) >= MAX_ABS_CENTS_ADJUST) {
-    return { canSubmit: false, error: 'Ingresá un importe válido para poder reajustar.' }
+    return { canSubmit: false, error: 'Ingresá un importe válido para poder reajustar.', plan: null }
   }
-  return { canSubmit: realCents !== derivedCents, error: null }
+  return { canSubmit: realCents !== derivedCents, error: null, plan: planAdjustment({ derivedCents, openingCents, realCents }) }
 }
 
 /** El aviso de archivar. Archivar saca la cuenta del saldo, y como no hay un diálogo de confirmación
@@ -366,8 +426,10 @@ export type AccountMenuEntry =
  *
  *  - "Reajustar saldo" es el botón de la tarjeta, así que en el popover no está; en la hoja sí y va
  *    primero, porque ahí es el único menú.
- *  - "Archivar" no se ofrece sobre la última cuenta activa (`archiveBlocker`): los movimientos
- *    nuevos se quedarían sin una cuenta para elegir.
+ *  - Ni "Archivar" ni "Eliminar" se ofrecen sobre la última cuenta activa (`archiveBlocker`, y desde
+ *    `20260923010001_cuentas_integridad.sql` la base bloquea las dos igual): los movimientos nuevos
+ *    se quedarían sin una cuenta para elegir. La única salida sobre la última es el interruptor
+ *    «Cuentas» de Ajustes (`useStopUsingAccounts`), no un ítem de este menú.
  *  - "Hacer predeterminada" no se ofrece sobre la que ya lo es; "Transferir" pide otra cuenta a la
  *    que mandar. */
 export function accountMenuEntries(input: {
@@ -388,9 +450,11 @@ export function accountMenuEntries(input: {
   if (!input.isDefault) entries.push(action('setDefault', 'Hacer predeterminada'))
   if (input.activeCount >= 2) entries.push(action('transfer', 'Transferir desde acá'))
   entries.push(action('viewMovements', 'Ver movimientos'))
-  entries.push({ kind: 'divider' })
-  if (archiveBlocker(input.activeCount) === null) entries.push(action('archive', 'Archivar', 'quiet'))
-  entries.push(action('delete', 'Eliminar', 'destructive'))
+  if (archiveBlocker(input.activeCount) === null) {
+    entries.push({ kind: 'divider' })
+    entries.push(action('archive', 'Archivar', 'quiet'))
+    entries.push(action('delete', 'Eliminar', 'destructive'))
+  }
   return entries
 }
 
@@ -420,6 +484,14 @@ export function firstAccountSplit(openingCents: number, balanceCents: number): F
   const rest = balanceCents - openingCents
   if (rest > 0) return { restCents: rest, kind: 'rest' }
   return { restCents: 0, kind: rest === 0 ? 'exact' : 'over' }
+}
+
+/** M2 del QA: con una apertura NEGATIVA (un banco en descubierto), "los otros $X" de
+ *  `firstAccountSplit` suma la apertura negativa — el resto sale más grande que TODO el saldo que el
+ *  usuario tenía, y alarma aunque la matemática cierre (−apertura + resto = saldo). Esta nota, que se
+ *  muestra junto a la pregunta, lo aclara. `null` con apertura ≥ 0: ahí "los otros $X" ya es intuitivo. */
+export function firstAccountRestNote(openingCents: number): string | null {
+  return openingCents < 0 ? 'Da más que tu saldo porque esta cuenta arranca en descubierto: sumado, cierra igual.' : null
 }
 
 const fromTo = (fromCents: number, toCents: number) => `de ${formatMoney(fromCents)} a ${formatMoney(toCents)}`
@@ -553,4 +625,15 @@ export function createAccountResultText(input: {
     return { title: 'Cuenta agregada', detail: `${name} · ${formatMoney(input.openingCents)} desde ${input.fromName || 'otra cuenta'}` }
   }
   return { title: 'Cuenta agregada', detail: name }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Dejar de usar Cuentas
+// ---------------------------------------------------------------------------------------------
+
+/** El cuerpo de `StopUsingAccountsDialog`: cuántas cuentas (y sus transferencias entre sí) se van.
+ *  El saldo no se pierde — `rpc_stop_using_accounts` lo conserva con un ajuste — así que acá no hay
+ *  nada que advertir sobre plata, sólo sobre qué desaparece de `/cuentas`. */
+export function stopUsingAccountsSummary(accountCount: number): string {
+  return `Se van a borrar ${plural(accountCount, 'cuenta', 'cuentas')} y sus transferencias entre sí. Podés volver a activarlas cuando quieras.`
 }

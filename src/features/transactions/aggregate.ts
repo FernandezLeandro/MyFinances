@@ -64,6 +64,20 @@ export function summarizeTransactions(transactions: Transaction[], from: string,
   }
 }
 
+/** El texto secundario de una fila de movimiento: "Ajuste de saldo · afuera de Análisis" para un
+ *  ajuste, "{categoría} · Tarjeta" para un pago de tarjeta, o la categoría a secas. Compartido entre
+ *  `TransactionRow` (Hoy y Movimientos en mobile) y la fila ancha de escritorio de Movimientos — N7
+ *  del re-test de QA: esta última no tenía la rama de ajuste y mostraba "Sin categoría" como si
+ *  fuera un gasto común, con el monto completo del ajuste sumado al total del día. */
+export function movementCategoryLabel(
+  tx: Pick<Transaction, 'is_adjustment' | 'is_credit_card_payment'>,
+  categoryName: string | undefined,
+): string {
+  if (tx.is_adjustment) return 'Ajuste de saldo · afuera de Análisis'
+  if (tx.is_credit_card_payment) return `${categoryName ?? 'Sin categoría'} · Tarjeta`
+  return categoryName ?? 'Sin categoría'
+}
+
 export interface DailySpendBar {
   /** Fecha del día, `'yyyy-MM-dd'` — clave de `key` y de orden, y lo que arma el label. */
   date: string
@@ -89,6 +103,20 @@ export function dailySpendBars(transactions: Transaction[], from: string, to: st
     const iso = format(date, 'yyyy-MM-dd')
     return { date: iso, day: date.getDate(), cents: totalsByDay.get(iso) ?? 0 }
   })
+}
+
+/** Neto de cada día, EXCLUYENDO ajustes (N7 del QA) — un ajuste de saldo es una corrección del
+ *  punto de partida, no plata que "se movió" ese día, así que no debería inflar (ni desinflar) el
+ *  subtotal del grupo de ese día en Movimientos. Mismo criterio que ya aplica `summarizeTransactions`
+ *  al neto del período entero; esto es el equivalente por día, para el `GroupHeader` de cada grupo. */
+export function dayNetTotals(transactions: Transaction[]): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const tx of transactions) {
+    if (!isRealMovement(tx)) continue
+    const delta = tx.type === 'income' ? tx.cents : -tx.cents
+    totals.set(tx.occurred_on, (totals.get(tx.occurred_on) ?? 0) + delta)
+  }
+  return totals
 }
 
 /** Label del "pico" del gráfico de barras — sólo el día ("5") cuando todas las barras caen en el

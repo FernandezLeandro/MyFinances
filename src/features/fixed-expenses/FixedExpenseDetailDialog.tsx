@@ -11,12 +11,13 @@ import {
   useFixedExpensePaymentHistory,
   useFixedExpenseSavings,
   useRemoveFixedExpenseSaving,
-  useUnmarkFixedExpensePayment,
+  useUnmarkWithLegacyConfirm,
   type FixedExpense,
   type FixedExpensePayment,
 } from '@/features/fixed-expenses/api'
 import { FixedExpenseFormDialog } from '@/features/fixed-expenses/FixedExpenseFormDialog'
-import { bagPeriodNoun } from '@/features/fixed-expenses/period'
+import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
+import { bagPeriodNoun, dueDayTemplateLabel } from '@/features/fixed-expenses/period'
 
 interface FixedExpenseDetailDialogProps {
   open: boolean
@@ -59,7 +60,7 @@ function groupByPeriod(payments: FixedExpensePayment[]): PeriodGroup[] {
 export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedExpenseDetailDialogProps) {
   const [formOpen, setFormOpen] = useState(false)
   const { data: payments, isPending } = useFixedExpensePaymentHistory(fixedExpense.id)
-  const unmarkPayment = useUnmarkFixedExpensePayment()
+  const unmarkPayment = useUnmarkWithLegacyConfirm()
   const currentPeriod = useMemo(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'), [])
   // Follow-up: sólo el guardado del mes EN CURSO, no todo el histórico — a Lean no le interesa ver
   // en meses posteriores lo que guardó en meses anteriores (los guardados viejos siguen en la base,
@@ -110,7 +111,9 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
             {fixedExpense.is_recurring ? `Presupuesto ${bagPeriodNoun(fixedExpense.bag_frequency).adjective}` : 'Importe actual'}
           </p>
           <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
-          {fixedExpense.due_day != null && <p className="mt-2 text-[12px] text-fg-muted">Vence el {fixedExpense.due_day}</p>}
+          {fixedExpense.due_day != null && (
+            <p className="mt-2 text-[12px] text-fg-muted">{dueDayTemplateLabel(fixedExpense.due_day)}</p>
+          )}
         </div>
 
         <p className="eyebrow mb-3">Historial de pagos</p>
@@ -142,7 +145,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
                       <Money cents={payment.amountPaidCents} tone="dim" size="inline" />
                       <button
                         type="button"
-                        onClick={() => unmarkPayment.mutate({ paymentId: payment.id })}
+                        onClick={() => unmarkPayment.unmarkPayment(payment.id)}
                         disabled={unmarkPayment.isPending}
                         aria-label="Quitar esta carga"
                         className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
@@ -231,6 +234,12 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
           onDeleted={onClose}
         />
       )}
+      <UnmarkBeforeAccountsDialog
+        open={unmarkPayment.confirmOpen}
+        busy={unmarkPayment.isPending}
+        onClose={unmarkPayment.cancelConfirm}
+        onConfirm={unmarkPayment.confirmForce}
+      />
     </>
   )
 }

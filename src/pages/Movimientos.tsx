@@ -23,8 +23,9 @@ import { TransactionRow } from '@/components/TransactionRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
 import { useBalanceLocations, type BalanceLocation } from '@/features/accounts/api'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
-import { dailySpendBars, dailySpendPeakLabel, summarizeTransactions } from '@/features/transactions/aggregate'
+import { dailySpendBars, dailySpendPeakLabel, dayNetTotals, movementCategoryLabel, summarizeTransactions } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
 import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
@@ -36,7 +37,8 @@ import {
   type MovementPeriod,
 } from '@/features/transactions/movementPeriod'
 import { useCan } from '@/features/access/useCan'
-import { useUnmarkFixedExpensePayment } from '@/features/fixed-expenses/api'
+import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
+import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Todos' },
@@ -47,15 +49,20 @@ const TYPE_OPTIONS = [
 /** Fila de la tabla ancha de escritorio — Descripción · Categoría · Cuenta · Monto en columnas
  *  fijas. En mobile se usa `TransactionRow` (el mismo compacto de Hoy): a 390px de ancho una
  *  tabla de cuatro columnas no entra sin achicar la descripción hasta ilegible. */
+/** N7 del QA: un ajuste de saldo mostraba "Sin categoría" acá, sin distinguirse de un gasto común —
+ *  `showAccount` (Bloque E): Básico "en pausa" no ve la columna de cuenta aunque el usuario tenga
+ *  cuentas cargadas de antes (`useAccountPicker`), así que la grilla pasa de 4 a 3 columnas. */
 function MovementTableRow({
   tx,
   category,
   account,
+  showAccount,
   onClick,
 }: {
   tx: Transaction
   category?: Category
   account?: BalanceLocation
+  showAccount: boolean
   onClick: () => void
 }) {
   const income = tx.type === 'income'
@@ -63,18 +70,19 @@ function MovementTableRow({
     <button
       type="button"
       onClick={onClick}
-      className="grid w-full grid-cols-[1fr_170px_150px_130px] items-center gap-3 px-panel py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
+      className={cn(
+        'grid w-full items-center gap-3 px-panel py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle',
+        showAccount ? 'grid-cols-[1fr_170px_150px_130px]' : 'grid-cols-[1fr_170px_130px]',
+      )}
     >
       <span className="truncate text-[13.5px] font-semibold text-fg">
         {tx.description || category?.name || 'Sin descripción'}
       </span>
       <span className="flex items-center gap-1.5 truncate text-[12.5px] text-fg-secondary">
         <span aria-hidden className="size-[7px] shrink-0 rounded-full" style={{ backgroundColor: category?.color ?? 'var(--color-border-strong)' }} />
-        <span className="truncate">
-          {tx.is_credit_card_payment ? `${category?.name ?? 'Sin categoría'} · Tarjeta` : (category?.name ?? 'Sin categoría')}
-        </span>
+        <span className="truncate">{movementCategoryLabel(tx, category?.name)}</span>
       </span>
-      <span className="truncate text-[12.5px] text-fg-muted">{account?.name || '—'}</span>
+      {showAccount && <span className="truncate text-[12.5px] text-fg-muted">{account?.name || '—'}</span>}
       <Money
         cents={income ? tx.cents : -tx.cents}
         tone={income ? 'accent' : 'negative'}
@@ -121,7 +129,7 @@ export function Movimientos() {
   // ni editar suelto — los movimientos de ese plan sólo salen de pagar un fijo, y la única acción
   // sobre una fila es deshacer ese pago (ver `openEdit`).
   const canMovimientosManuales = useCan('movimientos-manuales')
-  const unmarkFixedPayment = useUnmarkFixedExpensePayment()
+  const unmarkFixedPayment = useUnmarkWithLegacyConfirm()
 
   const [formOpen, setFormOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -155,6 +163,9 @@ export function Movimientos() {
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
+  // Básico "en pausa" (bloque E del re-test de QA): sin cuentas del plan, ni la columna ni el
+  // filtro "Cuenta" se ofrecen, aunque el usuario tenga cuentas cargadas de antes de bajar de plan.
+  const { show: showAccounts } = useAccountPicker()
 
   const totalCount = transactions?.length ?? 0
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -185,14 +196,9 @@ export function Movimientos() {
 
   // Neto de cada DÍA, sobre la lista completa — si un día queda partido entre dos páginas, el
   // encabezado sigue mostrando el total real de ese día, no sólo el de lo que entró en esta página.
-  const dayTotals = useMemo(() => {
-    const totals = new Map<string, number>()
-    for (const tx of transactions ?? []) {
-      const delta = tx.type === 'income' ? tx.cents : -tx.cents
-      totals.set(tx.occurred_on, (totals.get(tx.occurred_on) ?? 0) + delta)
-    }
-    return totals
-  }, [transactions])
+  // Sin ajustes (N7 del QA): antes un "Ajuste de saldo" se sumaba acá como si fuera un gasto real del
+  // día, con montos de millones si el ajuste venía de "Dejar de usar Cuentas".
+  const dayTotals = useMemo(() => dayNetTotals(transactions ?? []), [transactions])
 
   const byDay = useMemo(() => {
     const groups = new Map<string, Transaction[]>()
@@ -232,7 +238,7 @@ export function Movimientos() {
     // haya quedado de antes de bajar a este plan (`fixed_expense_payment_id` null) no tiene ese
     // camino: sigue abriendo el form, que al menos deja eliminarlo.
     if (!canMovimientosManuales && tx.fixed_expense_payment_id) {
-      unmarkFixedPayment.mutate({ paymentId: tx.fixed_expense_payment_id })
+      unmarkFixedPayment.unmarkPayment(tx.fixed_expense_payment_id)
       return
     }
     setEditingTx(tx)
@@ -527,10 +533,15 @@ export function Movimientos() {
             </p>
           )}
 
-          <div className="hidden grid-cols-[1fr_170px_150px_130px] gap-3 border-b border-divider px-panel pt-3.5 pb-2.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-faint uppercase lg:grid">
+          <div
+            className={cn(
+              'hidden gap-3 border-b border-divider px-panel pt-3.5 pb-2.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-faint uppercase lg:grid',
+              showAccounts ? 'grid-cols-[1fr_170px_150px_130px]' : 'grid-cols-[1fr_170px_130px]',
+            )}
+          >
             <span>Descripción</span>
             <span>Categoría</span>
-            <span>Cuenta</span>
+            {showAccounts && <span>Cuenta</span>}
             <span className="text-right">Monto</span>
           </div>
 
@@ -549,7 +560,7 @@ export function Movimientos() {
                       key={tx.id}
                       tx={tx}
                       category={categoryById.get(tx.category_id ?? '')}
-                      account={accountById.get(tx.account_id ?? '')}
+                      account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
                       onClick={() => openEdit(tx)}
                     />
                   ))}
@@ -561,6 +572,7 @@ export function Movimientos() {
                         tx={tx}
                         category={categoryById.get(tx.category_id ?? '')}
                         account={accountById.get(tx.account_id ?? '')}
+                        showAccount={showAccounts}
                         onClick={() => openEdit(tx)}
                       />
                     </li>
@@ -605,9 +617,15 @@ export function Movimientos() {
           value={filters}
           onApply={setFilters}
           categories={categories ?? []}
-          accounts={locations ?? []}
+          accounts={showAccounts ? (locations ?? []) : []}
         />
       )}
+      <UnmarkBeforeAccountsDialog
+        open={unmarkFixedPayment.confirmOpen}
+        busy={unmarkFixedPayment.isPending}
+        onClose={unmarkFixedPayment.cancelConfirm}
+        onConfirm={unmarkFixedPayment.confirmForce}
+      />
     </div>
   )
 }
