@@ -13,7 +13,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | — | pendiente (ver transversales) | | |
+| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª) | rama `accounts`, `37b5384` | 0 / 9 / 3 / 2 |
 | Análisis | — | pendiente (ver transversales) | | |
 | Admin | — | pendiente | | |
 
@@ -74,11 +74,6 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
 Cosas vistas de reojo desde otra área, sin probar a fondo. Se mueven al informe de su área cuando se haga
 esa pasada.
 
-- **Hoy:** con ciclo semanal, la tarjeta sigue diciendo «En qué se fue el mes».
-- **Hoy (Básico):** «Sueldo asignado» suma todos los ingresos del ciclo, no sólo el sueldo. Sólo se nota
-  en una cuenta que tuvo otro plan.
-- **Hoy:** el diálogo de «Sueldo» lista todos los ingresos del ciclo (incluidos ajustes y abonos de Me
-  Deben), cada uno con una X que borra sin confirmar. Visto de reojo en el QA de Movimientos.
 - **Mis Deudas:** el desglose de fijos no descuenta los guardados con movimiento, y puede no cerrar con el
   número grande (`MisDeudas.tsx:258`). No se pudo ver porque la cuenta de QA no tiene deudas.
 - **Base:** las RPC de pago aceptan una fecha futura (la UI la bloquea con `max`).
