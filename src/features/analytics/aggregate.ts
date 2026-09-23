@@ -31,7 +31,10 @@ export function summarizeFijoVsVariable(
   let variableCents = 0
 
   for (const tx of transactions) {
-    if (tx.type !== 'expense') continue
+    // Ajustes de saldo (N7 del re-test de QA): no son ni "comprometido" ni "variable" — son una
+    // corrección del punto de partida, no una decisión de gasto real. Mismo criterio que
+    // `isRealMovement` en `transactions/aggregate.ts`.
+    if (tx.type !== 'expense' || tx.is_adjustment) continue
     const committed =
       tx.fixed_expense_payment_id != null || tx.is_credit_card_payment || committedPurchaseTransactionIds.has(tx.id)
     if (committed) committedCents += tx.cents

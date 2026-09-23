@@ -14,7 +14,10 @@ import { useCategories } from '@/features/categories/api'
 import { useCreateReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
+import { accountFieldMode, effectiveDefaultAccountId } from '@/features/accounts/aggregate'
+import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
+import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
 import { useCan } from '@/features/access/useCan'
 import {
   useCreateTransaction,
@@ -84,8 +87,6 @@ interface TransactionFormDialogProps {
   onClose: () => void
   /** Si viene, el dialog edita esta transacción en vez de crear una nueva. */
   transaction?: Transaction | null
-  /** Precarga tipo e importe en un alta nueva (ej. "Ajustar saldo" → "Registrar como movimiento"). Se ignora si viene `transaction`. */
-  prefill?: { type: TransactionType; cents: number }
 }
 
 const emptySplitDefaults = {
@@ -97,7 +98,7 @@ const emptySplitDefaults = {
   splitExpectedPeriod: '',
 }
 
-export function TransactionFormDialog({ open, onClose, transaction, prefill }: TransactionFormDialogProps) {
+export function TransactionFormDialog({ open, onClose, transaction }: TransactionFormDialogProps) {
   const isEditing = !!transaction
   const canCuentas = useCan('cuentas')
   const canCompartido = useCan('compartido')
@@ -106,17 +107,33 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   // tocar nada le pisa la categoría en silencio.
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
-  const defaultAccountId = locations?.find((l) => l.is_default)?.id ?? ''
+  const defaultAccountId = effectiveDefaultAccountId(locations ?? [])
+  const activeAccountCount = (locations ?? []).filter((l) => !l.is_archived).length
+  // `required`: todo movimiento nuevo lleva cuenta (el saldo es la suma de las cuentas). `legacy`: un
+  // movimiento viejo sin cuenta que se edita — no se le pide una, asignársela contaría esa plata dos
+  // veces (ya está en la apertura de las cuentas). `hidden`: plan sin Cuentas, o todavía sin ninguna.
+  const accountMode = accountFieldMode({
+    canCuentas,
+    activeCount: activeAccountCount,
+    isEditing,
+    txAccountId: transaction?.account_id ?? null,
+  })
   const createTx = useCreateTransaction()
   const updateTx = useUpdateTransaction()
   const deleteTx = useDeleteTransaction()
   const createReceivable = useCreateReceivable()
+  // N4 del QA: borrar el movimiento de un pago de fijo anterior a las cuentas (`accountMode ===
+  // 'legacy'`) tiene que pasar por el mismo freno que desmarcarlo desde Fijos — antes se borraba con
+  // un toque, sólo con una nota. Se resuelve como "quitar el pago" (mismo RPC, mismo resultado neto:
+  // se va el movimiento y el fijo vuelve a pendiente), no como un `deleteTx` distinto.
+  const unmarkLegacyPayment = useUnmarkWithLegacyConfirm({ onSuccess: onClose })
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     formState: { errors, isSubmitting, dirtyFields },
   } = useForm<FormValues>({
@@ -169,8 +186,8 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             ...emptySplitDefaults,
           }
         : {
-            type: prefill?.type ?? 'expense',
-            amount: prefill ? centsToInputText(prefill.cents) : '',
+            type: 'expense',
+            amount: '',
             categoryId: '',
             occurredOn: format(new Date(), 'yyyy-MM-dd'),
             description: '',
@@ -178,7 +195,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
             ...emptySplitDefaults,
           },
     )
-  }, [open, transaction, prefill, reset])
+  }, [open, transaction, reset])
 
   // Precarga la cuenta predeterminada en un alta nueva — sólo escribe el campo `accountId`, nunca
   // el resto del form, y sólo mientras el usuario no lo haya tocado (`dirtyFields`, que `setValue`
@@ -191,14 +208,14 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
       appliedDefaultAccountRef.current = false
       return
     }
-    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId || !canCuentas) return
+    if (transaction || appliedDefaultAccountRef.current || !defaultAccountId || dirtyFields.accountId || accountMode !== 'required') return
     setValue('accountId', defaultAccountId)
     appliedDefaultAccountRef.current = true
-  }, [open, transaction, defaultAccountId, dirtyFields.accountId, canCuentas, setValue])
+  }, [open, transaction, defaultAccountId, dirtyFields.accountId, accountMode, setValue])
 
   // El mes esperado de cobro arranca en el mes de la fecha del movimiento — es el caso dominante
-  // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en
-  // el grupo "Entra este mes" de Cuadrar Saldo sin que el usuario tenga que completar nada más.
+  // (le pagás algo hoy, te lo devuelve más o menos este mes) y hace que la deuda caiga directo en el
+  // mes en curso de Me Deben sin que el usuario tenga que completar nada más.
   useEffect(() => {
     if (!compartido) return
     setValue('splitExpectedPeriod', occurredOn ? occurredOn.slice(0, 7) : '')
@@ -219,6 +236,10 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   const miParteCents = totalCents != null && otroCents != null ? totalCents - otroCents : null
 
   async function onSubmit(values: FormValues) {
+    if (accountMode === 'required' && !values.accountId) {
+      setError('accountId', { message: 'Elegí una cuenta' })
+      return
+    }
     const cents = parseAmountToCents(values.amount)!
     const description = values.description?.trim() || null
 
@@ -233,8 +254,7 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
         cents: otro,
         expectedPeriod: values.splitExpectedPeriod ? `${values.splitExpectedPeriod}-01` : null,
         // `false`: la app sólo registró tu parte como gasto, así que lo que quedó en deuda todavía
-        // no salió de tu saldo — sigue contando como plata tuya en Cuadrar Saldo hasta que te la
-        // devuelvan (ver la tabla de verificación de `deudas_flujo_movimientos`).
+        // no salió de tu saldo — sigue contando como plata tuya hasta que te la devuelvan (ver la tabla de verificación de `deudas_flujo_movimientos`).
         alreadyExpensed: false,
         note: null,
         expense: {
@@ -268,6 +288,10 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
 
   async function onDelete() {
     if (!transaction) return
+    if (transaction.fixed_expense_payment_id && accountMode === 'legacy') {
+      unmarkLegacyPayment.unmarkPayment(transaction.fixed_expense_payment_id)
+      return
+    }
     await deleteTx.mutateAsync(transaction.id)
     onClose()
   }
@@ -279,153 +303,176 @@ export function TransactionFormDialog({ open, onClose, transaction, prefill }: T
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={isEditing ? 'Editar movimiento' : 'Nuevo movimiento'}
-      footer={
-        <>
-          {isEditing && (
-            <Button variant="danger" size="dialogFooter" onClick={onDelete} disabled={deleteTx.isPending} className="sm:mr-auto">
-              Eliminar
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        title={isEditing ? 'Editar movimiento' : 'Nuevo movimiento'}
+        footer={
+          <>
+            {isEditing && (
+              <Button
+                variant="danger"
+                size="dialogFooter"
+                onClick={onDelete}
+                disabled={deleteTx.isPending || unmarkLegacyPayment.isPending}
+                className="sm:mr-auto"
+              >
+                Eliminar
+              </Button>
+            )}
+            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
+              Cancelar
             </Button>
+            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
+          {/* Simétrico a desmarcar desde Fijos (que borra el movimiento): un trigger en la base
+              desmarca el fijo si este movimiento se borra desde acá (`fixed_expense_payment_fecha`,
+              bloque 2). Con cuenta, se borra con el mismo botón Eliminar sin más; siendo de antes de
+              las cuentas (`accountMode === 'legacy'`), `onDelete` pasa por el mismo freno que Fijos
+              (`UnmarkBeforeAccountsDialog`, montado más abajo) en vez de borrar directo — N4 del QA. */}
+          {isEditing && transaction.fixed_expense_payment_id && (
+            <p className="text-[12px] text-fg-muted">
+              Este movimiento viene de pagar un fijo: si lo eliminás, el fijo vuelve a quedar pendiente.
+              {accountMode === 'legacy' &&
+                ' Es de antes de tus cuentas: si después lo volvés a pagar, se descuenta dos veces.'}
+            </p>
           )}
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? 'Guardando…' : 'Guardar'}
-          </Button>
-        </>
-      }
-    >
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        {/* Simétrico a desmarcar desde Fijos (que borra el movimiento): un trigger en la base
-            desmarca el fijo si este movimiento se borra desde acá (`fixed_expense_payment_fecha`,
-            bloque 2). Sólo aviso, sin confirmación aparte — se borra con el mismo botón Eliminar. */}
-        {isEditing && transaction.fixed_expense_payment_id && (
-          <p className="text-[12px] text-fg-muted">
-            Este movimiento viene de pagar un fijo: si lo eliminás, el fijo vuelve a quedar pendiente.
-          </p>
-        )}
 
-        <div className="flex gap-2">
-          <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
-            Gasto
-          </Chip>
-          <Chip size="lg" active={type === 'income'} onClick={() => selectType('income')}>
-            Ingreso
-          </Chip>
-        </div>
-
-        <Field label="Importe" error={errors.amount?.message}>
-          <AmountInput invalid={!!errors.amount} {...register('amount')} />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
-            <Select id="categoryId" {...register('categoryId')}>
-              <option value="">Sin categoría</option>
-              {categoriesForType.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.is_archived && ' (archivada)'}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
-            <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
-          </Field>
-        </div>
-
-        {canCuentas && (
-          <Field label="Cuenta" htmlFor="accountId" hint="Opcional">
-            <AccountSelect
-              id="accountId"
-              value={watch('accountId') ?? ''}
-              // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
-              // de la predeterminada pise una elección manual no vería esta elección como manual.
-              onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
-            />
-          </Field>
-        )}
-
-        <Field label="Descripción" htmlFor="description" hint="Opcional">
-          <Input id="description" autoComplete="off" {...register('description')} />
-        </Field>
-
-        {/* Sólo en alta de un gasto: es el flujo del usuario que compra algo y paga la mitad —
-            "1 gasto + 1 deuda en una sola pasada" en vez de cargar cada uno por separado. En edición
-            no se ofrece: la deuda ya puede tener abonos propios, y desarmar el vínculo retroactivo
-            entre un movimiento editado y una deuda ya existente es más confuso que útil. */}
-        {type === 'expense' && !isEditing && canCompartido && (
-          <div className="border-t border-fill-subtle pt-5">
-            <Chip active={compartido} onClick={() => setValue('compartido', !compartido)}>
-              Compartido
+          <div className="flex gap-2">
+            <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
+              Gasto
             </Chip>
+            <Chip size="lg" active={type === 'income'} onClick={() => selectType('income')}>
+              Ingreso
+            </Chip>
+          </div>
 
-            {compartido && (
-              <div className="mt-4 flex flex-col gap-4">
-                <Field label="Con quién" htmlFor="personName" error={errors.personName?.message}>
-                  <PersonNameInput
-                    id="personName"
-                    placeholder="mi pareja, Juan…"
-                    invalid={!!errors.personName}
-                    {...register('personName')}
-                  />
-                </Field>
+          <Field label="Importe" error={errors.amount?.message}>
+            <AmountInput invalid={!!errors.amount} {...register('amount')} />
+          </Field>
 
-                <div>
-                  <p className="eyebrow mb-2">Parte del otro</p>
-                  <div className="flex gap-1.5">
-                    <Chip active={splitMode === '50'} onClick={() => setValue('splitMode', '50')}>
-                      50%
-                    </Chip>
-                    <Chip active={splitMode === 'percent'} onClick={() => setValue('splitMode', 'percent')}>
-                      Otro %
-                    </Chip>
-                    <Chip active={splitMode === 'amount'} onClick={() => setValue('splitMode', 'amount')}>
-                      Monto
-                    </Chip>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
+              <Select id="categoryId" {...register('categoryId')}>
+                <option value="">Sin categoría</option>
+                {categoriesForType.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.is_archived && ' (archivada)'}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
+              <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
+            </Field>
+          </div>
+
+          {accountMode === 'required' && (
+            <Field label="Cuenta" htmlFor="accountId" error={errors.accountId?.message}>
+              <AccountSelect
+                id="accountId"
+                required
+                value={watch('accountId') ?? ''}
+                // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
+                // de la predeterminada pise una elección manual no vería esta elección como manual.
+                onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
+              />
+            </Field>
+          )}
+          {accountMode === 'legacy' && (
+            <p className="text-[12px] text-fg-muted">Movimiento anterior a tus cuentas: no suma al saldo actual.</p>
+          )}
+
+          <Field label="Descripción" htmlFor="description" hint="Opcional">
+            <Input id="description" autoComplete="off" {...register('description')} />
+          </Field>
+
+          {/* Sólo en alta de un gasto: es el flujo del usuario que compra algo y paga la mitad —
+              "1 gasto + 1 deuda en una sola pasada" en vez de cargar cada uno por separado. En edición
+              no se ofrece: la deuda ya puede tener abonos propios, y desarmar el vínculo retroactivo
+              entre un movimiento editado y una deuda ya existente es más confuso que útil. */}
+          {type === 'expense' && !isEditing && canCompartido && (
+            <div className="border-t border-fill-subtle pt-5">
+              <Chip active={compartido} onClick={() => setValue('compartido', !compartido)}>
+                Compartido
+              </Chip>
+
+              {compartido && (
+                <div className="mt-4 flex flex-col gap-4">
+                  <Field label="Con quién" htmlFor="personName" error={errors.personName?.message}>
+                    <PersonNameInput
+                      id="personName"
+                      placeholder="mi pareja, Juan…"
+                      invalid={!!errors.personName}
+                      {...register('personName')}
+                    />
+                  </Field>
+
+                  <div>
+                    <p className="eyebrow mb-2">Parte del otro</p>
+                    <div className="flex gap-1.5">
+                      <Chip active={splitMode === '50'} onClick={() => setValue('splitMode', '50')}>
+                        50%
+                      </Chip>
+                      <Chip active={splitMode === 'percent'} onClick={() => setValue('splitMode', 'percent')}>
+                        Otro %
+                      </Chip>
+                      <Chip active={splitMode === 'amount'} onClick={() => setValue('splitMode', 'amount')}>
+                        Monto
+                      </Chip>
+                    </div>
+
+                    {splitMode === 'percent' && (
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={1}
+                        max={99}
+                        placeholder="Porcentaje, ej. 30"
+                        className="mt-2"
+                        {...register('splitPercent')}
+                      />
+                    )}
+                    {splitMode === 'amount' && (
+                      <AmountInput className="mt-2" placeholder="0,00" {...register('splitAmount')} />
+                    )}
+                    {errors.splitAmount?.message && (
+                      <p className="mt-2 text-[12px] text-negative">{errors.splitAmount.message}</p>
+                    )}
                   </div>
 
-                  {splitMode === 'percent' && (
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={1}
-                      max={99}
-                      placeholder="Porcentaje, ej. 30"
-                      className="mt-2"
-                      {...register('splitPercent')}
-                    />
-                  )}
-                  {splitMode === 'amount' && (
-                    <AmountInput className="mt-2" placeholder="0,00" {...register('splitAmount')} />
-                  )}
-                  {errors.splitAmount?.message && (
-                    <p className="mt-2 text-[12px] text-negative">{errors.splitAmount.message}</p>
+                  <Field label="Cuándo lo cobrás" htmlFor="splitExpectedPeriod" hint="Opcional — para no olvidarte">
+                    <Input id="splitExpectedPeriod" type="month" {...register('splitExpectedPeriod')} />
+                  </Field>
+
+                  {miParteCents != null && otroCents != null && (
+                    <p className="text-[13px] text-fg-muted">
+                      Gasto <Money cents={miParteCents} tone="dim" size="inline" /> (tu parte) · Deuda{' '}
+                      <Money cents={otroCents} tone="accent" size="inline" />
+                      {watch('personName')?.trim() ? ` ${watch('personName')!.trim()}` : ''}
+                    </p>
                   )}
                 </div>
-
-                <Field label="Cuándo lo cobrás" htmlFor="splitExpectedPeriod" hint="Opcional — para no olvidarte">
-                  <Input id="splitExpectedPeriod" type="month" {...register('splitExpectedPeriod')} />
-                </Field>
-
-                {miParteCents != null && otroCents != null && (
-                  <p className="text-[13px] text-fg-muted">
-                    Gasto <Money cents={miParteCents} tone="dim" size="inline" /> (tu parte) · Deuda{' '}
-                    <Money cents={otroCents} tone="accent" size="inline" />
-                    {watch('personName')?.trim() ? ` ${watch('personName')!.trim()}` : ''}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </form>
-    </Dialog>
+              )}
+            </div>
+          )}
+        </form>
+      </Dialog>
+      <UnmarkBeforeAccountsDialog
+        action="delete"
+        open={unmarkLegacyPayment.confirmOpen}
+        busy={unmarkLegacyPayment.isPending}
+        onClose={unmarkLegacyPayment.cancelConfirm}
+        onConfirm={unmarkLegacyPayment.confirmForce}
+      />
+    </>
   )
 }

@@ -32,7 +32,7 @@ function StatusLine({ status, children }: { status: DialogStatus; children: Reac
 
 /**
  * Bloque de resumen de un diálogo: rótulo, una línea de contexto y la cifra a la derecha, sobre la
- * superficie hundida. Es el dato que no se toca — en Cuadrar saldo, el saldo según la app; en las
+ * superficie hundida. Es el dato que no se toca — en Reajustar saldo, el saldo según la app; en las
  * confirmaciones de pago, el detalle de lo que se va a generar.
  */
 export function DialogSummaryBlock({
@@ -48,13 +48,13 @@ export function DialogSummaryBlock({
 }) {
   return (
     <div
-      className={cn('flex items-center gap-3 rounded-control bg-surface-sunken px-[15px] py-[13px]', className)}
+      className={cn('flex items-center gap-3 rounded-float bg-surface-sunken px-[18px] py-[15px]', className)}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-semibold text-fg">{title}</div>
-        {hint && <div className="mt-0.5 text-[11.5px] text-fg-secondary">{hint}</div>}
+        <div className="text-[13.5px] font-semibold text-fg">{title}</div>
+        {hint && <div className="mt-0.5 text-[12px] text-fg-muted">{hint}</div>}
       </div>
-      {figure && <span className="tnum shrink-0 font-display text-[17px] font-semibold text-fg">{figure}</span>}
+      {figure && <span className="tnum shrink-0 font-display text-[19px] font-semibold text-fg">{figure}</span>}
     </div>
   )
 }
@@ -170,6 +170,40 @@ export function DialogBottomBar({
         <span className="ml-auto flex items-center gap-2">{action}</span>
       </div>
       {secondary && <div className="mt-2.5 text-[12px] text-fg-secondary">{secondary}</div>}
+    </div>
+  )
+}
+
+/**
+ * Pie de un diálogo con acciones: superficie hundida a sangre, `Cancelar` + la acción principal a la
+ * derecha y, opcional, una salida a la izquierda (`Eliminar cuenta`, `Mejor archivar`). Se pasa como
+ * `footer` del `Dialog` junto con `footerBleed`.
+ *
+ * En mobile apila a todo el ancho con la acción principal arriba y la salida de la izquierda al
+ * fondo — el mismo orden inverso (`flex-col-reverse`) que el pie común del `Dialog`.
+ */
+export function DialogFooterBar({ start, children }: { start?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex w-full flex-col-reverse gap-2 border-t border-divider-list bg-surface-sunken px-panel pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:gap-2.5">
+      {start && <div className="flex justify-center sm:mr-auto sm:justify-start">{start}</div>}
+      <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2.5', !start && 'sm:ml-auto')}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Bloque de error de un guardado que falló, arriba del pie del diálogo. El diálogo NO se cierra y
+ *  el botón principal pasa a "Reintentar" (patrón 5b). Para un error de un campo, en cambio, el
+ *  mensaje va al lado del campo. */
+export function DialogSaveError({ title, children }: { title: ReactNode; children?: ReactNode }) {
+  return (
+    <div role="alert" className="flex items-start gap-3 rounded-float bg-badge-red-bg px-4 py-3.5">
+      <span aria-hidden className="mt-[5px] size-[7px] shrink-0 rounded-full bg-negative" />
+      <div className="min-w-0 text-badge-red-fg">
+        <p className="text-[13px] font-semibold">{title}</p>
+        {children && <p className="mt-1 text-[12.5px] leading-normal text-pretty">{children}</p>}
+      </div>
     </div>
   )
 }

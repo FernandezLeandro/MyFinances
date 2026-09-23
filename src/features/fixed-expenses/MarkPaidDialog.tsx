@@ -10,6 +10,7 @@ import { useAddFixedExpenseSaving, useMarkFixedExpensePaid, type FixedExpense } 
 import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { useCan } from '@/features/access/useCan'
 
 type Mode = 'pay' | 'save'
@@ -49,7 +50,7 @@ interface MarkPaidDialogProps {
  * mismo que la de la semana pasada), así que arranca vacío y con autofocus — acá sí hay algo para
  * escribir.
  *
- * No anida ningún otro diálogo (a diferencia de CuadrarSaldoDialog/BucketDetailDialog) — no hace
+ * No anida ningún otro diálogo (a diferencia de BucketDetailDialog) — no hace
  * falta el filtro de "close" que esos dos necesitan para no cerrarse en cascada.
  */
 export function MarkPaidDialog({
@@ -72,7 +73,7 @@ export function MarkPaidDialog({
   const [dateError, setDateError] = useState<string | null>(null)
   const markPaid = useMarkFixedExpensePaid()
   const addSaving = useAddFixedExpenseSaving()
-  const canCuentas = useCan('cuentas')
+  const picker = useAccountPicker()
   const canMovimientosManuales = useCan('movimientos-manuales')
   const [accountId, setAccountId] = useDefaultAccountId()
   // Prendido por default (decisión del usuario): guardar sí descuenta del saldo salvo que se apague
@@ -90,6 +91,10 @@ export function MarkPaidDialog({
       ? Math.max(fixedExpense.cents - alreadySavedCents - (cents ?? 0), 0)
       : 0
   const isPending = markPaid.isPending || addSaving.isPending
+  // El pago siempre puede llevar cuenta. El guardado sólo si además genera movimiento — si es "aparte"
+  // no hay con qué pagarlo. Cuando se muestra, es obligatoria: el saldo es la suma de las cuentas.
+  const showAccountField = picker.show && (!isSaving || (canMovimientosManuales && generateMovement))
+  const accountMissing = showAccountField && !accountId
   // El campo Fecha sólo tiene sentido cuando de verdad se va a generar un movimiento — pagar una
   // bolsa/fijo siempre genera uno (o, con todo cubierto por guardados, ninguno, pero la fecha sigue
   // siendo la del pago); guardar "aparte" no.
@@ -163,7 +168,7 @@ export function MarkPaidDialog({
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={isPending || accountMissing}>
             {isPending ? 'Guardando…' : isRecurring ? 'Registrar' : isSaving ? 'Guardar' : 'Marcar pagado'}
           </Button>
         </>
@@ -271,11 +276,9 @@ export function MarkPaidDialog({
           </label>
         )}
 
-        {/* El pago siempre puede llevar cuenta. El guardado sólo si además genera movimiento — si es
-            "aparte" no hay con qué pagarlo. */}
-        {canCuentas && (!isSaving || (canMovimientosManuales && generateMovement)) && (
-          <Field label={isSaving ? 'Con qué lo guardé' : 'Con qué lo pagué'} hint="Opcional">
-            <AccountSelect value={accountId} onChange={setAccountId} />
+        {showAccountField && (
+          <Field label={isSaving ? 'Con qué lo guardé' : 'Con qué lo pagué'}>
+            <AccountSelect required value={accountId} onChange={setAccountId} />
           </Field>
         )}
 

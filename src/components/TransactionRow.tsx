@@ -1,7 +1,8 @@
 import { Money } from '@/components/ui/Money'
 import type { Category } from '@/features/categories/api'
 import type { Transaction } from '@/features/transactions/api'
-import type { BalanceLocation } from '@/features/reconciliation/api'
+import { movementCategoryLabel } from '@/features/transactions/aggregate'
+import type { BalanceLocation } from '@/features/accounts/api'
 
 export function TransactionRow({
   tx,
@@ -34,11 +35,7 @@ export function TransactionRow({
             {tx.description || category?.name || 'Sin descripción'}
           </p>
           <p className="mt-0.5 truncate text-[12px] text-fg-muted">
-            {tx.is_adjustment
-              ? 'Ajuste de saldo · afuera de Análisis'
-              : tx.is_credit_card_payment
-                ? `${category?.name ?? 'Sin categoría'} · Tarjeta`
-                : (category?.name ?? 'Sin categoría')}
+            {movementCategoryLabel(tx, category?.name)}
             {account && ` · ${account.name || '(sin nombre)'}`}
           </p>
         </div>

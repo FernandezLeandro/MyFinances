@@ -4,13 +4,34 @@
  * `ToastHost` se suscribe con `useSyncExternalStore`.
  */
 
-export interface Toast {
-  id: number
-  message: string
-  tone: 'error' | 'ok'
+export interface ToastAction {
+  label: string
+  onClick: () => void
 }
 
-const DURATIONS: Record<Toast['tone'], number> = { error: 6000, ok: 3000 }
+export interface Toast {
+  id: number
+  /** El título: la línea que se lee de un vistazo. */
+  message: string
+  tone: 'error' | 'ok'
+  /** La línea de abajo, más chica: el dato concreto ("Efectivo queda en $ 12.400,00"). */
+  detail?: string
+  /** Un botón dentro del aviso — `Reintentar` en un error de una acción sin diálogo. */
+  action?: ToastAction
+}
+
+export interface ToastOptions {
+  detail?: string
+  action?: ToastAction
+}
+
+const DURATIONS: Record<Toast['tone'], number> = { error: 6000, ok: 4000 }
+
+/** Un aviso con botón no se va solo: si se apagara a los 6s, el `Reintentar` desaparecería justo
+ *  cuando alguien lo está buscando. Se cierra con la X o al accionarlo. */
+function isPersistent(toast: Pick<Toast, 'action'>): boolean {
+  return toast.action !== undefined
+}
 const MAX_TOASTS = 3
 
 let toasts: Toast[] = []
@@ -22,27 +43,29 @@ function emit() {
   for (const listener of listeners) listener()
 }
 
-function scheduleDismiss(id: number, tone: Toast['tone']) {
-  const existing = timers.get(id)
+function scheduleDismiss(toast: Toast) {
+  const existing = timers.get(toast.id)
   if (existing) clearTimeout(existing)
+  if (isPersistent(toast)) return
   timers.set(
-    id,
-    setTimeout(() => dismissToast(id), DURATIONS[tone]),
+    toast.id,
+    setTimeout(() => dismissToast(toast.id), DURATIONS[toast.tone]),
   )
 }
 
-export function showToast(message: string, tone: Toast['tone'] = 'error'): void {
-  // Dedupe por mensaje: un error que se repite (p.ej. un reintento) reinicia el timer del que ya
-  // está en pantalla en vez de apilar uno idéntico al lado.
-  const existing = toasts.find((t) => t.message === message)
+export function showToast(message: string, tone: Toast['tone'] = 'error', options: ToastOptions = {}): void {
+  // Dedupe por título + detalle: un error que se repite (p.ej. un reintento) reinicia el timer del
+  // que ya está en pantalla en vez de apilar uno idéntico al lado. Dos avisos con el mismo título
+  // pero otro detalle ("Saldo reajustado" de dos cuentas) son distintos y conviven.
+  const existing = toasts.find((t) => t.message === message && t.detail === options.detail)
   if (existing) {
-    scheduleDismiss(existing.id, existing.tone)
+    scheduleDismiss(existing)
     return
   }
 
-  const toast: Toast = { id: nextId++, message, tone }
+  const toast: Toast = { id: nextId++, message, tone, detail: options.detail, action: options.action }
   toasts = [...toasts, toast].slice(-MAX_TOASTS)
-  scheduleDismiss(toast.id, tone)
+  scheduleDismiss(toast)
   emit()
 }
 

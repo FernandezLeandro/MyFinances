@@ -12,6 +12,7 @@ import { useRegisterReceivablePayment } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 
 interface RegistrarAbonoDialogProps {
   open: boolean
@@ -42,6 +43,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
   const [error, setError] = useState<string | null>(null)
   const registerPayment = useRegisterReceivablePayment()
   const [accountId, setAccountId] = useDefaultAccountId()
+  const picker = useAccountPicker()
 
   const cents = parseAmountToCents(amountInput)
   const completa = cents != null && cents >= pendingCents
@@ -72,7 +74,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={registerPayment.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={registerPayment.isPending || (createIncome && picker.show && !accountId)}>
             {registerPayment.isPending ? 'Guardando…' : 'Registrar'}
           </Button>
         </>
@@ -127,9 +129,11 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
               </Select>
             </Field>
 
-            <Field label="Dónde entró" hint="Opcional">
-              <AccountSelect value={accountId} onChange={setAccountId} />
-            </Field>
+            {picker.show && (
+              <Field label="Dónde entró">
+                <AccountSelect required value={accountId} onChange={setAccountId} />
+              </Field>
+            )}
           </>
         )}
 
@@ -143,7 +147,7 @@ export function RegistrarAbonoDialog({ open, onClose, summary }: RegistrarAbonoD
           <p className="text-[12px] text-fg-muted">
             {createIncome
               ? 'Se registra un ingreso por este monto — esa plata había salido de tu saldo cuando cargaste el gasto.'
-              : 'No se registra ningún movimiento: esa plata nunca salió de tu saldo. Sumala en el lugar donde entró desde Cuadrar saldo.'}
+              : 'No se registra ningún movimiento: esa plata nunca salió de tu saldo. Si entró en otra cuenta, registrá una transferencia desde Cuentas.'}
           </p>
         )}
 

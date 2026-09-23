@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO, startOfMonth } from 'date-fns'
+import { format, getDate, parseISO, startOfMonth } from 'date-fns'
 import { Check, Pause, Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
-import { cycleShortLabel, projectionWindow } from '@/lib/cycle'
+import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from '@/lib/cycle'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
@@ -23,9 +23,10 @@ import {
   useFixedExpenseSavings,
   useFixedExpenses,
   useProjectedBalanceRange,
-  useUnmarkFixedExpensePayment,
+  useUnmarkWithLegacyConfirm,
   type FixedExpense,
 } from '@/features/fixed-expenses/api'
+import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
 import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expenses/period'
 import {
   compareFixedExpenses,
@@ -65,7 +66,10 @@ function FixedExpenseRow({
   onPrimaryAction: () => void
   onOpenDetail: () => void
 }) {
-  const { fe, paidCents, remainingCents, done, overspentCents, savedCents } = status
+  const { fe, paidCents, remainingCents, done, overspentCents, savedCents, dueDate } = status
+  // L2 del QA: el día REAL de este mes, no `fe.due_day` crudo — un `due_day` 31 en septiembre (30
+  // días) mostraba «Vence el 31» en vez de «Vence el 30».
+  const dueDayThisMonth = dueDate ? getDate(parseISO(dueDate)) : (fe.due_day ?? '—')
   const overspent = overspentCents > 0
   const pct = fe.cents > 0 ? (paidCents / fe.cents) * 100 : 0
   // Bloque 3: sólo tiene sentido para un fijo de una vez todavía pendiente — una vez pagado ya no
@@ -105,6 +109,15 @@ function FixedExpenseRow({
             {fe.name}
           </p>
 
+          {/* A 320px el badge de vencimiento (columna aparte, `shrink-0`) le dejaba tan poco lugar
+              al nombre que se cortaba a dos letras (hallazgo del re-test de QA) — bajo `sm` se
+              muestra acá, en su propia línea, y el badge de la derecha se oculta. */}
+          {!fe.is_recurring && (
+            <p className={cn('mt-0.5 text-[11.5px] sm:hidden', urgency === 'red' ? 'text-badge-red-fg' : 'text-fg-muted')}>
+              {urgency === 'red' ? `Venció el ${dueDayThisMonth}` : `Vence el ${dueDayThisMonth}`}
+            </p>
+          )}
+
           {fe.is_recurring && (
             <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
               <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} size="wide" />
@@ -135,11 +148,17 @@ function FixedExpenseRow({
       </button>
 
       {/* Los fijos de una sola vez agrupados por vencimiento llevan el badge de urgencia — la bolsa
-          no tiene fecha, así que no le corresponde. */}
+          no tiene fecha, así que no le corresponde. El wrapper (no `className` directo en `Badge`)
+          es a propósito: `Badge` ya trae `inline-flex` sin condición, y en el CSS que genera
+          Tailwind esa regla queda después de `.hidden` — le gana en la cascada y el badge no se
+          ocultaba nunca por debajo de `sm` (hallazgo del re-test de QA a 320px: nombre cortado a
+          "Ex…" y el vencimiento duplicado). Ocultar el wrapper entero esquiva ese choque. */}
       {!fe.is_recurring && (
-        <Badge variant={urgency} className="shrink-0 whitespace-nowrap">
-          {urgency === 'red' ? `Venció el ${fe.due_day ?? '—'}` : `Vence el ${fe.due_day ?? '—'}`}
-        </Badge>
+        <div className="hidden shrink-0 sm:block">
+          <Badge variant={urgency} className="whitespace-nowrap">
+            {urgency === 'red' ? `Venció el ${dueDayThisMonth}` : `Vence el ${dueDayThisMonth}`}
+          </Badge>
+        </div>
       )}
 
       {/* Fijo único: se muestra lo que realmente salió (paidCents), no la plantilla — con un mes en
@@ -247,7 +266,7 @@ export function Fijos() {
   const { data: currentBalance } = useCurrentBalance()
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(horizonte.from, horizonte.to)
   const { data: categories } = useCategories(true)
-  const unmarkPayment = useUnmarkFixedExpensePayment()
+  const unmarkPayment = useUnmarkWithLegacyConfirm()
 
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
@@ -336,13 +355,16 @@ export function Fijos() {
     return g
   }, [oneTimePending, isCurrent])
 
+  // El copy dependía fijo de "mes": con ciclo quincenal o semanal decía "el resto del mes"/"Fijos
+  // del mes" aunque la pantalla mostrara sólo una quincena o una semana (cobertura nueva del re-test
+  // de QA, junto con N2).
   const groupDefs = isCurrent
     ? ([
         { key: 'red', title: 'Atrasado', hint: 'ya venció' },
         { key: 'amber', title: 'Esta semana', hint: 'los próximos 7 días' },
-        { key: 'neutral', title: 'Más adelante', hint: 'el resto del mes' },
+        { key: 'neutral', title: 'Más adelante', hint: `el resto ${cycleOfLabel(cycle.kind)}` },
       ] as const)
-    : ([{ key: 'neutral', title: 'Fijos del mes', hint: undefined } as const])
+    : ([{ key: 'neutral', title: `Fijos ${cycleOfLabel(cycle.kind)}`, hint: undefined } as const])
 
   // El más urgente entre los pendientes de una sola vez: el que vence más pronto, aunque ya haya
   // vencido — un atrasado siempre gana. Fuera del mes en curso, simplemente el que vence primero.
@@ -354,7 +376,9 @@ export function Fijos() {
     proximo && isCurrent && proximo.dueDate ? fixedExpenseUrgency(parseISO(proximo.dueDate), new Date()) : 'neutral'
   // Sin el nombre del fijo: es texto de usuario sin límite de largo, y esta es una cifra
   // secundaria del hero — no vale la pena volver a pelear con el ancho por ella.
-  const proximoHint = proximo ? (proximoUrgency === 'red' ? `Venció el ${proximo.fe.due_day}` : `Vence el ${proximo.fe.due_day}`) : undefined
+  // L2 del QA: el día real (`proximo.dueDate`, ya materializado/clampeado), no `fe.due_day` crudo.
+  const proximoDay = proximo ? (proximo.dueDate ? getDate(parseISO(proximo.dueDate)) : (proximo.fe.due_day ?? '—')) : undefined
+  const proximoHint = proximo ? (proximoUrgency === 'red' ? `Venció el ${proximoDay}` : `Vence el ${proximoDay}`) : undefined
 
   const nothingPending = bolsaStatuses.length === 0 && oneTimePending.length === 0
 
@@ -372,7 +396,7 @@ export function Fijos() {
     if (status.payments.length > 0) {
       // Desmarcar sigue siendo un toque, sin diálogo: es reversible y es el control más usado de
       // la pantalla. Sólo el camino "no pagado → pagado" necesita preguntar el importe.
-      unmarkPayment.mutate({ paymentId: status.payments[0].id })
+      unmarkPayment.unmarkPayment(status.payments[0].id)
     } else {
       setMarkingPaid(status)
     }
@@ -514,7 +538,7 @@ export function Fijos() {
                     hidden={balanceHidden}
                   />
                   <HeroStat
-                    label="Total del mes"
+                    label={`Total ${cycleOfLabel(cycle.kind)}`}
                     cents={totalCents}
                     tone="fg"
                     hint={pausedItems.length > 0 ? `${pausedItems.length} pausado${pausedItems.length === 1 ? '' : 's'} aparte` : undefined}
@@ -594,7 +618,7 @@ export function Fijos() {
 
             {nothingPending && (
               <Panel className="px-panel py-5">
-                <p className="text-[13px] text-fg-muted">No tenés nada por pagar este mes.</p>
+                <p className="text-[13px] text-fg-muted">No tenés nada por pagar {cycleThisLabel(cycle.kind)}.</p>
               </Panel>
             )}
           </div>
@@ -616,7 +640,7 @@ export function Fijos() {
             {doneStatuses.length > 0 && (
               <Panel>
                 <div className="flex items-baseline justify-between px-panel pt-5 pb-1">
-                  <p className="eyebrow">Pagados este mes</p>
+                  <p className="eyebrow">Pagados {cycleThisLabel(cycle.kind)}</p>
                   <Money cents={paidCentsTotal} size="row" hidden={balanceHidden} />
                 </div>
                 <ul className="flex min-w-0 flex-col px-panel pb-5">
@@ -718,6 +742,12 @@ export function Fijos() {
       {detailFixed && (
         <FixedExpenseDetailDialog open={!!detailFixed} onClose={() => setDetailFixed(null)} fixedExpense={detailFixed} />
       )}
+      <UnmarkBeforeAccountsDialog
+        open={unmarkPayment.confirmOpen}
+        busy={unmarkPayment.isPending}
+        onClose={unmarkPayment.cancelConfirm}
+        onConfirm={unmarkPayment.confirmForce}
+      />
     </div>
   )
 }

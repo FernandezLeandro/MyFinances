@@ -1,5 +1,5 @@
 import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { format, isSameDay, parseISO, subDays } from 'date-fns'
+import { format, getDate, isSameDay, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
@@ -7,6 +7,7 @@ import { useCycle } from '@/lib/useCycle'
 import { cycleEndNoun, cycleShortLabel } from '@/lib/cycle'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/button-styles'
 import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
@@ -31,9 +32,8 @@ import {
   type Transaction,
 } from '@/features/transactions/api'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
-import { CuadrarSaldoDialog } from '@/features/reconciliation/CuadrarSaldoDialog'
 import { useCan } from '@/features/access/useCan'
-import { useBalanceLocations } from '@/features/reconciliation/api'
+import { useBalanceLocations } from '@/features/accounts/api'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
@@ -102,8 +102,7 @@ export function Hoy() {
   const [open, setOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [assignIncomeOpen, setAssignIncomeOpen] = useState(false)
-  const [cuadrarOpen, setCuadrarOpen] = useState(false)
-  const canCuadrar = useCan('cuadrar-saldo')
+  const canCuentas = useCan('cuentas')
   // Bloque 4 del plan "BASIC centrado en fijos": sin `movimientos-manuales` (BASIC), Hoy no tiene
   // con qué mostrar saldo/proyectado (no hay movimientos manuales) — el hero pasa a ser
   // `FijosCicloCard` y el "Proyectado a fin de mes" desaparece entero. Análisis y Mis deudas se
@@ -148,6 +147,10 @@ export function Hoy() {
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c])), [categories])
   const accountById = useMemo(() => new Map((locations ?? []).map((l) => [l.id, l])), [locations])
+  // Básico "en pausa" (bloque E): si el usuario baja de plan con cuentas ya cargadas, quedan intactas
+  // pero Básico no las ve — mismo criterio que `useAccountPicker`, sin el hook para no repetir el
+  // fetch de `locations` que esta pantalla ya tiene.
+  const showAccounts = canCuentas && (locations ?? []).some((l) => !l.is_archived)
   const animatedBalance = useCountUp(balance.data ?? 0)
   const misDeudasSummary = useMemo(
     () =>
@@ -363,26 +366,28 @@ export function Hoy() {
           </div>
 
           {/* En mobile van debajo del saldo — el `+` de la isla duplica "Nuevo movimiento", pero es el
-              atajo más a mano y "Cuadrar saldo" no tiene ningún otro lugar desde donde abrirse ahí.
-              En escritorio quedan apiladas en una columna angosta.
+              atajo más a mano y "Cuentas" (de donde sale este saldo) no tiene ningún otro lugar desde
+              donde abrirse ahí. En escritorio quedan apiladas en una columna angosta.
 
-              `flex-wrap` + `grow shrink-0` en vez de `flex-1`: los dos botones tienen
-              `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con `flex-1`
-              (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta hasta
-              60px en pantallas de 360-414px. Así se acomodan solos: lado a lado si entran, uno arriba
-              del otro si no, y `grow` los estira a lo que quede libre en su fila. */}
+              `flex-wrap` + `basis` de la mitad + `grow shrink-0` en vez de `flex-1`: los dos botones
+              tienen `whitespace-nowrap`, así que no achican por debajo del ancho de su texto — con
+              `flex-1` (que fuerza base 0 y asume que van a entrar) el segundo se salía de la tarjeta
+              hasta 60px en pantallas de 360-414px. Con la base en 50% (menos medio gap) quedan de
+              igual ancho cuando entran lado a lado; si el texto no entra en la mitad, el ancho mínimo
+              del contenido los hace saltar de fila y `grow` los estira a todo el ancho. En escritorio
+              (columna) la base vuelve a `auto`, si no mediría alto. */}
           <div className="flex flex-none flex-wrap gap-2 lg:ml-auto lg:w-[186px] lg:flex-col lg:flex-nowrap">
             <Button
-              className="grow shrink-0 lg:grow-0"
+              className="basis-[calc(50%-4px)] grow shrink-0 lg:basis-auto lg:grow-0"
               onClick={() => setOpen(true)}
               icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
             >
               Nuevo movimiento
             </Button>
-            {canCuadrar && (
-              <Button variant="outline" className="grow shrink-0 lg:grow-0" onClick={() => setCuadrarOpen(true)}>
-                Cuadrar saldo
-              </Button>
+            {canCuentas && (
+              <Link to="/cuentas" className={buttonClasses({ variant: 'outline', className: 'basis-[calc(50%-4px)] grow shrink-0 lg:basis-auto lg:grow-0' })}>
+                Cuentas
+              </Link>
             )}
           </div>
         </Panel>
@@ -473,7 +478,9 @@ export function Hoy() {
             ) : (
               <ul className="mt-2.5 flex flex-col">
                 {upcoming.map((status) => {
-                  const dueDay = status.fe.due_day as number
+                  // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
+                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
+                  const dueDay = getDate(parseISO(status.dueDate as string))
                   const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                   return (
                     <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
@@ -537,7 +544,9 @@ export function Hoy() {
           ) : (
             <ul className="mt-2.5 flex flex-col">
               {upcoming.map((status) => {
-                const dueDay = status.fe.due_day as number
+                // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
+                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
+                  const dueDay = getDate(parseISO(status.dueDate as string))
                 const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
                 return (
                   <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
@@ -602,7 +611,7 @@ export function Hoy() {
                         key={tx.id}
                         tx={tx}
                         category={categoryById.get(tx.category_id ?? '')}
-                        account={accountById.get(tx.account_id ?? '')}
+                        account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
                       />
                     ))}
                   </ul>
@@ -670,7 +679,6 @@ export function Hoy() {
           cycleLabel={monthLabel}
         />
       )}
-      {cuadrarOpen && <CuadrarSaldoDialog open={cuadrarOpen} onClose={() => setCuadrarOpen(false)} />}
     </div>
   )
 }

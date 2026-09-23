@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { format, parseISO, subDays } from 'date-fns'
 import { cycleContaining, type CycleConfig } from '@/lib/cycle'
-import { compareFixedExpenses, fixedExpenseUrgency, summarizeFixedExpenses } from './aggregate'
+import { compareFixedExpenses, fixedExpenseUrgency, preAccountsPaymentCopy, summarizeFixedExpenses } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
@@ -215,7 +215,9 @@ describe('summarizeFixedExpenses — con cycle (bloque 3 del plan de ciclos)', (
     expect(s.pendingTotalCents).toBe(450_000_00)
   })
 
-  it('con cycle quincenal, un fijo que vence en la otra quincena no cuenta en esta', () => {
+  it('con cycle quincenal, un fijo que vence en la otra quincena (más adelante) no cuenta en esta', () => {
+    // Mirando la PRIMERA quincena, uno que vence en la segunda (más tarde) no se adelanta — el
+    // ensanchado de `withMonthCarry` sólo estira el borde de ABAJO de la ventana, nunca el de arriba.
     const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 20 }) // segunda quincena
     const firstHalf = cycleContaining(biweekly, new Date(2026, 7, 5, 12))
     const s = summarizeFixedExpenses([internet], [], AGOSTO, HOY_EN_AGOSTO, firstHalf)
@@ -223,16 +225,45 @@ describe('summarizeFixedExpenses — con cycle (bloque 3 del plan de ciclos)', (
     expect(s.pendingTotalCents).toBe(0)
   })
 
-  it('telescopía: las dos quincenas del mes suman exactamente lo que sumaba el mes entero — agarra un doble descuento', () => {
+  // Regresión de N2 (re-test de QA): un fijo IMPAGO vencido en la quincena ANTERIOR del mismo mes
+  // desaparecía al mirar la quincena siguiente, en vez de arrastrarse como atrasado.
+  it('con cycle quincenal, un fijo IMPAGO vencido en la quincena anterior se arrastra a ésta', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 }) // primera quincena
+    const secondHalf = cycleContaining(biweekly, new Date(2026, 7, 20, 12))
+    const s = summarizeFixedExpenses([alquiler], [], AGOSTO, HOY_EN_AGOSTO, secondHalf)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pendingTotalCents).toBe(450_000_00)
+  })
+
+  // Mismo caso, pero YA PAGADO en la primera quincena: `payments` se pide por MES (no por mitad de
+  // mes, ver `useFixedExpensePayments`), así que ya están disponibles al mirar la segunda — no
+  // vuelve a aparecer como pendiente.
+  it('con cycle quincenal, uno pagado en la quincena anterior no se arrastra (ya está en `payments`)', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'alquiler', amountPaidCents: 450_000_00 })
+    const secondHalf = cycleContaining(biweekly, new Date(2026, 7, 20, 12))
+    const s = summarizeFixedExpenses([alquiler], [payment], AGOSTO, HOY_EN_AGOSTO, secondHalf)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(1)
+  })
+
+  it('telescopía: las dos quincenas del mes suman exactamente lo que sumaba el mes entero — agarra un doble descuento', () => {
+    // `alquiler` (primera quincena) va PAGADO: sin esto, N2 lo arrastraría también a la segunda
+    // quincena (a propósito) y la suma de las dos mitades dejaría de coincidir con el mes entero —
+    // ese arrastre está cubierto aparte, arriba. Esta telescopía sigue probando lo suyo: que un
+    // IMPAGO no se cuenta dos veces entre quincenas que no se solapan.
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const alquilerPago = makeFixedExpensePayment({ fixed_expense_id: 'alquiler', amountPaidCents: 450_000_00 })
     const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 20 })
     const expenses = [alquiler, internet]
+    const payments = [alquilerPago]
 
-    const wholeMonth = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO)
-    const firstHalf = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 5, 12)))
-    const secondHalf = summarizeFixedExpenses(expenses, [], AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 20, 12)))
+    const wholeMonth = summarizeFixedExpenses(expenses, payments, AGOSTO, HOY_EN_AGOSTO)
+    const firstHalf = summarizeFixedExpenses(expenses, payments, AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 5, 12)))
+    const secondHalf = summarizeFixedExpenses(expenses, payments, AGOSTO, HOY_EN_AGOSTO, cycleContaining(biweekly, new Date(2026, 7, 20, 12)))
 
     expect(firstHalf.pendingTotalCents + secondHalf.pendingTotalCents).toBe(wholeMonth.pendingTotalCents)
+    expect(wholeMonth.pendingTotalCents).toBe(35_000_00)
   })
 
   it('una bolsa sigue contando entera en cualquier quincena del mes (todavía 100% mensual)', () => {
@@ -431,5 +462,51 @@ describe('summarizeFixedExpenses — con window extendido más allá del mes mir
     expect(conWindowExtendido.pendingTotalCents).toBe(450_000_00)
     expect(conCicloPropio.pendingTotalCents).toBe(450_000_00)
     expect(conWindowExtendido.pending).toHaveLength(1)
+  })
+})
+
+describe('preAccountsPaymentCopy', () => {
+  const premium = { canCuentas: true, canEditMovement: true }
+  const basic = { canCuentas: false, canEditMovement: false }
+
+  it('Premium, quitar el pago: explica el doble descuento y da los dos consejos', () => {
+    const c = preAccountsPaymentCopy({ action: 'unmark', ...premium })
+    expect(c.title).toBe('¿Quitar este pago?')
+    expect(c.confirmLabel).toBe('Quitar igual')
+    expect(c.paragraphs[0]).toContain('antes de que crearas tus cuentas')
+    expect(c.paragraphs[0]).toContain('Si lo quitás y lo volvés a pagar')
+    expect(c.paragraphs[1]).toContain('editá el movimiento')
+    expect(c.paragraphs[1]).toContain('reajustá el saldo')
+  })
+
+  it('Premium, eliminar el movimiento: no sugiere editarlo (ya lo está borrando)', () => {
+    const c = preAccountsPaymentCopy({ action: 'delete', ...premium })
+    expect(c.title).toBe('¿Eliminar este movimiento?')
+    expect(c.confirmLabel).toBe('Eliminar igual')
+    expect(c.paragraphs[0]).toContain('Si lo eliminás')
+    expect(c.paragraphs.join(' ')).not.toContain('editá')
+    expect(c.paragraphs[1]).toContain('reajustá el saldo')
+  })
+
+  // Regresión del QA en vivo en Básico: el diálogo decía "antes de que crearas tus cuentas" a
+  // alguien que no ve Cuentas (las suyas quedan en pausa) — confuso, y sin forma de ir a mirarlas.
+  it('Básico, quitar el pago: no nombra cuentas ni saldo de cuenta, y no da consejos', () => {
+    const c = preAccountsPaymentCopy({ action: 'unmark', ...basic })
+    expect(c.paragraphs).toHaveLength(1)
+    expect(c.paragraphs[0]).not.toMatch(/\bcuentas?\b/i)
+    expect(c.paragraphs[0]).toContain('se descuenta dos veces')
+  })
+
+  it('Básico, eliminar: mismo criterio, con el verbo de la acción', () => {
+    const c = preAccountsPaymentCopy({ action: 'delete', ...basic })
+    expect(c.paragraphs).toHaveLength(1)
+    expect(c.paragraphs[0]).not.toMatch(/\bcuentas?\b/i)
+    expect(c.paragraphs[0]).toContain('Si lo eliminás')
+  })
+
+  it('Test (edita movimientos y ve Cuentas): igual que Premium', () => {
+    expect(preAccountsPaymentCopy({ action: 'unmark', canCuentas: true, canEditMovement: true })).toEqual(
+      preAccountsPaymentCopy({ action: 'unmark', ...premium }),
+    )
   })
 })

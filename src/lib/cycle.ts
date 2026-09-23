@@ -193,6 +193,13 @@ export function cycleThisLabel(kind: CycleKind): string {
   return kind === 'monthly' ? 'este mes' : `esta ${cycleEndNoun(kind)}`
 }
 
+/** "del mes" / "de la quincena" / "de la semana" — con el artículo concordado, para títulos tipo
+ *  «Total {esto}», «Pagados {esto}» en Fijos. Antes esos títulos decían fijo "del mes" aunque el
+ *  ciclo fuera quincenal o semanal (cobertura nueva del re-test de QA, junto con N2). */
+export function cycleOfLabel(kind: CycleKind): string {
+  return kind === 'monthly' ? 'del mes' : `de la ${cycleEndNoun(kind)}`
+}
+
 /** Versión corta para la píldora de mobile — igual criterio que `MonthNav`'s `mobileLabel`. */
 export function cycleShortLabel(cycle: Cycle): string {
   if (cycle.kind === 'monthly') return format(parseISO(cycle.from), 'MMMM', { locale: es })
@@ -229,6 +236,27 @@ export function dueDateInMonth(monthStart: string, dueDay: number): string {
 export function dueFallsInCycle(window: Pick<Cycle, 'from' | 'to'>, monthStart: string, dueDay: number): boolean {
   const due = dueDateInMonth(monthStart, dueDay)
   return due >= window.from && due <= window.to
+}
+
+/** N2 del re-test de QA: en ciclo quincenal o semanal, un fijo de una sola vez vencido en un ciclo
+ *  ANTERIOR del mismo mes (vence el 15, hoy 22, ciclo 16–30) desaparecía de Hoy, de Fijos y del
+ *  proyectado — `dueFallsInCycle`/`fijoCaeEnCiclo` sólo miraban `[window.from, window.to]`, que es
+ *  el ciclo NAVEGADO, no el mes completo. Ensancha sólo el borde inferior de la ventana al INICIO
+ *  DEL MES de `window.from`; nunca hacia atrás de eso — un vencido de un mes anterior sigue sin
+ *  arrastrarse (esa acumulación multi-mes es la que `Fijos.tsx` ya documenta que el cliente no
+ *  replica, ver `horizonte` allá). Espejo exacto del mismo cambio en `rpc_projected_balance_range`
+ *  (`20260923040001_proyectado_atrasados_del_mes.sql`). En ciclo mensual, `window.from` ya es el
+ *  día 1: no-op — nadie en ciclo mensual nota un cambio.
+ *
+ *  No ensancha si `window` ya cruza el borde del mes (un semanal a caballo de dos meses,
+ *  `cycle.months.length === 2`): ahí `from` y `to` caen en meses distintos, y estirar `from` hasta el
+ *  principio del mes de `from` arrastraría de más — el caso semanal-cruzando-meses queda fuera del
+ *  alcance de N2, sin cambio de comportamiento. */
+export function withMonthCarry(window: Pick<Cycle, 'from' | 'to'>): { from: string; to: string } {
+  const carriedFrom = startOfMonth(parseISO(window.from))
+  const to = parseISO(window.to)
+  const sameMonth = carriedFrom.getFullYear() === to.getFullYear() && carriedFrom.getMonth() === to.getMonth()
+  return sameMonth ? { from: iso(carriedFrom), to: window.to } : { from: window.from, to: window.to }
 }
 
 /** Ventana de barrido para el saldo proyectado — deliberadamente NO es `[cycle.from, cycle.to]`.

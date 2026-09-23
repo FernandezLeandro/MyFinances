@@ -6,12 +6,13 @@ export type MoneyTone =
   | 'negative'
   | 'fg'
   | 'dim'
+  | 'faint'
   // Texto sobre una tarjeta invertida (fondo oscuro fijo, ver `Panel` tone="inverse") — siempre claro,
   // a diferencia de `fg`/`dim` que resuelven distinto según el tema de la app.
   | 'onInverse'
   | 'onInverseSecondary'
   | 'negativeOnInverse'
-type Size = 'hero' | 'display' | 'figure' | 'total' | 'compact' | 'inline' | 'row'
+type Size = 'hero' | 'display' | 'figure' | 'total' | 'accountTotal' | 'account' | 'compact' | 'inline' | 'row'
 
 interface MoneyProps {
   cents: number
@@ -31,6 +32,7 @@ const tones: Record<MoneyTone, string> = {
   negative: 'text-negative',
   fg: 'text-fg',
   dim: 'text-fg-secondary',
+  faint: 'text-fg-faint',
   onInverse: 'text-on-inverse',
   onInverseSecondary: 'text-on-inverse-secondary',
   negativeOnInverse: 'text-negative-on-inverse',
@@ -60,6 +62,20 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
     root: 'font-display font-bold text-[46px] leading-none tracking-[-0.04em]',
     symbol: 'text-[0.4em] mt-[0.32em] mr-[0.12em] text-fg-muted',
     fraction: 'text-[0.44em] mt-[0.36em] ml-[0.05em]',
+  },
+  // Cuentas (handoff): el `$` va del tamaño de la cifra y sólo los centavos se apagan, los dos sobre
+  // la misma línea de base — a diferencia de `figure`, que levanta el símbolo y los centavos.
+  // `accountTotal` es la cifra del total en el celular (34px); en escritorio manda `total`.
+  accountTotal: {
+    root: 'font-display font-bold text-[34px] leading-none tracking-[-0.04em]',
+    symbol: 'text-[0.59em] mt-[0.6em] mr-[0.18em] text-fg-muted',
+    fraction: 'text-[0.5em] mt-[0.82em] ml-[0.04em] text-fg-muted',
+  },
+  // La cifra de una tarjeta de cuenta: 22px en el celular, 26px desde `sm`.
+  account: {
+    root: 'font-display font-bold text-[22px] leading-none tracking-[-0.035em] sm:text-[26px]',
+    symbol: 'mr-[0.25em]',
+    fraction: 'text-[0.59em] mt-[0.535em] ml-[0.04em] opacity-60',
   },
   // Para el saldo de la nav: display, pero lo bastante chico como para no pelearle al hero.
   compact: {

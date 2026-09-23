@@ -623,7 +623,7 @@ export interface Database {
         Returns: { total_income: string; total_expense: string; balance: string }[]
       }
       rpc_projected_balance_range: {
-        Args: { p_from: string; p_to: string }
+        Args: { p_from: string; p_to: string; p_today?: string | null }
         Returns: number
       }
       v_spend_by_category: {
@@ -639,6 +639,29 @@ export interface Database {
       rpc_account_balances: {
         Args: Record<string, never>
         Returns: { account_id: string; derived: string }[]
+      }
+      rpc_adjust_account_balance: {
+        Args: { p_account_id: string; p_real_amount: number | string; p_mode: 'movement' | 'opening'; p_occurred_on?: string | null }
+        Returns: number
+      }
+      rpc_create_account: {
+        Args: {
+          p_name: string
+          p_kind: AccountKind
+          p_opening: number | string
+          p_hold_rest?: boolean
+          p_from_account_id?: string | null
+          p_occurred_on?: string | null
+        }
+        Returns: string
+      }
+      rpc_delete_account: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
+      rpc_stop_using_accounts: {
+        Args: { p_occurred_on?: string | null }
+        Returns: undefined
       }
       rpc_monthly_series: {
         Args: { p_from: string; p_to: string }
@@ -658,11 +681,12 @@ export interface Database {
           p_note?: string | null
           p_account_id?: string | null
           p_occurred_on?: string | null
+          p_today?: string | null
         }
         Returns: undefined
       }
       rpc_unmark_fixed_expense_payment: {
-        Args: { p_payment_id: string }
+        Args: { p_payment_id: string; p_force?: boolean }
         Returns: undefined
       }
       rpc_add_fixed_expense_saving: {
@@ -772,7 +796,7 @@ export interface Database {
         }[]
       }
       rpc_mark_credit_card_paid: {
-        Args: { p_card_id: string; p_period: string; p_account_id?: string | null }
+        Args: { p_card_id: string; p_period: string; p_account_id?: string | null; p_occurred_on?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_card_paid: {
@@ -780,7 +804,7 @@ export interface Database {
         Returns: undefined
       }
       rpc_mark_credit_purchase_paid: {
-        Args: { p_purchase_id: string; p_period: string; p_account_id?: string | null }
+        Args: { p_purchase_id: string; p_period: string; p_account_id?: string | null; p_occurred_on?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_purchase_paid: {

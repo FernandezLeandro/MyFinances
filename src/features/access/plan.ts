@@ -18,7 +18,6 @@ export type Capability =
   | 'ajustes-completo'
   | 'cuentas'
   | 'compartido'
-  | 'cuadrar-saldo'
   // Bloque 4 del plan "BASIC centrado en fijos": el registro manual de un movimiento cualquiera —
   // no la app entera. BASIC sigue viendo /movimientos (ya lo tenía por `movimientos`), pero sólo
   // puede llegar a un movimiento pagando un fijo (ver `RegisterFixedExpenseDialog`, el selector que
@@ -36,14 +35,13 @@ const ALL_CAPABILITIES: readonly Capability[] = [
   'ajustes-completo',
   'cuentas',
   'compartido',
-  'cuadrar-saldo',
   'movimientos-manuales',
 ]
 
 /** `/hoy` no tiene capacidad asociada a propósito: es el home y el destino de todos los redirects,
  *  todo plan lo ve. */
 const PLAN_CAPS: Record<Plan, readonly Capability[]> = {
-  test: ['movimientos', 'fijos', 'analisis', 'movimientos-manuales'],
+  test: ['movimientos', 'fijos', 'analisis', 'movimientos-manuales', 'cuentas'],
   basic: ['movimientos', 'fijos'],
   premium: ALL_CAPABILITIES,
 }
@@ -51,6 +49,11 @@ const PLAN_CAPS: Record<Plan, readonly Capability[]> = {
 export function can(plan: Plan, cap: Capability): boolean {
   return PLAN_CAPS[plan].includes(cap)
 }
+
+/** El plan que se asume cuando el perfil no está (todavía no resolvió, o la consulta falló): el de
+ *  menos capacidades, así ningún gate se abre de más. Antes era `'test'` — lo fue mientras Test era el
+ *  mínimo, pero desde que existe Básico es el plan del medio. */
+export const FALLBACK_PLAN: Plan = 'basic'
 
 export const PLANS: readonly Plan[] = ['test', 'basic', 'premium']
 

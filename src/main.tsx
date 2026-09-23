@@ -10,7 +10,9 @@ import App from './App.tsx'
 // `useMutation({ ..., meta: { errorMessage: 'texto específico' } })`.
 declare module '@tanstack/react-query' {
   interface Register {
-    mutationMeta: { errorMessage?: string }
+    /** `silent`: quien llama ya muestra el error (dentro de su diálogo, o con un aviso propio y su
+     *  `Reintentar`) — el aviso genérico de acá sería un segundo aviso por el mismo fallo. */
+    mutationMeta: { errorMessage?: string; silent?: boolean }
   }
 }
 
@@ -19,6 +21,7 @@ declare module '@tanstack/react-query' {
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
+      if (mutation.meta?.silent) return
       showToast(mutation.meta?.errorMessage ?? mensajeDeError(error), 'error')
     },
   }),

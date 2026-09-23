@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, type Category } from '@/features/categories/api'
 import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
-import type { BalanceLocation } from '@/features/reconciliation/api'
+import type { BalanceLocation } from '@/features/accounts/api'
 import {
   MOVEMENT_PERIOD_PRESETS,
   MOVEMENT_PERIOD_PRESET_LABELS,

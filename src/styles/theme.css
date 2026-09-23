@@ -42,9 +42,14 @@
   --c-accent-text: #2b3fd6;
   --c-accent-soft: #e7e9fb;
   --c-on-accent: #ffffff;
+  /* Hover de un botón de acento sólido: un escalón más profundo (en oscuro, más claro). */
+  --c-accent-hover: #1d2ea8;
 
   /* Semántica de dinero (no semáforo) */
   --c-negative: #c4402a;
+  /* Hover de un botón negativo sólido (Eliminar) y el texto que va encima. */
+  --c-negative-hover: #a5321f;
+  --c-on-negative: #ffffff;
 
   /* Texto/bordes sobre una superficie invertida (tarjeta "Proyectado") */
   --c-on-inverse: #f4f3ef;
@@ -114,8 +119,12 @@
   --c-accent-text: #a9b3ff;
   --c-accent-soft: #23264a;
   --c-on-accent: #ffffff;
+  --c-accent-hover: #6370f0;
 
   --c-negative: #ff8f75;
+  --c-negative-hover: #ff7a5c;
+  /* El negativo de oscuro es coral claro: sobre él el texto va oscuro, no blanco. */
+  --c-on-negative: #2a120b;
 
   --c-on-inverse: #f1f0f6;
   --c-on-inverse-secondary: #c0c3da;
@@ -194,8 +203,11 @@
   --color-accent-text: var(--c-accent-text);
   --color-accent-soft: var(--c-accent-soft);
   --color-on-accent: var(--c-on-accent);
+  --color-accent-hover: var(--c-accent-hover);
 
   --color-negative: var(--c-negative);
+  --color-negative-hover: var(--c-negative-hover);
+  --color-on-negative: var(--c-on-negative);
   --color-badge-red-bg: var(--c-badge-red-bg);
   --color-badge-red-fg: var(--c-badge-red-fg);
   --color-badge-amber-bg: var(--c-badge-amber-bg);
@@ -238,6 +250,15 @@
   --radius-control: 10px;
   --radius-panel: 18px;
   --radius-pill: 999px;
+  /* Escalón intermedio de lo flotante y lo anidado: ítems de menú y botones de ícono (item),
+     popover / toast / bloques hundidos de un diálogo (float), tarjeta chica de mobile (panel-sm) y
+     el tope de una hoja inferior (sheet). `chip-md` es el chip de un selector dentro de un diálogo
+     (tipo de cuenta, qué hacer con la diferencia). */
+  --radius-chip-md: 6px;
+  --radius-item: 8px;
+  --radius-float: 12px;
+  --radius-panel-sm: 16px;
+  --radius-sheet: 22px;
 
   /* Spacing de chasis — Tailwind v4 genera p-/px-/py-/m-/-mx-/gap- para cada uno. */
   --spacing-screen: var(--pad-screen);

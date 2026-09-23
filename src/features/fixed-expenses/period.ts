@@ -105,6 +105,14 @@ export function dueDateInCycle(
   return null
 }
 
+/** El "vencé el {due_day}" de la PLANTILLA de un fijo (`FixedExpenseDetailDialog`, la ficha general —
+ *  no un mes concreto, que ya usa la fecha materializada en `status.dueDate`). Con `due_day` 29–31,
+ *  un mes corto lo clampea (L2 del QA: "Vence el 31" en un mes de 30 días) — acá se aclara la regla
+ *  en vez de mentir una fecha fija, porque no hay un mes concreto contra el cual materializarla. */
+export function dueDayTemplateLabel(dueDay: number): string {
+  return dueDay >= 29 ? `Vence el ${dueDay} (o el último día del mes, si es más corto)` : `Vence el ${dueDay}`
+}
+
 /** Límites calendario que cubren TODOS los meses que toca un ciclo — `[inicio del primero, fin del
  *  último]`. Con mensual/quincenal es el único mes de siempre; con semanal a caballo de dos, cubre
  *  ambos, para no perder de vista un fijo cuyo `starts_on` sólo se solapa con el segundo (ver

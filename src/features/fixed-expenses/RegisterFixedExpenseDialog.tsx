@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO, startOfMonth } from 'date-fns'
+import { format, getDate, parseISO, startOfMonth } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
 import { Badge } from '@/components/ui/Badge'
@@ -130,7 +130,10 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
                           corresponde. */}
                       {urgency && (
                         <Badge variant={urgency} className="shrink-0 whitespace-nowrap">
-                          {urgency === 'red' ? `Venció el ${status.fe.due_day}` : `Vence el ${status.fe.due_day}`}
+                          {/* L2 del QA: el día real materializado, no `fe.due_day` crudo. */}
+                          {urgency === 'red'
+                            ? `Venció el ${getDate(parseISO(status.dueDate!))}`
+                            : `Vence el ${getDate(parseISO(status.dueDate!))}`}
                         </Badge>
                       )}
                       <Money cents={status.remainingCents} tone="fg" size="row" />

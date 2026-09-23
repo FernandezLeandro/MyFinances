@@ -4,12 +4,19 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/profile/api'
 import { can } from '@/features/access/plan'
 import type { Capability } from '@/features/access/plan'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 /**
  * Protege /hoy, /movimientos, /fijos, /analisis, /ahorros, /ajustes: hace falta sesión Y perfil.
  * Sin perfil, la cuenta nunca redimió una invitación (alta interrumpida, o un `signUp()` llamado
  * directo sin pasar por el formulario) — no hay nada propio que mostrar todavía. Una cuenta admin
  * tampoco entra acá: no tiene nada que hacer en lo financiero, se la manda a /admin.
+ *
+ * Si la consulta del perfil falla (sin datos previos en caché), no se deja pasar con un plan
+ * supuesto: antes caía a Test con `?? 'test'` en cada lugar que leía el plan, y una cuenta Básico
+ * terminaba viendo Análisis o Cuentas por un fallo de red. Se corta acá, con Reintentar — `isError`
+ * a secas no sirve porque un refetch fallido en segundo plano con datos ya cargados no debe tirar
+ * abajo una pantalla que ya se estaba mostrando bien.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
@@ -19,6 +26,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (loading) return null // Bloque 5: acá va un skeleton de carga inicial.
   if (!session) return <Navigate to="/login" state={{ from: location }} replace />
   if (profile.isPending) return null
+  if (profile.data === undefined) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-6">
+        <ErrorState title="No pudimos cargar tu cuenta" onRetry={() => void profile.refetch()} />
+      </div>
+    )
+  }
   if (profile.data === null) return <Navigate to="/bienvenida" replace />
   if (profile.data?.role === 'admin') return <Navigate to="/admin" replace />
 

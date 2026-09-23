@@ -6,6 +6,7 @@ import {
   cycleContaining,
   cycleFromUrlParam,
   cycleLabel,
+  cycleOfLabel,
   DEFAULT_CYCLE_CONFIG,
   dueDateInMonth,
   dueFallsInCycle,
@@ -13,6 +14,7 @@ import {
   previousCycleRange,
   projectionWindow,
   shiftCycle,
+  withMonthCarry,
 } from './cycle'
 
 const monthly: CycleConfig = { kind: 'monthly', weekStartsOn: 1 }
@@ -230,6 +232,50 @@ describe('dueFallsInCycle — el invariante que sostiene la retrocompatibilidad'
       const matches = weeksSeen.filter((w) => dueFallsInCycle(w, monthStart, dueDay))
       expect(matches.length).toBe(1)
     }
+  })
+})
+
+// Regresión de N2 (re-test de QA): un fijo impago vencido en un ciclo anterior del mismo mes
+// desaparecía al mirar el ciclo siguiente. `withMonthCarry` es el espejo cliente de la migración
+// `20260923040001_proyectado_atrasados_del_mes.sql`.
+describe('withMonthCarry', () => {
+  it('con ciclo mensual, no cambia nada — `from` ya es el día 1', () => {
+    const cycle = cycleContaining(monthly, new Date(2026, 8, 10, 12))
+    expect(withMonthCarry(cycle)).toEqual({ from: cycle.from, to: cycle.to })
+  })
+
+  it('con ciclo quincenal, la segunda mitad ensancha hasta el día 1 del mismo mes', () => {
+    const secondHalf = cycleContaining(biweekly, new Date(2026, 8, 20, 12))
+    expect(withMonthCarry(secondHalf)).toEqual({ from: '2026-09-01', to: secondHalf.to })
+  })
+
+  it('la primera mitad ya arranca en el día 1: no-op', () => {
+    const firstHalf = cycleContaining(biweekly, new Date(2026, 8, 5, 12))
+    expect(withMonthCarry(firstHalf)).toEqual({ from: firstHalf.from, to: firstHalf.to })
+  })
+
+  it('nunca ensancha el borde de arriba — sólo el de abajo', () => {
+    const firstHalf = cycleContaining(biweekly, new Date(2026, 8, 5, 12))
+    expect(withMonthCarry(firstHalf).to).toBe(firstHalf.to)
+  })
+
+  it('un ciclo semanal a caballo de dos meses no se toca — `from` y `to` caen en meses distintos', () => {
+    const semana = cycleContaining(weekly, new Date(2026, 8, 30, 12)) // 29 sep – 5 oct
+    expect(semana.months).toHaveLength(2)
+    expect(withMonthCarry(semana)).toEqual({ from: semana.from, to: semana.to })
+  })
+
+  it('una ventana que ya cruza un mes entero atrás (el horizonte de `projectionWindow`) no se ensancha más', () => {
+    const windowDesdeJulio = { from: '2026-07-01', to: '2026-08-31' }
+    expect(withMonthCarry(windowDesdeJulio)).toEqual(windowDesdeJulio)
+  })
+})
+
+describe('cycleOfLabel', () => {
+  it('mensual, quincenal y semanal, con el artículo concordado', () => {
+    expect(cycleOfLabel('monthly')).toBe('del mes')
+    expect(cycleOfLabel('biweekly')).toBe('de la quincena')
+    expect(cycleOfLabel('weekly')).toBe('de la semana')
   })
 })
 

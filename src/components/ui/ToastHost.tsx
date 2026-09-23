@@ -4,21 +4,38 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { dismissToast, getToasts, subscribeToasts, type Toast } from '@/lib/toast'
 
+/** Superficie invertida (la misma de la tarjeta "Proyectado"): el aviso se despega de la pantalla
+ *  sin ring ni borde. El punto de color dice el tono; el botón, si hay, es lo único accionable. */
 function ToastItem({ toast }: { toast: Toast }) {
+  const isError = toast.tone === 'error'
+
   return (
     <div
-      role={toast.tone === 'error' ? 'alert' : 'status'}
-      className={cn(
-        'animate-sheet-in pointer-events-auto flex items-start gap-3 rounded-panel bg-surface px-4 py-3 shadow-lift ring-1',
-        toast.tone === 'error' ? 'ring-negative/30' : 'ring-accent/30',
-      )}
+      role={isError ? 'alert' : 'status'}
+      className="animate-sheet-in pointer-events-auto flex items-center gap-4 rounded-float bg-inverse px-[18px] py-3.5 text-on-inverse shadow-lift"
     >
-      <p className="flex-1 text-[13px] text-fg">{toast.message}</p>
+      <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', isError ? 'bg-negative-on-inverse' : 'bg-accent')} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] leading-snug font-semibold">{toast.message}</p>
+        {toast.detail && <p className="mt-[3px] text-[12px] leading-snug text-on-inverse-secondary">{toast.detail}</p>}
+      </div>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            dismissToast(toast.id)
+            toast.action?.onClick()
+          }}
+          className="shrink-0 rounded-item bg-on-inverse px-3 py-[7px] text-[12px] font-semibold text-inverse transition-opacity duration-150 hover:opacity-90"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => dismissToast(toast.id)}
         aria-label="Cerrar aviso"
-        className="-mr-1 shrink-0 rounded-chip p-1 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
+        className="-mr-1.5 shrink-0 rounded-chip p-1 text-on-inverse-muted transition-colors hover:text-on-inverse"
       >
         <X className="size-3.5" strokeWidth={1.5} aria-hidden />
       </button>
@@ -63,7 +80,7 @@ export function ToastHost() {
       aria-label="Avisos"
       className={cn(
         'pointer-events-none fixed z-50 flex flex-col gap-2',
-        'inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[min(22rem,calc(100vw-2.5rem))]',
+        'inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[min(26rem,calc(100vw-2.5rem))]',
       )}
     >
       {toasts.map((toast) => (

@@ -14,9 +14,19 @@ export interface StackedBarSegment {
  * (ARS vs. USD). Track redondeado con `overflow-hidden`: los segmentos son `span`s sin radio propio,
  * las puntas redondeadas salen solas del contenedor.
  */
-export function StackedBar({ segments, className }: { segments: StackedBarSegment[]; className?: string }) {
+export function StackedBar({
+  segments,
+  thin = false,
+  className,
+}: {
+  segments: StackedBarSegment[]
+  /** 8px sobre `fill-subtle` en lugar de 12px sobre `divider` — la composición del total de Cuentas.
+   *  Es una prop y no un `className` porque `cn()` no dedupea: alto y fondo competirían. */
+  thin?: boolean
+  className?: string
+}) {
   return (
-    <div className={cn('flex h-3 overflow-hidden rounded-pill bg-divider', className)}>
+    <div className={cn('flex overflow-hidden rounded-pill', thin ? 'h-2 bg-fill-subtle' : 'h-3 bg-divider', className)}>
       {segments.map((s, i) => (
         <span key={i} className="h-full" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
       ))}

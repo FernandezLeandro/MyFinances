@@ -6,6 +6,7 @@ import { useMarkCreditPurchasePaid, type CreditPurchase } from '@/features/credi
 import { etiquetaCuota } from '@/features/credits/format'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
+import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 
 interface MarkPurchasePaidDialogProps {
   open: boolean
@@ -30,6 +31,7 @@ export function MarkPurchasePaidDialog({
 }: MarkPurchasePaidDialogProps) {
   const markPaid = useMarkCreditPurchasePaid()
   const [accountId, setAccountId] = useDefaultAccountId()
+  const picker = useAccountPicker()
 
   async function handleConfirm() {
     await markPaid.mutateAsync({ purchaseId: purchase.id, period, accountId: accountId || null })
@@ -46,7 +48,7 @@ export function MarkPurchasePaidDialog({
           <Button variant="ghost" size="dialogFooter" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending}>
+          <Button size="dialogFooter" onClick={handleConfirm} disabled={markPaid.isPending || (picker.show && !accountId)}>
             {markPaid.isPending ? 'Guardando…' : 'Marcar pagada'}
           </Button>
         </>
@@ -62,9 +64,11 @@ export function MarkPurchasePaidDialog({
 
         <p className="text-[12px] text-fg-muted">Se va a generar un movimiento con este importe.</p>
 
-        <Field label="Con qué lo pagué" hint="Opcional">
-          <AccountSelect value={accountId} onChange={setAccountId} />
-        </Field>
+        {picker.show && (
+          <Field label="Con qué lo pagué">
+            <AccountSelect required value={accountId} onChange={setAccountId} />
+          </Field>
+        )}
       </div>
     </Dialog>
   )
