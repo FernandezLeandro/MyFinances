@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { formatMoney, parseAmountToCents } from '@/lib/money'
 import type { MovementPeriod } from '@/features/transactions/movementPeriod'
 import type { AccountKind, BalanceLocation } from './api'
+import type { AccountTransfer } from './transfers-api'
 
 // ---------------------------------------------------------------------------------------------
 // Nombre según el tipo
@@ -625,6 +626,54 @@ export function createAccountResultText(input: {
     return { title: 'Cuenta agregada', detail: `${name} · ${formatMoney(input.openingCents)} desde ${input.fromName || 'otra cuenta'}` }
   }
   return { title: 'Cuenta agregada', detail: name }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Eliminar una transferencia
+// ---------------------------------------------------------------------------------------------
+
+/** Nombre de una cuenta por id, para las filas y el diálogo de una transferencia (Cuentas y
+ *  Movimientos). Una cuenta eliminada se lleva sus transferencias, así que "otra cuenta" es sólo un
+ *  resguardo por si la lista de cuentas todavía no cargó. */
+export function accountNameOf(byId: ReadonlyMap<string, Pick<BalanceLocation, 'name'>>, accountId: string): string {
+  const account = byId.get(accountId)
+  if (!account) return 'otra cuenta'
+  return account.name || '(sin nombre)'
+}
+
+export interface TransferDeleteEffect {
+  /** "Si la eliminás, Banco pasa a $80.000 y Efectivo a $1.000." — sin cifras de saldo mientras no
+   *  hay saldos cargados. */
+  text: string
+  /** Sólo si el destino queda en negativo: esa plata ya se usó desde ahí. */
+  warning: string | null
+}
+
+/** Qué pasa al eliminar una transferencia: la plata vuelve al origen y sale del destino. Borrar no
+ *  tiene tope en la base (`trg_account_transfers_check` corre sólo al insertar, a propósito), así
+ *  que si el destino ya gastó esa plata queda en negativo — el diálogo lo avisa antes de confirmar,
+ *  en vez de dejar que aparezca después sin explicación. `balances` es `useAccountBalances`. */
+export function transferDeleteEffect(input: {
+  transfer: Pick<AccountTransfer, 'from_account_id' | 'to_account_id' | 'cents'>
+  balances: ReadonlyMap<string, number> | undefined
+  nameOf: (accountId: string) => string
+}): TransferDeleteEffect {
+  const { transfer, balances, nameOf } = input
+  const fromName = nameOf(transfer.from_account_id)
+  const toName = nameOf(transfer.to_account_id)
+  const fromBefore = balances?.get(transfer.from_account_id)
+  const toBefore = balances?.get(transfer.to_account_id)
+
+  if (fromBefore === undefined || toBefore === undefined) {
+    return { text: `Si la eliminás, vuelven ${formatMoney(transfer.cents)} a ${fromName} y salen de ${toName}.`, warning: null }
+  }
+
+  const fromAfter = fromBefore + transfer.cents
+  const toAfter = toBefore - transfer.cents
+  return {
+    text: `Si la eliminás, ${fromName} pasa a ${formatMoney(fromAfter)} y ${toName} a ${formatMoney(toAfter)}.`,
+    warning: toAfter < 0 ? `${toName} queda en negativo: esa plata ya se usó desde ahí.` : null,
+  }
 }
 
 // ---------------------------------------------------------------------------------------------

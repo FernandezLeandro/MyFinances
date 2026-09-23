@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeftRight, Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { useCycleConfig } from '@/lib/useCycle'
@@ -20,12 +20,29 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Pagination } from '@/components/ui/Pagination'
 import { TransactionRow } from '@/components/TransactionRow'
+import { TransferRow } from '@/components/TransferRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
 import { useBalanceLocations, type BalanceLocation } from '@/features/accounts/api'
+import { accountNameOf } from '@/features/accounts/aggregate'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
+import { useAccountTransfers, type AccountTransfer } from '@/features/accounts/transfers-api'
+import { TransferDetailDialog } from '@/features/accounts/TransferDetailDialog'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
-import { dailySpendBars, dailySpendPeakLabel, dayNetTotals, movementCategoryLabel, summarizeTransactions } from '@/features/transactions/aggregate'
+import {
+  dailySpendBars,
+  dailySpendPeakLabel,
+  dayNetTotals,
+  mergeMovementList,
+  movementCategoryLabel,
+  movementCountLabel,
+  summarizeTransactions,
+  transferAccountsLabel,
+  transferDirection,
+  transfersForList,
+  transferSignedCents,
+  type MovementListItem,
+} from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { TransactionFiltersDialog } from '@/features/transactions/TransactionFiltersDialog'
 import { useMovimientosFilters } from '@/features/transactions/useMovimientosFilters'
@@ -94,6 +111,47 @@ function MovementTableRow({
   )
 }
 
+/** Una transferencia en la tabla ancha de escritorio, con las mismas columnas que `MovementTableRow`
+ *  (la versión mobile es `TransferRow`). Sólo existe con la columna Cuenta visible: sin Cuentas en el
+ *  plan no se traen transferencias, así que no hace falta la variante de 3 columnas. */
+function TransferTableRow({
+  transfer,
+  accountsLabel,
+  signedCents,
+  onClick,
+}: {
+  transfer: AccountTransfer
+  accountsLabel: string
+  signedCents: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="grid w-full grid-cols-[1fr_170px_150px_130px] items-center gap-3 px-panel py-2.5 text-left transition-colors duration-150 hover:bg-fill-subtle"
+    >
+      <span className="truncate text-[13.5px] font-semibold text-fg">{transfer.description || 'Transferencia'}</span>
+      <span className="flex items-center gap-1.5 truncate text-[12.5px] text-fg-secondary">
+        <span aria-hidden className="flex size-[7px] shrink-0 items-center justify-center">
+          <ArrowLeftRight className="size-3 shrink-0 text-fg-muted" strokeWidth={1.8} />
+        </span>
+        <span className="truncate">Transferencia</span>
+      </span>
+      <span className="truncate text-[12.5px] text-fg-muted" title={accountsLabel}>
+        {accountsLabel}
+      </span>
+      <Money
+        cents={signedCents !== 0 ? signedCents : transfer.cents}
+        tone="dim"
+        size="row"
+        signed={signedCents !== 0}
+        className="justify-self-end"
+      />
+    </button>
+  )
+}
+
 export function Movimientos() {
   // Llega acá desde el drill-down de Análisis (categoría + período) o desde "Ver movimientos" de una
   // cuenta en Cuentas (el filtro de cuenta en sí, con un período bien amplio para no limitarlo al
@@ -134,6 +192,7 @@ export function Movimientos() {
   const [formOpen, setFormOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [viewingTransfer, setViewingTransfer] = useState<AccountTransfer | null>(null)
   // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
   // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
   // el resumen del período.
@@ -167,7 +226,44 @@ export function Movimientos() {
   // filtro "Cuenta" se ofrecen, aunque el usuario tenga cuentas cargadas de antes de bajar de plan.
   const { show: showAccounts } = useAccountPicker()
 
-  const totalCount = transactions?.length ?? 0
+  // Transferencias entre cuentas: se MUESTRAN en la lista, mezcladas con los movimientos, pero no
+  // entran en el resumen, las barras ni el CSV — no son gasto ni ingreso (ver `transfersForList`).
+  // Mismo corte que la columna Cuenta: sin Cuentas en el plan, ni se consultan.
+  const { data: transfers, isPending: isTransfersQueryPending } = useAccountTransfers({ enabled: showAccounts })
+  const isTransfersPending = showAccounts && isTransfersQueryPending
+  const visibleTransfers = useMemo(() => {
+    if (!showAccounts || !transfers) return []
+    const list = transactions ?? []
+    return transfersForList(transfers, {
+      from,
+      to,
+      type: filters.type,
+      categoryIds,
+      accountIds,
+      text: search || undefined,
+      truncatedBefore: list.length === TRANSACTIONS_ROW_LIMIT ? list[list.length - 1].occurred_on : undefined,
+    })
+  }, [showAccounts, transfers, transactions, from, to, filters.type, categoryIds, accountIds, search])
+  const items = useMemo(() => mergeMovementList(transactions ?? [], visibleTransfers), [transactions, visibleTransfers])
+  const countLabel = movementCountLabel(transactions?.length ?? 0, visibleTransfers.length)
+
+  /** Lo mismo para `TransferRow` (mobile) y `TransferTableRow` (escritorio): signo y cuentas según el
+   *  filtro de cuenta, y el tap abre el detalle con «Eliminar». */
+  function transferRowProps(transfer: AccountTransfer) {
+    const direction = transferDirection(transfer, accountIds)
+    return {
+      transfer,
+      accountsLabel: transferAccountsLabel(
+        direction,
+        accountNameOf(accountById, transfer.from_account_id),
+        accountNameOf(accountById, transfer.to_account_id),
+      ),
+      signedCents: transferSignedCents(transfer, accountIds),
+      onClick: () => setViewingTransfer(transfer),
+    }
+  }
+
+  const totalCount = items.length
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   // Clampeada en el render, no sólo en el `useEffect` de abajo — si la lista se achica sola (ej. se
   // borró el último movimiento de la última página) y `page` quedó fuera de rango, esto evita un
@@ -189,26 +285,30 @@ export function Movimientos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectivePage])
 
-  const pagedTransactions = useMemo(
-    () => (transactions ?? []).slice((effectivePage - 1) * pageSize, effectivePage * pageSize),
-    [transactions, effectivePage, pageSize],
+  const pagedItems = useMemo(
+    () => items.slice((effectivePage - 1) * pageSize, effectivePage * pageSize),
+    [items, effectivePage, pageSize],
   )
 
   // Neto de cada DÍA, sobre la lista completa — si un día queda partido entre dos páginas, el
   // encabezado sigue mostrando el total real de ese día, no sólo el de lo que entró en esta página.
   // Sin ajustes (N7 del QA): antes un "Ajuste de saldo" se sumaba acá como si fuera un gasto real del
-  // día, con montos de millones si el ajuste venía de "Dejar de usar Cuentas".
-  const dayTotals = useMemo(() => dayNetTotals(transactions ?? []), [transactions])
+  // día, con montos de millones si el ajuste venía de "Dejar de usar Cuentas". Las transferencias
+  // suman sólo filtrando por cuenta (sin filtro valen 0, ver `transferSignedCents`).
+  const dayTotals = useMemo(
+    () => dayNetTotals(transactions ?? [], visibleTransfers, accountIds),
+    [transactions, visibleTransfers, accountIds],
+  )
 
   const byDay = useMemo(() => {
-    const groups = new Map<string, Transaction[]>()
-    for (const tx of pagedTransactions) {
-      const list = groups.get(tx.occurred_on) ?? []
-      list.push(tx)
-      groups.set(tx.occurred_on, list)
+    const groups = new Map<string, MovementListItem[]>()
+    for (const item of pagedItems) {
+      const list = groups.get(item.occurredOn) ?? []
+      list.push(item)
+      groups.set(item.occurredOn, list)
     }
     return [...groups.entries()]
-  }, [pagedTransactions])
+  }, [pagedItems])
 
   function goToPage(next: number) {
     setPage(next)
@@ -425,11 +525,7 @@ export function Movimientos() {
                 Limpiar todo
               </Button>
             )}
-            {!isPending && (
-              <span className="text-[12.5px] text-fg-muted lg:ml-auto">
-                {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'}
-              </span>
-            )}
+            {!isPending && !isTransfersPending && <span className="text-[12.5px] text-fg-muted lg:ml-auto">{countLabel}</span>}
           </div>
         </div>
 
@@ -490,7 +586,7 @@ export function Movimientos() {
         <Panel>
           <ErrorState onRetry={() => refetch()} />
         </Panel>
-      ) : isPending ? (
+      ) : isPending || isTransfersPending ? (
         <Panel>
           <ul className="flex flex-col gap-1 px-panel py-5">
             {[0, 1, 2, 3].map((i) => (
@@ -545,7 +641,7 @@ export function Movimientos() {
             <span className="text-right">Monto</span>
           </div>
 
-          {byDay.map(([day, items]) => {
+          {byDay.map(([day, dayItems]) => {
             const total = dayTotals.get(day) ?? 0
             return (
               <div key={day}>
@@ -555,26 +651,34 @@ export function Movimientos() {
                   className="bg-divider-list px-panel py-2.5"
                 />
                 <ul className="lg:hidden">
-                  {items.map((tx) => (
-                    <TransactionRow
-                      key={tx.id}
-                      tx={tx}
-                      category={categoryById.get(tx.category_id ?? '')}
-                      account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
-                      onClick={() => openEdit(tx)}
-                    />
-                  ))}
+                  {dayItems.map((item) =>
+                    item.kind === 'tx' ? (
+                      <TransactionRow
+                        key={item.key}
+                        tx={item.tx}
+                        category={categoryById.get(item.tx.category_id ?? '')}
+                        account={showAccounts ? accountById.get(item.tx.account_id ?? '') : undefined}
+                        onClick={() => openEdit(item.tx)}
+                      />
+                    ) : (
+                      <TransferRow key={item.key} {...transferRowProps(item.transfer)} />
+                    ),
+                  )}
                 </ul>
                 <ul className="hidden lg:block">
-                  {items.map((tx) => (
-                    <li key={tx.id} className="border-t border-divider-list first:border-t-0">
-                      <MovementTableRow
-                        tx={tx}
-                        category={categoryById.get(tx.category_id ?? '')}
-                        account={accountById.get(tx.account_id ?? '')}
-                        showAccount={showAccounts}
-                        onClick={() => openEdit(tx)}
-                      />
+                  {dayItems.map((item) => (
+                    <li key={item.key} className="border-t border-divider-list first:border-t-0">
+                      {item.kind === 'tx' ? (
+                        <MovementTableRow
+                          tx={item.tx}
+                          category={categoryById.get(item.tx.category_id ?? '')}
+                          account={accountById.get(item.tx.account_id ?? '')}
+                          showAccount={showAccounts}
+                          onClick={() => openEdit(item.tx)}
+                        />
+                      ) : (
+                        <TransferTableRow {...transferRowProps(item.transfer)} />
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -596,9 +700,7 @@ export function Movimientos() {
           )}
 
           <div className="flex items-center justify-between gap-3 border-t border-divider px-panel py-3 text-[12px] text-fg-muted">
-            <span>
-              {transactions?.length ?? 0} movimiento{(transactions?.length ?? 0) === 1 ? '' : 's'} del período
-            </span>
+            <span>{countLabel} del período</span>
             <span className="tnum">
               Gastos <Money cents={summary.totalExpenseCents} tone="dim" size="inline" /> · Ingresos{' '}
               <Money cents={summary.totalIncomeCents} tone="dim" size="inline" />
@@ -610,6 +712,7 @@ export function Movimientos() {
       {formOpen && (
         <TransactionFormDialog open={formOpen} onClose={() => setFormOpen(false)} transaction={editingTx} />
       )}
+      {viewingTransfer && <TransferDetailDialog transfer={viewingTransfer} onClose={() => setViewingTransfer(null)} />}
       {filtersOpen && (
         <TransactionFiltersDialog
           open={filtersOpen}

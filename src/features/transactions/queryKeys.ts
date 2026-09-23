@@ -22,3 +22,9 @@ export const TRANSACTION_QUERY_KEYS = [
 ] as const
 
 export type TransactionQueryKey = (typeof TRANSACTION_QUERY_KEYS)[number]
+
+/** Lo que cambia cuando se crea o borra una transferencia entre cuentas. Ni `monthly-summary` ni
+ *  `range-summary` ni `spend-by-category` las ven (no son gasto ni ingreso), pero el saldo global
+ *  sí puede moverse: sólo suman las cuentas ACTIVAS (`20260920010001_archivar_saca_del_saldo.sql`),
+ *  así que borrar una transferencia con una punta archivada cambia el saldo y el proyectado. */
+export const TRANSFER_QUERY_KEYS = ['account-transfers', 'account-balances', 'balance', 'projected-balance-range'] as const

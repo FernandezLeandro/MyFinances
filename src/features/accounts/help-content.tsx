@@ -63,7 +63,7 @@ export const ACCOUNTS_HELP = {
       // El botón del total dice «Transferir entre cuentas» y el menú de cada cuenta «Transferir desde
       // acá»: son dos entradas al mismo diálogo, y la ayuda tiene que nombrar las dos.
       description:
-        'Mover plata de una cuenta tuya a otra. No es gasto ni ingreso, así que no aparece en Movimientos. En el menú ⋯ de cada cuenta la encontrás como «Transferir desde acá».',
+        'Mover plata de una cuenta tuya a otra. No es gasto ni ingreso: se ve en Movimientos, pero no suma en gastos, ingresos ni Análisis. En el menú ⋯ de cada cuenta la encontrás como «Transferir desde acá».',
     },
     {
       id: 'adjust',
@@ -88,7 +88,7 @@ export const ACCOUNTS_HELP = {
       id: 'viewMovements',
       name: 'Ver movimientos',
       effect: { label: 'El total no cambia', tone: 'accent' },
-      description: 'Abre Movimientos filtrado por esa cuenta, con todo su historial.',
+      description: 'Abre Movimientos filtrado por esa cuenta, con todo su historial, transferencias incluidas.',
     },
     {
       id: 'archive',

@@ -16,6 +16,7 @@ import type {
   CreditPurchasePayment,
 } from '@/features/credits/api'
 import type { BalanceLocation } from '@/features/accounts/api'
+import type { AccountTransfer } from '@/features/accounts/transfers-api'
 import type { Receivable, ReceivablePayment } from '@/features/receivables/api'
 import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from '@/features/fixed-expenses/api'
 import type { Transaction } from '@/features/transactions/api'
@@ -260,6 +261,17 @@ export function makeTransaction(p: Partial<Transaction> & Pick<Transaction, 'id'
     is_adjustment: false,
     is_credit_card_payment: false,
     account_id: null,
+    created_at: FIXED_DATE,
+    ...p,
+  }
+}
+
+export function makeTransfer(
+  p: Partial<AccountTransfer> & Pick<AccountTransfer, 'id' | 'cents' | 'occurred_on' | 'from_account_id' | 'to_account_id'>,
+): AccountTransfer {
+  return {
+    user_id: 'user-1',
+    description: null,
     created_at: FIXED_DATE,
     ...p,
   }

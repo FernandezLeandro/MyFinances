@@ -50,8 +50,9 @@ export function ArchivedAccountsList({
   )
 }
 
-/** El contenido de la celda "Últimas transferencias": las cinco más recientes, con la X que borra
- *  (deshace el movimiento de plata entre las dos cuentas). */
+/** El contenido de la celda "Últimas transferencias": las cinco más recientes (todas se ven en
+ *  Movimientos), con la X que abre `TransferDetailDialog` para confirmar el borrado — deshacer el
+ *  movimiento de plata puede dejar la cuenta destino en negativo, y el diálogo lo avisa. */
 export function RecentTransfersList({
   transfers,
   nameOf,

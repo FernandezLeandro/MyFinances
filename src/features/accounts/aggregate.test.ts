@@ -3,6 +3,7 @@ import { formatMoney } from '@/lib/money'
 import { makeLocation } from '@/test/factories'
 import {
   accountColor,
+  accountNameOf,
   accountComposition,
   accountFieldMode,
   accountFormSchema,
@@ -33,6 +34,7 @@ import {
   planAdjustment,
   reactivateResultText,
   stopUsingAccountsSummary,
+  transferDeleteEffect,
   UNASSIGNED_ACCOUNT_NAME,
 } from './aggregate'
 
@@ -874,5 +876,66 @@ describe('stopUsingAccountsSummary', () => {
   it('plurales y singulares', () => {
     expect(stopUsingAccountsSummary(1)).toContain('1 cuenta')
     expect(stopUsingAccountsSummary(3)).toContain('3 cuentas')
+  })
+})
+
+describe('accountNameOf', () => {
+  const byId = new Map([
+    ['a', { name: 'Banco' }],
+    ['b', { name: '' }],
+  ])
+
+  it('el nombre de la cuenta; «(sin nombre)» si está vacío; «otra cuenta» si no la conoce', () => {
+    expect(accountNameOf(byId, 'a')).toBe('Banco')
+    expect(accountNameOf(byId, 'b')).toBe('(sin nombre)')
+    expect(accountNameOf(byId, 'z')).toBe('otra cuenta')
+  })
+})
+
+describe('transferDeleteEffect', () => {
+  const names: Record<string, string> = { banco: 'Banco', efectivo: 'Efectivo' }
+  const nameOf = (id: string) => names[id] ?? 'otra cuenta'
+  /** Banco → Efectivo, $50.000. */
+  const transfer = { from_account_id: 'banco', to_account_id: 'efectivo', cents: 50_000_00 }
+
+  it('la plata vuelve al origen y sale del destino', () => {
+    const balances = new Map([
+      ['banco', 30_000_00],
+      ['efectivo', 70_000_00],
+    ])
+    const effect = transferDeleteEffect({ transfer, balances, nameOf })
+    expect(effect.text).toBe(`Si la eliminás, Banco pasa a ${formatMoney(80_000_00)} y Efectivo a ${formatMoney(20_000_00)}.`)
+    expect(effect.warning).toBeNull()
+  })
+
+  // El borrado no tiene tope en la base: si el destino ya gastó esa plata, queda en negativo. Antes
+  // la X de «Últimas transferencias» lo hacía sin confirmar y sin decirlo.
+  it('avisa si el destino queda en negativo porque ya usó esa plata', () => {
+    const balances = new Map([
+      ['banco', 0],
+      ['efectivo', 49_000_00],
+    ])
+    const effect = transferDeleteEffect({ transfer, balances, nameOf })
+    expect(effect.text).toContain(`Efectivo a ${formatMoney(-1_000_00)}`)
+    expect(effect.warning).toBe('Efectivo queda en negativo: esa plata ya se usó desde ahí.')
+  })
+
+  it('dejar el destino justo en cero no es un aviso', () => {
+    const balances = new Map([
+      ['banco', 0],
+      ['efectivo', 50_000_00],
+    ])
+    expect(transferDeleteEffect({ transfer, balances, nameOf }).warning).toBeNull()
+  })
+
+  it('sin saldos todavía (cargando), explica el efecto sin cifras ni aviso', () => {
+    const effect = transferDeleteEffect({ transfer, balances: undefined, nameOf })
+    expect(effect.text).toBe(`Si la eliminás, vuelven ${formatMoney(50_000_00)} a Banco y salen de Efectivo.`)
+    expect(effect.warning).toBeNull()
+  })
+
+  it('una punta sin saldo conocido cae en el texto sin cifras', () => {
+    const balances = new Map([['banco', 10_00]])
+    expect(transferDeleteEffect({ transfer, balances, nameOf }).text).toContain('vuelven')
   })
 })

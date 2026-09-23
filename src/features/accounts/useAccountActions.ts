@@ -2,20 +2,19 @@ import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import { useArchiveAccount, useSetDefaultBalanceLocation, type BalanceLocation } from '@/features/accounts/api'
 import { archiveResultText, reactivateResultText } from '@/features/accounts/aggregate'
-import { useDeleteAccountTransfer } from '@/features/accounts/transfers-api'
 
 /**
- * Las acciones de Cuentas que no tienen diálogo — predeterminar, archivar, reactivar, borrar una
- * transferencia. Se aplican al instante y el resultado se avisa con un toast (patrón 5a): el éxito
- * dice qué pasó y la falla trae un `Reintentar` que repite la misma acción. Las de un diálogo,
- * en cambio, fallan adentro de él.
+ * Las acciones de Cuentas que no tienen diálogo — predeterminar, archivar, reactivar. Se aplican al
+ * instante y el resultado se avisa con un toast (patrón 5a): el éxito dice qué pasó y la falla trae
+ * un `Reintentar` que repite la misma acción. Las de un diálogo, en cambio, fallan adentro de él —
+ * como borrar una transferencia, que pasa por `TransferDetailDialog` porque puede dejar la cuenta
+ * destino en negativo.
  *
  * Sin `Deshacer` a propósito: sólo vale donde la reversa es barata y se decidió no hacerlo todavía.
  */
 export function useAccountActions() {
   const setDefault = useSetDefaultBalanceLocation()
   const archive = useArchiveAccount()
-  const deleteTransfer = useDeleteAccountTransfer()
 
   function makeDefault(account: BalanceLocation) {
     setDefault.mutate(account.id, {
@@ -63,16 +62,5 @@ export function useAccountActions() {
     )
   }
 
-  function removeTransfer(id: string) {
-    deleteTransfer.mutate(id, {
-      onSuccess: () => showToast('Transferencia eliminada', 'ok'),
-      onError: (error) =>
-        showToast('No se pudo eliminar la transferencia', 'error', {
-          detail: mensajeDeError(error),
-          action: { label: 'Reintentar', onClick: () => removeTransfer(id) },
-        }),
-    })
-  }
-
-  return { makeDefault, archiveAccount, reactivateAccount, removeTransfer }
+  return { makeDefault, archiveAccount, reactivateAccount }
 }

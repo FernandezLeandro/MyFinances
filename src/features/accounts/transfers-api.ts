@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import { TRANSFER_QUERY_KEYS } from '@/features/transactions/queryKeys'
 import type { Database } from '@/lib/database.types'
 
 type TransferRowRaw = Database['public']['Tables']['account_transfers']['Row']
@@ -14,14 +15,15 @@ function toTransfer(row: TransferRowRaw): AccountTransfer {
 }
 
 /** Movimientos entre cuentas propias — no son gasto ni ingreso, así que viven en su propia tabla y
- *  jamás tocan `transactions`, `balance` ni `monthly-summary`. Ver el comentario de la migración
- *  `cuentas_y_medios_de_pago` para el porqué de la tabla separada. */
-export function useAccountTransfers() {
+ *  jamás tocan `transactions` ni `monthly-summary`. Ver el comentario de la migración
+ *  `cuentas_y_medios_de_pago` para el porqué de la tabla separada. Movimientos las muestra en su
+ *  lista (sólo para verlas, ver `transfersForList`) y pasa `enabled: false` en un plan sin Cuentas. */
+export function useAccountTransfers(options: { enabled?: boolean } = {}) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['account-transfers', user?.id],
-    enabled: !!user,
+    enabled: !!user && (options.enabled ?? true),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('account_transfers')
@@ -35,10 +37,9 @@ export function useAccountTransfers() {
 }
 
 function invalidarTransfers(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
-  queryClient.invalidateQueries({ queryKey: ['account-transfers', userId] })
-  // Sólo el derivado por cuenta se mueve — el saldo global, `monthly-summary` y `spend-by-category`
-  // no ven transferencias, a propósito (no son gasto ni ingreso).
-  queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
+  // Ver `TRANSFER_QUERY_KEYS`: además de la lista y el saldo por cuenta, el saldo global, porque
+  // borrar una transferencia con una punta archivada sí lo mueve.
+  for (const key of TRANSFER_QUERY_KEYS) queryClient.invalidateQueries({ queryKey: [key, userId] })
 }
 
 export function useCreateAccountTransfer() {

@@ -22,6 +22,7 @@ import { useAccountTransfers } from '@/features/accounts/transfers-api'
 import {
   accountColor,
   accountComposition,
+  accountNameOf,
   accountsForGrid,
   accountsTotals,
   archiveBlocker,
@@ -37,6 +38,7 @@ import { AdjustBalanceDialog } from '@/features/accounts/AdjustBalanceDialog'
 import { DeleteAccountDialog } from '@/features/accounts/AccountConfirmDialogs'
 import { ArchivedAccountsList, RecentTransfersList } from '@/features/accounts/AccountSecondaryLists'
 import { CollapsibleCell } from '@/features/accounts/CollapsibleCell'
+import { TransferDetailDialog } from '@/features/accounts/TransferDetailDialog'
 import { TransferDialog } from '@/features/accounts/TransferDialog'
 import { useAccountActions } from '@/features/accounts/useAccountActions'
 
@@ -46,6 +48,7 @@ type DialogState =
   | { kind: 'create' }
   | { kind: 'transfer'; fromAccountId: string }
   | { kind: 'adjust' | 'edit' | 'delete'; accountId: string }
+  | { kind: 'transferDetail'; transferId: string }
   | null
 
 /**
@@ -132,6 +135,7 @@ export function Cuentas() {
   }
 
   const target = dialog && 'accountId' in dialog ? byId.get(dialog.accountId) : undefined
+  const viewingTransfer = dialog?.kind === 'transferDetail' ? transfers?.find((t) => t.id === dialog.transferId) : undefined
   const closeDialog = () => setDialog(null)
 
   const deleteTargetId = dialog?.kind === 'delete' ? dialog.accountId : null
@@ -250,8 +254,8 @@ export function Cuentas() {
                 >
                   <RecentTransfersList
                     transfers={recentTransfers}
-                    nameOf={(id) => byId.get(id)?.name || '?'}
-                    onDelete={actions.removeTransfer}
+                    nameOf={(id) => accountNameOf(byId, id)}
+                    onDelete={(id) => setDialog({ kind: 'transferDetail', transferId: id })}
                   />
                 </CollapsibleCell>
               )}
@@ -279,6 +283,7 @@ export function Cuentas() {
         <AdjustBalanceDialog onClose={closeDialog} account={target} derivedCents={balanceOf(target)} />
       )}
       {dialog?.kind === 'transfer' && <TransferDialog onClose={closeDialog} fromAccountId={dialog.fromAccountId} />}
+      {viewingTransfer && <TransferDetailDialog transfer={viewingTransfer} onClose={closeDialog} />}
       {dialog?.kind === 'delete' && target && (
         <DeleteAccountDialog
           onClose={closeDialog}
