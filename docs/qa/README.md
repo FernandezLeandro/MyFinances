@@ -9,12 +9,12 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
 | Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª) | rama `accounts`, `4bacfa9` | 0 / 7 / 8 / 10 |
-| Mis Deudas | — | pendiente | | |
+| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
+| Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
-| Me Deben | — | pendiente | | |
-| Movimientos | — | pendiente (ver transversales) | | |
+| Me Deben | — | pendiente (ver transversales) | | |
 | Hoy | — | pendiente (ver transversales) | | |
-| Análisis | — | pendiente | | |
+| Análisis | — | pendiente (ver transversales) | | |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
@@ -50,8 +50,14 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
 - **Encabezado:** fecha, rama y commit, y los planes y ciclos que se probaron.
 - **Resumen**, más la tabla de hallazgos (ID, severidad, estado, título).
 - **Cada hallazgo:** pasos, esperado, obtenido, evidencia y, si se sabe, por qué pasa (`archivo:línea`).
-- **Estados:** Abierto, Resuelto (con cómo se verificó), No reproducido, o Por lectura de código (se
-  vio en el código y no se pudo reproducir en vivo).
+- **Estados:** Abierto, Resuelto (con cómo se verificó), No reproducido, Verificado seguro (se probó
+  un vector y no se pudo explotar), o Por lectura de código (se vio en el código y no se pudo
+  reproducir en vivo).
+- **Columna «Afecta»** (opcional, cuando el hallazgo cruza pantallas): si el disparador es de esta
+  área pero el daño se ve en otra (ej. borrar desde Movimientos deja una tarjeta de Mis Deudas
+  «pagada»), el hallazgo va con el ID de esta área y una columna «Afecta» lista las pantallas donde
+  se nota. Si algo pasa entero en otra pantalla y sólo se vio de reojo, va a «Pendientes
+  transversales» de abajo, no acá.
 - **Lo verificado correcto**, para no repetirlo, y **lo que quedó afuera.**
 
 ## Reglas: el repo es público
@@ -68,15 +74,17 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
 Cosas vistas de reojo desde otra área, sin probar a fondo. Se mueven al informe de su área cuando se haga
 esa pasada.
 
-- **Movimientos:** «Eliminar» en el formulario de un movimiento borra en el acto, sin confirmar ni
-  deshacer (`TransactionFormDialog.tsx:289`). Visto en FI-03.
-- **Movimientos (Básico):** tocar un movimiento que no es de un fijo abre el formulario completo de
-  edición. Revisar si Básico debería poder editarlo.
 - **Hoy:** con ciclo semanal, la tarjeta sigue diciendo «En qué se fue el mes».
 - **Hoy (Básico):** «Sueldo asignado» suma todos los ingresos del ciclo, no sólo el sueldo. Sólo se nota
   en una cuenta que tuvo otro plan.
+- **Hoy:** el diálogo de «Sueldo» lista todos los ingresos del ciclo (incluidos ajustes y abonos de Me
+  Deben), cada uno con una X que borra sin confirmar. Visto de reojo en el QA de Movimientos.
 - **Mis Deudas:** el desglose de fijos no descuenta los guardados con movimiento, y puede no cerrar con el
   número grande (`MisDeudas.tsx:258`). No se pudo ver porque la cuenta de QA no tiene deudas.
-- **Cuentas:** un gasto (pago de fijo o guardado) puede dejar una cuenta en negativo sin aviso; las
-  transferencias sí lo frenan. Confirmar si es a propósito.
 - **Base:** las RPC de pago aceptan una fecha futura (la UI la bloquea con `max`).
+- **Base:** las RPC que crean movimientos sin fecha explícita (`rpc_add_fixed_expense_saving`,
+  `rpc_mark_credit_card_paid` y varias más) usan `current_date` (UTC) en vez de la fecha local — sólo
+  se nota pasadas las 21h Argentina. Visto de reojo por lectura de código en el QA de Movimientos.
+- **Análisis:** la caché no se invalida al cargar un movimiento desde otra pantalla (comparativas,
+  promedio mensual e ingresos quedan viejos hasta que se refetchea por otra causa). Visto de reojo
+  por lectura de código en el QA de Movimientos, no reproducido en vivo.
