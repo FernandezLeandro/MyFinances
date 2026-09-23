@@ -11,6 +11,7 @@ import { useProfile } from '@/features/profile/api'
 import { useSyncThemeToDocument } from '@/lib/useTheme'
 import { initialsFrom } from '@/lib/initials'
 import { can } from '@/features/access/plan'
+import { usePlan } from '@/features/access/useCan'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
 
@@ -32,9 +33,10 @@ export function AppLayout() {
   const displayName = profile?.displayName ?? null
   const email = user?.email ?? null
   const initials = initialsFrom(displayName, email)
-  // `'test'` mientras el perfil no resolvió — el plan más restrictivo, así la nav no parpadea con
-  // secciones de más durante ese instante y después las achica de golpe.
-  const plan = profile?.plan ?? 'test'
+  // `usePlan()` cae a `FALLBACK_PLAN` (Básico) mientras el perfil no resolvió — el plan más
+  // restrictivo, así la nav no parpadea con secciones de más durante ese instante y después las
+  // achica de golpe.
+  const plan = usePlan()
 
   return (
     <>

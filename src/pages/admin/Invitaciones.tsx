@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
+import { endOfLocalDayISO } from '@/lib/dates'
 import { CopyButton } from '@/features/invites/CopyButton'
 import { codeStatus, useAdminDeleteInviteCode, useAdminInviteCodes, useCreateInviteCode, type InviteCode } from '@/features/invites/api'
 import { PLAN_LABEL, PLANS } from '@/features/access/plan'
@@ -47,7 +48,7 @@ export function Invitaciones() {
     if (!Number.isInteger(uses) || uses < 1) return
     await createCode.mutateAsync({
       maxUses: uses,
-      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+      expiresAt: expiresAt ? endOfLocalDayISO(expiresAt) : null,
       plan,
     })
     setMaxUses('1')

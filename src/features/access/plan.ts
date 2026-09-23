@@ -50,6 +50,11 @@ export function can(plan: Plan, cap: Capability): boolean {
   return PLAN_CAPS[plan].includes(cap)
 }
 
+/** El plan que se asume cuando el perfil no está (todavía no resolvió, o la consulta falló): el de
+ *  menos capacidades, así ningún gate se abre de más. Antes era `'test'` — lo fue mientras Test era el
+ *  mínimo, pero desde que existe Básico es el plan del medio. */
+export const FALLBACK_PLAN: Plan = 'basic'
+
 export const PLANS: readonly Plan[] = ['test', 'basic', 'premium']
 
 export const PLAN_LABEL: Record<Plan, string> = {

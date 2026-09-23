@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import { localTodayISO } from '@/lib/dates'
 import { isPgError, mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import type { Database } from '@/lib/database.types'
@@ -119,12 +120,15 @@ export function useFixedExpenseSavings(periods: string[]) {
  *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */
 export function useProjectedBalanceRange(from: string, to: string) {
   const { user } = useAuth()
+  // "Hoy" lo manda el cliente: `current_date` de la base es UTC y, pasadas las 21:00 en Argentina,
+  // ya es mañana (ver la migración `hoy_del_cliente`). En la key para que cambie de día sola.
+  const today = localTodayISO()
 
   return useQuery({
-    queryKey: ['projected-balance-range', user?.id, from, to],
+    queryKey: ['projected-balance-range', user?.id, from, to, today],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('rpc_projected_balance_range', { p_from: from, p_to: to })
+      const { data, error } = await supabase.rpc('rpc_projected_balance_range', { p_from: from, p_to: to, p_today: today })
       if (error) throw error
       return centsFromNumeric(String(data ?? 0))
     },
@@ -181,6 +185,9 @@ export function useCreateFixedExpense() {
         is_active: input.isActive,
         is_recurring: input.isRecurring,
         bag_frequency: input.bagFrequency,
+        // Explícito: el `default current_date` de la columna es UTC, y un fijo creado el último día
+        // del mes después de las 21:00 arrancaba el mes siguiente — no aparecía en el actual.
+        starts_on: localTodayISO(),
       })
       if (error) throw error
     },
@@ -263,6 +270,7 @@ export function useMarkFixedExpensePaid() {
         p_note: note ?? null,
         p_account_id: accountId ?? null,
         p_occurred_on: occurredOn ?? null,
+        p_today: localTodayISO(),
       })
       if (error) throw error
     },

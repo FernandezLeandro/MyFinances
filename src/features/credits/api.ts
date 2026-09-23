@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import { localTodayISO } from '@/lib/dates'
 import type { Database } from '@/lib/database.types'
 
 type CreditCardRow = Database['public']['Tables']['credit_cards']['Row']
@@ -445,6 +446,8 @@ export function useMarkCreditCardPaid() {
         p_card_id: cardId,
         p_period: period,
         p_account_id: accountId ?? null,
+        // La fecha local: sin esto la base usaba `current_date` (UTC), mañana pasadas las 21:00.
+        p_occurred_on: localTodayISO(),
       })
       if (error) throw error
     },
@@ -486,6 +489,7 @@ export function useMarkCreditPurchasePaid() {
         p_purchase_id: purchaseId,
         p_period: period,
         p_account_id: accountId ?? null,
+        p_occurred_on: localTodayISO(),
       })
       if (error) throw error
     },

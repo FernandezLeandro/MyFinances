@@ -623,7 +623,7 @@ export interface Database {
         Returns: { total_income: string; total_expense: string; balance: string }[]
       }
       rpc_projected_balance_range: {
-        Args: { p_from: string; p_to: string }
+        Args: { p_from: string; p_to: string; p_today?: string | null }
         Returns: number
       }
       v_spend_by_category: {
@@ -681,6 +681,7 @@ export interface Database {
           p_note?: string | null
           p_account_id?: string | null
           p_occurred_on?: string | null
+          p_today?: string | null
         }
         Returns: undefined
       }
@@ -795,7 +796,7 @@ export interface Database {
         }[]
       }
       rpc_mark_credit_card_paid: {
-        Args: { p_card_id: string; p_period: string; p_account_id?: string | null }
+        Args: { p_card_id: string; p_period: string; p_account_id?: string | null; p_occurred_on?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_card_paid: {
@@ -803,7 +804,7 @@ export interface Database {
         Returns: undefined
       }
       rpc_mark_credit_purchase_paid: {
-        Args: { p_purchase_id: string; p_period: string; p_account_id?: string | null }
+        Args: { p_purchase_id: string; p_period: string; p_account_id?: string | null; p_occurred_on?: string | null }
         Returns: undefined
       }
       rpc_unmark_credit_purchase_paid: {
