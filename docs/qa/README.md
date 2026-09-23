@@ -14,7 +14,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
 | Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª) | rama `accounts`, `37b5384` | 0 / 9 / 3 / 2 |
-| Análisis | — | pendiente (ver transversales) | | |
+| Análisis | [analisis.md](analisis.md) | 2026-09-23 (1.ª) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
@@ -80,6 +80,11 @@ esa pasada.
 - **Base:** las RPC que crean movimientos sin fecha explícita (`rpc_add_fixed_expense_saving`,
   `rpc_mark_credit_card_paid` y varias más) usan `current_date` (UTC) en vez de la fecha local — sólo
   se nota pasadas las 21h Argentina. Visto de reojo por lectura de código en el QA de Movimientos.
-- **Análisis:** la caché no se invalida al cargar un movimiento desde otra pantalla (comparativas,
-  promedio mensual e ingresos quedan viejos hasta que se refetchea por otra causa). Visto de reojo
-  por lectura de código en el QA de Movimientos, no reproducido en vivo.
+- **Movimientos, Hoy:** la fila de un ajuste de saldo con categoría asignada sigue diciendo "Ajuste de
+  saldo · afuera de Análisis", pero en los hechos sí cuenta en Análisis (ver AN-01 en `analisis.md`) —
+  la etiqueta miente en ese caso. Confirmado en vivo en el QA de Análisis.
+- **Ajustes (Categorías):** pasar una categoría de Gasto a Ingreso deja sus gastos viejos contando en
+  "Fijo vs. variable" de Análisis pero no en el resto de sus paneles (ver AN-02). El disparador es
+  Categorías, el daño se ve en Análisis. Confirmado en vivo en el QA de Análisis.
+- **Movimientos:** el drill-down desde Análisis a "Sin categoría" trae también ingresos y ajustes de
+  saldo, que Análisis excluye de ese mismo total (ver AN-08 en `analisis.md`) — confirmado en vivo.
