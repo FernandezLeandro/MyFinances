@@ -1,11 +1,19 @@
 # QA de Análisis
 
-- **Fecha:** 2026-09-23, hora Argentina.
-- **Código:** rama `accounts`, commit `eeeab9b`. Sin migraciones pendientes (`supabase migration list
-  --linked`, 88/88 aplicadas).
+- **Fecha:** 2026-09-23, hora Argentina (1.ª y 2.ª pasada el mismo día).
+- **Código:** rama `accounts`, commit `eeeab9b` (1.ª pasada) y `790b7a5` (2.ª pasada, sin cambios de
+  código de Análisis entre medio). Sin migraciones pendientes (`supabase migration list --linked`,
+  88/88 aplicadas).
 - **Planes:** Premium, Básico y Test.
-- **Ciclos:** mensual, quincenal (16–30 sep) y semanal (21–27 sep).
-- **Pasada:** 1.ª, en dos bloques el mismo día.
+- **Ciclos:** mensual, quincenal (16–30 sep, y 1–15/16–31 oct para la 2.ª pasada) y semanal (21–27
+  sep, y 28 sep–4 oct para la 2.ª pasada).
+- **Pasada:** 2.ª (retoma exactamente los ítems que quedaron afuera de la 1.ª — ver el detalle de cada
+  uno más abajo). La 1.ª pasada fue en dos bloques el mismo día; la 2.ª agrega un tercer bloque
+  enfocado en los ocho pendientes que había dejado esa 1.ª: el tope de 1000 filas, el marcador del Top
+  vs. período anterior, el mapeo de preset del drill-down, el ojo de "ocultar saldo", los errores de
+  red de las fuentes secundarias, la seguridad por API, las flechas de "Mes" sin tope y el reset del
+  período, y dos variantes de ciclo corto (largo distinto al de comparación, semana que cruza dos
+  meses).
 
 ## Resumen
 
@@ -69,12 +77,20 @@ bug.
 | AN-03 | Alto | Abierto | "Personalizado" con una fecha borrada deja la pantalla en blanco, sin aviso | — |
 | AN-05 | Alto | Abierto | Con ciclo quincenal o semanal, "Ingresos" y "Neto" muestran el mes calendario completo, no el período elegido | — |
 | AN-09 | Alto | Abierto | Un error de red en Ingresos se ve como $0 real y deja "Neto" en negativo falso, sin ningún aviso | — |
+| AN-10 | Alto | Abierto | El tope de 1000 filas de `useTransactions` hace que "Fijo vs. variable" cuente menos gasto real que el hero, sin ningún aviso | — |
+| AN-12 | Alto | Abierto | Un error de red en el total del período anterior se ve como "$0,00 en agosto" real, sin ningún aviso | — |
+| AN-16 | Alto | Abierto | Una semana que cruza dos meses agrava AN-05/AN-06: "Ingresos"/"Neto" suman los DOS meses calendario completos, no sólo uno | — |
 | AN-06 | Medio | Abierto | "Promedio mensual por categoría" ignora el período elegido: en una quincena/semana no cierra con el donut de la misma pantalla | — |
 | AN-07 | Medio | Abierto | Con Análisis abierto, un movimiento nuevo actualiza el donut pero deja "Top categorías" y "Promedio mensual" viejos | — |
 | AN-08 | Medio | Abierto | El drill-down a "Sin categoría" trae ingresos y ajustes que Análisis excluye de ese total | Movimientos |
 | AN-04 | Medio | Abierto | A 320px, la tabla de promedio mensual queda ilegible (encabezados superpuestos, nombres cortados) | — |
+| AN-13 | Medio | Abierto | Un error de red en los ids de cuotas comprometidas no avisa nada en "Fijo vs. variable" — puede reclasificar plata en silencio | — |
+| AN-14 | Medio | Abierto | El período elegido en Análisis se resetea al volver del drill-down o al recargar la página, sin aviso | Movimientos |
+| AN-17 | Medio | Abierto | El badge de % (promedio diario) y el texto de comparación (total crudo) parecen contradecirse cuando el período y su comparación tienen distinta cantidad de días | — |
+| AN-11 | Bajo | Abierto | El marcador del período anterior en el Top queda invisible cuando el período anterior es el máximo (recorte por `overflow-hidden`) | — |
+| AN-15 | Bajo | Abierto | Las flechas de "Mes" navegan sin tope a ciclos futuros vacíos | — |
 
-Sev. = severidad (Crítico / Alto / Medio / Bajo).
+Sev. = severidad (Crítico / Alto / Medio / Bajo). AN-10 a AN-17 son de la 2.ª pasada (2026-09-23).
 
 ---
 
@@ -251,6 +267,179 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
 ---
 
+### AN-10 · El tope de 1000 filas hace que "Fijo vs. variable" cuente menos gasto real que el hero, sin aviso — Alto
+
+- **Pasos:** cargar, por API con la sesión de QA (sesión autenticada, mismo efecto que cargar 1050
+  movimientos uno por uno desde la UI), 1.050 gastos de $1,00 marcados `QA-AN2-CAP`, fechados entre el
+  1 y el 21 de septiembre (50 por día) → abrir Análisis en septiembre (preset "Este mes").
+- **Esperado:** que "Fijo vs. variable" sume exactamente lo mismo que el hero para el mismo período —
+  los dos hablan del mismo "total gastado en septiembre".
+- **Obtenido:** con 1.064 gastos reales+de prueba en el mes (confirmado por SQL: `count(*) = 1064`,
+  `sum(amount) = $3.585.410,75` sin excluir el ajuste de saldo del período), el hero mostró
+  **$570.551,10** — el total correcto, sin recorte, porque `v_spend_by_category` es un RPC agregado en
+  la base, no una lista de filas con `LIMIT`. "Fijo vs. variable" (comprometido + variable) sumó
+  **$570.487,10** — exactamente **$64,00 menos**. Se confirmó por SQL que el corte es preciso: pedir
+  las mismas filas ordenadas `occurred_on desc, created_at desc` con `LIMIT 1000` (la query real de
+  `useTransactions`) trae sólo 1.000 de las 1.064, y las 64 que faltan son justo los 64 gastos de
+  prueba fechados el 1 de septiembre (el día más viejo del rango de prueba, el primero en quedar
+  afuera con ese orden) — $64,00 exactos, uno por fila. El hero, el donut y el Top no tienen este
+  problema porque ninguno pasa por `useTransactions`.
+- **Por qué:** `TRANSACTIONS_ROW_LIMIT = 1000` (`transactions/api.ts:30`) es un tope explícito de
+  PostgREST, documentado en el propio código como intencional para evitar el corte silencioso por
+  defecto de PostgREST — pero nada en Análisis avisa cuando ese tope SÍ se alcanza. Con un uso real
+  (varios movimientos por día, tarjetas con muchas compras chicas, etc.) 1000 filas en un mes es
+  alcanzable, y a partir de ahí "Fijo vs. variable" queda mal contado sin ningún indicio visual.
+- **Nota de limpieza:** las 1.050 filas de prueba se borraron por completo al terminar (verificado por
+  SQL, `count = 0` con la marca `QA-AN2-CAP`) — ver "Estado de la cuenta de QA al cerrar".
+
+### AN-11 · El marcador del período anterior en el Top queda invisible cuando el período anterior es el máximo — Bajo
+
+- **Pasos:** crear un gasto de $900.000,00 en "Transporte" en agosto (período de comparación), sin
+  gasto comparable en septiembre en esa categoría (Transporte en septiembre ya tenía $38.500,00) → abrir
+  "Top categorías vs. período anterior" y mirar la fila de Transporte.
+- **Esperado:** una marca vertical de 2px visible dentro de la barra, en la posición proporcional del
+  período anterior (`TopCategoriesComparison.tsx:37`) — aunque sea en el borde derecho.
+- **Obtenido:** confirmado por medición de layout (Playwright, `boundingClientRect`): el contenedor de
+  la barra midió 330,39px de ancho; con el gasto de agosto siendo el máximo absoluto de las 6 categorías
+  (current y previous de todas), `prevPct` da exactamente 100%, así que el marcador se posiciona con
+  `left: 100%` — su caja completa (330,39px a 332,39px) queda 100% por fuera del contenedor. Con
+  `overflow-hidden` en el contenedor (línea 35), el marcador se recorta por completo: 0 píxeles
+  visibles, no hay ninguna marca que ver en esa fila.
+- **Por qué:** `prevPct = Math.min((c.previousCents / maxCents) * 100, 100)` nunca supera 100 porque
+  `maxCents` ya incluye `previousCents` en su cálculo (`TopCategoriesComparison.tsx:12,18`) — pero el
+  marcador es un elemento de 2px posicionado con `left`, no con `right` ni `transform: translateX(-50%)`,
+  así que en el 100% exacto su ancho entero cae fuera del contenedor en vez de quedar centrado o
+  contenido en el borde.
+- **Nota de limpieza:** el gasto de prueba se borró al terminar (marca `QA-AN2-MARKER`, verificado por
+  SQL).
+
+### AN-12 · Un error de red en el total del período anterior se ve como "$0,00 en agosto" real, sin aviso — Alto
+
+- **Pasos:** cortar por red específicamente las llamadas a `v_spend_by_category` con `p_from:
+  "2026-08-01"` (el período anterior de agosto — usado por `usePreviousPeriodTotal`,
+  `useTopCategoriesComparison` y `useCategoryMonthlySeries` a la vez) → abrir Análisis en septiembre.
+- **Esperado:** algún aviso de que esa cifra no cargó — es la que arma el "$X más/menos que en agosto"
+  del hero.
+- **Obtenido:** el hero mostró el total actual correcto ($569.501,10, sin badge de % porque
+  `changePct` da `null` cuando `prevTotalCents <= 0`) y el texto de abajo dijo **"$569.501,10 más que
+  en agosto ($0,00)"** — como si en agosto real, verificable, no se hubiera gastado un centavo. Nada en
+  el hero avisa del error. En contraste, en la misma carga de página, "Promedio mensual por categoría" y
+  "Top categorías vs. período anterior" (que dependen de la MISMA llamada bloqueada) sí mostraron
+  correctamente "No se pudo cargar" con botón "Reintentar" — la diferencia es sólo el hero.
+- **Por qué:** `prevTotalCents = prevTotalQuery.data ?? 0` (`Analisis.tsx:180`) — igual que `incomeCents`
+  en AN-09, nada en el componente mira `usePreviousPeriodTotal(...).isError`. A diferencia de AN-09,
+  acá no se rompe "Neto" (esa cifra no usa `prevTotalCents`), pero sí el badge (desaparece, en vez de
+  mostrar un estado de error) y el texto de comparación, que queda leyéndose como un dato real.
+- **Corrección a lo que se sospechaba en la 1.ª pasada:** el mismo experimento mostró que
+  `top-categories-comparison` y `category-monthly-series` (la tabla de promedio) SÍ manejan bien su
+  error — cada uno tiene su propio `isError` con `ErrorState`/"Reintentar" (`Analisis.tsx:430-431` y
+  `:542-543`). El patrón silencioso de AN-09 es específico de `incomeSeriesQuery` (AN-09) y
+  `prevTotalQuery` (este), no generalizado a "todo lo que no es `spendQuery`" como se sospechaba.
+
+### AN-13 · Un error de red en los ids de cuotas comprometidas no avisa nada en "Fijo vs. variable" — Medio
+
+- **Pasos:** cortar por red todas las llamadas a `credit_purchase_payments` → abrir Análisis.
+- **Esperado:** algún aviso — esa lista decide si una cuota de una compra en cuotas cuenta como
+  "Ya estaba comprometido" o como "Decidiste vos".
+- **Obtenido:** con la llamada completamente rota (tres intentos, los tres fallados), "Fijo vs.
+  variable" se vio idéntico a una carga exitosa: $65.111,00 comprometido + $504.390,10 variable, sin
+  ningún esqueleto, ícono ni mensaje de error. En la cuenta de QA en este momento no hay compras en
+  cuotas (`credit_purchases` = 0 filas, confirmado por SQL), así que acá el error no cambió ningún
+  número — pero el código no tiene ninguna protección para cuando sí las haya.
+- **Por qué:** `const { data: committedPurchaseIds } = useCommittedPurchaseTransactionIds()`
+  (`Analisis.tsx:163`) no mira `.isError` en ningún lado del componente. Con la query en error,
+  `committedPurchaseIds` es `undefined`, y `summarizeFijoVsVariable(transactions ?? [],
+  committedPurchaseIds ?? new Set())` (`Analisis.tsx:190`) usa un `Set` vacío — en una cuenta CON
+  compras en cuotas, cualquier cuota que no tenga `fixed_expense_payment_id` ni sea
+  `is_credit_card_payment` (`aggregate.ts:38-39`) pasaría de "Ya estaba comprometido" a "Decidiste
+  vos" sin ningún aviso, el mismo patrón silencioso que AN-09/AN-12 pero reclasificando plata en vez
+  de mostrar $0.
+- **Nota:** no se pudo demostrar el efecto numérico en vivo por falta de datos de cuotas en la cuenta de
+  QA en este momento (cargar una tarjeta + una compra en cuotas + un pago para este caso puntual se
+  consideró desproporcionado para esta pasada) — la severidad "Medio" en vez de "Alto" refleja eso: el
+  bug está confirmado por código y por la ausencia de cualquier aviso en vivo, pero no se vio mover
+  ningún número real todavía.
+
+### AN-14 · El período elegido en Análisis se resetea al volver del drill-down o al recargar la página — Medio
+
+**Afecta:** Movimientos (el flujo de ida y vuelta entre las dos pantallas).
+
+- **Pasos (recargar):** cambiar el período a un mes distinto al actual (ej. avanzar 2 ciclos con las
+  flechas) → recargar la página (F5).
+- **Obtenido:** tras avanzar de septiembre a noviembre 2026, F5 volvió a mostrar **septiembre 2026** (el
+  ciclo actual), no noviembre.
+- **Pasos (volver del drill-down):** con el período en octubre 2026 (distinto al actual), hacer click en
+  una categoría del donut para ir a Movimientos → volver con el botón atrás del navegador.
+- **Obtenido:** Movimientos abrió correctamente filtrado por octubre. Al volver, Análisis mostró
+  **septiembre 2026** otra vez — el período elegido (octubre) se perdió, quedó como si nunca se hubiera
+  navegado.
+- **Esperado:** cualquiera de las dos formas es razonable (persistir el período, o no) pero lo que no
+  se espera es que "volver" deshaga silenciosamente una elección explícita del usuario, sin ningún
+  aviso de que el período cambió.
+- **Por qué:** `const [period, setPeriod] = useState(() => defaultPeriod(cycleConfig))`
+  (`Analisis.tsx:142`) vive sólo en el estado local del componente, sin persistir en la URL ni en
+  ningún storage — cualquier remount de `Analisis` (recarga completa, o volver por History API a la
+  misma ruta) reinicia `period` a `defaultPeriod`, el ciclo que contiene "hoy".
+
+### AN-15 · Las flechas de "Mes" navegan sin tope a ciclos futuros vacíos — Bajo
+
+- **Pasos:** con el preset "Este mes", hacer click 15 veces seguidas en "Mes siguiente".
+- **Obtenido:** la pantalla llegó a **diciembre de 2027** (15 meses en el futuro) sin ningún tope,
+  mostrando correctamente el estado vacío ("No hay gastos en este período · Probá con un rango más
+  amplio") — no se rompe nada, pero tampoco hay ningún límite que impida seguir navegando indefinidamente
+  a ciclos sin sentido. Volver con "Mes anterior" 5 veces llevó de forma consistente a julio de 2027.
+- **Esperado:** no es un bug funcional (el estado vacío se ve bien), pero vale la pena que Leandro decida
+  si quiere un tope — es fácil terminar varios años en el futuro por error, sin ninguna señal de "esto ya
+  no tiene más datos posibles, volvé".
+- **Por qué:** `shiftPeriodMonth` (`period.ts:77-88`) no tiene ningún límite superior ni inferior — a
+  diferencia de, por ejemplo, un rango acotado al primer/último movimiento cargado.
+
+### AN-16 · Una semana que cruza dos meses agrava AN-05/AN-06: "Ingresos"/"Neto" suman los DOS meses calendario completos — Alto
+
+- **Pasos:** cambiar el ciclo de la cuenta de QA a semanal → cargar un ingreso de prueba de
+  $500.000,00 el 2 de octubre (marca `QA-AN2-CROSSMONTH`) → abrir Análisis en la semana del 28 de
+  septiembre al 4 de octubre de 2026 (7 días, 3 en septiembre + 4 en octubre).
+- **Esperado:** "Ingresos" de esos 7 días reales — el ingreso de prueba ($500.000,00) más cualquier
+  ingreso real de esos días concretos (ninguno, confirmado por SQL antes de la prueba).
+- **Obtenido:** "Ingresos" mostró **$2.579.000,50** — exactamente $2.079.000,50 (el ingreso de TODO
+  septiembre, el mismo número de AN-05) **más** $500.000,00 (el ingreso de TODO octubre, que sólo tenía
+  el movimiento de prueba) sumados entre sí. "Neto" quedó en **+$2.522.000,50**, más de 5 veces el
+  ingreso real de la semana. El caso de AN-05 (una quincena o semana dentro de un solo mes) ya mostraba
+  el mes equivocado; una semana que cruza el límite de mes es peor: en vez de un mes incorrecto, suma
+  DOS meses completos.
+- **Por qué:** `rpc_monthly_series` (`20260806230001_balance_adjustments.sql:34-36`) genera un bucket
+  por cada mes calendario entre `date_trunc('month', p_from)` y `date_trunc('month', p_to)` — con
+  `p_from` en septiembre y `p_to` en octubre, genera DOS filas (septiembre y octubre), cada una con el
+  total de SU mes completo. `Analisis.tsx:178` sencillamente suma `.reduce()` sobre todas las filas
+  devueltas, así que termina sumando los dos meses enteros en vez de acotar a los 7 días reales.
+- **Nota de limpieza:** el ingreso de prueba se borró al terminar (marca `QA-AN2-CROSSMONTH`, verificado
+  por SQL) y el ciclo volvió a mensual.
+
+### AN-17 · El badge de % y el texto de comparación parecen contradecirse cuando el período y su comparación tienen distinta cantidad de días — Medio
+
+- **Pasos:** con el ciclo de la cuenta de QA en quincenal, cargar un gasto de $14.000,00 sin categoría
+  el 20 de octubre (marca `QA-AN2-MISMATCH`, la quincena 16–31 de octubre tiene 16 días) → abrir
+  Análisis en esa quincena, cuya comparación es la quincena 1–15 de octubre (15 días, con $7.000,00 de
+  gasto real de esos días).
+- **Esperado:** que el badge de % y el texto de abajo, leídos juntos, no parezcan decir cosas distintas
+  para la misma comparación.
+- **Obtenido:** el hero mostró "$14.000,00" con el badge **"+87,5%"**, y el texto debajo dijo
+  **"$7.000,00 más que en el período anterior ($7.000,00)"**. Alguien que mire sólo el texto —
+  $14.000 contra $7.000 — va a calcular mentalmente "el doble, +100%", pero el badge dice +87,5%. Los
+  dos números son matemáticamente correctos por separado ($14.000/16 días = $875/día vs. $7.000/15 días
+  = $466,67/día → +87,5% es el cambio real por día), pero nada en la pantalla explica que el badge usa
+  promedio diario mientras el texto muestra montos totales — la 1.ª pasada no vio este caso porque los
+  dos períodos probados entonces tenían la misma cantidad de días exactos, donde promedio diario y total
+  crudo dan el mismo %.
+- **Por qué:** es la consecuencia visible, ya prevista por el comentario del propio código
+  (`Analisis.tsx:183-186`), de comparar por promedio diario cuando los períodos tienen distinto largo —
+  correcto en el cálculo, pero sin ningún indicio textual ("por día") que explique la diferencia al
+  lado del badge.
+- **Nota de limpieza:** el gasto de prueba se borró al terminar (marca `QA-AN2-MISMATCH`, verificado por
+  SQL) y el ciclo volvió a mensual.
+
+---
+
 ## Lo verificado correcto
 
 - **El donut de Análisis coincide con el de Hoy**, mismo período: mismas categorías, mismos montos y
@@ -286,26 +475,48 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Modo oscuro**, recorrido en la pantalla completa: sin problemas de contraste, colores distintos y
   legibles entre categorías, sin nada que sólo se rompa con ese tema.
 
+**De la 2.ª pasada:**
+
+- **Seguridad por API confirmada por RLS**, no sólo por el cliente: con el JWT de la cuenta de QA
+  contra PostgREST directo (sin pasar por la app), pedir `transactions` filtrando por el `user_id` de la
+  cuenta de prueba habitual devolvió `[]`; pedir sin filtro devolvió sólo filas propias; e intentar un
+  `INSERT` de una transacción con el `user_id` de la otra cuenta devolvió `403` ("new row violates row
+  level security policy"). Los RPC de Análisis (`v_spend_by_category`, `rpc_monthly_series`) filtran
+  internamente por `auth.uid()` sin recibir ningún id de usuario como parámetro, así que no hay forma de
+  pedirle a uno los datos de otra cuenta ni siquiera intentándolo.
+- **El mapeo de preset del drill-down funciona como se esperaba**: desde el preset "Este mes" (mes
+  calendario completo), el click en una categoría abre Movimientos con preset "Mes" y las flechas de
+  navegación habilitadas (confirmado: el botón "Mes siguiente" está presente, no disabled, y navega).
+  Desde "Últimos 3 meses" (rango que no es un mes calendario), abre con preset "Personalizado" y el chip
+  de fecha "1 jul – 30 sep ✕" en vez de flechas — exactamente la regla que describe el comentario de
+  `movementPeriodFromRange` (`transactions/movementPeriod.ts`).
+- **El ojo de "ocultar saldo" no afecta a Análisis, confirmado en vivo**: se activó desde Hoy
+  (`localStorage["hidden-balance:saldo-actual"] = "1"`) y, en la misma sesión, Análisis siguió mostrando
+  todas las cifras (hero, donut, Fijo vs. variable) sin ocultar nada — coincide con que el componente no
+  importa `useHiddenBalance` en ningún lado. No es un bug (nada se rompe), pero es una inconsistencia de
+  producto: es la pantalla con más detalle de gasto por categoría y es la única de las que muestran plata
+  que no respeta esa preferencia.
+- **Las flechas de "Mes" no rompen nada al navegar muy lejos** en el futuro (ver AN-15 para el matiz de
+  que no tienen tope) — a los 15 meses de "Mes siguiente" seguido, la pantalla mostró correctamente el
+  estado vacío, sin crash ni layout roto.
+- **`top-categories-comparison` y `category-monthly-series`** (la tabla de promedio mensual) SÍ manejan
+  bien sus propios errores de red, con `isError`/`ErrorState`/"Reintentar" cada una — a diferencia de lo
+  que se sospechaba en la 1.ª pasada, el patrón silencioso de AN-09 no es general a "todo lo que no es
+  `spendQuery`": es específico de `incomeSeriesQuery` (AN-09) y `usePreviousPeriodTotal` (AN-12), que son
+  las dos fuentes que de verdad no tienen ningún `isError` mirado en `Analisis.tsx`. Ver AN-12 y AN-13
+  para el detalle completo.
+
 ## Quedó afuera
 
-- **El tope de 1000 filas** de `useTransactions` (`transactions/api.ts:30`) sobre "Fijo vs. variable" no
-  se llegó a probar con el volumen preparado para eso.
-- **El marcador del período anterior** en el Top, cuando el período anterior es el máximo (sospecha de
-  recorte por `overflow-hidden`, `TopCategoriesComparison.tsx:35-37`).
-- **El mapeo de preset del drill-down** (mes calendario → "Mes" con flechas activas en Movimientos,
-  cualquier otro rango → "Personalizado") no se verificó en detalle — sólo que el filtro por categoría
-  en sí funciona.
-- **El ojo ("ocultar saldo")** no se probó en vivo sobre Análisis — por lectura de código, la pantalla no
-  usa `useHiddenBalance` en ningún lado.
-- **Errores de red** de `previous-period-total`, `top-categories-comparison` y los ids de cuotas
-  comprometidas (para Fijo vs. variable) no se probaron individualmente — sólo Ingresos (AN-09). Por la
-  misma causa raíz (nada mira `isError` salvo `spendQuery`), es esperable que se comporten igual.
-- **Seguridad por API** contra la cuenta de prueba habitual: no se probó esta vez.
-- **Las flechas de "Mes"** sin tope hacia ciclos futuros vacíos, y que el período elegido se resetea al
-  volver del drill-down o al recargar (ambos por lectura de código, no reproducidos en vivo).
-- **Una quincena o semana de distinto largo que su período de comparación** (para el posible
-  contradecirse badge/texto) y **una semana que cruza dos meses** (para ver si AN-05/AN-06 se agravan o
-  cambian de forma) no se probaron.
+- **El efecto numérico de AN-13** (error de red en las cuotas comprometidas reclasificando plata real de
+  "comprometido" a "variable") no se pudo demostrar en vivo: la cuenta de QA no tiene compras en cuotas
+  cargadas en este momento (`credit_purchases` = 0), y armar ese escenario (tarjeta + compra en cuotas +
+  pago) se consideró desproporcionado para esta pasada. El bug en sí (ausencia total de `isError`) está
+  confirmado por código y por la falta de cualquier aviso en vivo con la llamada rota — sólo falta ver el
+  número moverse.
+- **Variantes adicionales** de los casos ya cubiertos (por ejemplo, una semana que cruza el límite de un
+  año, o una quincena de distinto largo con el ciclo semanal en vez de quincenal) no se probaron — se
+  consideraron cubiertas en esencia por AN-16 y AN-17, que ya muestran el mecanismo con números exactos.
 
 ## Estado de la cuenta de QA al cerrar
 
@@ -322,3 +533,34 @@ dos categorías tocadas en vivo (una archivada, otra pasada a Ingreso) volvieron
 antes de borrarlas. El plan se cambió por SQL directo a Básico y a Test para verificar la nav y el
 drawer, y el ciclo a quincenal y semanal para los casos de AN-05/AN-06 — ambos se devolvieron a Premium
 y mensual (semana desde el lunes) al terminar cada bloque, verificado por SQL.
+
+### 2.ª pasada (mismo día)
+
+Foto de referencia tomada por SQL antes de arrancar: plan Premium, ciclo mensual (semana desde el
+lunes), 22 movimientos, 9 categorías, 2 cuentas, 9 fijos, 0 tarjetas, 0 compras en cuotas, 1 fila en
+`receivables` — idéntica a la foto de cierre de la 1.ª pasada, confirmando que no quedó nada pendiente
+entre medio.
+
+Lo cargado en esta pasada, todo marcado `QA-AN2` (con sufijo por caso: `-CAP`, `-MARKER`,
+`-MISMATCH`, `-CROSSMONTH`) para poder encontrarlo y borrarlo sin ambigüedad:
+
+- **AN-10 (tope de 1000 filas):** 1.050 gastos de $1,00 (`QA-AN2-CAP`), cargados y borrados por API REST
+  directa con el JWT de la cuenta de QA (no por la UI, por volumen) — verificado por SQL que las 1.050
+  filas quedaron insertadas antes de la prueba y en 0 después de borrarlas.
+- **AN-11 (marcador invisible):** 1 gasto de $900.000,00 en Transporte, fechado en agosto (`QA-AN2-MARKER`)
+  — borrado al terminar.
+- **AN-16 (semana cruza dos meses):** 1 ingreso de $500.000,00 el 2 de octubre (`QA-AN2-CROSSMONTH`) —
+  borrado al terminar, ciclo devuelto de semanal a mensual.
+- **AN-17 (quincena de distinto largo):** 1 gasto de $14.000,00 el 20 de octubre (`QA-AN2-MISMATCH`) —
+  borrado al terminar, ciclo devuelto de quincenal a mensual.
+
+Para la seguridad por API (ver "Lo verificado correcto") se usó también la cuenta de prueba habitual
+(`leanfernandez97+claudetest@gmail.com`), sólo en modo lectura (un `GET` filtrado por su `user_id` con
+el token de QA, que devolvió vacío) y un único intento de escritura cruzada (un `INSERT` con su
+`user_id` usando el token de QA, rechazado con 403 y sin llegar a crear ninguna fila) — no se leyó ni se
+modificó ningún dato real de esa cuenta.
+
+Foto final por SQL, tras borrar todo lo de arriba y devolver `cycle_kind` a `monthly`: plan Premium,
+ciclo mensual, 22 movimientos, 9 categorías, 2 cuentas, 9 fijos, 0 tarjetas, 0 compras en cuotas, 1 fila
+en `receivables` — coincide exacto con la foto de referencia del arranque de esta pasada. `0` filas con
+descripción `like 'QA-AN2%'` verificado por SQL como paso final.
