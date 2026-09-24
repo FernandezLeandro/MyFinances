@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-02/03/05 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 4 / 8 / 10 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/11/12 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 3 / 6 / 10 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -85,7 +85,24 @@ misma vuelta.
   promesa rechazada sin manejar en la consola** cuando la base frenaba la escritura (ver FI-03/FI-11 en
   [fijos.md](fijos.md)) — el toast de error igual sale (hay un `MutationCache.onError` global en
   `main.tsx`), pero el error de consola queda. El patrón que ya usa el repo para evitarlo es
-  `mutation.mutate(id, { onSuccess })`, sin `await` ni `mutateAsync`.
+  `mutation.mutate(id, { onSuccess })`, sin `await` ni `mutateAsync`. Ya corregido en `MarkPaidDialog` y
+  en `TransactionFormDialog` (`onDelete`/`confirmDelete`); puede quedar en otros diálogos.
+- **Borrar un fijo NO borra sus movimientos.** `fixed_expense_payments` se va en cascada, pero
+  `transactions.fixed_expense_payment_id` es `on delete set null`: el movimiento del pago queda huérfano
+  y sigue restando del saldo. Al limpiar fixtures de prueba que se pagaron o cargaron, borrar también
+  esos movimientos desde Movimientos (ya sin vínculo, se borran directo) — o quitar el pago antes de
+  borrar el fijo. Confirmar al final con
+  `select count(*) from transactions where user_id = '<uid>' and description like 'QA <prefijo>%'`.
+- **Contar filas: SQL de sólo lectura, no texto en pantalla.** `Money` parte el importe en varios
+  `<span>` (`$`, `30.000`, `,00`) y cada ancestro que los contiene también matchea
+  `getByText('$30.000,00')` — un conteo da 2 con un solo pago. Para «¿se duplicó?» usar
+  `npx supabase db query "select …" --linked` sobre la cuenta de QA; `getByText(...).count() > 0` sí
+  sirve para «¿aparece este aviso?».
+- **Cerrar el detalle de un fijo con el botón «Cerrar»**, no con `Escape`: en Playwright el `Escape` no
+  lo cerró y el `<dialog open>` siguió tapando los clicks de atrás («intercepts pointer events»).
+- **Doble toque:** `locator.dblclick()` manda dos `click` seguidos y alcanza para reproducir FI-01/FI-11.
+- **Dato de base, no basura:** la cuenta de QA tiene un movimiento «dblclick test» de $1.500 del
+  2026-09-22, vinculado a un pago — viene de la pasada original de FI-01. No borrarlo al limpiar.
 
 ## Severidades
 

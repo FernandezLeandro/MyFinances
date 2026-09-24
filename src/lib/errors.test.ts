@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mensajeDeError } from './errors'
+import { isDuplicateKeyError, mensajeDeError } from './errors'
 
 describe('mensajeDeError', () => {
   afterEach(() => {
@@ -109,5 +109,33 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError('un string cualquiera')).toBe('No se pudo guardar. Probá de nuevo.')
     expect(mensajeDeError(undefined)).toBe('No se pudo guardar. Probá de nuevo.')
     expect(mensajeDeError(null)).toBe('No se pudo guardar. Probá de nuevo.')
+  })
+})
+
+describe('isDuplicateKeyError', () => {
+  // FI-11: un doble click en "Marcar pagado" manda una segunda llamada que choca con el índice
+  // único de un fijo "una vez al mes" — el primer intento ya pagó, así que esto no es un error real.
+  it('23505 sobre el índice indicado → true', () => {
+    expect(
+      isDuplicateKeyError(
+        { code: '23505', message: 'duplicate key value violates unique constraint "fixed_expense_payments_single_per_period_idx"' },
+        'fixed_expense_payments_single_per_period_idx',
+      ),
+    ).toBe(true)
+  })
+
+  it('23505 sobre otro índice → false (no todas las carreras son ésta)', () => {
+    expect(
+      isDuplicateKeyError({ code: '23505', message: 'duplicate key value violates unique constraint "balance_locations_user_name_idx"' }, 'fixed_expense_payments_single_per_period_idx'),
+    ).toBe(false)
+  })
+
+  it('otro código de error → false', () => {
+    expect(isDuplicateKeyError({ code: 'P0001', message: 'fixed_expense_payments_single_per_period_idx' }, 'fixed_expense_payments_single_per_period_idx')).toBe(false)
+  })
+
+  it('no-objeto → false sin romper', () => {
+    expect(isDuplicateKeyError(undefined, 'x')).toBe(false)
+    expect(isDuplicateKeyError('un string', 'x')).toBe(false)
   })
 })

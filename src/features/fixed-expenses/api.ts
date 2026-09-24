@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
 import { localTodayISO } from '@/lib/dates'
-import { isPgError, mensajeDeError } from '@/lib/errors'
+import { isDuplicateKeyError, isPgError, mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import type { Database } from '@/lib/database.types'
 
@@ -295,7 +295,15 @@ export function useMarkFixedExpensePaid() {
         p_occurred_on: occurredOn ?? null,
         p_today: localTodayISO(),
       })
-      if (error) throw error
+      if (error) {
+        // FI-01/FI-11: en un fijo "una vez al mes", un doble toque en "Marcar pagado" puede mandar
+        // la segunda llamada antes de que el candado del diálogo (`MarkPaidDialog`) la frene — la
+        // base la rechaza con su índice único de siempre, pero el primer intento ya pagó. No es un
+        // error real: se traga acá (en vez de reintentar mostrando un toast que invita a repetir algo
+        // que ya salió bien) y se deja que `onSuccess` refresque con el estado real de la base.
+        if (isDuplicateKeyError(error, 'fixed_expense_payments_single_per_period_idx')) return
+        throw error
+      }
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
     meta: { errorMessage: 'No se pudo marcar como pagado. Probá de nuevo.' },

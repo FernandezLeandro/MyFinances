@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { format, parseISO, subDays } from 'date-fns'
 import { cycleContaining, type CycleConfig } from '@/lib/cycle'
 import {
+  amountAfterCopy,
   compareFixedExpenses,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
@@ -540,5 +541,32 @@ describe('removeLinkedMovementCopy', () => {
     expect(c.paragraphs[0]).toContain('«Guardado · Gimnasio»')
     expect(c.paragraphs[0]).toContain('deja de estar apartada')
     expect(c.paragraphs.join(' ')).not.toContain('pendiente')
+  })
+})
+
+// Bloque 2 del plan de arreglo (FI-12): antes, guardar o cargar de más decía lo mismo que "exacto"
+// ("Con esto lo tenés cubierto."/"Completás el presupuesto"), sin avisar del excedente.
+describe('amountAfterCopy', () => {
+  it('falta: total por debajo del objetivo', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 15_000_00)).toEqual({ kind: 'remaining', cents: 5_000_00 })
+  })
+
+  it('exacto: total igual al objetivo', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 20_000_00)).toEqual({ kind: 'complete', cents: 0 })
+  })
+
+  it('de más: guardado — $10.000 + $25.000 sobre un fijo de $30.000 sobran $5.000', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 25_000_00)).toEqual({ kind: 'over', cents: 5_000_00 })
+  })
+
+  it('de más: bolsa — quedaban $77.000 y se cargan $90.000, se pasa por $13.000', () => {
+    const target = 100_000_00
+    const alreadyPaid = target - 77_000_00
+    expect(amountAfterCopy(target, alreadyPaid, 90_000_00)).toEqual({ kind: 'over', cents: 13_000_00 })
+  })
+
+  it('sin nada previo: el importe solo decide', () => {
+    expect(amountAfterCopy(30_000_00, 0, 30_000_00)).toEqual({ kind: 'complete', cents: 0 })
+    expect(amountAfterCopy(30_000_00, 0, 35_000_00)).toEqual({ kind: 'over', cents: 5_000_00 })
   })
 })

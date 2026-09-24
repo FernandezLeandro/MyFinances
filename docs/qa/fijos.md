@@ -7,9 +7,12 @@
 - **Planes:** Premium (casi todo), Básico y Test (lo que cambia por plan).
 - **Ciclos:** mensual, quincenal, semanal con inicio lunes y semanal con inicio domingo.
 - **Pasada:** 1.ª.
-- **Arreglos (2026-09-23, sin re-testear la pasada entera):** FI-02, FI-03 y FI-05 resueltos y
-  verificados en vivo — ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
-  Migración `20260923070001_fijos_movimiento_vinculado.sql`, aplicada a producción con OK de Lean.
+- **Arreglos (2026-09-23, sin re-testear la pasada entera):**
+  - Bloque 1: FI-02, FI-03 y FI-05 resueltos y verificados en vivo. Migración
+    `20260923070001_fijos_movimiento_vinculado.sql`, aplicada a producción con OK de Lean.
+  - Bloque 2: FI-01, FI-11 y FI-12 resueltos y verificados en vivo. Sin migración (sólo front).
+
+  Ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
 
 ## Resumen
 
@@ -33,7 +36,7 @@ Los problemas vienen por cuatro lados:
 
 | ID | Sev. | Estado | Título |
 |---|---|---|---|
-| FI-01 | Alto | Abierto | Doble toque en «Registrar» de una bolsa duplica la carga |
+| FI-01 | Alto | **Resuelto** (2026-09-23) | Doble toque en «Registrar» de una bolsa duplica la carga |
 | FI-02 | Alto | **Resuelto** (2026-09-23) | Editar el movimiento de un pago no actualiza el pago |
 | FI-03 | Alto | **Resuelto** (2026-09-23) | Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió |
 | FI-04 | Alto | Abierto | Semana entre dos meses: un pago del mes anterior marca pagado el siguiente, y quitarlo borra el viejo |
@@ -43,8 +46,8 @@ Los problemas vienen por cuatro lados:
 | FI-08 | Medio | Abierto | Períodos futuros: el panel del proyectado no cierra |
 | FI-09 | Medio | Abierto | Semana que no empieza el lunes: Fijos no reconoce la semana actual |
 | FI-10 | Medio | Abierto | Quitar un pago no deshace el cambio de importe del fijo |
-| FI-11 | Medio | Abierto | Doble click en «Marcar pagado»: queda pagado pero sale un error |
-| FI-12 | Medio | Abierto | Guardar o cargar de más no avisa |
+| FI-11 | Medio | **Resuelto** (2026-09-23) | Doble click en «Marcar pagado»: queda pagado pero sale un error |
+| FI-12 | Medio | **Resuelto** (2026-09-23) | Guardar o cargar de más no avisa |
 | FI-13 | Medio | Abierto | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
 | FI-14 | Medio | Abierto | La base acepta datos inválidos o pagos armados a mano por API |
 | FI-15 | Medio | Por lectura de código | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
@@ -61,7 +64,7 @@ Los problemas vienen por cuatro lados:
 
 ---
 
-### FI-01 · Doble toque en «Registrar» de una bolsa duplica la carga — Alto
+### FI-01 · Doble toque en «Registrar» de una bolsa duplica la carga — Alto — Resuelto
 
 - **Pasos:** Fijos → bolsa «Súper» → `+` (registrar carga) → $1.500 → doble click en «Registrar».
 - **Esperado:** una carga.
@@ -70,6 +73,14 @@ Los problemas vienen por cuatro lados:
   entra antes del re-render. Además, en la base una bolsa acepta cualquier cantidad de cargas por período,
   a diferencia de «una vez al mes», que tiene índice único (ver FI-11). En el celular un doble toque es
   fácil. Lo mismo puede pasar con «Guardar» (tampoco tiene guardia).
+- **Arreglo:** candado síncrono (`useRef`, `MarkPaidDialog.tsx`) que corta cualquier segundo click antes
+  del re-render — cubre «Registrar», «Marcar pagado» y «Guardar» con un único cambio, porque los tres
+  botones son este mismo diálogo. Se libera en `onSettled` (éxito o error), para no trabar el diálogo si
+  la mutación falla.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): doble click (`dblclick`, dos eventos `click`
+  sintéticos consecutivos) en «Registrar» de una bolsa de prueba → un solo cargo de $1.500 en la base
+  (confirmado por SQL de sólo lectura, no por texto en pantalla — ver «Aprendido» en
+  [README](README.md)). Fixture borrado al terminar.
 
 ### FI-02 · Editar el movimiento de un pago no actualiza el pago — Alto — Resuelto
 
@@ -210,7 +221,7 @@ Misma semana 28/9–4/10:
 - **Relacionado:** pagar un mes **futuro** también cambia el importe del fijo, y eso mueve el total de los
   meses anteriores (FI-13).
 
-### FI-11 · Doble click en «Marcar pagado» — Medio
+### FI-11 · Doble click en «Marcar pagado» — Medio — Resuelto
 
 - **Obtenido:**
   - el fijo quedó pagado una sola vez (bien: el segundo intento choca con el índice único, 409);
@@ -220,13 +231,30 @@ Misma semana 28/9–4/10:
   El mensaje invita a reintentar algo que ya salió bien.
 - **Verificado en la base:** 20 llamadas en paralelo a `rpc_mark_fixed_expense_paid` dan 1 pago, 19
   rechazos y ningún movimiento huérfano.
+- **Arreglo:** dos capas, la misma raíz que FI-01. (1) El candado del diálogo (ver FI-01) evita que un
+  toque normal mande la segunda llamada. (2) Defensa en el servidor: si igual llega un `23505` sobre
+  `fixed_expense_payments_single_per_period_idx` (`useMarkFixedExpensePaid`, `api.ts`), se trata como
+  éxito — no un error real, el primer intento ya pagó — y se invalida en vez de mostrar el toast rojo
+  (`isDuplicateKeyError`, nuevo helper en `src/lib/errors.ts`, con test). De paso se encontró y arregló
+  el mismo patrón de promesa sin manejar (`await mutateAsync`) que ya tenía `confirmDelete` en
+  `TransactionFormDialog.tsx` (Bloque 1), pero que seguía en su vecino `onDelete` (el camino de un
+  movimiento SIN vincular) — mismo arreglo, `.mutate()` en vez de `await mutateAsync()`.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): doble click en «Marcar pagado» de un fijo de prueba
+  → un solo pago en la base, sin toast rojo, sin error de consola. Fixture borrado al terminar.
 
-### FI-12 · Guardar o cargar de más no avisa — Medio
+### FI-12 · Guardar o cargar de más no avisa — Medio — Resuelto
 
 - **Guardado:** $10.000 + $25.000 sobre un fijo de $30.000. El diálogo dice «Con esto lo tenés cubierto.» y
   no avisa que sobran $5.000, que salen del saldo igual.
 - **Bolsa:** cargar $90.000 cuando quedaban $77.000 dice «Con esta carga completás el presupuesto
   semanal.» En Fijos se ve «+$13.000», pero el diálogo no lo dijo.
+- **Arreglo:** función pura `amountAfterCopy` (`aggregate.ts`, con test) decide entre «falta», «exacto» o
+  «de más» sumando lo ya guardado/cargado más el importe que se está por confirmar contra el objetivo. El
+  diálogo ahora dice «Guardás $X de más.» (guardado) o «Te pasás $X del presupuesto {mensual/quincenal/
+  semanal}.» (bolsa) en el caso «de más», en vez del mismo texto que «exacto».
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): guardar $35.000 sobre un fijo de $30.000 mostró
+  «Guardás $5.000,00 de más.»; cargar de más en una bolsa mostró «Te pasás $1.500,00 del presupuesto
+  mensual.» — ambos antes de confirmar, sin tocar la base. Fixtures borrados al terminar.
 
 ### FI-13 · «Disponible» y «Total del mes» usan el importe actual — Medio
 

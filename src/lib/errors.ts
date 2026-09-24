@@ -30,6 +30,17 @@ export function isPgError(error: unknown, pgCode: string): boolean {
   return code === 'P0001' && new RegExp(pgCode).test(message)
 }
 
+/** True si `error` es un `23505` (unique_violation) sobre un índice o constraint puntual — mismo
+ *  criterio que `isPgError`, para cuando quien llama necesita reaccionar a una carrera específica en
+ *  vez de mostrar el mensaje genérico (ej. FI-11: un doble click que choca contra
+ *  `fixed_expense_payments_single_per_period_idx` no es un error real, el primer intento ya pagó). */
+export function isDuplicateKeyError(error: unknown, indexOrConstraint: string): boolean {
+  if (!isErrorLike(error)) return false
+  const code = typeof error.code === 'string' ? error.code : ''
+  const message = typeof error.message === 'string' ? error.message : ''
+  return code === '23505' && new RegExp(indexOrConstraint).test(message)
+}
+
 /** El fallo de red que cada navegador escribe a su manera: Chrome "Failed to fetch", Safari "Load
  *  failed", Firefox "NetworkError when attempting to fetch resource". */
 const NETWORK_FAILURE = /failed to fetch|load failed|networkerror|network request failed/i

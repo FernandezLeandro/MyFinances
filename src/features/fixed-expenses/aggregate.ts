@@ -250,6 +250,26 @@ export function summarizeFixedExpenses(
   }
 }
 
+export interface AmountAfterCopy {
+  kind: 'remaining' | 'complete' | 'over'
+  /** Cuánto falta (`remaining`) o cuánto sobra (`over`) — `0` en `complete`. */
+  cents: number
+}
+
+/**
+ * Bloque 2 del plan de arreglo (FI-12): decide qué dice `MarkPaidDialog` bajo el importe según si lo
+ * guardado/cargado queda corto, exacto o de más. Antes "de más" mostraba el mismo texto que "exacto"
+ * ("Con esto lo tenés cubierto."/"Completás el presupuesto"), sin avisar que ese excedente sale del
+ * saldo igual. `alreadyCents` es lo que ya había antes de este importe (pagos o guardados previos del
+ * mismo período); `cents`, lo que se está por confirmar ahora.
+ */
+export function amountAfterCopy(targetCents: number, alreadyCents: number, cents: number): AmountAfterCopy {
+  const total = alreadyCents + cents
+  if (total > targetCents) return { kind: 'over', cents: total - targetCents }
+  if (total === targetCents) return { kind: 'complete', cents: 0 }
+  return { kind: 'remaining', cents: targetCents - total }
+}
+
 export interface PreAccountsPaymentCopy {
   title: string
   confirmLabel: string

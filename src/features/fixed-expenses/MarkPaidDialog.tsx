@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { format, parseISO, startOfMonth } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
@@ -7,6 +7,7 @@ import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useAddFixedExpenseSaving, useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
+import { amountAfterCopy } from '@/features/fixed-expenses/aggregate'
 import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
@@ -85,12 +86,21 @@ export function MarkPaidDialog({
   const cents = parseAmountToCents(input)
   const willUpdateTemplate = !isRecurring && !isSaving && permiteActualizarPlantilla(period, new Date())
   const differs = !isRecurring && !isSaving && cents != null && cents !== fixedExpense.cents
-  const remainingAfter = isRecurring
-    ? Math.max(fixedExpense.cents - alreadyPaidCents - (cents ?? 0), 0)
-    : isSaving
-      ? Math.max(fixedExpense.cents - alreadySavedCents - (cents ?? 0), 0)
-      : 0
+  // FI-12: cuánto falta, completa justo o sobra — informa el aviso bajo el importe (bolsa o guardado)
+  // más abajo en el JSX.
+  const amountCopy =
+    cents != null && cents > 0
+      ? isRecurring
+        ? amountAfterCopy(fixedExpense.cents, alreadyPaidCents, cents)
+        : isSaving
+          ? amountAfterCopy(fixedExpense.cents, alreadySavedCents, cents)
+          : null
+      : null
   const isPending = markPaid.isPending || addSaving.isPending
+  // FI-01/FI-11: candado síncrono además de `isPending` — un doble toque en mobile puede disparar el
+  // segundo click antes de que React re-renderice el botón ya deshabilitado. Se libera en `onSettled`
+  // (éxito o error), para no dejar el diálogo trabado si la mutación falla.
+  const submittingRef = useRef(false)
   // El pago siempre puede llevar cuenta. El guardado sólo si además genera movimiento — si es "aparte"
   // no hay con qué pagarlo. Cuando se muestra, es obligatoria: el saldo es la suma de las cuentas.
   const showAccountField = picker.show && (!isSaving || (canMovimientosManuales && generateMovement))
@@ -124,7 +134,7 @@ export function MarkPaidDialog({
     setInput(next === 'pay' ? centsToInputText(fixedExpense.cents) : centsToInputText(Math.max(fixedExpense.cents - alreadySavedCents, 0)))
   }
 
-  async function handleConfirm() {
+  function handleConfirm() {
     if (cents == null || cents <= 0) {
       setError('Ingresá un importe válido')
       return
@@ -133,29 +143,40 @@ export function MarkPaidDialog({
       setDateError('Falta la fecha')
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
+    const onSettled = () => {
+      submittingRef.current = false
+    }
+
     if (isSaving) {
       const savingWithMovement = canMovimientosManuales && generateMovement
-      await addSaving.mutateAsync({
-        fixedExpenseId: fixedExpense.id,
-        period,
-        cents,
-        // BASIC no tiene el switch (siempre `false` acá, ver el guard del JSX) — en el resto de los
-        // planes manda lo que haya elegido el usuario.
-        generateMovement: savingWithMovement,
-        accountId: savingWithMovement ? accountId || null : null,
-        occurredOn: savingWithMovement ? occurredOn : null,
-      })
+      addSaving.mutate(
+        {
+          fixedExpenseId: fixedExpense.id,
+          period,
+          cents,
+          // BASIC no tiene el switch (siempre `false` acá, ver el guard del JSX) — en el resto de los
+          // planes manda lo que haya elegido el usuario.
+          generateMovement: savingWithMovement,
+          accountId: savingWithMovement ? accountId || null : null,
+          occurredOn: savingWithMovement ? occurredOn : null,
+        },
+        { onSuccess: onClose, onSettled },
+      )
     } else {
-      await markPaid.mutateAsync({
-        fixedExpenseId: fixedExpense.id,
-        period: effectivePeriod,
-        cents,
-        note: note.trim() || null,
-        accountId: accountId || null,
-        occurredOn,
-      })
+      markPaid.mutate(
+        {
+          fixedExpenseId: fixedExpense.id,
+          period: effectivePeriod,
+          cents,
+          note: note.trim() || null,
+          accountId: accountId || null,
+          occurredOn,
+        },
+        { onSuccess: onClose, onSettled },
+      )
     }
-    onClose()
   }
 
   return (
@@ -282,26 +303,34 @@ export function MarkPaidDialog({
           </Field>
         )}
 
-        {isRecurring && cents != null && cents > 0 && (
+        {isRecurring && amountCopy && (
           <p className="text-[12px] text-fg-muted">
-            {remainingAfter > 0 ? (
+            {amountCopy.kind === 'remaining' && (
               <>
-                Después de esta carga, falta <Money cents={remainingAfter} tone="dim" />.
+                Después de esta carga, falta <Money cents={amountCopy.cents} tone="dim" />.
               </>
-            ) : (
-              `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`
+            )}
+            {amountCopy.kind === 'complete' && `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`}
+            {amountCopy.kind === 'over' && (
+              <>
+                Te pasás <Money cents={amountCopy.cents} tone="dim" /> del presupuesto {bagPeriod.adjective}.
+              </>
             )}
           </p>
         )}
 
-        {isSaving && cents != null && cents > 0 && (
+        {isSaving && amountCopy && (
           <p className="text-[12px] text-fg-muted">
-            {remainingAfter > 0 ? (
+            {amountCopy.kind === 'remaining' && (
               <>
-                Después de esto, te falta guardar <Money cents={remainingAfter} tone="dim" />.
+                Después de esto, te falta guardar <Money cents={amountCopy.cents} tone="dim" />.
               </>
-            ) : (
-              'Con esto lo tenés cubierto.'
+            )}
+            {amountCopy.kind === 'complete' && 'Con esto lo tenés cubierto.'}
+            {amountCopy.kind === 'over' && (
+              <>
+                Guardás <Money cents={amountCopy.cents} tone="dim" /> de más.
+              </>
             )}
           </p>
         )}

@@ -296,7 +296,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
     onClose()
   }
 
-  async function onDelete() {
+  function onDelete() {
     if (!transaction) return
     // FI-03/FI-05 del QA de Fijos: antes esto borraba al instante — ahora pide confirmar en
     // `RemoveLinkedMovementDialog` primero. El freno `payment_before_accounts` (legacy) sigue siendo
@@ -305,8 +305,9 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
       setConfirmingDelete(true)
       return
     }
-    await deleteTx.mutateAsync(transaction.id)
-    onClose()
+    // `.mutate()`, no `mutateAsync` + `await`: mismo motivo que `confirmDelete` más abajo — si la
+    // base lo rechaza, awaitar acá dejaría una promesa rechazada sin manejar en la consola (FI-11).
+    deleteTx.mutate(transaction.id, { onSuccess: onClose })
   }
 
   function confirmDelete() {
