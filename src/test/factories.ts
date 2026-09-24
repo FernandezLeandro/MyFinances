@@ -217,9 +217,13 @@ export function makeFixedExpensePayment(
     user_id: 'user-1',
     period: '2026-08-01',
     paid_at: FIXED_DATE,
+    // FI-15: por default, la fecha de `paid_at` (o `FIXED_DATE` si tampoco se pasa) — un test que sólo
+    // fija `paid_at` (el patrón de antes del bloque 4) sigue funcionando sin tocarlo.
+    paid_on: (p.paid_at ?? FIXED_DATE).slice(0, 10),
     transaction_id: null,
     is_recurring: false,
     note: null,
+    previous_template_amount: null,
     ...p,
   }
 }

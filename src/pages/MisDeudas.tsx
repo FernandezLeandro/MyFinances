@@ -19,6 +19,7 @@ import { initialsFrom } from '@/lib/initials'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
 import { cycleShortLabel, projectionWindow } from '@/lib/cycle'
+import { pendingBeforeCents } from '@/lib/projectedBalance'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import { summarizeMisDeudas, type CardSummary } from '@/features/credits/aggregate'
@@ -479,6 +480,8 @@ export function MisDeudas() {
               pendingFixedCents={pendingFixedCents}
               unpaidDebtsCount={unpaidDebtsCount}
               unpaidDebtsCents={summary.totalPendingCents}
+              // FI-08: mismo criterio que Fijos.tsx.
+              pendingBeforeCents={pendingBeforeCents(currentBalance ?? 0, pendingFixedCents, summary.totalPendingCents, projectedBalance)}
               hidden={balanceHidden}
               footnote="El mismo número que ves en Fijos."
             />

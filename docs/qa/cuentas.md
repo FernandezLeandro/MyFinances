@@ -49,6 +49,7 @@ Entre paréntesis, el ID que tenían en el informe original.
 | CU-16 (F1) | Bajo | Resuelto | Fijos a 320 px: el badge nunca se ocultaba y cortaba el nombre |
 | CU-17 (F2) | Bajo | Resuelto | En Básico, el aviso seguía hablando de «tus cuentas» |
 | CU-18 (F3) | Bajo | Resuelto | «¿Quitar este pago?» con el pie del diálogo encajonado |
+| CU-19 | Alto | Resuelto | Editar el nombre de una cuenta a vacío no lo bloqueaba la base |
 
 ## Cómo se verificó cada uno
 
@@ -90,11 +91,14 @@ Entre paréntesis, el ID que tenían en el informe original.
 
 ## Pendiente
 
-- **Mergear `accounts` a `main` y desplegar.** Las migraciones ya están en producción y son compatibles con
-  el front publicado.
+- **Mergeado a `main` y desplegado.**
 - **Aplicado después del informe (commit `4bacfa9`):**
   - «hoy» lo manda el cliente (`20260923050001_hoy_del_cliente`). Verificado en vivo en el
     [QA de Fijos](fijos.md);
   - `useCan` cae a Básico si falla el perfil, y `RequireAuth` muestra un error con «Reintentar».
-- **Quedó afuera:** editar una cuenta (nombre vacío), carreras con dos pestañas, y ciclo semanal en vivo
-  (este último se cubrió en el QA de Fijos).
+- **CU-19 (antes «quedó afuera»):** editar el nombre de una cuenta a vacío no pasaba por
+  `rpc_create_account` (que sí valida al alta) — `useUpdateBalanceLocation` hace un `.update()`
+  directo, y la columna sólo tenía `not null`. Migración
+  `20260923060001_cuenta_nombre_no_vacio.sql` agrega `check (btrim(name) <> '')`, aplicada en prod.
+- **Quedó afuera:** carreras con dos pestañas (se decidió no perseguirlo, caso raro y de bajo
+  impacto), y ciclo semanal en vivo (este último se cubrió en el QA de Fijos).

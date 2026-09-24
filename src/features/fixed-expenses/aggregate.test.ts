@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { format, parseISO, subDays } from 'date-fns'
 import { cycleContaining, type CycleConfig } from '@/lib/cycle'
-import { compareFixedExpenses, fixedExpenseUrgency, preAccountsPaymentCopy, summarizeFixedExpenses } from './aggregate'
+import {
+  amountAfterCopy,
+  compareFixedExpenses,
+  cycleTotalCents,
+  fixedExpenseUrgency,
+  preAccountsPaymentCopy,
+  removeLinkedMovementCopy,
+  summarizeFixedExpenses,
+} from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
@@ -27,6 +35,72 @@ describe('summarizeFixedExpenses — fijo de una sola vez', () => {
     expect(s.done).toHaveLength(1)
     expect(s.done[0].paidCents).toBe(50_000_00)
     expect(s.pendingTotalCents).toBe(0)
+  })
+})
+
+// FI-07 del QA de Fijos: un fijo nuevo con día ya pasado aparecía atrasado y restaba del proyectado
+// el mismo mes en que se cargó — aunque no existiera cuando "venció" (`starts_on` es posterior).
+describe('summarizeFixedExpenses — FI-07: alta a mitad de mes con día ya pasado', () => {
+  it('día ya pasado (antes de starts_on), sin pago → no cuenta este mes', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('día todavía no pasado (después de starts_on) → cuenta normal, pendiente', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 25, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pendingTotalCents).toBe(30_000_00)
+  })
+
+  it('día ya pasado, pero YA tiene un pago ese período → no se esconde', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'f1', amountPaidCents: 30_000_00, period: '2026-08-01' })
+    const s = summarizeFixedExpenses([fe], [payment], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].paidCents).toBe(30_000_00)
+  })
+
+  it('el mismo día del alta (starts_on == vencimiento) → sí cuenta', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 22, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(1)
+  })
+
+  it('mes siguiente al alta → cuenta normal (el vencimiento de ese mes es posterior a starts_on)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const SEPTIEMBRE = new Date(2026, 8, 1)
+    const HOY_EN_SEPTIEMBRE = new Date(2026, 8, 10)
+    const s = summarizeFixedExpenses([fe], [], SEPTIEMBRE, HOY_EN_SEPTIEMBRE)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pendingTotalCents).toBe(30_000_00)
+  })
+})
+
+describe('cycleTotalCents', () => {
+  // FI-13: "Total del mes" sumaba el importe ACTUAL de la plantilla — con un aumento a mitad de año
+  // (pagado $10.000, el fijo ahora vale $11.111), el total no cerraba contra Pagado + Falta pagar.
+  it('fijo de una vez, pagado → lo que de verdad se pagó, no el importe actual', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 11_111_00 })
+    expect(cycleTotalCents({ fe, paidCents: 10_000_00, done: true })).toBe(10_000_00)
+  })
+
+  it('fijo de una vez, pendiente → el importe vigente (lo que sale si se paga hoy)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 11_111_00 })
+    expect(cycleTotalCents({ fe, paidCents: 0, done: false })).toBe(11_111_00)
+  })
+
+  it('bolsa, dentro del presupuesto → el presupuesto', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_recurring: true })
+    expect(cycleTotalCents({ fe, paidCents: 30_000_00, done: false })).toBe(50_000_00)
+  })
+
+  it('bolsa, pasada del presupuesto → lo cargado, no el presupuesto (no esconde el exceso)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_recurring: true })
+    expect(cycleTotalCents({ fe, paidCents: 63_000_00, done: true })).toBe(63_000_00)
   })
 })
 
@@ -280,36 +354,79 @@ describe('summarizeFixedExpenses — con months (bloque 5, semanal a caballo de 
   const HOY_30_SEP = new Date(2026, 8, 30)
   const semana = cycleContaining(weekly, HOY_30_SEP)
 
-  it('sin `months`, un fijo que vence en el segundo mes de la semana no aparece (regresión del comportamiento previo al bloque 5)', () => {
-    const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 2 }) // 2 de octubre
+  // Bloque 4 (FI-06): `withMonthCarry` ahora ensancha el borde de abajo SIEMPRE hasta el inicio del
+  // mes, también cuando la ventana ya cruza de mes (espejo exacto de `rpc_projected_balance_range`,
+  // que hace `date_trunc('month', p_from)` sin condición) — antes de este bloque no lo hacía en el
+  // caso semanal a caballo, así que sin `months` un vencimiento de la PRIMERA mitad del mes (como
+  // este, el 2 de septiembre) directamente no se veía. Ahora SÍ se ve — como atrasado arrastrado del
+  // mes, igual que N2 — pero sigue siendo la instancia de SEPTIEMBRE, nunca la de octubre: sin
+  // `months` sólo se prueba un mes (`monthsToCheck = [monthStart de period]`).
+  it('sin `months`, sólo aparece la instancia de SEPTIEMBRE (arrastrada) — nunca la de octubre', () => {
+    const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 2 })
     const s = summarizeFixedExpenses([internet], [], new Date(2026, 8, 1), HOY_30_SEP, semana)
-    expect(s.pendingTotalCents).toBe(0)
+    expect(s.pendingTotalCents).toBe(35_000_00)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pending[0].dueDate).toBe('2026-09-02')
+    expect(s.pending[0].period).toBe('2026-09-01')
   })
 
-  it('con `months` = los dos meses de la semana, el fijo del segundo mes aparece y trae su fecha materializada', () => {
+  // FI-04/FI-06: con `months` los DOS meses se prueban por separado — un fijo con vencimiento en
+  // ambos (due_day 2: el 2/9 y el 2/10 caen los dos dentro de la ventana ensanchada Sept1–Oct5) genera
+  // DOS instancias independientes, cada una con su propio `period` — espejo exacto del cross join
+  // `months × fijos` de la base (ahí también las suma las dos, una por cada `m` de `months`).
+  it('con `months` = los dos meses de la semana, aparecen las DOS instancias, cada una con su propio período', () => {
     const internet = makeFixedExpense({ id: 'internet', cents: 35_000_00, due_day: 2 })
     const s = summarizeFixedExpenses([internet], [], new Date(2026, 8, 1), HOY_30_SEP, semana, semana.months)
-    expect(s.pendingTotalCents).toBe(35_000_00)
-    expect(s.pending[0].dueDate).toBe('2026-10-02')
+    expect(s.pendingTotalCents).toBe(70_000_00)
+    expect(s.pending).toHaveLength(2)
+    const bySept = s.pending.find((p) => p.period === '2026-09-01')
+    const byOct = s.pending.find((p) => p.period === '2026-10-01')
+    expect(bySept?.dueDate).toBe('2026-09-02')
+    expect(byOct?.dueDate).toBe('2026-10-02')
   })
 
-  it('un fijo del primer mes sigue apareciendo igual, con `months` de dos elementos', () => {
+  // FI-04: un pago de septiembre no puede marcar pagada la instancia de octubre — antes `statusFor`
+  // sólo filtraba por `fixed_expense_id`, así que cualquier pago (de cualquiera de los dos meses)
+  // marcaba done a las dos instancias por igual.
+  it('FI-04: un pago de septiembre sólo cierra la instancia de septiembre, octubre sigue pendiente', () => {
+    const dia2 = makeFixedExpense({ id: 'dia2', cents: 20_000_00, due_day: 2 })
+    const pagoSeptiembre = makeFixedExpensePayment({ fixed_expense_id: 'dia2', amountPaidCents: 20_000_00, period: '2026-09-01' })
+    const s = summarizeFixedExpenses([dia2], [pagoSeptiembre], new Date(2026, 8, 1), HOY_30_SEP, semana, semana.months)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].period).toBe('2026-09-01')
+    expect(s.pending).toHaveLength(1)
+    expect(s.pending[0].period).toBe('2026-10-01')
+    expect(s.pending[0].dueDate).toBe('2026-10-02')
+    // "Quitar pago" en la instancia de octubre no tiene qué quitar — no arrastra el pago de septiembre.
+    expect(s.pending[0].payments).toHaveLength(0)
+  })
+
+  it('un fijo del primer mes sigue apareciendo igual, con `months` de dos elementos (su vencimiento de octubre cae fuera de la semana)', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 30 }) // 30 de septiembre
     const s = summarizeFixedExpenses([alquiler], [], new Date(2026, 8, 1), HOY_30_SEP, semana, semana.months)
+    // El 30 de OCTUBRE (due_day 30 en el segundo mes) cae después del 5/10 — fuera de la ventana — así
+    // que sólo aparece la instancia de septiembre, sin duplicar.
     expect(s.pendingTotalCents).toBe(450_000_00)
+    expect(s.pending).toHaveLength(1)
     expect(s.pending[0].dueDate).toBe('2026-09-30')
   })
 
-  it('documenta el riesgo que motiva anclar `period` a HOY en Fijos.tsx: con `period` = primer mes del ciclo a secas, una bolsa mensual cierra de más en cuanto HOY cruza al segundo mes', () => {
+  // FI-06: antes de este bloque, una bolsa mensual usaba un único `period` (el `month` ancla que
+  // Fijos.tsx calculaba a mano para no cerrarla de más) — con `summarizeFixedExpenses` iterando
+  // `months × fijos`, ya no hace falta ese ancla: cada mes que toca la semana tiene su propia
+  // instancia, con su propio presupuesto y su propio estado (cerrado si el mes ya pasó, en vivo si es
+  // el actual). Esto reemplaza el viejo test que documentaba el riesgo de anclar mal `period` — ese
+  // riesgo ya no existe, quedó resuelto acá adentro.
+  it('una bolsa mensual tiene una instancia propia por cada mes que toca la semana — septiembre cerrada, octubre en curso', () => {
     const nafta = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true })
     const hoy2Oct = new Date(2026, 9, 2) // sigue dentro de la MISMA semana (29 sep–5 oct)
-    const primerMesDelCicloASecas = new Date(2026, 8, 1) // lo que daría `cycle.months[0]` sin anclar
-    const s = summarizeFixedExpenses([nafta], [], primerMesDelCicloASecas, hoy2Oct, semana, semana.months)
-    // Cerrada de más: septiembre ya pasó para `period`, aunque la bolsa sigue vigente en octubre —
-    // cae en `done`, no en `pending`. Por eso Fijos.tsx/MisDeudas.tsx usan
-    // `isCurrent ? new Date() : cycle.months[0]`, no `cycle.months[0]` siempre.
-    expect(s.pending).toHaveLength(0)
+    const s = summarizeFixedExpenses([nafta], [], new Date(2026, 8, 1), hoy2Oct, semana, semana.months)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].period).toBe('2026-09-01')
     expect(s.done[0].remainingCents).toBe(0)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pending[0].period).toBe('2026-10-01')
+    expect(s.pending[0].remainingCents).toBe(60_000_00)
   })
 })
 
@@ -508,5 +625,58 @@ describe('preAccountsPaymentCopy', () => {
     expect(preAccountsPaymentCopy({ action: 'unmark', canCuentas: true, canEditMovement: true })).toEqual(
       preAccountsPaymentCopy({ action: 'unmark', ...premium }),
     )
+  })
+})
+
+// Bloque 1 del QA de Fijos (FI-03, FI-05): antes de este bloque, quitar el pago desde Movimientos o
+// eliminar el movimiento de un guardado pasaba al instante, sin avisar.
+describe('removeLinkedMovementCopy', () => {
+  it('pago, con nombre: nombra el fijo y dice que vuelve a pendiente', () => {
+    const c = removeLinkedMovementCopy({ kind: 'payment', description: 'Expensas' })
+    expect(c.title).toBe('¿Quitar este pago?')
+    expect(c.confirmLabel).toBe('Quitar pago')
+    expect(c.paragraphs[0]).toContain('«Expensas»')
+    expect(c.paragraphs[0]).toContain('vuelve a quedar pendiente')
+  })
+
+  it('pago, sin descripción (o sólo espacios): copy genérico, sin comillas vacías', () => {
+    expect(removeLinkedMovementCopy({ kind: 'payment', description: null }).paragraphs[0]).not.toContain('«')
+    expect(removeLinkedMovementCopy({ kind: 'payment', description: '   ' }).paragraphs[0]).not.toContain('«')
+  })
+
+  it('guardado: título y copy distintos — no habla de "pendiente" sino de la plata apartada', () => {
+    const c = removeLinkedMovementCopy({ kind: 'saving', description: 'Guardado · Gimnasio' })
+    expect(c.title).toBe('¿Eliminar este guardado?')
+    expect(c.confirmLabel).toBe('Eliminar guardado')
+    expect(c.paragraphs[0]).toContain('«Guardado · Gimnasio»')
+    expect(c.paragraphs[0]).toContain('deja de estar apartada')
+    expect(c.paragraphs.join(' ')).not.toContain('pendiente')
+  })
+})
+
+// Bloque 2 del plan de arreglo (FI-12): antes, guardar o cargar de más decía lo mismo que "exacto"
+// ("Con esto lo tenés cubierto."/"Completás el presupuesto"), sin avisar del excedente.
+describe('amountAfterCopy', () => {
+  it('falta: total por debajo del objetivo', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 15_000_00)).toEqual({ kind: 'remaining', cents: 5_000_00 })
+  })
+
+  it('exacto: total igual al objetivo', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 20_000_00)).toEqual({ kind: 'complete', cents: 0 })
+  })
+
+  it('de más: guardado — $10.000 + $25.000 sobre un fijo de $30.000 sobran $5.000', () => {
+    expect(amountAfterCopy(30_000_00, 10_000_00, 25_000_00)).toEqual({ kind: 'over', cents: 5_000_00 })
+  })
+
+  it('de más: bolsa — quedaban $77.000 y se cargan $90.000, se pasa por $13.000', () => {
+    const target = 100_000_00
+    const alreadyPaid = target - 77_000_00
+    expect(amountAfterCopy(target, alreadyPaid, 90_000_00)).toEqual({ kind: 'over', cents: 13_000_00 })
+  })
+
+  it('sin nada previo: el importe solo decide', () => {
+    expect(amountAfterCopy(30_000_00, 0, 30_000_00)).toEqual({ kind: 'complete', cents: 0 })
+    expect(amountAfterCopy(30_000_00, 0, 35_000_00)).toEqual({ kind: 'over', cents: 5_000_00 })
   })
 })

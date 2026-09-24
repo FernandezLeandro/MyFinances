@@ -30,6 +30,17 @@ export function isPgError(error: unknown, pgCode: string): boolean {
   return code === 'P0001' && new RegExp(pgCode).test(message)
 }
 
+/** True si `error` es un `23505` (unique_violation) sobre un índice o constraint puntual — mismo
+ *  criterio que `isPgError`, para cuando quien llama necesita reaccionar a una carrera específica en
+ *  vez de mostrar el mensaje genérico (ej. FI-11: un doble click que choca contra
+ *  `fixed_expense_payments_single_per_period_idx` no es un error real, el primer intento ya pagó). */
+export function isDuplicateKeyError(error: unknown, indexOrConstraint: string): boolean {
+  if (!isErrorLike(error)) return false
+  const code = typeof error.code === 'string' ? error.code : ''
+  const message = typeof error.message === 'string' ? error.message : ''
+  return code === '23505' && new RegExp(indexOrConstraint).test(message)
+}
+
 /** El fallo de red que cada navegador escribe a su manera: Chrome "Failed to fetch", Safari "Load
  *  failed", Firefox "NetworkError when attempting to fetch resource". */
 const NETWORK_FAILURE = /failed to fetch|load failed|networkerror|network request failed/i
@@ -74,6 +85,20 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /no_accounts_to_stop/.test(message)) return 'Ya no tenés cuentas.'
   if (code === 'P0001' && /payment_before_accounts/.test(message))
     return 'Este pago es de antes de tener cuentas: quitarlo y volver a pagarlo descuenta la plata dos veces.'
+  // Bloque 1 del QA de Fijos (FI-02/FI-03): triggers `transactions_sync_linked_fixed_expense` y
+  // `transactions_block_delete_paid_saving` (`20260923070001_fijos_movimiento_vinculado.sql`).
+  if (code === 'P0001' && /linked_movement_type_locked/.test(message))
+    return 'Este movimiento viene de un fijo: no se puede cambiar entre Gasto e Ingreso.'
+  if (code === 'P0001' && /linked_movement_amount_invalid/.test(message)) return 'Ingresá un importe válido.'
+  if (code === 'P0001' && /fixed_expense_saving_period_paid/.test(message))
+    return 'Este guardado es de un mes ya pagado: primero quitá el pago del fijo.'
+  // Bloque 5 del QA de Fijos (FI-14): API directa contra un fijo/pago que no existe, pausado, o con
+  // una fecha futura (`20260923090001_fijos_blindaje.sql`). `fixed_expense_not_found` ya existía en
+  // `rpc_mark_fixed_expense_paid` desde antes, pero nunca había tenido mensaje propio.
+  if (code === 'P0001' && /fixed_expense_not_found/.test(message)) return 'Ese fijo ya no existe.'
+  if (code === 'P0001' && /fixed_expense_inactive/.test(message)) return 'Este fijo está pausado: activalo antes de pagarlo.'
+  if (code === 'P0001' && /fixed_expense_payment_future_date/.test(message)) return 'No podés pagar con una fecha futura.'
+  if (code === 'P0001' && /fixed_expense_payment_not_found/.test(message)) return 'Ese pago ya no existe.'
 
   return DEFAULT_MESSAGE
 }

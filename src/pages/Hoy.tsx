@@ -49,7 +49,13 @@ import {
   useFixedExpenseSavings,
   useProjectedBalanceRange,
 } from '@/features/fixed-expenses/api'
-import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
+import {
+  cycleTotalCents,
+  fixedExpenseStatusKey,
+  fixedExpenseUrgency,
+  summarizeFixedExpenses,
+  type FixedExpenseUrgency,
+} from '@/features/fixed-expenses/aggregate'
 import { FijosCicloCard } from '@/features/fixed-expenses/FijosCicloCard'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
 import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
@@ -191,9 +197,9 @@ export function Hoy() {
   )
   // Sólo para `FijosCicloCard` (BASIC, sin `movimientos-manuales`): total y pagado de TODOS los
   // fijos elegibles del ciclo, pagados o no — mismo criterio que `totalCents`/`paidCentsTotal` en
-  // Fijos.tsx.
+  // Fijos.tsx. FI-13: `cycleTotalCents`, no la suma de `fe.cents` (el importe ACTUAL de la plantilla).
   const totalFixedCents = useMemo(
-    () => [...pendingFixed, ...doneFixed].reduce((acc, s) => acc + s.fe.cents, 0),
+    () => [...pendingFixed, ...doneFixed].reduce((acc, s) => acc + cycleTotalCents(s), 0),
     [pendingFixed, doneFixed],
   )
   const paidFixedCents = useMemo(
@@ -482,11 +488,17 @@ export function Hoy() {
                   // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
                   const dueDay = getDate(parseISO(status.dueDate as string))
                   const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
+                  // Bloque 4: con una semana a caballo de dos meses, un mismo fijo puede listarse dos
+                  // veces (una instancia por mes) — el mes desambigua.
+                  const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
                   return (
-                    <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                    <li key={fixedExpenseStatusKey(status)} className="flex items-center gap-2.5 py-1.5">
                       <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
                       <div className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] font-semibold text-fg">{status.fe.name}</span>
+                        <span className="block truncate text-[12.5px] font-semibold text-fg">
+                          {status.fe.name}
+                          {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
+                        </span>
                         {/* Bloque 3: sólo si ya guardó algo — no vale la pena una línea en $0 por
                             cada fijo pendiente. */}
                         {status.savedCents > 0 && (
@@ -548,11 +560,15 @@ export function Hoy() {
                   // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
                   const dueDay = getDate(parseISO(status.dueDate as string))
                 const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
+                const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
                 return (
-                  <li key={status.fe.id} className="flex items-center gap-2.5 py-1.5">
+                  <li key={fixedExpenseStatusKey(status)} className="flex items-center gap-2.5 py-1.5">
                     <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
                     <div className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold text-fg">{status.fe.name}</span>
+                      <span className="block truncate text-[13px] font-semibold text-fg">
+                        {status.fe.name}
+                        {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
+                      </span>
                       {status.savedCents > 0 && (
                         <span className="block text-[11px] text-fg-muted">
                           <Money cents={Math.min(status.savedCents, status.remainingCents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}

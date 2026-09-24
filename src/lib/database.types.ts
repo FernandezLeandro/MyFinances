@@ -296,10 +296,19 @@ export interface Database {
           fixed_expense_id: string
           period: string
           paid_at: string
+          /** FI-15 (bloque 4): la fecha LOCAL que mandó el cliente al pagar (`p_occurred_on` o "hoy"
+           *  en huso Argentina) — a diferencia de `paid_at::date`, que es la fecha en UTC. La base
+           *  ubica una carga de bolsa quincenal/semanal en su sub-período por esta columna, no por
+           *  `paid_at`, para no depender del huso al convertir. Se llena siempre en el insert (la RPC
+           *  la arma), nunca `null`. */
+          paid_on: string
           amount_paid: string
           transaction_id: string | null
           is_recurring: boolean
           note: string | null
+          /** FI-10: importe de la plantilla ANTES de este pago, sólo si este pago la actualizó —
+           *  `rpc_unmark_fixed_expense_payment` lo usa para deshacer ese cambio al desmarcar. */
+          previous_template_amount: string | null
         }
         Insert: {
           id?: string
@@ -310,6 +319,7 @@ export interface Database {
           transaction_id?: string | null
           is_recurring?: boolean
           note?: string | null
+          previous_template_amount?: number | string | null
         }
         Update: Partial<{ transaction_id: string | null; note: string | null }>
         Relationships: []
@@ -698,6 +708,7 @@ export interface Database {
           p_note?: string | null
           p_account_id?: string | null
           p_occurred_on?: string | null
+          p_today?: string | null
         }
         Returns: undefined
       }

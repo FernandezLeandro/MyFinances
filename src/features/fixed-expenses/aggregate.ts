@@ -1,7 +1,7 @@
-import { differenceInCalendarDays, format, startOfMonth } from 'date-fns'
+import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth } from 'date-fns'
 import { cycleContaining, withMonthCarry, type Cycle } from '@/lib/cycle'
 import type { FixedExpense, FixedExpensePayment, FixedExpenseSaving } from './api'
-import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses, fijoCaeEnCicloMultiMes } from './period'
+import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses } from './period'
 
 /**
  * Función pura, separada de la red a propósito — mismo criterio que `credits/aggregate.ts`: se
@@ -14,6 +14,11 @@ import { cycleMonthsBounds, dueDateInCycle, eligibleFixedExpenses, fijoCaeEnCicl
 
 export interface FixedExpenseStatus {
   fe: FixedExpense
+  /** Mes de esta instancia (día 1, `'yyyy-MM-dd'`) — el `period` con el que se pagan o guardan. FI-04
+   *  del QA: una semana que cruza de mes tiene una instancia del fijo por cada mes que toca (igual que
+   *  `rpc_projected_balance_range`), así que `fe.id` solo ya no identifica una fila; usar
+   *  `fixedExpenseStatusKey`. */
+  period: string
   /** Pagos de `fe` en este período, más reciente primero. Un fijo de una sola vez tiene 0 ó 1; una
    *  bolsa puede tener varios. */
   payments: FixedExpensePayment[]
@@ -50,25 +55,28 @@ function statusFor(
   fe: FixedExpense,
   payments: FixedExpensePayment[],
   savings: FixedExpenseSaving[],
-  period: Date,
+  period: string,
   today: Date,
   dueDate: string | null,
   weekStartsOn: number,
 ): FixedExpenseStatus {
+  // FI-04: filtrar también por `period` — con una semana que cruza de mes llegan los pagos de los dos
+  // meses, y un pago de septiembre no puede marcar pagado octubre (ni «quitar» borrar el de otro mes).
   const fePayments = payments
-    .filter((p) => p.fixed_expense_id === fe.id)
+    .filter((p) => p.fixed_expense_id === fe.id && p.period === period)
     .sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1))
 
   if (!fe.is_recurring) {
     const paidCents = fePayments.reduce((acc, p) => acc + p.amountPaidCents, 0)
     const done = fePayments.length > 0
-    const feSavings = savings.filter((s) => s.fixed_expense_id === fe.id)
+    const feSavings = savings.filter((s) => s.fixed_expense_id === fe.id && s.period === period)
     const savedCents = feSavings.reduce((acc, s) => acc + s.amountCents, 0)
     // Follow-up: sólo lo guardado CON movimiento ya salió del saldo real, así que sólo eso descuenta
     // lo que falta pagar — un guardado "aparte" (siempre el caso en BASIC) no lo toca.
     const savedMovementCents = feSavings.filter((s) => s.transaction_id != null).reduce((acc, s) => acc + s.amountCents, 0)
     return {
       fe,
+      period,
       payments: fePayments,
       paidCents,
       remainingCents: done ? 0 : Math.max(fe.cents - savedMovementCents, 0),
@@ -80,24 +88,23 @@ function statusFor(
     }
   }
 
-  const periodClosed = startOfMonth(period) < startOfMonth(today)
-  const isCurrentMonth = !periodClosed && startOfMonth(period).getTime() === startOfMonth(today).getTime()
+  const todayMonth = format(startOfMonth(today), 'yyyy-MM-dd')
+  const periodClosed = period < todayMonth
+  const isCurrentMonth = period === todayMonth
 
-  // Bolsa quincenal/semanal "en vivo" (bloques 4 y 5 del plan): mientras se mira el mes EN CURSO,
-  // sólo cuenta lo cargado en el sub-período que contiene HOY (la quincena o la semana vigente,
-  // nunca más de una) para que el remanente sea el de ese sub-período, no el de todo el mes. Mes
-  // cerrado (0, más abajo) y mes futuro (presupuesto completo, sin pagos todavía) se comportan igual
-  // que una bolsa mensual: no hay "sub-período futuro" hasta que llegue. Espejo exacto de
-  // `bag_cycle_from`/`bag_cycle_to` en las migraciones `20260911040001` (quincenal) y
-  // `20260911050001` (semanal, con `weekStartsOn` — sólo importa para 'weekly', biweekly lo ignora).
+  // Bolsa quincenal/semanal "en vivo" (bloques 4 y 5 del plan): en el mes EN CURSO sólo cuenta lo
+  // cargado en el sub-período que contiene HOY (la quincena o la semana vigente, nunca más de una)
+  // para que el remanente sea el de ese sub-período, no el de todo el mes. Mes cerrado (0, más abajo)
+  // y mes futuro (presupuesto completo menos lo ya cargado a ese mes) se comportan igual que una
+  // bolsa mensual. Espejo exacto de `bag_cycle_from`/`bag_cycle_to` en `rpc_projected_balance_range`
+  // (`weekStartsOn` sólo importa para 'weekly'). FI-15: la carga se ubica por `paid_on` (la fecha
+  // local que mandó el cliente), igual que la base — antes el cliente usaba la fecha local de
+  // `paid_at` y la base la de UTC, y una carga de un domingo a la noche caía en semanas distintas.
   const scopedPayments =
     fe.bag_frequency !== 'monthly' && isCurrentMonth
       ? (() => {
           const subCycle = cycleContaining({ kind: fe.bag_frequency, weekStartsOn }, today)
-          return fePayments.filter((p) => {
-            const paidOn = format(new Date(p.paid_at), 'yyyy-MM-dd')
-            return paidOn >= subCycle.from && paidOn <= subCycle.to
-          })
+          return fePayments.filter((p) => p.paid_on >= subCycle.from && p.paid_on <= subCycle.to)
         })()
       : fePayments
 
@@ -108,6 +115,7 @@ function statusFor(
 
   return {
     fe,
+    period,
     payments: scopedPayments,
     paidCents,
     remainingCents,
@@ -140,6 +148,14 @@ export function fixedExpenseUrgency(dueDate: Date, today: Date): FixedExpenseUrg
   return 'neutral'
 }
 
+/** Key estable para una fila de la lista (bloque 4, FI-04/FI-06): con una semana a caballo de dos
+ *  meses, un mismo `fe.id` puede tener dos instancias — una por mes — así que `fe.id` solo ya no
+ *  identifica una fila (React se queja de keys duplicadas, y "quitar pago" tomaría cualquiera de
+ *  las dos). Usar donde antes se usaba `status.fe.id` como `key`. */
+export function fixedExpenseStatusKey(status: Pick<FixedExpenseStatus, 'fe' | 'period'>): string {
+  return `${status.fe.id}-${status.period}`
+}
+
 /** Recurrentes primero (no tienen vencimiento: son una bolsa que se va llenando todo el mes, no una
  *  fecha que llega), después los de una sola vez por día de vencimiento. Entre recurrentes, alfabético
  *  — sin `due_day` no hay criterio natural y el orden de la query no es determinístico. Es el orden
@@ -148,6 +164,20 @@ export function compareFixedExpenses(a: FixedExpense, b: FixedExpense): number {
   if (a.is_recurring !== b.is_recurring) return a.is_recurring ? -1 : 1
   if (a.is_recurring) return a.name.localeCompare(b.name, 'es')
   return (a.due_day ?? 32) - (b.due_day ?? 32)
+}
+
+/**
+ * Bloque 3 (FI-13): cuánto aporta CADA fijo a "Total del mes/quincena/semana" — antes ese total
+ * sumaba siempre el importe ACTUAL de la plantilla (`fe.cents`), aunque el mes se hubiera pagado con
+ * otro importe (aumento a mitad de año) o un mes futuro ya la hubiera actualizado (FI-02/FI-10), y
+ * "Disponible" (`Sueldo − Pagado − Falta pagar`) no cerraba con ese total. Con esto, Total = Pagado +
+ * Falta pagar por construcción: pagado aporta lo que de verdad salió (`paidCents`), pendiente aporta
+ * el importe vigente (lo que sale si se paga hoy), y una bolsa aporta lo mayor entre el presupuesto y
+ * lo cargado (si se pasó, el total tiene que reflejar el exceso, no esconderlo).
+ */
+export function cycleTotalCents(status: Pick<FixedExpenseStatus, 'fe' | 'paidCents' | 'done'>): number {
+  if (status.fe.is_recurring) return Math.max(status.fe.cents, status.paidCents)
+  return status.done ? status.paidCents : status.fe.cents
 }
 
 export interface FixedExpensesSummary {
@@ -189,9 +219,12 @@ export interface FixedExpensesSummary {
  *
  * `months` es opcional y nuevo (bloque 5, ciclo semanal): la lista de meses calendario que toca el
  * ciclo mirado — normalmente uno (`[monthStart de period]`, el default si se omite, igual que
- * siempre), hasta dos si es semanal y cruza el borde del mes. Sin esto, un fijo de una sola vez cuyo
- * vencimiento cae en el SEGUNDO mes de una semana a caballo no aparecería nunca (su `due_day` sólo
- * se materializa contra el primero) — ver `fijoCaeEnCicloMultiMes`/`dueDateInCycle` en `period.ts`.
+ * siempre), hasta dos si es semanal y cruza el borde del mes. Con dos meses, un mismo fijo puede
+ * generar HASTA DOS instancias — una por mes, cada una con su propio `period`, sus propios pagos y su
+ * propia fecha materializada (bloque 4, FI-04/FI-06) — espejo exacto del cross join `months × fijos`
+ * de `rpc_projected_balance_range`: una bolsa mensual, por ejemplo, tiene presupuesto propio en CADA
+ * mes que toca la semana, no uno compartido. Sin `months`, sigue siendo un único mes, un único
+ * `period` — cero cambio de comportamiento para mensual/quincenal (nunca cruzan el borde del mes).
  *
  * `weekStartsOn` es sólo para una bolsa `bag_frequency: 'weekly'` (default 1 = lunes, igual que
  * `DEFAULT_CYCLE_CONFIG` en `src/lib/cycle.ts`) — de dónde sale la config del ciclo de CAJA de la
@@ -217,14 +250,39 @@ export function summarizeFixedExpenses(
   const bounds = cycleMonthsBounds(monthsToCheck)
   const fallbackWindow = { from: format(bounds.start, 'yyyy-MM-dd'), to: format(bounds.end, 'yyyy-MM-dd') }
   const carriedWindow = window ? withMonthCarry(window) : undefined
-  const eligible = eligibleFixedExpenses(expenses, bounds.end)
-    .filter((fe) => fe.is_active)
-    .filter((fe) => !carriedWindow || fijoCaeEnCicloMultiMes(fe, monthsToCheck, carriedWindow))
+  const effectiveWindow = carriedWindow ?? fallbackWindow
+  const eligible = eligibleFixedExpenses(expenses, bounds.end).filter((fe) => fe.is_active)
+
+  // Bloque 4 (FI-04/FI-06): una instancia por (fijo, mes) que toca `monthsToCheck`, no una por fijo —
+  // con mensual/quincenal `monthsToCheck` tiene un único elemento y esto da exactamente una instancia
+  // por fijo, igual que siempre.
   const statuses = eligible
-    .map((fe) =>
-      statusFor(fe, payments, savings, period, today, dueDateInCycle(fe, monthsToCheck, carriedWindow ?? fallbackWindow), weekStartsOn),
-    )
-    .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
+    .flatMap((fe): FixedExpenseStatus[] => {
+      if (fe.is_recurring) {
+        // Una bolsa existe en un mes si ya había arrancado para el FIN de ese mes — mismo criterio
+        // que `eligibleFixedExpenses`, pero mes a mes en vez de contra el fin del rango completo.
+        return monthsToCheck
+          .filter((m) => parseISO(fe.starts_on) <= endOfMonth(parseISO(m)))
+          .map((m) => statusFor(fe, payments, savings, m, today, null, weekStartsOn))
+      }
+      // `dueDateInCycle(fe, [m], effectiveWindow)` — un solo mes por llamada, no `monthsToCheck`
+      // entero: así cada mes se evalúa contra la ventana por su cuenta, en vez de quedarse con el
+      // primero que matchea (lo que antes ocultaba la instancia del segundo mes cuando la primera ya
+      // caía adentro).
+      return monthsToCheck
+        .map((m) => {
+          const dueDate = dueDateInCycle(fe, [m], effectiveWindow)
+          if (dueDate == null) return null
+          return statusFor(fe, payments, savings, m, today, dueDate, weekStartsOn)
+        })
+        .filter((s): s is FixedExpenseStatus => s != null)
+        // FI-07: un fijo "una vez al mes" cuyo vencimiento materializado en ESTE mes es anterior a
+        // `starts_on` no existía cuando "venció" — no cuenta como atrasado ni resta del proyectado,
+        // salvo que YA tenga un pago ahí (no esconder un pago real). Espejo de
+        // `rpc_projected_balance_range` (`20260923080001_fijos_alta_y_deshacer_importe.sql`).
+        .filter((s) => s.dueDate! >= fe.starts_on || s.done)
+    })
+    .sort((a, b) => compareFixedExpenses(a.fe, b.fe) || a.period.localeCompare(b.period))
 
   const pending = statuses.filter((s) => !s.done)
   // Sólo fijos de una vez: una bolsa ignora el guardado (`savedCents` ya viene en 0 desde
@@ -248,6 +306,26 @@ export function summarizeFixedExpenses(
     savedTotalCents,
     missingToSaveCents,
   }
+}
+
+export interface AmountAfterCopy {
+  kind: 'remaining' | 'complete' | 'over'
+  /** Cuánto falta (`remaining`) o cuánto sobra (`over`) — `0` en `complete`. */
+  cents: number
+}
+
+/**
+ * Bloque 2 del plan de arreglo (FI-12): decide qué dice `MarkPaidDialog` bajo el importe según si lo
+ * guardado/cargado queda corto, exacto o de más. Antes "de más" mostraba el mismo texto que "exacto"
+ * ("Con esto lo tenés cubierto."/"Completás el presupuesto"), sin avisar que ese excedente sale del
+ * saldo igual. `alreadyCents` es lo que ya había antes de este importe (pagos o guardados previos del
+ * mismo período); `cents`, lo que se está por confirmar ahora.
+ */
+export function amountAfterCopy(targetCents: number, alreadyCents: number, cents: number): AmountAfterCopy {
+  const total = alreadyCents + cents
+  if (total > targetCents) return { kind: 'over', cents: total - targetCents }
+  if (total === targetCents) return { kind: 'complete', cents: 0 }
+  return { kind: 'remaining', cents: targetCents - total }
 }
 
 export interface PreAccountsPaymentCopy {
@@ -289,5 +367,42 @@ export function preAccountsPaymentCopy({
     title: isDelete ? '¿Eliminar este movimiento?' : '¿Quitar este pago?',
     confirmLabel: isDelete ? 'Eliminar igual' : 'Quitar igual',
     paragraphs,
+  }
+}
+
+/**
+ * Texto de la confirmación antes de quitar/eliminar un movimiento vinculado a un fijo (Bloque 1 del
+ * QA de Fijos, FI-03 y FI-05): hasta acá esto pasaba sin avisar — un toque en Movimientos (Básico) o
+ * el botón Eliminar del formulario borraban el pago o el guardado al instante. `description` es la
+ * del propio movimiento (para un pago, es el nombre del fijo o la nota de la carga de bolsa que puso
+ * `rpc_mark_fixed_expense_paid`/`rpc_add_fixed_expense_saving`; no hace falta pedirlo aparte).
+ */
+export function removeLinkedMovementCopy({
+  kind,
+  description,
+}: {
+  kind: 'payment' | 'saving'
+  description: string | null
+}): PreAccountsPaymentCopy {
+  const name = description?.trim() || null
+  if (kind === 'saving') {
+    return {
+      title: '¿Eliminar este guardado?',
+      confirmLabel: 'Eliminar guardado',
+      paragraphs: [
+        name
+          ? `Se borra «${name}»: esa plata deja de estar apartada para el fijo.`
+          : 'Este movimiento es un guardado para un fijo: al eliminarlo, esa plata deja de estar apartada.',
+      ],
+    }
+  }
+  return {
+    title: '¿Quitar este pago?',
+    confirmLabel: 'Quitar pago',
+    paragraphs: [
+      name
+        ? `Se borra «${name}» y el fijo vuelve a quedar pendiente.`
+        : 'Se borra este movimiento y el fijo vuelve a quedar pendiente.',
+    ],
   }
 }

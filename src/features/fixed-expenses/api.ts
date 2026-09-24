@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
 import { localTodayISO } from '@/lib/dates'
-import { isPgError, mensajeDeError } from '@/lib/errors'
+import { isDuplicateKeyError, isPgError, mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import type { Database } from '@/lib/database.types'
 
@@ -111,6 +111,29 @@ export function useFixedExpenseSavings(periods: string[]) {
       const { data, error } = await supabase.from('fixed_expense_savings').select('*').in('period', periods)
       if (error) throw error
       return data.map(toSaving)
+    },
+  })
+}
+
+/** El guardado (si existe) cuyo movimiento es `transactionId` — para que `TransactionFormDialog`
+ *  sepa si el movimiento que está editando es un guardado vinculado a un fijo (Bloque 1 del QA de
+ *  Fijos: FI-02/FI-03, mismo criterio que ya usa para un pago con `transaction.fixed_expense_payment_id`,
+ *  que no necesita query aparte). Un movimiento nunca es a la vez pago y guardado, así que alcanza
+ *  con esta única fila en vez de traer todos los guardados del período. */
+export function useFixedExpenseSavingByTransaction(transactionId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fixed-expense-saving-by-transaction', user?.id, transactionId],
+    enabled: !!user && !!transactionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fixed_expense_savings')
+        .select('*')
+        .eq('transaction_id', transactionId!)
+        .maybeSingle()
+      if (error) throw error
+      return data ? toSaving(data) : null
     },
   })
 }
@@ -272,7 +295,15 @@ export function useMarkFixedExpensePaid() {
         p_occurred_on: occurredOn ?? null,
         p_today: localTodayISO(),
       })
-      if (error) throw error
+      if (error) {
+        // FI-01/FI-11: en un fijo "una vez al mes", un doble toque en "Marcar pagado" puede mandar
+        // la segunda llamada antes de que el candado del diálogo (`MarkPaidDialog`) la frene — la
+        // base la rechaza con su índice único de siempre, pero el primer intento ya pagó. No es un
+        // error real: se traga acá (en vez de reintentar mostrando un toast que invita a repetir algo
+        // que ya salió bien) y se deja que `onSuccess` refresque con el estado real de la base.
+        if (isDuplicateKeyError(error, 'fixed_expense_payments_single_per_period_idx')) return
+        throw error
+      }
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
     meta: { errorMessage: 'No se pudo marcar como pagado. Probá de nuevo.' },
@@ -385,6 +416,10 @@ export function useAddFixedExpenseSaving() {
         p_note: note ?? null,
         p_account_id: accountId ?? null,
         p_occurred_on: occurredOn ?? null,
+        // FI-15 (bloque 4): mismo motivo que ya tienen `rpc_mark_fixed_expense_paid`/
+        // `rpc_projected_balance_range` — sin esto, un guardado cargado sin `occurredOn` explícito usa
+        // `current_date` (UTC) del lado de la base para el movimiento que genera.
+        p_today: localTodayISO(),
       })
       if (error) throw error
     },
