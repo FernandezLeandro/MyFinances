@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª) | rama `accounts`, `4bacfa9` | 0 / 7 / 8 / 10 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-02/03/05 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 4 / 8 / 10 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -33,6 +33,59 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
   por plan. Al terminar vuelve a Premium.
 - **Una pasada sólo informa: no arregla.** Los arreglos van en un plan aparte, después de priorizar.
   Una pasada siguiente re-verifica y actualiza el estado en el mismo archivo.
+- **Verificar un arreglo sí toca la cuenta de QA** (crear un fijo/movimiento de prueba, pagarlo,
+  editarlo, borrarlo): a diferencia de una pasada de sólo informe, acá el objetivo es reproducir el
+  bug arreglado en vivo. Usar datos de prueba nuevos y descartables, no los que ya dejó una pasada
+  anterior (ver «Automatizar con Playwright» abajo) — y dejar la cuenta exactamente como estaba antes
+  de irse (mismo saldo, mismos movimientos, mismo plan).
+
+## Automatizar con Playwright: lo aprendido
+
+Notas técnicas para la próxima vez que se verifique algo en vivo contra la app — evita repetir la
+misma vuelta.
+
+- **Cambiar el plan de la cuenta de QA por SQL, con el OK de Lean:**
+  `npx supabase db query "update public.profiles set plan = '<basic|test|premium>' where id = '<uid>'" --linked`
+  (columna sola, reversible, sin migración). Devolverla a Premium con la misma llamada al terminar.
+- **La pantalla Fijos es idéntica en los tres planes** (alta, pago, edición, pausa y borrado de un
+  fijo) — lo que cambia por plan es la nav (Mis Deudas/Análisis/Ahorros/Me Deben), Movimientos (carga
+  manual, y qué pasa al tocar el movimiento de un fijo) y la tarjeta de Hoy. No hace falta cambiar de
+  plan para probar el CRUD básico de Fijos, sólo para lo que estas tres pantallas documentan que
+  cambia.
+- **Confirmar qué migración falta antes de un `db push`:** `npx supabase migration list --linked` lista
+  cada migración local con su fecha `remote` (vacía si todavía no se aplicó) — más preciso que mirar
+  `ls supabase/migrations` y adivinar.
+- **Selectores que rompen en esta app:**
+  - Varios campos de importe (`AmountInput` dentro de un `Field`) no tienen `htmlFor`/`id` conectado
+    al `<label>` — `getByLabel('Importe')` no los encuentra. Si el input está registrado con
+    react-hook-form, tiene `name` (usar `input[name="amount"]`); si es controlado a mano (como en
+    `MarkPaidDialog`), no tiene ni eso — usar `input[placeholder="0,00"]` escopeado al diálogo
+    abierto.
+  - Toda pantalla con lista (Movimientos, y probablemente otras) renderiza DOS DOM a la vez: una
+    `<ul>` para mobile (`lg:hidden`) y otra para escritorio (`hidden lg:block`). `getByText(x).first()`
+    agarra la fila mobile (oculta) y el click falla con «element is not visible» — usar `.last()` (la
+    de escritorio va después en el DOM) o escopear al contenedor visible.
+  - `getByRole(role, { name })` sin `exact: true` matchea por substring: `name: 'Ingreso'` también
+    matchea el botón «Ingresos» del filtro de Movimientos si queda detrás de un modal. Para verificar
+    que un chip quedó bloqueado (sin `onClick`, así que ya no es `role=button`), escopear a
+    `page.locator('dialog[open]')` y usar `exact: true` — si no, un botón de fondo con un nombre
+    parecido da un falso positivo de «sigue siendo clickeable».
+  - Un mismo diálogo puede tener dos botones con el mismo texto visible (ej. `MarkPaidDialog` en modo
+    «Guardar»: el chip de modo y el botón de confirmar dicen los dos «Guardar») — usar `.first()`
+    (el chip, arriba en el DOM) y `.last()` (confirmar, en el footer) para desambiguar.
+  - Un `<dialog>` cerrado sigue montado en el DOM (la app no lo desmonta, confía en
+    `dialog:not([open]) { display:none }` del navegador) — Playwright ya lo excluye de `getByRole`
+    porque no es accesible estando oculto, así que no hace falta filtrarlo a mano.
+- **Servidor de dev en background:** con `npm run dev -- --port <N> --strictPort &` más
+  `run_in_background: true`, la tarea puede reportar «exited with code 0» al toque (el wrapper del
+  shell termina, no el proceso de Vite) — confirmar que sigue vivo con `netstat -ano | grep :<N>` o un
+  `curl`, no confiar en el estado de la tarea. Matarlo al final con `taskkill //PID <pid> //F` (el PID
+  de `netstat`, no el de la tarea en background).
+- **Un `mutation.mutateAsync()` esperado (`await`) dentro de un handler sin `try/catch` dejaba una
+  promesa rechazada sin manejar en la consola** cuando la base frenaba la escritura (ver FI-03/FI-11 en
+  [fijos.md](fijos.md)) — el toast de error igual sale (hay un `MutationCache.onError` global en
+  `main.tsx`), pero el error de consola queda. El patrón que ya usa el repo para evitarlo es
+  `mutation.mutate(id, { onSuccess })`, sin `await` ni `mutateAsync`.
 
 ## Severidades
 

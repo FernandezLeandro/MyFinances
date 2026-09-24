@@ -56,6 +56,7 @@ import {
 import { useCan } from '@/features/access/useCan'
 import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
 import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
+import { RemoveLinkedMovementDialog } from '@/features/fixed-expenses/RemoveLinkedMovementDialog'
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Todos' },
@@ -193,6 +194,10 @@ export function Movimientos() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [viewingTransfer, setViewingTransfer] = useState<AccountTransfer | null>(null)
+  // FI-05 del QA de Fijos: antes, tocar la fila de un fijo en Básico lo despagaba al instante, sin
+  // avisar — ahora el toque pide confirmar en `RemoveLinkedMovementDialog` antes de llamar a
+  // `unmarkFixedPayment`.
+  const [pendingUnmarkTx, setPendingUnmarkTx] = useState<Transaction | null>(null)
   // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
   // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
   // el resumen del período.
@@ -334,15 +339,21 @@ export function Movimientos() {
 
   function openEdit(tx: Transaction) {
     // Sin `movimientos-manuales`, un movimiento generado al pagar un fijo se "deshace" con un
-    // toque, sin diálogo — mismo criterio que el desmarcado de Fijos.tsx. Un movimiento suelto que
-    // haya quedado de antes de bajar a este plan (`fixed_expense_payment_id` null) no tiene ese
-    // camino: sigue abriendo el form, que al menos deja eliminarlo.
+    // toque (mismo criterio que el desmarcado de Fijos.tsx), pero ahora pide confirmar primero
+    // (FI-05). Un movimiento suelto que haya quedado de antes de bajar a este plan
+    // (`fixed_expense_payment_id` null) no tiene ese camino: sigue abriendo el form, que al menos
+    // deja eliminarlo.
     if (!canMovimientosManuales && tx.fixed_expense_payment_id) {
-      unmarkFixedPayment.unmarkPayment(tx.fixed_expense_payment_id)
+      setPendingUnmarkTx(tx)
       return
     }
     setEditingTx(tx)
     setFormOpen(true)
+  }
+
+  function confirmUnmarkPayment() {
+    if (pendingUnmarkTx?.fixed_expense_payment_id) unmarkFixedPayment.unmarkPayment(pendingUnmarkTx.fixed_expense_payment_id)
+    setPendingUnmarkTx(null)
   }
 
   return (
@@ -728,6 +739,14 @@ export function Movimientos() {
         busy={unmarkFixedPayment.isPending}
         onClose={unmarkFixedPayment.cancelConfirm}
         onConfirm={unmarkFixedPayment.confirmForce}
+      />
+      <RemoveLinkedMovementDialog
+        open={!!pendingUnmarkTx}
+        busy={unmarkFixedPayment.isPending}
+        kind="payment"
+        description={pendingUnmarkTx?.description ?? null}
+        onClose={() => setPendingUnmarkTx(null)}
+        onConfirm={confirmUnmarkPayment}
       />
     </div>
   )

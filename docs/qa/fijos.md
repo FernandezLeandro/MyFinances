@@ -7,6 +7,9 @@
 - **Planes:** Premium (casi todo), Básico y Test (lo que cambia por plan).
 - **Ciclos:** mensual, quincenal, semanal con inicio lunes y semanal con inicio domingo.
 - **Pasada:** 1.ª.
+- **Arreglos (2026-09-23, sin re-testear la pasada entera):** FI-02, FI-03 y FI-05 resueltos y
+  verificados en vivo — ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
+  Migración `20260923070001_fijos_movimiento_vinculado.sql`, aplicada a producción con OK de Lean.
 
 ## Resumen
 
@@ -31,10 +34,10 @@ Los problemas vienen por cuatro lados:
 | ID | Sev. | Estado | Título |
 |---|---|---|---|
 | FI-01 | Alto | Abierto | Doble toque en «Registrar» de una bolsa duplica la carga |
-| FI-02 | Alto | Abierto | Editar el movimiento de un pago no actualiza el pago |
-| FI-03 | Alto | Abierto | Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió |
+| FI-02 | Alto | **Resuelto** (2026-09-23) | Editar el movimiento de un pago no actualiza el pago |
+| FI-03 | Alto | **Resuelto** (2026-09-23) | Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió |
 | FI-04 | Alto | Abierto | Semana entre dos meses: un pago del mes anterior marca pagado el siguiente, y quitarlo borra el viejo |
-| FI-05 | Alto | Abierto | Básico: tocar el movimiento de un fijo en Movimientos quita el pago sin confirmar |
+| FI-05 | Alto | **Resuelto** (2026-09-23) | Básico: tocar el movimiento de un fijo en Movimientos quita el pago sin confirmar |
 | FI-06 | Alto | Abierto | Semana entre dos meses: el panel del proyectado no cierra y las bolsas mezclan períodos |
 | FI-07 | Alto | Abierto | Un fijo nuevo con día ya pasado aparece atrasado y resta del proyectado |
 | FI-08 | Medio | Abierto | Períodos futuros: el panel del proyectado no cierra |
@@ -68,7 +71,7 @@ Los problemas vienen por cuatro lados:
   a diferencia de «una vez al mes», que tiene índice único (ver FI-11). En el celular un doble toque es
   fácil. Lo mismo puede pasar con «Guardar» (tampoco tiene guardia).
 
-### FI-02 · Editar el movimiento de un pago no actualiza el pago — Alto
+### FI-02 · Editar el movimiento de un pago no actualiza el pago — Alto — Resuelto
 
 Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar:
 
@@ -80,8 +83,18 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
 
 - **Por qué:** `fixed_expense_payments.amount_paid` es una copia que nadie actualiza. El formulario del
   movimiento avisa que borrarlo desmarca el fijo, pero no dice nada al editarlo.
+- **Arreglo:** trigger `transactions_sync_linked_fixed_expense` (`before update` en `transactions`,
+  migración `20260923070001_fijos_movimiento_vinculado.sql`) suma el delta del importe a
+  `fixed_expense_payments.amount_paid` (o a `fixed_expense_savings.amount` si el movimiento es de un
+  guardado) y rechaza (`linked_movement_type_locked`) cualquier cambio de tipo Gasto↔Ingreso. El
+  formulario (`TransactionFormDialog`) bloquea los chips Gasto/Ingreso cuando el movimiento está
+  vinculado (sin `onClick`, no sólo `disabled` visual) y avisa que el importe sincroniza.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): fijo de prueba pagado $20.000 → editado a $25.000
+  desde Movimientos → Fijos mostró $25.000 sin recargar; el chip «Ingreso» no es clickeable (confirmado
+  por accesibilidad: 0 botones, escopeado al diálogo abierto). Fixture de prueba borrado al terminar, sin
+  dejar rastro.
 
-### FI-03 · Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió — Alto
+### FI-03 · Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió — Alto — Resuelto
 
 - **Pasos:**
   1. Gimnasio ($30.000): guardar $10.000 y $25.000, los dos con movimiento.
@@ -94,6 +107,19 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
   - el saldo y el proyectado suben $25.000.
 - **Esperado:** el mismo freno que en el detalle del fijo, donde quitar un guardado de un mes ya pagado
   está bloqueado (`fixed_expense_saving_period_paid`), o al menos un aviso.
+- **Arreglo:** trigger `transactions_block_delete_paid_saving` (`before delete` en `transactions`,
+  misma migración que FI-02) reusa el freno de `rpc_remove_fixed_expense_saving` — si el guardado es de
+  un período ya pagado, la base rechaza el `delete`. El formulario pide confirmar primero
+  (`RemoveLinkedMovementDialog`, «¿Eliminar este guardado?»); si igual está bloqueado, el toast lo explica
+  («Este guardado es de un mes ya pagado: primero quitá el pago del fijo»). `rpc_delete_account` se ajustó
+  para no chocar con este freno al borrar una cuenta entera (borra los guardados originales antes de que
+  el trigger los vea, después de reinsertar sus copias sin movimiento).
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): fijo de prueba $30.000, guardado con movimiento por el
+  total, marcado pagado (cubierto, sin movimiento nuevo) → intentar eliminar el movimiento del guardado
+  desde Movimientos pidió confirmar y, al confirmar, la base lo rechazó con el mensaje de arriba; el
+  movimiento siguió existiendo. De paso se encontró y arregló una promesa sin manejar en la consola del
+  navegador cuando la base rechazaba el borrado (mismo patrón que FI-11, ver «Aprendido» en
+  [README](README.md)).
 
 ### FI-04 · Semana entre dos meses: pago del mes anterior — Alto
 
@@ -109,7 +135,7 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
   `done = pagos.length > 0`, cualquier pago de cualquiera de los dos meses lo marca hecho, y «quitar»
   toma el primero. Los guardados tienen el mismo filtro.
 
-### FI-05 · Básico: tocar el movimiento de un fijo lo despaga — Alto
+### FI-05 · Básico: tocar el movimiento de un fijo lo despaga — Alto — Resuelto
 
 - **Pasos:** plan Básico → Movimientos → tocar el movimiento «Expensas» ($180.000).
 - **Obtenido:**
@@ -118,6 +144,15 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
   - nada en la fila indica que tocarla hace eso.
 - **Por qué:** es a propósito (`Movimientos.tsx:241`), pero para el usuario casual de Básico, un toque al
   pasar el dedo le cambia los números sin que se entere.
+- **Arreglo:** el toque abre `RemoveLinkedMovementDialog` («¿Quitar este pago? Se borra este movimiento y
+  el fijo vuelve a quedar pendiente.») antes de llamar a `unmarkFixedPayment` — mismo diálogo que reusa el
+  botón Eliminar del formulario completo (FI-03). El freno `payment_before_accounts` (pago de antes de
+  tener cuentas) sigue siendo un paso aparte, después de confirmar esto.
+- **Verificado en vivo** (cuenta de QA, cambiada a Básico por SQL con OK de Lean y devuelta a Premium al
+  terminar, 2026-09-23): confirmado que **Fijos** es la misma pantalla completa en los tres planes (crear,
+  pagar, editar, pausar y eliminar un fijo) — lo único que cambia por plan es la nav, Movimientos y la
+  tarjeta de Hoy (ver «Aprendido» en [README](README.md)). Con un fijo de prueba pagado: tocar su
+  movimiento pidió confirmar, «Cancelar» no tocó nada, y confirmar lo desmarcó y lo volvió a pendiente.
 
 ### FI-06 · Semana entre dos meses: el panel no cierra — Alto
 

@@ -247,7 +247,17 @@ export function useUpdateTransaction() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidateAll(queryClient, user?.id),
+    onSuccess: () => {
+      invalidateAll(queryClient, user?.id)
+      // Bloque 1 del QA de Fijos (FI-02): editar el importe o la fecha de un movimiento vinculado
+      // sincroniza el pago/guardado en la base (`transactions_sync_linked_fixed_expense`,
+      // `20260923070001_fijos_movimiento_vinculado.sql`) — sin esto, Fijos y el historial seguían
+      // mostrando el importe viejo hasta el próximo refetch por otra causa. Invalidar de más acá es
+      // gratis: un movimiento suelto (no vinculado) no tiene fila que estas keys muevan.
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-savings', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-saving-by-transaction', user?.id] })
+    },
   })
 }
 
@@ -269,6 +279,7 @@ export function useDeleteTransaction() {
       // compartida por las tres.
       queryClient.invalidateQueries({ queryKey: ['fixed-expense-payments', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['fixed-expense-savings', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['fixed-expense-saving-by-transaction', user?.id] })
     },
   })
 }

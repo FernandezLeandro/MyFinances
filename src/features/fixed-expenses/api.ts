@@ -115,6 +115,29 @@ export function useFixedExpenseSavings(periods: string[]) {
   })
 }
 
+/** El guardado (si existe) cuyo movimiento es `transactionId` — para que `TransactionFormDialog`
+ *  sepa si el movimiento que está editando es un guardado vinculado a un fijo (Bloque 1 del QA de
+ *  Fijos: FI-02/FI-03, mismo criterio que ya usa para un pago con `transaction.fixed_expense_payment_id`,
+ *  que no necesita query aparte). Un movimiento nunca es a la vez pago y guardado, así que alcanza
+ *  con esta única fila en vez de traer todos los guardados del período. */
+export function useFixedExpenseSavingByTransaction(transactionId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['fixed-expense-saving-by-transaction', user?.id, transactionId],
+    enabled: !!user && !!transactionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fixed_expense_savings')
+        .select('*')
+        .eq('transaction_id', transactionId!)
+        .maybeSingle()
+      if (error) throw error
+      return data ? toSaving(data) : null
+    },
+  })
+}
+
 /** Sobre un rango arbitrario — la variante "horizonte, no ventana" del bloque 3 del plan de ciclos
  *  (ver `rpc_projected_balance_range` y el comentario de `projectionWindow` en `src/lib/cycle.ts`
  *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { format, parseISO, subDays } from 'date-fns'
 import { cycleContaining, type CycleConfig } from '@/lib/cycle'
-import { compareFixedExpenses, fixedExpenseUrgency, preAccountsPaymentCopy, summarizeFixedExpenses } from './aggregate'
+import {
+  compareFixedExpenses,
+  fixedExpenseUrgency,
+  preAccountsPaymentCopy,
+  removeLinkedMovementCopy,
+  summarizeFixedExpenses,
+} from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
 // `new Date(2026, 7, 20)` (constructor local, mes 0-indexado) en vez de `new Date('2026-08-20')` —
@@ -508,5 +514,31 @@ describe('preAccountsPaymentCopy', () => {
     expect(preAccountsPaymentCopy({ action: 'unmark', canCuentas: true, canEditMovement: true })).toEqual(
       preAccountsPaymentCopy({ action: 'unmark', ...premium }),
     )
+  })
+})
+
+// Bloque 1 del QA de Fijos (FI-03, FI-05): antes de este bloque, quitar el pago desde Movimientos o
+// eliminar el movimiento de un guardado pasaba al instante, sin avisar.
+describe('removeLinkedMovementCopy', () => {
+  it('pago, con nombre: nombra el fijo y dice que vuelve a pendiente', () => {
+    const c = removeLinkedMovementCopy({ kind: 'payment', description: 'Expensas' })
+    expect(c.title).toBe('¿Quitar este pago?')
+    expect(c.confirmLabel).toBe('Quitar pago')
+    expect(c.paragraphs[0]).toContain('«Expensas»')
+    expect(c.paragraphs[0]).toContain('vuelve a quedar pendiente')
+  })
+
+  it('pago, sin descripción (o sólo espacios): copy genérico, sin comillas vacías', () => {
+    expect(removeLinkedMovementCopy({ kind: 'payment', description: null }).paragraphs[0]).not.toContain('«')
+    expect(removeLinkedMovementCopy({ kind: 'payment', description: '   ' }).paragraphs[0]).not.toContain('«')
+  })
+
+  it('guardado: título y copy distintos — no habla de "pendiente" sino de la plata apartada', () => {
+    const c = removeLinkedMovementCopy({ kind: 'saving', description: 'Guardado · Gimnasio' })
+    expect(c.title).toBe('¿Eliminar este guardado?')
+    expect(c.confirmLabel).toBe('Eliminar guardado')
+    expect(c.paragraphs[0]).toContain('«Guardado · Gimnasio»')
+    expect(c.paragraphs[0]).toContain('deja de estar apartada')
+    expect(c.paragraphs.join(' ')).not.toContain('pendiente')
   })
 })

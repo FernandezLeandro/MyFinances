@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -16,8 +16,9 @@ import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
 import { useBalanceLocations } from '@/features/accounts/api'
 import { accountFieldMode, effectiveDefaultAccountId } from '@/features/accounts/aggregate'
-import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
+import { useFixedExpenseSavingByTransaction, useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
 import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
+import { RemoveLinkedMovementDialog } from '@/features/fixed-expenses/RemoveLinkedMovementDialog'
 import { useCan } from '@/features/access/useCan'
 import {
   useCreateTransaction,
@@ -127,6 +128,15 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   // un toque, sólo con una nota. Se resuelve como "quitar el pago" (mismo RPC, mismo resultado neto:
   // se va el movimiento y el fijo vuelve a pendiente), no como un `deleteTx` distinto.
   const unmarkLegacyPayment = useUnmarkWithLegacyConfirm({ onSuccess: onClose })
+  // Bloque 1 del QA de Fijos (FI-02/FI-03): un pago se sabe por `transaction.fixed_expense_payment_id`
+  // (ya viene en la fila); un guardado con movimiento no tiene esa columna, así que hace falta esta
+  // query chica — sólo corre editando, y nunca junto con la de arriba (un movimiento no es las dos
+  // cosas a la vez).
+  const { data: linkedSaving } = useFixedExpenseSavingByTransaction(
+    transaction && !transaction.fixed_expense_payment_id ? transaction.id : null,
+  )
+  const linkedKind: 'payment' | 'saving' | null = transaction?.fixed_expense_payment_id ? 'payment' : linkedSaving ? 'saving' : null
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const {
     register,
@@ -288,16 +298,34 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
 
   async function onDelete() {
     if (!transaction) return
-    if (transaction.fixed_expense_payment_id && accountMode === 'legacy') {
-      unmarkLegacyPayment.unmarkPayment(transaction.fixed_expense_payment_id)
+    // FI-03/FI-05 del QA de Fijos: antes esto borraba al instante — ahora pide confirmar en
+    // `RemoveLinkedMovementDialog` primero. El freno `payment_before_accounts` (legacy) sigue siendo
+    // aparte: lo dispara `unmarkLegacyPayment` recién al confirmar, si corresponde.
+    if (linkedKind) {
+      setConfirmingDelete(true)
       return
     }
     await deleteTx.mutateAsync(transaction.id)
     onClose()
   }
 
+  function confirmDelete() {
+    setConfirmingDelete(false)
+    if (!transaction) return
+    if (transaction.fixed_expense_payment_id) {
+      unmarkLegacyPayment.unmarkPayment(transaction.fixed_expense_payment_id)
+      return
+    }
+    // Guardado: un delete directo — si el mes ya está pagado, lo frena el trigger
+    // `transactions_block_delete_paid_saving` y el toast lo explica (`errors.ts`). `.mutate()`, no
+    // `mutateAsync` + `await`: si la base lo rechaza, el toast ya sale por el `onError` global
+    // (`main.tsx`) — awaitar acá dejaría además una promesa rechazada sin manejar en la consola,
+    // mismo patrón que FI-11 (verificado en vivo contra la cuenta de QA).
+    deleteTx.mutate(transaction.id, { onSuccess: onClose })
+  }
+
   function selectType(next: TransactionType) {
-    if (next === type) return
+    if (next === type || linkedKind) return
     setValue('type', next)
     setValue('categoryId', '') // la categoría elegida ya no aplica al otro tipo
   }
@@ -331,24 +359,28 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          {/* Simétrico a desmarcar desde Fijos (que borra el movimiento): un trigger en la base
-              desmarca el fijo si este movimiento se borra desde acá (`fixed_expense_payment_fecha`,
-              bloque 2). Con cuenta, se borra con el mismo botón Eliminar sin más; siendo de antes de
-              las cuentas (`accountMode === 'legacy'`), `onDelete` pasa por el mismo freno que Fijos
-              (`UnmarkBeforeAccountsDialog`, montado más abajo) en vez de borrar directo — N4 del QA. */}
-          {isEditing && transaction.fixed_expense_payment_id && (
+          {/* Bloque 1 del QA de Fijos (FI-02/FI-03): un movimiento vinculado a un pago o a un
+              guardado sincroniza su importe con el fijo (trigger
+              `transactions_sync_linked_fixed_expense`, `20260923070001_fijos_movimiento_vinculado.sql`)
+              y no puede cambiar de tipo — de ahí que los chips de abajo queden sin `onClick` en ese
+              caso. Eliminar pide confirmar en `RemoveLinkedMovementDialog` (montado más abajo) en vez
+              de borrar directo — antes pasaba sin aviso (N4/FI-03/FI-05 del QA). */}
+          {isEditing && linkedKind && (
             <p className="text-[12px] text-fg-muted">
-              Este movimiento viene de pagar un fijo: si lo eliminás, el fijo vuelve a quedar pendiente.
+              {linkedKind === 'payment'
+                ? 'Este movimiento viene de pagar un fijo: cambiar el importe actualiza el pago. Si lo eliminás, el fijo vuelve a quedar pendiente.'
+                : 'Este movimiento es un guardado para un fijo: cambiar el importe actualiza el guardado. Si lo eliminás, esa plata deja de estar apartada.'}{' '}
+              El tipo (Gasto/Ingreso) no se puede cambiar.
               {accountMode === 'legacy' &&
                 ' Es de antes de tus cuentas: si después lo volvés a pagar, se descuenta dos veces.'}
             </p>
           )}
 
           <div className="flex gap-2">
-            <Chip size="lg" active={type === 'expense'} onClick={() => selectType('expense')}>
+            <Chip size="lg" active={type === 'expense'} onClick={linkedKind ? undefined : () => selectType('expense')}>
               Gasto
             </Chip>
-            <Chip size="lg" active={type === 'income'} onClick={() => selectType('income')}>
+            <Chip size="lg" active={type === 'income'} onClick={linkedKind ? undefined : () => selectType('income')}>
               Ingreso
             </Chip>
           </div>
@@ -473,6 +505,16 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
         onClose={unmarkLegacyPayment.cancelConfirm}
         onConfirm={unmarkLegacyPayment.confirmForce}
       />
+      {transaction && linkedKind && (
+        <RemoveLinkedMovementDialog
+          open={confirmingDelete}
+          busy={deleteTx.isPending || unmarkLegacyPayment.isPending}
+          kind={linkedKind}
+          description={transaction.description}
+          onClose={() => setConfirmingDelete(false)}
+          onConfirm={confirmDelete}
+        />
+      )}
     </>
   )
 }

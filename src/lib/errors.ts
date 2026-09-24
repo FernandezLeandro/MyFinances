@@ -74,6 +74,13 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /no_accounts_to_stop/.test(message)) return 'Ya no tenés cuentas.'
   if (code === 'P0001' && /payment_before_accounts/.test(message))
     return 'Este pago es de antes de tener cuentas: quitarlo y volver a pagarlo descuenta la plata dos veces.'
+  // Bloque 1 del QA de Fijos (FI-02/FI-03): triggers `transactions_sync_linked_fixed_expense` y
+  // `transactions_block_delete_paid_saving` (`20260923070001_fijos_movimiento_vinculado.sql`).
+  if (code === 'P0001' && /linked_movement_type_locked/.test(message))
+    return 'Este movimiento viene de un fijo: no se puede cambiar entre Gasto e Ingreso.'
+  if (code === 'P0001' && /linked_movement_amount_invalid/.test(message)) return 'Ingresá un importe válido.'
+  if (code === 'P0001' && /fixed_expense_saving_period_paid/.test(message))
+    return 'Este guardado es de un mes ya pagado: primero quitá el pago del fijo.'
 
   return DEFAULT_MESSAGE
 }
