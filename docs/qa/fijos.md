@@ -13,6 +13,13 @@
   - Bloque 2: FI-01, FI-11 y FI-12 resueltos y verificados en vivo. Sin migración (sólo front).
   - Bloque 3: FI-07, FI-10 y FI-13 resueltos y verificados en vivo. Migración
     `20260923080001_fijos_alta_y_deshacer_importe.sql`, aplicada a producción con OK de Lean.
+  - Bloque 5: FI-16 y FI-17 resueltos, FI-14 parcial, verificados en vivo. Migración
+    `20260923090001_fijos_blindaje.sql`, aplicada a producción con OK de Lean.
+  - Bloque 4 (2026-09-24): FI-04, FI-06, FI-08, FI-09 y FI-15 resueltos y verificados en vivo.
+    Migración `20260923100001_fijos_bolsa_paid_on.sql`, aplicada a producción con OK de Lean.
+
+  Con esto no queda ningún Alto ni Medio abierto salvo el resto de FI-14 (a propósito). Siguen abiertos
+  los Bajos FI-18 a FI-25.
 
   Ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
 
@@ -41,18 +48,18 @@ Los problemas vienen por cuatro lados:
 | FI-01 | Alto | **Resuelto** (2026-09-23) | Doble toque en «Registrar» de una bolsa duplica la carga |
 | FI-02 | Alto | **Resuelto** (2026-09-23) | Editar el movimiento de un pago no actualiza el pago |
 | FI-03 | Alto | **Resuelto** (2026-09-23) | Borrar el movimiento de un guardado deja el fijo pagado con plata que no salió |
-| FI-04 | Alto | Abierto | Semana entre dos meses: un pago del mes anterior marca pagado el siguiente, y quitarlo borra el viejo |
+| FI-04 | Alto | **Resuelto** (2026-09-24) | Semana entre dos meses: un pago del mes anterior marca pagado el siguiente, y quitarlo borra el viejo |
 | FI-05 | Alto | **Resuelto** (2026-09-23) | Básico: tocar el movimiento de un fijo en Movimientos quita el pago sin confirmar |
-| FI-06 | Alto | Abierto | Semana entre dos meses: el panel del proyectado no cierra y las bolsas mezclan períodos |
+| FI-06 | Alto | **Resuelto** (2026-09-24) | Semana entre dos meses: el panel del proyectado no cierra y las bolsas mezclan períodos |
 | FI-07 | Alto | **Resuelto** (2026-09-23) | Un fijo nuevo con día ya pasado aparece atrasado y resta del proyectado |
-| FI-08 | Medio | Abierto | Períodos futuros: el panel del proyectado no cierra |
-| FI-09 | Medio | Abierto | Semana que no empieza el lunes: Fijos no reconoce la semana actual |
+| FI-08 | Medio | **Resuelto** (2026-09-24) | Períodos futuros: el panel del proyectado no cierra |
+| FI-09 | Medio | **Resuelto** (2026-09-24) | Semana que no empieza el lunes: Fijos no reconoce la semana actual |
 | FI-10 | Medio | **Resuelto** (2026-09-23) | Quitar un pago no deshace el cambio de importe del fijo |
 | FI-11 | Medio | **Resuelto** (2026-09-23) | Doble click en «Marcar pagado»: queda pagado pero sale un error |
 | FI-12 | Medio | **Resuelto** (2026-09-23) | Guardar o cargar de más no avisa |
 | FI-13 | Medio | **Resuelto** (2026-09-23) | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
 | FI-14 | Medio | **Parcial** (2026-09-23) | La base acepta datos inválidos o pagos armados a mano por API |
-| FI-15 | Medio | Por lectura de código | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
+| FI-15 | Medio | **Resuelto** (2026-09-24) | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
 | FI-16 | Bajo | **Resuelto** (2026-09-23) | Nombre de sólo espacios guarda un fijo sin nombre |
 | FI-17 | Bajo | **Resuelto** (2026-09-23) | El error de más de 80 caracteres sale en inglés |
 | FI-18 | Bajo | Abierto | Importes raros se aceptan en silencio; 11 cifras dan un error genérico |
@@ -134,7 +141,7 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
   navegador cuando la base rechazaba el borrado (mismo patrón que FI-11, ver «Aprendido» en
   [README](README.md)).
 
-### FI-04 · Semana entre dos meses: pago del mes anterior — Alto
+### FI-04 · Semana entre dos meses: pago del mes anterior — Alto — Resuelto
 
 - **Pasos:**
   1. Ciclo semanal (lunes).
@@ -147,6 +154,15 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
 - **Por qué:** `statusFor` filtra los pagos por fijo pero no por `period` (`aggregate.ts:58-64`): con
   `done = pagos.length > 0`, cualquier pago de cualquiera de los dos meses lo marca hecho, y «quitar»
   toma el primero. Los guardados tienen el mismo filtro.
+- **Arreglo (Bloque 4):** `summarizeFixedExpenses` (`aggregate.ts`) arma una instancia por **(fijo,
+  mes)**, igual que el cross join `months × fijos` de `rpc_projected_balance_range`, y `statusFor`
+  filtra pagos y guardados por `period`. Cada fila lleva `period` (key `fixedExpenseStatusKey`) y,
+  si el ciclo toca dos meses, el mes al lado del nombre («QA Dia2 · sep»). `MarkPaidDialog` recibe el
+  `period` de la instancia. Sin migración para esta parte.
+- **Verificado en vivo** (cuenta de QA, 2026-09-24, ciclo semanal lunes en la semana 28/9–4/10):
+  «QA Dia2» aparece dos veces («· sep» y «· oct»). Pagar la de septiembre creó un solo pago con
+  `period = 2026-09-01` y octubre siguió pendiente. Con las dos pagadas, «quitar pago» en la de
+  septiembre borró sólo ese pago; el de octubre quedó intacto.
 
 ### FI-05 · Básico: tocar el movimiento de un fijo lo despaga — Alto — Resuelto
 
@@ -167,7 +183,7 @@ Tres variantes, desde Movimientos → tocar el movimiento → editar → Guardar
   tarjeta de Hoy (ver «Aprendido» en [README](README.md)). Con un fijo de prueba pagado: tocar su
   movimiento pidió confirmar, «Cancelar» no tocó nada, y confirmar lo desmarcó y lo volvió a pendiente.
 
-### FI-06 · Semana entre dos meses: el panel no cierra — Alto
+### FI-06 · Semana entre dos meses: el panel no cierra — Alto — Resuelto
 
 Misma semana 28/9–4/10:
 - **Proyectado:** el panel dice «Saldo actual $1.471.889 · Fijos por pagar (2) −$85.000» y el número grande
@@ -181,6 +197,17 @@ Misma semana 28/9–4/10:
 - **Una bolsa semanal**, en una semana **futura**, muestra las cargas de la semana actual («Súper $3.000
   de $80.000»). Mientras el mes es el actual, el sub-período se toma de *hoy*, no de la semana que se mira
   (`aggregate.ts:93-102`).
+- **Arreglo (Bloque 4):**
+  - `withMonthCarry` (`src/lib/cycle.ts`) arrastra siempre hasta el día 1 del mes de `from`, también
+    cuando la semana cruza de mes. La base ya lo hacía (`date_trunc('month', p_from)` sin condición):
+    el desfase era sólo del cliente.
+  - Con las instancias por (fijo, mes) de FI-04, una bolsa tiene un presupuesto propio por cada mes
+    que toca la semana, en vez de sumar las cargas de los dos.
+  - El tercer punto (bolsa semanal en semana futura) se deja **a propósito** igual que la base: mientras
+    el mes sea el actual, el sub-período se toma de hoy. Cambiarlo cambiaría qué resta el proyectado.
+- **Verificado en vivo** (2026-09-24, semana 28/9–4/10): «Saldo actual $1.426.889 − Fijos por pagar
+  (6) $195.000 = $1.231.889», igual al número grande. «QA BolsaMes» y «Súper» aparecen una vez por
+  mes, cada una con su presupuesto ($5.000 y $7.000 de $20.000 por separado).
 
 ### FI-07 · Un fijo nuevo con día ya pasado aparece atrasado — Alto — Resuelto
 
@@ -203,7 +230,7 @@ Misma semana 28/9–4/10:
   «Falta pagar» ($97.000) que mostró la pantalla coincidieron centavo a centavo con el cálculo hecho
   aparte por SQL de sólo lectura sobre los fijos activos de la cuenta.
 
-### FI-08 · Períodos futuros: el panel no cierra — Medio
+### FI-08 · Períodos futuros: el panel no cierra — Medio — Resuelto
 
 - **Pasos:** en Fijos, avanzar a octubre (mensual) o a 1–15 oct / 16–31 oct (quincenal).
 - **Obtenido:** en 1–15 oct, «Saldo actual $1.476.889 − Fijos por pagar $955.500» da $521.389, pero el
@@ -212,8 +239,14 @@ Misma semana 28/9–4/10:
   pagás, a fin de octubre tampoco lo vas a tener), pero el panel no lo muestra en ninguna línea. En el
   período actual, en cambio, el panel cierra al centavo en todos los ciclos.
 - **Sugerencia:** una línea «Pendiente de antes».
+- **Arreglo (Bloque 4):** función pura `pendingBeforeCents` (`src/lib/projectedBalance.ts`, con test):
+  lo que el número grande resta y ninguna línea explica. `SaldoProyectadoPanel` la muestra como
+  «Pendiente de antes» sólo si no es 0 (en el período actual siempre da 0). Cableada en Fijos y Mis
+  Deudas; Hoy no navega.
+- **Verificado en vivo** (2026-09-24, semana 19–25 oct): «Saldo actual $1.426.889 − Fijos por pagar
+  $955.500 − Pendiente de antes $97.000 = $374.389», igual al número grande.
 
-### FI-09 · Semana que no empieza el lunes — Medio
+### FI-09 · Semana que no empieza el lunes — Medio — Resuelto
 
 - **Pasos:** ciclo semanal que empieza el domingo; semana actual 20–26/9.
 - **Obtenido:**
@@ -223,6 +256,10 @@ Misma semana 28/9–4/10:
 
   Hoy, en cambio, dice «Venció».
 - **Por qué:** `isCurrentCycle` fija `weekStartsOn: 1` (`src/lib/cycle.ts:150`).
+- **Arreglo (Bloque 4):** `isCurrentCycle` compara hoy contra `[cycle.from, cycle.to]`. Test en
+  `cycle.test.ts`.
+- **Verificado en vivo** (2026-09-24, semana domingo–sábado 20–26/9, hoy jueves 24): aparece el grupo
+  «Atrasado» con «QA Dia2 · Venció el 2».
 
 ### FI-10 · Quitar un pago no deshace el cambio de importe — Medio — Resuelto
 
@@ -334,7 +371,7 @@ sincronización del Bloque 1 — ninguno de los dos es `security definer`, corre
 llama, apoyados en esas mismas policies. Convertirlos requiere una revisión de seguridad aparte, no un
 ajuste chico — queda pendiente (ver el comentario al principio de la migración).
 
-### FI-15 · Bolsas quincenales/semanales: carga ubicada por fecha UTC — Medio · por lectura de código
+### FI-15 · Bolsas quincenales/semanales: carga ubicada por fecha UTC — Medio — Resuelto
 
 - **Evidencia:** una carga hecha el 22/9 a las 23:53 (Argentina) quedó con `paid_at` 2026-09-23 02:53 UTC.
 - **Riesgo:** el proyectado ubica la carga en su sub-período con `paid_at::date`, en UTC, y el cliente lo
@@ -344,6 +381,16 @@ ajuste chico — queda pendiente (ver el comentario al principio de la migració
 - **Por qué no se reprodujo:** no era domingo ni día 15.
 - **Relacionado:** `rpc_add_fixed_expense_saving` todavía usa `current_date` (UTC) cuando no recibe fecha.
   Hoy el cliente siempre la manda, así que no se vio en vivo.
+- **Arreglo (Bloque 4, `20260923100001_fijos_bolsa_paid_on.sql`):**
+  - columna nueva `fixed_expense_payments.paid_on date`: la fecha local que ya arma la RPC (elegida o
+    «hoy» del cliente), con backfill desde el movimiento o `paid_at` en hora Argentina;
+  - `rpc_mark_fixed_expense_paid` la llena, el trigger del Bloque 1 la sincroniza si se edita la fecha
+    del movimiento, y `rpc_projected_balance_range` ubica la carga por `paid_on`;
+  - el cliente (`statusFor`) también usa `paid_on`, así que los dos lados miran la misma fecha;
+  - `rpc_add_fixed_expense_saving` recibe `p_today` y deja de usar `current_date`.
+- **Verificado en vivo** (2026-09-24): el backfill corrió sin errores y el total de «Súper» en la semana
+  actual coincide con sus cargas según `paid_on`. El borde real (domingo o día 15 después de las
+  21:00) no se reprodujo: no era ese horario.
 
 ### FI-16 a FI-25 · Bajos
 
@@ -433,6 +480,9 @@ ajuste chico — queda pendiente (ver el comentario al principio de la migració
   - un guardado de $50.000 en Expensas;
   - el movimiento huérfano «Guardado · Gimnasio».
 - **Gimnasio** (el fijo del QA de Cuentas) se eliminó en FI-G.
+- **Después de los arreglos (Bloques 1-5, hasta 2026-09-24):** la cuenta quedó igual que arriba. Los
+  pagos de prueba se quitaron (sin movimientos huérfanos nuevos) y el ciclo volvió a mensual con la
+  semana desde el lunes.
 
 ## Quedó afuera
 

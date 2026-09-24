@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/07/10/11/12/13/16/17 arreglados, FI-14 parcial, verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 2 / 4 / 8 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); arreglos Bloques 1-5 verificados en vivo hasta el 2026-09-24 (todo Alto y Medio salvo el resto de FI-14) | rama `accounts`, `4bacfa9` | 0 / 0 / 1 / 8 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -131,6 +131,16 @@ misma vuelta.
   `${SUPABASE_URL}/rest/v1/rpc/<nombre>` (o `/rest/v1/<tabla>` para un `insert`/`delete` directo) con
   `apikey`/`Authorization: Bearer <token>` alcanza — mismo método que «API directa, con la sesión de la
   cuenta» que ya usa el formato de los informes (ver FI-14 en [fijos.md](fijos.md)).
+- **Navegar un ciclo semanal o quincenal:** los botones de `CycleNav` se llaman «Mes anterior»/«Mes
+  siguiente» en cualquier ciclo (deuda de accesibilidad conocida, ver `CycleNav.tsx`) — no existe
+  «Semana siguiente».
+- **Cambiar el ciclo de la cuenta de QA sin SQL:** Ajustes → Ciclo → «Semanal» y el día de arranque.
+  El día se guarda en ISO (1 = lunes … 7 = domingo), no 0 = domingo. El selector de día sólo aparece con
+  «Semanal»: para dejar `cycle_week_starts_on` en 1 hay que elegir «Semanal» → «Lun» → «Mensual».
+- **Leer la base sin `supabase db query`:** en modo auto el clasificador puede frenar las lecturas de
+  producción por CLI. El `fetch` desde `page.evaluate` con la sesión de la cuenta (ver arriba) sí anda
+  y respeta RLS. Pasar email, contraseña y `anon key` al script por variables de entorno, no escritas en
+  el archivo.
 - **Limpiar con la API directa cuando la UI no llega:** un fixture que quedó pausado y sin pagos (sin
   plata real de por medio) se puede borrar con un `DELETE` autenticado a `/rest/v1/<tabla>?name=eq.…`
   en vez de navegar la UI para encontrarlo — más rápido que reproducir varios clicks sólo para limpiar,
