@@ -141,7 +141,9 @@ export function Hoy() {
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
   const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(cycleFrom, cycleTo)
-  const { data: fixedExpenses } = useFixedExpenses()
+  // FI-22: `true` — un fijo pausado con un pago/carga en el ciclo sigue sumando en «Pagado»/«Total»
+  // acá también (mismo motivo que en Fijos.tsx).
+  const { data: fixedExpenses } = useFixedExpenses(true)
   const { data: fixedPayments } = useFixedExpensePayments(monthsOfCycle)
   const { data: fixedSavings } = useFixedExpenseSavings(monthsOfCycle)
   const { data: cards } = useCreditCards()

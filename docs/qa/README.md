@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); arreglos Bloques 1-5 verificados en vivo hasta el 2026-09-24 (todo Alto y Medio salvo el resto de FI-14) | rama `accounts`, `4bacfa9` | 0 / 0 / 1 / 8 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); los 26 issues (FI-01 a FI-26) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas | rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -146,6 +146,19 @@ misma vuelta.
   en vez de navegar la UI para encontrarlo — más rápido que reproducir varios clicks sólo para limpiar,
   siempre que no haya movimientos vinculados de por medio (ahí sí conviene la UI, ver el punto de
   arriba sobre movimientos huérfanos).
+- **Simular una hora puntual (medianoche, un horario límite) con `page.clock`** (Playwright) en vez de
+  esperar el reloj real o cambiar la hora del sistema: `page.clock.install({ time: new Date(2026, 8, 30,
+  23, 58) })` y después `page.clock.pauseAt(...)`/`fastForward(...)` para cruzar el borde — sirve para
+  cualquier bug de "a tal hora pasa esto" en cualquier área (ver FI-23 y el borde sin reproducir de FI-15
+  en [fijos.md](fijos.md)), no sólo Fijos.
+- **Bajo RLS, un `update` sin policy no falla: afecta 0 filas sin avisar.** Un trigger o RPC que no es
+  `security definer` corre con el permiso de quien llama; si escribe una tabla con RLS que no tiene
+  policy para esa operación (pasó con `fixed_expense_savings`, FI-26 en [fijos.md](fijos.md)), no hay
+  error de permiso: el síntoma es otro (ahí, `linked_movement_amount_invalid` porque el trigger leyó
+  `not found`). Al probar un flujo que escribe en dos tablas, verificar las dos por SQL o API, no sólo
+  la respuesta. Y al blindar una tabla sacándole policies de escritura, grepear qué otras funciones o
+  triggers (no sólo las RPC "oficiales") también escriben ahí: la migración de FI-14 tuvo que convertir
+  también `rpc_delete_account` y el trigger de sincronización.
 
 ## Severidades
 
@@ -177,7 +190,20 @@ misma vuelta.
 ## Reglas: el repo es público
 
 - **Nada que identifique una cuenta:** ni emails, ni `uuid`, ni códigos de invitación, ni contraseñas. Se
-  dice «la cuenta de QA».
+  dice «la cuenta de QA» o «la cuenta de prueba», también al contar que se usó una segunda cuenta
+  para probar el aislamiento entre cuentas.
+- **Antes de cerrar un informe, correr este chequeo** desde la raíz del repo, en Git Bash. Tiene que salir
+  vacío:
+
+  ```sh
+  git grep -nIE --untracked '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|eyJ[A-Za-z0-9_-]{20,}|[A-Z]{3,}-[A-Z0-9]{6}\b' -- . ':!package-lock.json' ':!supabase/migrations/20260806210001_cleanup_test_assets.sql' ':!supabase/migrations/20260807020001_promote_e2e_admin.sql' | grep -v '@example\.com'
+  ```
+
+  Busca emails, `uuid`, JWT y códigos de invitación en todo el repo, incluido lo nuevo sin commitear.
+  Revisa el repo entero y no sólo `docs/qa`, porque un script de verificación o un comentario también
+  pueden filtrar un dato. Las dos migraciones excluidas son historia ya aplicada. Lo motivó un email
+  real que se coló en `analisis.md` aunque esta regla ya existía: sin un chequeo concreto, la regla
+  sola no alcanza.
 - **Un hallazgo de seguridad explotable** contra otras cuentas se anota acá de forma genérica («una RPC
   acepta X, ver informe privado») hasta que esté arreglado. El detalle va en un informe privado.
 - Los montos y los nombres de prueba («Expensas», $180.000) sí van: son inventados.

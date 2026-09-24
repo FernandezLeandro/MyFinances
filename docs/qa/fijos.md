@@ -18,10 +18,22 @@
   - Bloque 4 (2026-09-24): FI-04, FI-06, FI-08, FI-09 y FI-15 resueltos y verificados en vivo.
     Migración `20260923100001_fijos_bolsa_paid_on.sql`, aplicada a producción con OK de Lean.
 
-  Con esto no queda ningún Alto ni Medio abierto salvo el resto de FI-14 (a propósito). Siguen abiertos
-  los Bajos FI-18 a FI-25.
+  Con esto no quedó ningún Alto ni Medio abierto salvo el resto de FI-14 (a propósito).
 
-  Ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
+  Plan de cierre de los Bajos y del resto de FI-14 (2026-09-24), guardado en
+  `C:\Users\leanf\.claude\plans\armemos-un-plan-para-harmonic-wilkinson.md`:
+  - **Bloques A, B y C** (FI-18 a FI-25): resueltos y verificados en vivo el 2026-09-24. Sin migración
+    (sólo front). La verificación encontró un bug propio del Bloque A: «Nuevo fijo» crasheaba al abrir
+    (`fixedExpenseNameError` con `name` todavía `undefined`); arreglado con test de regresión antes de
+    seguir.
+  - **Bloque D** (resto de FI-14 + FI-26, hallazgo nuevo): migración
+    `20260924010001_fijos_pagos_solo_por_rpc.sql`, aplicada a producción por Lean el 2026-09-24 (el
+    modo automático de Claude Code bloqueó el `db push`). FI-14 y FI-26 resueltos y verificados en vivo.
+
+  Con esto **no queda ningún issue abierto en Fijos.**
+
+  Nada de esto está commiteado (Claude no commitea). Ver el detalle de cada uno abajo y lo aprendido en
+  [README](README.md).
 
 ## Resumen
 
@@ -58,18 +70,19 @@ Los problemas vienen por cuatro lados:
 | FI-11 | Medio | **Resuelto** (2026-09-23) | Doble click en «Marcar pagado»: queda pagado pero sale un error |
 | FI-12 | Medio | **Resuelto** (2026-09-23) | Guardar o cargar de más no avisa |
 | FI-13 | Medio | **Resuelto** (2026-09-23) | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
-| FI-14 | Medio | **Parcial** (2026-09-23) | La base acepta datos inválidos o pagos armados a mano por API |
+| FI-14 | Medio | **Resuelto** (2026-09-24) | La base acepta datos inválidos o pagos armados a mano por API |
 | FI-15 | Medio | **Resuelto** (2026-09-24) | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
 | FI-16 | Bajo | **Resuelto** (2026-09-23) | Nombre de sólo espacios guarda un fijo sin nombre |
 | FI-17 | Bajo | **Resuelto** (2026-09-23) | El error de más de 80 caracteres sale en inglés |
-| FI-18 | Bajo | Abierto | Importes raros se aceptan en silencio; 11 cifras dan un error genérico |
-| FI-19 | Bajo | Abierto | Se permiten dos fijos con el mismo nombre |
-| FI-20 | Bajo | Abierto | «Falta pagar en 28–4 sep» |
-| FI-21 | Bajo | Abierto | «Pagados esta semana» incluye pagos anteriores del mes |
-| FI-22 | Bajo | Abierto | Pausar un fijo ya pagado lo saca de los pagados del mes |
-| FI-23 | Bajo | Abierto | Con la app abierta, pasada la medianoche Fijos sigue en el mes anterior |
-| FI-24 | Bajo | Abierto | Pagar un fijo ya cubierto por guardados pide igual «Con qué lo pagué» |
-| FI-25 | Bajo | Abierto | 320 px: encabezados de sección apretados |
+| FI-18 | Bajo | **Resuelto** (2026-09-24) | Importes raros se aceptan en silencio; 11 cifras dan un error genérico |
+| FI-19 | Bajo | **Resuelto** (2026-09-24) | Se permiten dos fijos con el mismo nombre |
+| FI-20 | Bajo | **Resuelto** (2026-09-24) | «Falta pagar en 28–4 sep» |
+| FI-21 | Bajo | **Resuelto** (2026-09-24) | «Pagados esta semana» incluye pagos anteriores del mes |
+| FI-22 | Bajo | **Resuelto** (2026-09-24) | Pausar un fijo ya pagado lo saca de los pagados del mes |
+| FI-23 | Bajo | **Resuelto** (2026-09-24) | Con la app abierta, pasada la medianoche Fijos sigue en el mes anterior |
+| FI-24 | Bajo | **Resuelto** (2026-09-24) | Pagar un fijo ya cubierto por guardados pide igual «Con qué lo pagué» |
+| FI-25 | Bajo | **Resuelto** (2026-09-24) | 320 px: encabezados de sección apretados |
+| FI-26 | Medio | **Resuelto** (2026-09-24) | Guardado: editar el importe de su movimiento siempre se rechaza (`linked_movement_amount_invalid`) |
 
 ---
 
@@ -335,7 +348,7 @@ Misma semana 28/9–4/10:
   `cycleTotalCents` a mano por SQL de sólo lectura sobre los 7 fijos activos de septiembre (usa los
   $10.000 pagados de «QA Servicio», no los $11.111 de la plantilla actual).
 
-### FI-14 · La base acepta datos inválidos o pagos armados a mano — Medio — Parcialmente resuelto
+### FI-14 · La base acepta datos inválidos o pagos armados a mano — Medio — Resuelto
 
 Todo esto es por API directa, con la sesión de la cuenta, y **sólo sobre sus propios datos**:
 - `fixed_expenses` acepta nombre vacío, nombre de 500 caracteres, «una vez al mes» sin día (se ve «Vence el
@@ -365,11 +378,32 @@ Todo esto es por API directa, con la sesión de la cuenta, y **sólo sobre sus p
   pasado mañana → rechazado; desmarcar un id de pago inventado → rechazado. Los tres con el código de
   error nuevo, no un 200 silencioso. Fixture borrado al terminar.
 
-**Sigue abierto, a propósito:** `fixed_expense_payments` sigue aceptando un insert/update directo (sin
-pasar por la RPC). Sacar esas policies rompería el flujo normal de «Marcar pagado» y el trigger de
-sincronización del Bloque 1 — ninguno de los dos es `security definer`, corren con el permiso de quien
-llama, apoyados en esas mismas policies. Convertirlos requiere una revisión de seguridad aparte, no un
-ajuste chico — queda pendiente (ver el comentario al principio de la migración).
+**Arreglado (Bloque D, 2026-09-24):** `fixed_expense_payments` seguía aceptando un
+insert/update directo (sin pasar por la RPC), tal como quedó documentado arriba. Migración
+`20260924010001_fijos_pagos_solo_por_rpc.sql`:
+- `rpc_mark_fixed_expense_paid`, `rpc_unmark_fixed_expense_payment`, `rpc_add_fixed_expense_saving`,
+  `rpc_remove_fixed_expense_saving`, `rpc_delete_account` y el trigger `trg_transactions_sync_linked_
+  fixed_expense` (Bloque 1) pasan a `security definer`, con `set search_path = public` y un chequeo de
+  `auth.uid() is not null` al principio de cada una — cada una ya filtraba el resto de sus consultas por
+  `user_id = auth.uid()`, así que no hacía falta tocar esa parte.
+- Se sacan las policies `fixed_expense_payments_insert_own`/`_update_own` y el `insert`/`update` directo
+  (`revoke`); en `fixed_expense_savings` se saca `_insert_own` y el `insert` directo. Quedan `select` y
+  `delete` en las dos — ningún caso de la UI dependía de un `insert`/`update` directo distinto de la RPC.
+- La validación de que `account_id` sea de la propia cuenta no hacía falta agregarla: ya la hace el
+  trigger `trg_transactions_account` sobre cualquier insert/update de `transactions`, sea cual sea el
+  `security` de la función que lo dispara.
+- Aplicada a producción por Lean el 2026-09-24.
+- **Verificado en vivo** (cuenta de QA, 2026-09-24, después de la migración), por API directa con la
+  sesión de la cuenta:
+  - insert directo en `fixed_expense_payments` y en `fixed_expense_savings` → 403 `permission denied`;
+    `PATCH amount_paid` de un pago → 403, el importe no cambia;
+  - pagar o guardar para un fijo de otra cuenta → sigue rechazado (`fixed_expense_not_found`);
+  - el flujo normal sigue andando: marcar pagado y desmarcar (por RPC y desde la pantalla), guardar y
+    quitar guardado, editar el importe del movimiento de un pago (FI-02, se sincroniza), borrar el
+    movimiento de un pago (lo desmarca) y borrar un fijo pagado;
+  - `rpc_delete_account` (ahora definer): eliminar una cuenta con un guardado con movimiento deja el
+    guardado, sin movimiento;
+  - sin errores de consola salvo los 403 buscados. Fixtures borradas; el saldo volvió a su valor.
 
 ### FI-15 · Bolsas quincenales/semanales: carga ubicada por fecha UTC — Medio — Resuelto
 
@@ -392,6 +426,22 @@ ajuste chico — queda pendiente (ver el comentario al principio de la migració
   actual coincide con sus cargas según `paid_on`. El borde real (domingo o día 15 después de las
   21:00) no se reprodujo: no era ese horario.
 
+### FI-26 · Guardado: editar el importe de su movimiento siempre se rechaza — Medio — Resuelto
+
+- **Encontrado por lectura de código** (2026-09-24), al planear el cierre de FI-14: `fixed_expense_
+  savings` tiene RLS y nunca tuvo policy de `update` (`20260912030001_fixed_expense_savings.sql`). El
+  trigger `trg_transactions_sync_linked_fixed_expense` (Bloque 1, FI-02) sí hace `update public.fixed_
+  expense_savings` al editar el importe del movimiento de un guardado, y no era `security definer`.
+- **Confirmado en vivo** (cuenta de QA, 2026-09-24, antes de la migración), por API directa con la
+  sesión de la cuenta: guardado de $10.000 con movimiento → editar el importe del movimiento a $15.000 →
+  la base lo rechaza con `linked_movement_amount_invalid` y el guardado sigue en $10.000. No es un error
+  de permiso: bajo RLS sin policy de `update`, el `update` afecta 0 filas sin avisar, y el trigger lo lee
+  como importe inválido. FI-02 sólo se había verificado con un pago, no con un guardado.
+- **Arreglo:** mismo cambio que el resto de FI-14 (Bloque D) — el trigger pasa a `security definer`, así
+  que ya no depende de que `fixed_expense_savings` tenga `grant update` para `authenticated`.
+- **Verificado en vivo** (2026-09-24, después de la migración): el mismo guardado, con el importe de su
+  movimiento editado a $15.000 → la base lo acepta y el guardado queda en $15.000.
+
 ### FI-16 a FI-25 · Bajos
 
 - **FI-16 · Nombre de sólo espacios — Resuelto:**
@@ -410,32 +460,91 @@ ajuste chico — queda pendiente (ver el comentario al principio de la migració
 - **Verificado en vivo** (cuenta de QA, 2026-09-23), ambos: nombre «   » → «Falta el nombre», no guarda;
   90 caracteres tipeados → el input queda en 80; forzando 81 caracteres por fuera del `maxLength` →
   «Máximo 80 caracteres», nunca el mensaje en inglés de Zod.
-- **FI-18 · Importes:**
+- **FI-18 · Importes — Resuelto:**
   - «-500» se guarda como $500 y «1,2,3» como $1,23, sin avisar;
   - «0,005» redondea a $0,01;
   - con 11 cifras, el toast genérico «No se pudo guardar. Probá de nuevo.» y una promesa rechazada sin
     manejar;
   - 10 cifras funcionan.
   - «1.234» se lee como 1234, lo esperable en es-AR.
-- **FI-19 · Nombres duplicados:** se puede tener dos «Alquiler». Cuentas ya lo impide; en Fijos
-  confunde (sobre todo en el buscador del `+` de Básico).
-- **FI-20 · Etiqueta del cruce de mes:** el encabezado de la semana 28/9–4/10 dice «Falta pagar en **28–4
-  sep**». El navegador de arriba sí dice «28 sep – 4 oct 2026».
-- **FI-21 · «Pagados esta semana»:** incluye fijos pagados antes en el mes (por el arrastre del mes). Por
-  ejemplo, uno pagado el 2/9 figura como «pagado esta semana» en la del 21–27/9.
-- **FI-22 · Pausar un fijo ya pagado:** lo saca de «Pagados este mes» y del «Pagado» del mes, así que la foto
-  del mes cambia hacia atrás. El pago y su movimiento siguen existiendo.
-- **FI-23 · App abierta pasada la medianoche:** con la app abierta a las 23:58 del 30/9 y sin recargar,
-  a las 00:02 Fijos sigue mostrando septiembre. El diálogo de pago sí toma la fecha nueva. Se corrige al
-  navegar.
-- **FI-24 · Pagar un fijo ya cubierto:** el diálogo dice «Ya guardaste $35.000 con movimiento: no hace falta
-  generar un movimiento nuevo», pero igual pide «Con qué lo pagué», que no se usa.
-- **FI-25 · 320 px:**
+  - **Arreglo:** `parseAmountToCents` (`src/lib/money.ts`) rechaza más de una coma («1,2,3») y más de 2
+    decimales («0,005») en vez de adivinar. `MAX_AMOUNT_CENTS` (mismo archivo, 1e12, el tope de un
+    `numeric(12,2)`) — la reusan el alta y «Marcar pagado»/«Registrar carga»/«Guardar», y `accounts/
+    aggregate.ts` (antes tenía dos constantes locales iguales). «-500» sigue igual a propósito:
+    `sanitizeAmountInput` ya borra el signo mientras se tipea en un campo sin `allowNegative`. El alta
+    pasó de `await mutateAsync` a `.mutate()` (saca la promesa sin manejar). Tests en `money.test.ts` y
+    `accounts/aggregate.test.ts` (ya cubierto).
+- **FI-19 · Nombres duplicados — Resuelto:** se puede tener dos «Alquiler».
+  Cuentas ya lo impide; en Fijos confunde (sobre todo en el buscador del `+` de Básico).
+  - **Arreglo:** `fixedExpenseNameError` (`aggregate.ts`), espejo de `accountNameError` pero contra TODOS
+    los fijos (activos y pausados, no sólo activos como Cuentas) — uno pausado se puede reactivar. Sólo
+    del lado del cliente, sin índice único. Tests en `aggregate.test.ts`.
+- **FI-20 · Etiqueta del cruce de mes — Resuelto:** el encabezado de la semana
+  28/9–4/10 decía «Falta pagar en **28–4 sep**». El navegador de arriba sí dice «28 sep – 4 oct 2026».
+  - **Arreglo:** `cycleShortLabel` (`src/lib/cycle.ts`) pone el mes de cada punta cuando son distintos:
+    «28 sep – 4 oct». Test en `cycle.test.ts`.
+- **FI-21 · «Pagados esta semana» — Resuelto:** incluía fijos pagados antes en
+  el mes (por el arrastre del mes). Por ejemplo, uno pagado el 2/9 figuraba como «pagado esta semana» en
+  la del 21–27/9.
+  - **Arreglo:** `summarizeFixedExpenses` (`aggregate.ts`) — un atrasado arrastrado por `withMonthCarry`
+    sólo se trae para no perder de vista lo que sigue IMPAGO; si ya está pagado, sólo cuenta como «pagado»
+    en la ventana que se está mirando si el pago cayó DENTRO de ella (`paid_on >= window.from`) — si se
+    pagó en un ciclo anterior, ya se resolvió ahí y no reaparece en éste. Tests en `aggregate.test.ts`.
+- **FI-22 · Pausar un fijo ya pagado — Resuelto:** lo sacaba de «Pagados este
+  mes» y del «Pagado» del mes, así que la foto del mes cambiaba hacia atrás. El pago y su movimiento
+  seguían existiendo.
+  - **Decisión de Lean:** un fijo pausado que ya tiene un pago o una carga en el período sigue en
+    «Pagados» ese período.
+  - **Arreglo:** `summarizeFixedExpenses` ya no descarta los pausados de entrada — una instancia de un
+    fijo pausado sólo se queda si tiene pagos/cargas en su período, y queda forzada a `done`/sin resto
+    (no hay forma de completar una bolsa pausada a medio cargar). `Fijos.tsx` y `Hoy.tsx` pasan a pedir
+    `useFixedExpenses(true)` siempre (antes sólo con el panel «Pausados» abierto). Tests en
+    `aggregate.test.ts`.
+- **FI-23 · App abierta pasada la medianoche — Resuelto:** con la app abierta a
+  las 23:58 del 30/9 y sin recargar, a las 00:02 Fijos seguía mostrando septiembre. El diálogo de pago sí
+  tomaba la fecha nueva. Se corregía al navegar.
+  - **Arreglo:** hook nuevo `useToday` (`src/lib/useToday.ts`) — programa un `setTimeout` a la próxima
+    medianoche local (`msUntilNextDay`, `src/lib/dates.ts`, con test) y revisa también en `focus`/
+    `visibilitychange` (una PWA suspendida puede no correr el timer a tiempo). `useCycle` lo usa en vez de
+    `useMemo(() => new Date(), [])`; Fijos, Hoy y Mis Deudas lo heredan porque las tres llaman
+    `useCycle()`.
+- **FI-24 · Pagar un fijo ya cubierto — Resuelto:** el diálogo decía «Ya
+  guardaste $35.000 con movimiento: no hace falta generar un movimiento nuevo», pero igual pedía «Con qué
+  lo pagué», que no se usaba.
+  - **Arreglo:** `MarkPaidDialog` — `showAccountField` también depende de `payTxAmount !== 0` (todo
+    cubierto por guardados con movimiento no pide cuenta).
+- **FI-25 · 320 px — Resuelto:**
   - con totales de 9 cifras no hay desborde, pero «Gastos fijos» va en dos líneas y los encabezados «Esta
     semana · los próximos 7 días» y «Más adelante · el resto del mes» se parten en tres líneas junto al
     monto;
   - con totales de 11 cifras (irreales) el número grande desborda 18 px a 320 y se sale de su tarjeta a
     1024.
+  - **Arreglo:** en `SectionHeader` (`Fijos.tsx`) el título no envuelve y el hint se esconde por debajo
+    de `sm`; en el header mobile, `flex-wrap` para que la píldora del ciclo baje si no entra al lado de
+    «Gastos fijos». El desborde con 11 cifras no se toca: son montos irreales, y con FI-18 cada fijo ya
+    no puede pasar de 10.
+
+**Verificación en vivo de FI-18 a FI-25** (cuenta de QA, 2026-09-24, Playwright contra el dev server
+local y la base de producción; fixtures descartables «QA FI2x», todas borradas al terminar y sin
+movimientos huérfanos; saldo final igual al de antes, $1.426.889):
+- **FI-18:** en «Nuevo fijo», «1,2,3», «0,005» y 14 cifras muestran «Ingresá un importe válido» en el
+  campo; 15000 no. Sin toast genérico ni errores de consola.
+- **FI-19:** «Alquiler» y «  ALQUILER  » muestran «Ya tenés un fijo con ese nombre.» y dejan «Guardar»
+  deshabilitado.
+- **FI-20:** con ciclo semanal (lunes), la semana siguiente dice «Falta pagar en 28 sep – 4 oct»; a 320
+  px la píldora baja debajo del título, sin scroll horizontal.
+- **FI-21:** en la semana 21–27/9, un fijo que vence el 3 y se pagó el 10/9 ya no aparece en «Pagados esta
+  semana»; Alquiler e Internet (vencidos el 5 y el 10, pagados el 22/9) sí aparecen. El panel cierra:
+  «Saldo actual $1.419.889 − Fijos por pagar $97.000 = $1.322.889».
+- **FI-22:** un fijo pagado y después pausado sigue en «Pagados este mes» (también tras recargar), y no
+  vuelve a aparecer como pendiente.
+- **FI-23:** con `page.clock` a las 23:58 del 30/9, Fijos dice «septiembre»; tras avanzar 4 minutos sin
+  recargar, dice «octubre».
+- **FI-24:** con un guardado con movimiento que cubre el total, «Marcar como pagado» avisa «Ya
+  guardaste… no hace falta generar un movimiento nuevo» y no muestra «Con qué lo pagué» ni ningún
+  selector de cuenta.
+- **FI-25:** sin scroll horizontal a 320, 375, 1280 y 1920 px. A 320 «Esta semana» entra en una línea
+  sin el hint; a 1920 el hint se ve («ya venció», «se cargan durante el período»).
 
 ---
 

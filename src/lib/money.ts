@@ -18,6 +18,12 @@ export type Currency = 'ARS' | 'USD'
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { ARS: '$', USD: 'US$' }
 
+/** Tope de un `numeric(12, 2)` en centavos — el mismo límite que ya validaban por separado
+ *  `MAX_ABS_CENTS`/`MAX_ABS_CENTS_ADJUST` en `accounts/aggregate.ts`. FI-18 del QA de Fijos: acá no
+ *  había ningún tope, así que 11 cifras tiraban un error genérico de la base en vez de uno claro en
+ *  el campo. */
+export const MAX_AMOUNT_CENTS = 1e12
+
 /**
  * Convierte un `numeric` tal como lo devuelve PostgREST (string con punto decimal, p.ej. "1234.50")
  * a centavos enteros. Distinto de `parseAmountToCents`: ese interpreta lo que tipea el usuario
@@ -51,6 +57,10 @@ export function parseAmountToCents(input: string): number | null {
   const raw = input.trim()
   if (!raw) return null
 
+  // FI-18 del QA de Fijos: más de una coma ("1,2,3") no es "$1,23" — antes el resto del parseo lo
+  // dejaba pasar como si sólo la primera fuera el separador decimal.
+  if ((raw.match(/,/g) ?? []).length > 1) return null
+
   // es-AR usa "." de miles y "," de decimales; toleramos también el formato inglés.
   const hasComma = raw.includes(',')
   const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
@@ -59,6 +69,15 @@ export function parseAmountToCents(input: string): number | null {
   // Sin esto, texto sin ningún dígito (p.ej. "abc") queda en "" tras el replace, y `Number('')`
   // es `0` — un importe "válido" que no lo es. Un input no numérico tiene que dar `null`, no `0`.
   if (!/\d/.test(digitsOnly)) return null
+
+  // Si sigue quedando más de un punto acá, es un separador de miles que el regex de arriba no
+  // reconoció (p.ej. "1.2.3") — no un número real.
+  if ((digitsOnly.match(/\./g) ?? []).length > 1) return null
+
+  // FI-18: más de 2 decimales ("0,005") redondeaba en silencio a un centavo que el usuario no
+  // tipeó — mejor rechazarlo que adivinar.
+  const decimalDigits = digitsOnly.split('.')[1]
+  if (decimalDigits && decimalDigits.length > 2) return null
 
   const value = Number(digitsOnly)
   if (!Number.isFinite(value)) return null

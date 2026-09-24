@@ -5,6 +5,7 @@ import {
   amountAfterCopy,
   compareFixedExpenses,
   cycleTotalCents,
+  fixedExpenseNameError,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
   removeLinkedMovementCopy,
@@ -34,6 +35,40 @@ describe('summarizeFixedExpenses — fijo de una sola vez', () => {
     expect(s.pending).toHaveLength(0)
     expect(s.done).toHaveLength(1)
     expect(s.done[0].paidCents).toBe(50_000_00)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+})
+
+// FI-22 del QA de Fijos: pausar un fijo ya pagado lo sacaba de "Pagados"/"Pagado" del mes — la foto
+// del mes cambiaba hacia atrás, aunque el pago y su movimiento siguieran existiendo.
+describe('summarizeFixedExpenses — FI-22: fijo pausado con algo ya pagado/cargado', () => {
+  it('pausado SIN pago en el período: no genera ninguna instancia (no pending, no done)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_active: false })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('pausado CON pago en el período: sigue en done, no resta del proyectado', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_active: false })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'f1', amountPaidCents: 50_000_00 })
+    const s = summarizeFixedExpenses([fe], [payment], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].paidCents).toBe(50_000_00)
+    expect(s.done[0].remainingCents).toBe(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('bolsa pausada con carga PARCIAL: queda "cerrada" (done, sin resto) — no hay forma de completarla ya', () => {
+    const nafta = makeFixedExpense({ id: 'nafta', cents: 80_000_00, is_recurring: true, is_active: false })
+    const carga = makeFixedExpensePayment({ fixed_expense_id: 'nafta', amountPaidCents: 3_000_00, is_recurring: true })
+    const s = summarizeFixedExpenses([nafta], [carga], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].paidCents).toBe(3_000_00)
+    expect(s.done[0].remainingCents).toBe(0)
     expect(s.pendingTotalCents).toBe(0)
   })
 })
@@ -311,10 +346,24 @@ describe('summarizeFixedExpenses — con cycle (bloque 3 del plan de ciclos)', (
 
   // Mismo caso, pero YA PAGADO en la primera quincena: `payments` se pide por MES (no por mitad de
   // mes, ver `useFixedExpensePayments`), así que ya están disponibles al mirar la segunda — no
-  // vuelve a aparecer como pendiente.
-  it('con cycle quincenal, uno pagado en la quincena anterior no se arrastra (ya está en `payments`)', () => {
+  // vuelve a aparecer como pendiente. FI-21 del QA de Fijos: tampoco vuelve a aparecer como "pagado"
+  // en esta quincena, porque el pago fue de la ANTERIOR (`paid_on` por default de la fixture,
+  // 2026-01-01, mucho antes de esta ventana) — ya se resolvió ahí, no en la que se está mirando.
+  it('con cycle quincenal, uno pagado en la quincena anterior no se arrastra ni reaparece como pagado acá', () => {
     const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
     const payment = makeFixedExpensePayment({ fixed_expense_id: 'alquiler', amountPaidCents: 450_000_00 })
+    const secondHalf = cycleContaining(biweekly, new Date(2026, 7, 20, 12))
+    const s = summarizeFixedExpenses([alquiler], [payment], AGOSTO, HOY_EN_AGOSTO, secondHalf)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(0)
+  })
+
+  // FI-21: si en cambio el pago de ese atrasado cae DENTRO de la ventana que se está mirando (se
+  // pagó hoy, durante esta quincena, aunque haya vencido en la anterior), sí tiene que aparecer como
+  // pagado acá — es al revés del caso de arriba.
+  it('con cycle quincenal, un atrasado pagado DENTRO de esta quincena sí aparece como pagado', () => {
+    const alquiler = makeFixedExpense({ id: 'alquiler', cents: 450_000_00, due_day: 5 })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'alquiler', amountPaidCents: 450_000_00, paid_on: '2026-08-22' })
     const secondHalf = cycleContaining(biweekly, new Date(2026, 7, 20, 12))
     const s = summarizeFixedExpenses([alquiler], [payment], AGOSTO, HOY_EN_AGOSTO, secondHalf)
     expect(s.pending).toHaveLength(0)
@@ -390,7 +439,15 @@ describe('summarizeFixedExpenses — con months (bloque 5, semanal a caballo de 
   // marcaba done a las dos instancias por igual.
   it('FI-04: un pago de septiembre sólo cierra la instancia de septiembre, octubre sigue pendiente', () => {
     const dia2 = makeFixedExpense({ id: 'dia2', cents: 20_000_00, due_day: 2 })
-    const pagoSeptiembre = makeFixedExpensePayment({ fixed_expense_id: 'dia2', amountPaidCents: 20_000_00, period: '2026-09-01' })
+    // FI-21: `paid_on` dentro de la semana mirada (30/9, HOY en este test) — un pago de un atrasado
+    // hecho DENTRO de la ventana actual sí tiene que seguir contando como pagado acá; el default de
+    // la fixture (2026-01-01) quedaría afuera de la ventana y el nuevo filtro de FI-21 lo descartaría.
+    const pagoSeptiembre = makeFixedExpensePayment({
+      fixed_expense_id: 'dia2',
+      amountPaidCents: 20_000_00,
+      period: '2026-09-01',
+      paid_on: '2026-09-30',
+    })
     const s = summarizeFixedExpenses([dia2], [pagoSeptiembre], new Date(2026, 8, 1), HOY_30_SEP, semana, semana.months)
     expect(s.done).toHaveLength(1)
     expect(s.done[0].period).toBe('2026-09-01')
@@ -678,5 +735,40 @@ describe('amountAfterCopy', () => {
   it('sin nada previo: el importe solo decide', () => {
     expect(amountAfterCopy(30_000_00, 0, 30_000_00)).toEqual({ kind: 'complete', cents: 0 })
     expect(amountAfterCopy(30_000_00, 0, 35_000_00)).toEqual({ kind: 'over', cents: 5_000_00 })
+  })
+})
+
+describe('fixedExpenseNameError — FI-19', () => {
+  const alquiler = makeFixedExpense({ id: 'fe-1', name: 'Alquiler' })
+  const gimnasio = makeFixedExpense({ id: 'fe-2', name: 'Gimnasio', is_active: false })
+
+  it('sin choque: null', () => {
+    expect(fixedExpenseNameError({ name: 'Internet', expenses: [alquiler, gimnasio] })).toBeNull()
+  })
+
+  it('choca con uno activo, sin distinguir mayúsculas ni espacios', () => {
+    expect(fixedExpenseNameError({ name: '  ALQUILER  ', expenses: [alquiler, gimnasio] })).toBe(
+      'Ya tenés un fijo con ese nombre.',
+    )
+  })
+
+  it('también choca con uno pausado: uno reactivado puede volver a confundir', () => {
+    expect(fixedExpenseNameError({ name: 'Gimnasio', expenses: [alquiler, gimnasio] })).toBe('Ya tenés un fijo con ese nombre.')
+  })
+
+  it('editando el propio fijo, no choca consigo mismo', () => {
+    expect(fixedExpenseNameError({ name: 'Alquiler', expenses: [alquiler, gimnasio], excludeId: 'fe-1' })).toBeNull()
+  })
+
+  it('nombre vacío: no evalúa choque (lo frena el mínimo de largo del schema, no acá)', () => {
+    expect(fixedExpenseNameError({ name: '   ', expenses: [alquiler, gimnasio] })).toBeNull()
+  })
+
+  // Bug real encontrado al verificar en vivo: `FixedExpenseFormDialog` crasheaba al abrir "Nuevo
+  // fijo" — `watch('name')` da `undefined` en el primer render, antes de que el `useEffect` con
+  // `reset()` complete los `defaultValues`, y `.trim()` sobre `undefined` tira.
+  it('name undefined (primer render de react-hook-form, antes de reset()): no explota', () => {
+    // @ts-expect-error — el tipo dice `string`, pero en runtime react-hook-form entrega `undefined`.
+    expect(fixedExpenseNameError({ name: undefined, expenses: [alquiler, gimnasio] })).toBeNull()
   })
 })

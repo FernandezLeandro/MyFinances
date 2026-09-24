@@ -1,4 +1,4 @@
-import { endOfDay, format, parseISO } from 'date-fns'
+import { addDays, endOfDay, format, parseISO, startOfDay } from 'date-fns'
 
 /**
  * La fecha de hoy en la hora local del navegador, como `yyyy-MM-dd`.
@@ -19,4 +19,12 @@ export function localTodayISO(now: Date = new Date()): string {
  */
 export function endOfLocalDayISO(date: string): string {
   return endOfDay(parseISO(date)).toISOString()
+}
+
+/** Milisegundos hasta la próxima medianoche local, en base a `now`. FI-23 del QA de Fijos: con la
+ *  app abierta y sin recargar, un `useMemo(() => new Date(), [])` congelaba "hoy" al instante en que
+ *  se montó la pantalla — a la medianoche del 30/9 al 1/10, Fijos seguía en septiembre. Lo usa
+ *  `useToday` para programar un `setTimeout` que recalcula justo al cruzar el día. */
+export function msUntilNextDay(now: Date = new Date()): number {
+  return startOfDay(addDays(now, 1)).getTime() - now.getTime()
 }

@@ -192,9 +192,12 @@ function FixedExpenseRow({
 function SectionHeader({ title, hint, totalCents, hidden }: { title: string; hint?: string; totalCents: number; hidden: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-divider px-panel pt-5 pb-2">
-      <div className="flex items-baseline gap-2">
-        <h2 className="font-display text-[14.5px] font-semibold text-fg">{title}</h2>
-        {hint && <span className="text-[11.5px] text-fg-muted">{hint}</span>}
+      {/* FI-25 del QA: a 320px «Esta semana · los próximos 7 días» se partía en tres líneas junto al
+          monto — el título no envuelve, y el hint (la parte menos necesaria del par) se esconde por
+          debajo de `sm` en vez de forzar el ancho. */}
+      <div className="flex min-w-0 items-baseline gap-2">
+        <h2 className="whitespace-nowrap font-display text-[14.5px] font-semibold text-fg">{title}</h2>
+        {hint && <span className="hidden truncate text-[11.5px] text-fg-muted sm:inline">{hint}</span>}
       </div>
       <Money cents={totalCents} size="row" hidden={hidden} />
     </div>
@@ -274,7 +277,10 @@ export function Fijos() {
   // raro, y preferible a que el desglose mienta pareciendo completo.
   const horizonte = useMemo(() => projectionWindow(cycle, current), [cycle, current])
 
-  const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(showPaused)
+  // FI-22: siempre `true` — un fijo pausado que ya tiene un pago/carga en el período sigue en
+  // «Pagados» ese período (`summarizeFixedExpenses` lo filtra puertas adentro), no sólo cuando se
+  // abre el panel «Pausados». `showPaused` sigue siendo sólo la visibilidad de ese panel.
+  const { data: fixedExpenses, isPending, isError, refetch } = useFixedExpenses(true)
   const { data: payments } = useFixedExpensePayments(periods)
   const { data: fixedSavings } = useFixedExpenseSavings(periods)
   const { data: currentBalance } = useCurrentBalance()
@@ -425,9 +431,12 @@ export function Fijos() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between lg:gap-4">
         {/* Mobile: título + píldora de mes en una fila. Ya no hay tabs Fijos/Mis Deudas/Me Deben
-            acá — cada pantalla se navega desde el nav general, no cruzando entre sí. */}
-        <div className="flex items-center justify-between gap-3 lg:hidden">
-          <h1 className="font-display text-figure font-semibold">Gastos fijos</h1>
+            acá — cada pantalla se navega desde el nav general, no cruzando entre sí. FI-25 del QA:
+            `flex-wrap` + `whitespace-nowrap` en el título — con la etiqueta más larga de una semana a
+            caballo de dos meses (FI-20, "28 sep – 4 oct"), a 320px la píldora ya no entra al lado del
+            título sin envolver ninguno de los dos por la mitad. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 lg:hidden">
+          <h1 className="whitespace-nowrap font-display text-figure font-semibold">Gastos fijos</h1>
           <CycleNav cycle={cycle} onPrev={goToPrev} onNext={goToNext} />
         </div>
 

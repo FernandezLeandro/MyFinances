@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -8,9 +8,10 @@ import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
-import { centsToInputText, parseAmountToCents } from '@/lib/money'
+import { centsToInputText, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
-import { useCreateFixedExpense, useUpdateFixedExpense, type FixedExpense } from '@/features/fixed-expenses/api'
+import { useCreateFixedExpense, useFixedExpenses, useUpdateFixedExpense, type FixedExpense } from '@/features/fixed-expenses/api'
+import { fixedExpenseNameError } from '@/features/fixed-expenses/aggregate'
 import { FixedExpenseDeleteConfirmDialog } from '@/features/fixed-expenses/FixedExpenseDeleteConfirmDialog'
 import { bagPeriodNoun } from '@/features/fixed-expenses/period'
 
@@ -20,9 +21,15 @@ const schema = z
     // vacío (`onSubmit` recorta antes de mandarlo a la API). FI-17: mensaje propio para `.max`, no el
     // default de Zod en inglés.
     name: z.string().trim().min(1, 'Falta el nombre').max(80, 'Máximo 80 caracteres'),
-    amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
-      message: 'Ingresá un importe válido',
-    }),
+    // FI-18: sin tope, 11 cifras tiraban el error genérico de la base ("No se pudo guardar...") en
+    // vez de uno claro acá.
+    amount: z.string().refine(
+      (v) => {
+        const cents = parseAmountToCents(v)
+        return cents !== null && cents > 0 && cents < MAX_AMOUNT_CENTS
+      },
+      { message: 'Ingresá un importe válido' },
+    ),
     categoryId: z.string(),
     // Sólo aplica a "una vez al mes" — una bolsa no vence, así que no tiene día que pedir.
     dueDay: z.string(),
@@ -58,6 +65,8 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
   // `true`: incluye archivadas — si el fijo ya tenía una categoría que después se archivó, el select
   // sigue mostrándola (ver `expenseCategories`) en vez de perderla en silencio al guardar.
   const { data: categories } = useCategories(true)
+  // FI-19: `true` para comparar también contra los pausados — uno reactivado puede volver a chocar.
+  const { data: allFixedExpenses } = useFixedExpenses(true)
   const createFixed = useCreateFixedExpense()
   const updateFixed = useUpdateFixedExpense()
 
@@ -67,19 +76,31 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
     watch,
     setValue,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isRecurring: false, bagFrequency: 'monthly' },
   })
+  // Ya no viene de `isSubmitting`: `onSubmit` pasó a `.mutate()` sin `await` (saca la promesa
+  // rechazada sin manejar cuando la base frena el alta), así que RHF ya no puede rastrear el
+  // pendiente — mismo patrón que `MarkPaidDialog`.
+  const isPending = createFixed.isPending || updateFixed.isPending
 
   const isActive = watch('isActive')
   const isRecurring = watch('isRecurring')
   const bagFrequency = watch('bagFrequency')
   const selectedCategoryId = watch('categoryId')
+  const name = watch('name')
   const expenseCategories = (categories ?? []).filter(
     (c) => c.kind === 'expense' && (!c.is_archived || c.id === selectedCategoryId),
   )
+  // FI-19: se calcula siempre (no sólo cuando react-hook-form ya validó el campo) porque también
+  // bloquea `canSubmit` — mismo criterio que `duplicateNameError` en AccountFormDialog.
+  const duplicateNameError = useMemo(
+    () => fixedExpenseNameError({ name, expenses: allFixedExpenses ?? [], excludeId: fixedExpense?.id }),
+    [name, allFixedExpenses, fixedExpense],
+  )
+  const nameError = errors.name?.message ?? duplicateNameError ?? undefined
 
   useEffect(() => {
     if (!open) return
@@ -108,7 +129,11 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
     )
   }, [open, fixedExpense, reset])
 
-  async function onSubmit(values: FormValues) {
+  function onSubmit(values: FormValues) {
+    // FI-19: el duplicado no es parte del schema de Zod (depende de la lista de fijos, fuera de este
+    // form) — se frena acá, con el mismo mensaje ya mostrado al lado del campo.
+    if (duplicateNameError) return
+
     const payload = {
       // Ya viene recortado por el `.trim()` del schema — no hace falta repetirlo acá.
       name: values.name,
@@ -121,11 +146,10 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
     }
 
     if (isEditing) {
-      await updateFixed.mutateAsync({ id: fixedExpense.id, ...payload })
+      updateFixed.mutate({ id: fixedExpense.id, ...payload }, { onSuccess: onClose })
     } else {
-      await createFixed.mutateAsync(payload)
+      createFixed.mutate(payload, { onSuccess: onClose })
     }
-    onClose()
   }
 
   return (
@@ -148,8 +172,8 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
             <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cancelar
             </Button>
-            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando…' : 'Guardar'}
+            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isPending || !!duplicateNameError}>
+              {isPending ? 'Guardando…' : 'Guardar'}
             </Button>
           </>
         }
@@ -187,11 +211,11 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
             <AmountInput invalid={!!errors.amount} {...register('amount')} />
           </Field>
 
-          <Field label="Nombre" htmlFor="name" error={errors.name?.message}>
+          <Field label="Nombre" htmlFor="name" error={nameError}>
             <Input
               id="name"
               placeholder={isRecurring ? 'Nafta, mercadería de mamá…' : 'Internet, prepaga, alquiler…'}
-              invalid={!!errors.name}
+              invalid={!!nameError}
               maxLength={80}
               {...register('name')}
             />

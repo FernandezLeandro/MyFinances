@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { useProfile } from '@/features/profile/api'
+import { useToday } from '@/lib/useToday'
 import {
   cycleContaining,
   cycleFromUrlParam,
@@ -71,7 +72,10 @@ export function useCycle(): UseCycleResult {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const urlId = searchParams.get(CYCLE_PARAM)
-  const today = useMemo(() => new Date(), [])
+  // FI-23: antes `useMemo(() => new Date(), [])` congelaba "hoy" al montar la pantalla — con la app
+  // abierta pasada la medianoche, sin recargar, seguía en el mes anterior. `useToday` se entera del
+  // cruce de día por sí solo.
+  const today = useToday()
   const cycle = useMemo(() => cycleFromUrlParam(config, urlId, today), [config, urlId, today])
   const current = useMemo(() => cycleContaining(config, today), [config, today])
   const isCurrent = isCurrentCycle(cycle, today)

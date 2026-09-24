@@ -91,6 +91,21 @@ describe('parseAmountToCents', () => {
     // "válido" que se podía guardar. Ver el fix en parseAmountToCents.
     expect(parseAmountToCents('abc')).toBeNull()
   })
+
+  it('devuelve null con más de una coma, en vez de leer sólo la primera como decimal', () => {
+    // FI-18 del QA de Fijos: antes esto daba 123 ($1,23) — el resto de comas se descartaba en
+    // silencio en vez de avisar que el importe está mal tipeado.
+    expect(parseAmountToCents('1,2,3')).toBeNull()
+  })
+
+  it('devuelve null con más de 2 decimales, en vez de redondear en silencio', () => {
+    // FI-18: "0,005" redondeaba a $0,01 sin avisar que se perdió precisión.
+    expect(parseAmountToCents('0,005')).toBeNull()
+  })
+
+  it('devuelve null con más de un punto que no sea separador de miles', () => {
+    expect(parseAmountToCents('1.2.3')).toBeNull()
+  })
 })
 
 describe('sanitizeAmountInput', () => {
