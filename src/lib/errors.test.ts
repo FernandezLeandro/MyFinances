@@ -105,6 +105,27 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError({ code: 'P0001', message: 'fixed_expense_payment_not_found' })).toBe('Ese pago ya no existe.')
   })
 
+  // Bloque 0 del arreglo de Movimientos (MO-17/MO-18): `trg_transactions_owned_refs` rechaza una
+  // categoría o un pago de fijo que no son del mismo usuario del movimiento.
+  it('P0001 de Movimientos (bloque 0, MO-17/MO-18) → referencia de otra cuenta', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'category_not_found' })).toBe('Esa categoría ya no existe.')
+    expect(mensajeDeError({ code: 'P0001', message: 'fixed_payment_not_found' })).toBe('Ese pago ya no existe.')
+  })
+
+  // Bloques 3 y 4 del arreglo de Movimientos (MO-02 a MO-08): borrar/editar por API directa un
+  // movimiento vinculado a una tarjeta, una cuota o una deuda, saltando la RPC de deshacer.
+  it('P0001 de Movimientos (bloques 3/4) → movimiento vinculado a otra pantalla', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'linked_movement_use_origin' })).toBe(
+      'Este movimiento viene de otra pantalla: eliminalo desde ahí.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'linked_movement_locked' })).toBe(
+      'El importe y el tipo de este movimiento no se pueden cambiar desde acá.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'receivable_has_income_payments' })).toBe(
+      'Primero quitá los cobros de esta deuda en Me Deben.',
+    )
+  })
+
   it('TypeError de "Failed to fetch" → sin conexión', () => {
     expect(mensajeDeError(new TypeError('Failed to fetch'))).toBe('Sin conexión. Revisá internet y probá de nuevo.')
   })

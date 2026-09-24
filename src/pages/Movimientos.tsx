@@ -30,6 +30,7 @@ import { useAccountTransfers, type AccountTransfer } from '@/features/accounts/t
 import { TransferDetailDialog } from '@/features/accounts/TransferDetailDialog'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import {
+  confirmDeleteMovementCopy,
   dailySpendBars,
   dailySpendPeakLabel,
   dayNetTotals,
@@ -56,7 +57,9 @@ import {
 import { useCan } from '@/features/access/useCan'
 import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
 import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
-import { RemoveLinkedMovementDialog } from '@/features/fixed-expenses/RemoveLinkedMovementDialog'
+import { ConfirmDeleteMovementDialog } from '@/features/transactions/ConfirmDeleteMovementDialog'
+import { MovementDetailDialog } from '@/features/transactions/MovementDetailDialog'
+import { IncomeEditDialog } from '@/features/cycle-income/IncomeEditDialog'
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Todos' },
@@ -195,9 +198,14 @@ export function Movimientos() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [viewingTransfer, setViewingTransfer] = useState<AccountTransfer | null>(null)
   // FI-05 del QA de Fijos: antes, tocar la fila de un fijo en Básico lo despagaba al instante, sin
-  // avisar — ahora el toque pide confirmar en `RemoveLinkedMovementDialog` antes de llamar a
+  // avisar — ahora el toque pide confirmar en `ConfirmDeleteMovementDialog` antes de llamar a
   // `unmarkFixedPayment`.
   const [pendingUnmarkTx, setPendingUnmarkTx] = useState<Transaction | null>(null)
+  // Bloque 4 del arreglo de Movimientos (D1, MO-08): detalle de sólo lectura de un ajuste de saldo
+  // (cualquier plan) o, en Básico, de cualquier otro movimiento suelto (Bloque 5, D2).
+  const [viewingMovement, setViewingMovement] = useState<Transaction | null>(null)
+  // Bloque 5 (D2, MO-11): edición chica de "Sueldo" en Básico.
+  const [editingIncomeTx, setEditingIncomeTx] = useState<Transaction | null>(null)
   // Sólo pesa en mobile (el toggle que lo prende va `lg:hidden`): en escritorio el resumen se ve
   // siempre. Colapsado por default — lo primero en mobile es buscar/filtrar/ver movimientos, no
   // el resumen del período.
@@ -338,13 +346,28 @@ export function Movimientos() {
   }
 
   function openEdit(tx: Transaction) {
-    // Sin `movimientos-manuales`, un movimiento generado al pagar un fijo se "deshace" con un
-    // toque (mismo criterio que el desmarcado de Fijos.tsx), pero ahora pide confirmar primero
-    // (FI-05). Un movimiento suelto que haya quedado de antes de bajar a este plan
-    // (`fixed_expense_payment_id` null) no tiene ese camino: sigue abriendo el form, que al menos
-    // deja eliminarlo.
-    if (!canMovimientosManuales && tx.fixed_expense_payment_id) {
-      setPendingUnmarkTx(tx)
+    // Bloque 4 del arreglo de Movimientos (D1, MO-08): un ajuste de saldo no se edita más desde
+    // acá — sólo se ve el detalle y se puede eliminar, avisando antes cómo queda la cuenta. Aplica
+    // en cualquier plan, antes de mirar `canMovimientosManuales`.
+    if (tx.is_adjustment) {
+      setViewingMovement(tx)
+      return
+    }
+    if (!canMovimientosManuales) {
+      // Un movimiento generado al pagar un fijo se "deshace" con un toque (mismo criterio que el
+      // desmarcado de Fijos.tsx), pero ahora pide confirmar primero (FI-05).
+      if (tx.fixed_expense_payment_id) {
+        setPendingUnmarkTx(tx)
+        return
+      }
+      // Bloque 5 (D2, MO-11): la única forma de cargar un ingreso en Básico es "Sueldo" — abre una
+      // edición chica (importe y detalle), no el formulario completo. Cualquier otro movimiento
+      // suelto que haya quedado de antes de bajar a este plan queda de sólo lectura, con Eliminar.
+      if (tx.type === 'income') {
+        setEditingIncomeTx(tx)
+        return
+      }
+      setViewingMovement(tx)
       return
     }
     setEditingTx(tx)
@@ -401,12 +424,14 @@ export function Movimientos() {
           <Button variant="outline" size="compact" onClick={() => navigate('/categorias')}>
             Categorías
           </Button>
-          {/* Sólo escritorio: en mobile el `+` de la isla ya cubre "nuevo movimiento" (mismo
-              criterio que el hero de Hoy) — repetirlo acá es un botón más que pelea por lugar en
-              una fila que ya tiene dos. Sin `movimientos-manuales` no hay nada que cargar suelto —
-              el `+` de la isla ya abre el selector de fijo, este botón no tiene equivalente acá. */}
+          {/* MO-15 del QA de Movimientos: el `+` de la isla mobile es `md:hidden`
+              (`MobileTabBar.tsx`) — con este botón recién a partir de `lg` (1024px), entre 768 y
+              1023px no había ninguna forma de cargar un movimiento suelto. Pasa a `md:block`
+              (768px), el mismo punto en el que la isla desaparece, para no dejar ningún hueco. Sin
+              `movimientos-manuales` no hay nada que cargar suelto — el `+` de la isla ya abre el
+              selector de fijo, este botón no tiene equivalente acá. */}
           {canMovimientosManuales && (
-            <div className="hidden lg:block">
+            <div className="hidden md:block">
               <Button size="compact" icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />} onClick={openNew}>
                 Nuevo movimiento
               </Button>
@@ -724,6 +749,8 @@ export function Movimientos() {
         <TransactionFormDialog open={formOpen} onClose={() => setFormOpen(false)} transaction={editingTx} />
       )}
       {viewingTransfer && <TransferDetailDialog transfer={viewingTransfer} onClose={() => setViewingTransfer(null)} />}
+      {viewingMovement && <MovementDetailDialog transaction={viewingMovement} onClose={() => setViewingMovement(null)} />}
+      {editingIncomeTx && <IncomeEditDialog transaction={editingIncomeTx} onClose={() => setEditingIncomeTx(null)} />}
       {filtersOpen && (
         <TransactionFiltersDialog
           open={filtersOpen}
@@ -740,11 +767,10 @@ export function Movimientos() {
         onClose={unmarkFixedPayment.cancelConfirm}
         onConfirm={unmarkFixedPayment.confirmForce}
       />
-      <RemoveLinkedMovementDialog
+      <ConfirmDeleteMovementDialog
         open={!!pendingUnmarkTx}
         busy={unmarkFixedPayment.isPending}
-        kind="payment"
-        description={pendingUnmarkTx?.description ?? null}
+        copy={confirmDeleteMovementCopy({ kind: 'payment', description: pendingUnmarkTx?.description ?? null })}
         onClose={() => setPendingUnmarkTx(null)}
         onConfirm={confirmUnmarkPayment}
       />

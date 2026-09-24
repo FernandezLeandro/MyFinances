@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
 import { UNCATEGORIZED_ID } from '@/features/categories/api'
 import { TRANSACTION_QUERY_KEYS } from '@/features/transactions/queryKeys'
+import { parseTransactionOrigin } from '@/features/transactions/origin'
 import type { Database } from '@/lib/database.types'
 
 type TransactionRowRaw = Database['public']['Tables']['transactions']['Row']
@@ -179,6 +180,26 @@ export function useSpendByCategory(from: string, to: string) {
           cents: centsFromNumeric(row.total),
         }))
         .filter((row) => row.cents > 0)
+    },
+  })
+}
+
+/**
+ * De dónde viene un movimiento (Bloque 2 del arreglo de Movimientos) — reemplaza a
+ * `useFixedExpenseSavingByTransaction`: una sola consulta por apertura del form en vez de una por
+ * origen posible. `transactionId: null` para un alta nueva (no hay nada que buscar todavía) o
+ * cuando el origen ya se sabe sin consultar (`transaction.fixed_expense_payment_id`, instantáneo).
+ */
+export function useTransactionOrigin(transactionId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['transaction-origin', user?.id, transactionId],
+    enabled: !!user && !!transactionId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('rpc_transaction_origin', { p_transaction_id: transactionId! })
+      if (error) throw error
+      return parseTransactionOrigin(data)
     },
   })
 }

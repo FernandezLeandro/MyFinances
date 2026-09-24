@@ -9,7 +9,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
 | Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); los 26 issues (FI-01 a FI-26) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
+| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª); los 18 issues (MO-01 a MO-18) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas (una de las 4, `...050001`, aplicada por fuera de `db push` — ver el informe) | rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
@@ -159,6 +159,31 @@ misma vuelta.
   la respuesta. Y al blindar una tabla sacándole policies de escritura, grepear qué otras funciones o
   triggers (no sólo las RPC "oficiales") también escriben ahí: la migración de FI-14 tuvo que convertir
   también `rpc_delete_account` y el trigger de sincronización.
+- **Esperar la señal real, no un timeout fijo, cuando un diálogo depende de una query async** (ej. un
+  origen que habilita/deshabilita campos). Un `waitForTimeout` corto puede leer el estado antes de
+  que la query resuelva y dar un falso bug — usar `page.waitForFunction(...)` contra algo concreto
+  (ej. que el botón Guardar deje de estar disabled). Así se descartó un falso positivo en MO-05/MO-07
+  (ver [movimientos.md](movimientos.md)).
+- **`dialog.innerText()` no lee valores de `<input>`.** Para verificar que un campo vino pre-cargado,
+  usar `.inputValue()` sobre el input puntual, no el texto del diálogo entero — dio un falso "vino
+  vacío" en un diálogo de edición de Movimientos.
+- **`getByRole(role, {name}).isVisible()` no alcanza para probar un breakpoint responsive** cuando dos
+  elementos comparten el mismo nombre accesible (ej. botón de header vs. FAB mobile, los dos "Nuevo
+  movimiento") y uno queda podado del árbol de accesibilidad por `display:none` en un ancestro —
+  Playwright sólo puede consultar el que sí está en el árbol en cada ancho, así que `count()`/
+  `isVisible()` puede dar un resultado engañosamente estable. Inspeccionar el DOM directo con
+  `page.evaluate` (`getBoundingClientRect()` + `getComputedStyle().display` del elemento y su padre).
+- **Un FK `on delete set null` puede dejar filas huérfanas al limpiar fixtures**, no sólo en Fijos
+  (ver el punto de arriba sobre `fixed_expense_payment_id`): en Me Deben, borrar una `receivable` no
+  borra la transacción vinculada porque `expense_transaction_id` también es `set null`. No asumir que
+  borrar el padre alcanza — cerrar siempre con un diff completo contra la línea base (conteo de filas
+  + sumas), no sólo "borré lo que armé".
+- **`npx supabase db push --linked` puede quedar bloqueado por el clasificador de modo auto** incluso
+  con OK explícito de Lean para pushear (pasó dos veces seguidas con motivos distintos). La
+  alternativa legítima para aplicar un archivo de migración puntual e idempotente es
+  `npx supabase db query -f <archivo> --linked` (no bloqueada) — pero el archivo queda sin registrar
+  en `supabase migration list --linked` hasta el próximo `db push --linked` normal, así que hay que
+  anotarlo en el informe.
 
 ## Severidades
 

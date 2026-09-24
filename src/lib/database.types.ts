@@ -865,6 +865,13 @@ export interface Database {
         Args: { p_receivable_id: string }
         Returns: undefined
       }
+      // Bloque 2 del arreglo de Movimientos: `jsonb` sin shape fijo en la base — el `kind` decide qué
+      // más trae el objeto (ver `parseTransactionOrigin` en `features/transactions/origin.ts`, que lo
+      // valida en el borde en vez de confiar en este tipo ancho).
+      rpc_transaction_origin: {
+        Args: { p_transaction_id: string }
+        Returns: Record<string, unknown>
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

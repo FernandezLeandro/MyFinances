@@ -258,3 +258,55 @@ export function dailySpendPeakLabel(bar: DailySpendBar, sameMonth: boolean): str
   if (sameMonth) return String(bar.day)
   return format(parseISO(bar.date), 'd MMM', { locale: es })
 }
+
+export interface ConfirmDeleteMovementCopy {
+  title: string
+  confirmLabel: string
+  paragraphs: string[]
+}
+
+/**
+ * Texto de la confirmación antes de eliminar un movimiento desde `TransactionFormDialog` o de
+ * quitar un pago con un toque en Movimientos (Básico). Nace como `removeLinkedMovementCopy` en el
+ * Bloque 1 del QA de Fijos (FI-03, FI-05), para `payment`/`saving`; el Bloque 1 del arreglo de
+ * Movimientos (MO-01) suma `plain` y lo muda acá — antes, un movimiento suelto se borraba al
+ * instante, sin ningún aviso ni posibilidad de deshacer. `description` es la del propio movimiento
+ * (para un pago, el nombre del fijo o la nota que puso `rpc_mark_fixed_expense_paid`/
+ * `rpc_add_fixed_expense_saving`; no hace falta pedirla aparte).
+ */
+export function confirmDeleteMovementCopy({
+  kind,
+  description,
+}: {
+  kind: 'payment' | 'saving' | 'plain'
+  description: string | null
+}): ConfirmDeleteMovementCopy {
+  const name = description?.trim() || null
+  if (kind === 'saving') {
+    return {
+      title: '¿Eliminar este guardado?',
+      confirmLabel: 'Eliminar guardado',
+      paragraphs: [
+        name
+          ? `Se borra «${name}»: esa plata deja de estar apartada para el fijo.`
+          : 'Este movimiento es un guardado para un fijo: al eliminarlo, esa plata deja de estar apartada.',
+      ],
+    }
+  }
+  if (kind === 'payment') {
+    return {
+      title: '¿Quitar este pago?',
+      confirmLabel: 'Quitar pago',
+      paragraphs: [
+        name
+          ? `Se borra «${name}» y el fijo vuelve a quedar pendiente.`
+          : 'Se borra este movimiento y el fijo vuelve a quedar pendiente.',
+      ],
+    }
+  }
+  return {
+    title: '¿Eliminar este movimiento?',
+    confirmLabel: 'Eliminar',
+    paragraphs: [name ? `Se borra «${name}». No se puede deshacer.` : 'No se puede deshacer.'],
+  }
+}

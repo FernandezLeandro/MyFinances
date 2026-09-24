@@ -74,6 +74,11 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /cannot_demote_self/.test(message)) return 'No podés sacarte el admin a vos mismo.'
   if (code === 'P0001' && /cannot_delete_self/.test(message)) return 'No podés eliminar tu propia cuenta desde acá.'
   if (code === 'P0001' && /account_not_found/.test(message)) return 'Esa cuenta ya no existe.'
+  // Bloque 0 del arreglo de Movimientos (docs/qa/movimientos.md, MO-17/MO-18):
+  // `trg_transactions_owned_refs` (`20260924020001_movimientos_referencias_propias.sql`) — sólo se
+  // llega acá por API directa, la UI nunca ofrece una categoría o un pago que no sean propios.
+  if (code === 'P0001' && /category_not_found/.test(message)) return 'Esa categoría ya no existe.'
+  if (code === 'P0001' && /fixed_payment_not_found/.test(message)) return 'Ese pago ya no existe.'
   if (code === 'P0001' && /account_adjust_nothing_to_adjust/.test(message)) return 'Ya coincide: no hay nada que reajustar.'
   if (code === 'P0001' && /account_adjust_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /account_insufficient_funds/.test(message)) return 'Esa cuenta no tiene tanta plata: bajá el importe.'
@@ -92,6 +97,17 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /linked_movement_amount_invalid/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /fixed_expense_saving_period_paid/.test(message))
     return 'Este guardado es de un mes ya pagado: primero quitá el pago del fijo.'
+  // Bloques 3 y 4 del arreglo de Movimientos (MO-02 a MO-08): triggers `transactions_block_delete_
+  // linked`/`transactions_lock_linked` (`20260924040001_movimientos_vinculados.sql`) — sólo se
+  // llegan a ver por API directa, la UI ya usa la RPC de deshacer o bloquea el campo antes.
+  if (code === 'P0001' && /linked_movement_use_origin/.test(message))
+    return 'Este movimiento viene de otra pantalla: eliminalo desde ahí.'
+  if (code === 'P0001' && /linked_movement_locked/.test(message))
+    return 'El importe y el tipo de este movimiento no se pueden cambiar desde acá.'
+  // `rpc_unexpense_receivable`: la deuda ya tiene un abono que generó un ingreso — deshacerlo
+  // primero evita que ese ingreso quede sin el gasto que lo justificaba.
+  if (code === 'P0001' && /receivable_has_income_payments/.test(message))
+    return 'Primero quitá los cobros de esta deuda en Me Deben.'
   // Bloque 5 del QA de Fijos (FI-14): API directa contra un fijo/pago que no existe, pausado, o con
   // una fecha futura (`20260923090001_fijos_blindaje.sql`). `fixed_expense_not_found` ya existía en
   // `rpc_mark_fixed_expense_paid` desde antes, pero nunca había tenido mensaje propio.
