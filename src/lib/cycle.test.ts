@@ -7,6 +7,7 @@ import {
   cycleFromUrlParam,
   cycleLabel,
   cycleOfLabel,
+  cycleShortLabel,
   DEFAULT_CYCLE_CONFIG,
   dueDateInMonth,
   dueFallsInCycle,
@@ -342,5 +343,26 @@ describe('previousCycleRange', () => {
   it('mensual: el anterior a septiembre es agosto completo', () => {
     const cycle = cycleContaining(monthly, new Date(2026, 8, 10, 12))
     expect(previousCycleRange(monthly, cycle)).toEqual({ from: '2026-08-01', to: '2026-08-31' })
+  })
+})
+
+// FI-20 del QA de Fijos: la píldora mobile decía «28–4 sep» en una semana que cruza de mes — sólo el
+// mes de `from`, aunque `to` fuera de otro mes distinto.
+describe('cycleShortLabel', () => {
+  const weekly: CycleConfig = { kind: 'weekly', weekStartsOn: 1 }
+
+  it('mensual: el nombre del mes solo', () => {
+    const cycle = cycleContaining(monthly, new Date(2026, 8, 10, 12))
+    expect(cycleShortLabel(cycle)).toBe('septiembre')
+  })
+
+  it('semana dentro del mismo mes: "día–día mes", como siempre', () => {
+    const cycle = cycleContaining(weekly, new Date(2026, 8, 10, 12)) // 7–13 sep
+    expect(cycleShortLabel(cycle)).toBe('7–13 sep')
+  })
+
+  it('semana que cruza de mes: cada punta con su propio mes', () => {
+    const cycle = cycleContaining(weekly, new Date(2026, 8, 30, 12)) // 28 sep – 4 oct
+    expect(cycleShortLabel(cycle)).toBe('28 sep – 4 oct')
   })
 })

@@ -251,7 +251,22 @@ export function summarizeFixedExpenses(
   const fallbackWindow = { from: format(bounds.start, 'yyyy-MM-dd'), to: format(bounds.end, 'yyyy-MM-dd') }
   const carriedWindow = window ? withMonthCarry(window) : undefined
   const effectiveWindow = carriedWindow ?? fallbackWindow
-  const eligible = eligibleFixedExpenses(expenses, bounds.end).filter((fe) => fe.is_active)
+  // FI-22: ya no se filtran acá los pausados — un fijo pausado que YA tiene un pago o una carga en
+  // el período sigue contando como pagado ese período (ver `finalizePausedInstance` más abajo). Uno
+  // pausado sin nada pagado en el período simplemente no genera ninguna instancia — nunca aparece
+  // como pendiente, ni resta del proyectado.
+  const eligible = eligibleFixedExpenses(expenses, bounds.end)
+
+  // FI-22: un fijo pausado sólo deja una instancia visible si ya tiene algo pagado/cargado en su
+  // período — y esa instancia queda "cerrada" (no pendiente, no resta) aunque no haya llegado al
+  // importe completo (una bolsa pausada con $3.000 de $80.000 cargados no tiene forma de completar
+  // el resto: mostrarla como pendiente sería pedir una acción que ya no se puede hacer). `null`
+  // descarta la instancia entera.
+  function finalizePausedInstance(status: FixedExpenseStatus, fe: FixedExpense): FixedExpenseStatus | null {
+    if (fe.is_active) return status
+    if (status.payments.length === 0) return null
+    return { ...status, done: true, remainingCents: 0 }
+  }
 
   // Bloque 4 (FI-04/FI-06): una instancia por (fijo, mes) que toca `monthsToCheck`, no una por fijo —
   // con mensual/quincenal `monthsToCheck` tiene un único elemento y esto da exactamente una instancia
@@ -264,6 +279,8 @@ export function summarizeFixedExpenses(
         return monthsToCheck
           .filter((m) => parseISO(fe.starts_on) <= endOfMonth(parseISO(m)))
           .map((m) => statusFor(fe, payments, savings, m, today, null, weekStartsOn))
+          .map((s) => finalizePausedInstance(s, fe))
+          .filter((s): s is FixedExpenseStatus => s != null)
       }
       // `dueDateInCycle(fe, [m], effectiveWindow)` — un solo mes por llamada, no `monthsToCheck`
       // entero: así cada mes se evalúa contra la ventana por su cuenta, en vez de quedarse con el
@@ -281,6 +298,16 @@ export function summarizeFixedExpenses(
         // salvo que YA tenga un pago ahí (no esconder un pago real). Espejo de
         // `rpc_projected_balance_range` (`20260923080001_fijos_alta_y_deshacer_importe.sql`).
         .filter((s) => s.dueDate! >= fe.starts_on || s.done)
+        // FI-21: un atrasado arrastrado por `withMonthCarry` (`dueDate` antes de esta ventana) sólo
+        // se trae para no perder de vista lo que sigue IMPAGO — si ya está pagado, sólo cuenta como
+        // "pagado" acá si el pago cayó dentro de la ventana que se está mirando; si se pagó antes
+        // (en un ciclo anterior), ya se resolvió ahí y no tiene que reaparecer en este.
+        .filter((s) => {
+          if (!window || !s.done || s.dueDate! >= window.from) return true
+          return s.payments.some((p) => p.paid_on >= window.from)
+        })
+        .map((s) => finalizePausedInstance(s, fe))
+        .filter((s): s is FixedExpenseStatus => s != null)
     })
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe) || a.period.localeCompare(b.period))
 
@@ -405,4 +432,22 @@ export function removeLinkedMovementCopy({
         : 'Se borra este movimiento y el fijo vuelve a quedar pendiente.',
     ],
   }
+}
+
+/** FI-19 del QA de Fijos: nombre duplicado entre fijos del usuario, sin distinguir mayúsculas ni
+ *  espacios — mismo criterio que `accountNameError` en `accounts/aggregate.ts`, pero acá compara
+ *  contra TODOS los fijos (activos y pausados): a diferencia de una cuenta archivada (que no vuelve
+ *  a aparecer en ningún selector), un fijo pausado se puede reactivar, así que dos fijos "Alquiler"
+ *  (uno activo, uno pausado) siguen confundiendo igual en el buscador del `+` de Básico. Sólo del
+ *  lado del cliente, sin índice único en la base — no rompe a quien ya tenga duplicados hoy.
+ *  `excludeId` es el propio fijo al editar, para no chocar consigo mismo. */
+export function fixedExpenseNameError(input: { name: string; expenses: readonly FixedExpense[]; excludeId?: string }): string | null {
+  // `name` puede llegar `undefined` en el primer render de un formulario con react-hook-form: los
+  // `defaultValues` que arma `useForm` no incluyen este campo (lo llena `reset()` en un `useEffect`,
+  // después del primer render) — sin este guard, `FixedExpenseFormDialog` crasheaba al abrir "Nuevo
+  // fijo" (bug real encontrado al verificar FI-19 en vivo, `.trim()` sobre `undefined`).
+  const normalized = (input.name ?? '').trim().toLowerCase()
+  if (!normalized) return null
+  const clash = input.expenses.some((fe) => fe.id !== input.excludeId && fe.name.trim().toLowerCase() === normalized)
+  return clash ? 'Ya tenés un fijo con ese nombre.' : null
 }

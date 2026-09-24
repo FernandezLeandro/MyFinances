@@ -554,8 +554,8 @@ Lo cargado en esta pasada, todo marcado `QA-AN2` (con sufijo por caso: `-CAP`, `
 - **AN-17 (quincena de distinto largo):** 1 gasto de $14.000,00 el 20 de octubre (`QA-AN2-MISMATCH`) —
   borrado al terminar, ciclo devuelto de quincenal a mensual.
 
-Para la seguridad por API (ver "Lo verificado correcto") se usó también la cuenta de prueba habitual
-(`leanfernandez97+claudetest@gmail.com`), sólo en modo lectura (un `GET` filtrado por su `user_id` con
+Para la seguridad por API (ver "Lo verificado correcto") se usó también la cuenta de prueba habitual,
+sólo en modo lectura (un `GET` filtrado por su `user_id` con
 el token de QA, que devolvió vacío) y un único intento de escritura cruzada (un `INSERT` con su
 `user_id` usando el token de QA, rechazado con 403 y sin llegar a crear ninguna fila) — no se leyó ni se
 modificó ningún dato real de esa cuenta.

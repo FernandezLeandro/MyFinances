@@ -204,12 +204,17 @@ export function cycleOfLabel(kind: CycleKind): string {
   return kind === 'monthly' ? 'del mes' : `de la ${cycleEndNoun(kind)}`
 }
 
-/** Versión corta para la píldora de mobile — igual criterio que `MonthNav`'s `mobileLabel`. */
+/** Versión corta para la píldora de mobile — igual criterio que `MonthNav`'s `mobileLabel`. FI-20 del
+ *  QA de Fijos: una semana que cruza de mes decía "28–4 sep" (el mes de `from`, aunque `to` sea de
+ *  otro) — con el navegador de arriba diciendo bien "28 sep – 4 oct". Con los dos meses distintos,
+ *  cada punta lleva su propio mes: "28 sep – 4 oct". */
 export function cycleShortLabel(cycle: Cycle): string {
   if (cycle.kind === 'monthly') return format(parseISO(cycle.from), 'MMMM', { locale: es })
   const from = parseISO(cycle.from)
   const to = parseISO(cycle.to)
-  return `${getDate(from)}–${getDate(to)} ${format(from, 'MMM', { locale: es })}`
+  const sameMonth = format(from, 'yyyy-MM') === format(to, 'yyyy-MM')
+  if (sameMonth) return `${getDate(from)}–${getDate(to)} ${format(from, 'MMM', { locale: es })}`
+  return `${getDate(from)} ${format(from, 'MMM', { locale: es })} – ${getDate(to)} ${format(to, 'MMM', { locale: es })}`
 }
 
 // ── El adaptador entre el eje del ciclo y el eje de la obligación mensual ────────────────────────

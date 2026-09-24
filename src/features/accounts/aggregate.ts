@@ -5,7 +5,7 @@
  * cuenta y qué se le dice a quien va a eliminar una.
  */
 import { z } from 'zod'
-import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { formatMoney, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import type { MovementPeriod } from '@/features/transactions/movementPeriod'
 import type { AccountKind, BalanceLocation } from './api'
 import type { AccountTransfer } from './transfers-api'
@@ -235,9 +235,6 @@ export function accountNameError(input: { name: string; locations: readonly Bala
 // Formulario de alta/edición
 // ---------------------------------------------------------------------------------------------
 
-/** Tope de `numeric(12, 2)` en centavos. */
-const MAX_ABS_CENTS = 1e12
-
 export const accountFormSchema = z.object({
   name: z.string().trim().min(1, 'Ponele un nombre a la cuenta.').max(60, 'Máximo 60 caracteres'),
   kind: z.enum(['cash', 'wallet', 'bank']),
@@ -245,7 +242,7 @@ export const accountFormSchema = z.object({
   opening: z.string().refine(
     (v) => {
       const cents = parseAmountToCents(v)
-      return cents !== null && Math.abs(cents) < MAX_ABS_CENTS
+      return cents !== null && Math.abs(cents) < MAX_AMOUNT_CENTS
     },
     { message: 'Ingresá un importe válido' },
   ),
@@ -256,9 +253,6 @@ export type AccountFormValues = z.infer<typeof accountFormSchema>
 // ---------------------------------------------------------------------------------------------
 // Reajustar: formulario y aviso
 // ---------------------------------------------------------------------------------------------
-
-/** Tope de `numeric(12, 2)` en centavos — el RPC de reajuste rechaza `abs >= 1e10` en pesos. */
-const MAX_ABS_CENTS_ADJUST = 1e12
 
 export interface AdjustFormState {
   /** Se puede mandar: el importe se entiende y mueve el saldo. */
@@ -280,7 +274,7 @@ export interface AdjustFormState {
  *  en el banco, tiene que poder reajustar hacia ahí. Por eso NO se exige `> 0`. */
 export function adjustFormState(realInput: string, derivedCents: number, openingCents: number): AdjustFormState {
   const realCents = parseAmountToCents(realInput)
-  if (realCents === null || Math.abs(realCents) >= MAX_ABS_CENTS_ADJUST) {
+  if (realCents === null || Math.abs(realCents) >= MAX_AMOUNT_CENTS) {
     return { canSubmit: false, error: 'Ingresá un importe válido para poder reajustar.', plan: null }
   }
   return { canSubmit: realCents !== derivedCents, error: null, plan: planAdjustment({ derivedCents, openingCents, realCents }) }

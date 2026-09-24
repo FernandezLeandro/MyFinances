@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { endOfLocalDayISO, localTodayISO } from './dates'
+import { endOfLocalDayISO, localTodayISO, msUntilNextDay } from './dates'
 
 // Los casos se arman con fechas locales (`new Date(año, mes, día, hora)`), así dan igual en cualquier
 // huso horario del que corra los tests — no se toca `process.env.TZ`, que se comparte entre workers.
@@ -41,5 +41,20 @@ describe('endOfLocalDayISO', () => {
   it('a la medianoche del día siguiente, ya venció', () => {
     const expires = new Date(endOfLocalDayISO('2026-09-30'))
     expect(new Date(2026, 9, 1, 0, 0) > expires).toBe(true)
+  })
+})
+
+// FI-23 del QA de Fijos.
+describe('msUntilNextDay', () => {
+  it('a las 23:58 del 30/9, faltan 2 minutos para el 1/10', () => {
+    expect(msUntilNextDay(new Date(2026, 8, 30, 23, 58, 0, 0))).toBe(2 * 60 * 1000)
+  })
+
+  it('a la medianoche justo, falta el día entero', () => {
+    expect(msUntilNextDay(new Date(2026, 8, 30, 0, 0, 0, 0))).toBe(24 * 60 * 60 * 1000)
+  })
+
+  it('a media tarde, falta lo que resta hasta la medianoche', () => {
+    expect(msUntilNextDay(new Date(2026, 8, 30, 15, 0, 0, 0))).toBe(9 * 60 * 60 * 1000)
   })
 })

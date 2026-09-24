@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, AmountInput, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
-import { centsToInputText, parseAmountToCents } from '@/lib/money'
+import { centsToInputText, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import { useAddFixedExpenseSaving, useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
 import { amountAfterCopy } from '@/features/fixed-expenses/aggregate'
 import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
@@ -101,9 +101,18 @@ export function MarkPaidDialog({
   // segundo click antes de que React re-renderice el botón ya deshabilitado. Se libera en `onSettled`
   // (éxito o error), para no dejar el diálogo trabado si la mutación falla.
   const submittingRef = useRef(false)
-  // El pago siempre puede llevar cuenta. El guardado sólo si además genera movimiento — si es "aparte"
-  // no hay con qué pagarlo. Cuando se muestra, es obligatoria: el saldo es la suma de las cuentas.
-  const showAccountField = picker.show && (!isSaving || (canMovimientosManuales && generateMovement))
+  // Lo que de verdad va a generar el pago, dado el importe que se está por confirmar — sólo se
+  // conoce del lado del cliente para el aviso; el RPC hace este mismo cálculo de nuevo con lo que
+  // haya en la base al momento de pagar (ver `rpc_mark_fixed_expense_paid`). Se calcula acá arriba
+  // (antes se calculaba más abajo, sólo para el copy) porque `showAccountField` también lo necesita
+  // — FI-24.
+  const payTxAmount = !isRecurring && !isSaving && cents != null ? Math.max(cents - alreadySavedMovementCents, 0) : null
+  // El pago siempre puede llevar cuenta — salvo que ya esté TODO cubierto por guardados con
+  // movimiento (FI-24 del QA de Fijos: `payTxAmount === 0` no genera ningún movimiento nuevo, así que
+  // pedir "Con qué lo pagué" no tiene con qué completarse). El guardado sólo pide cuenta si además
+  // genera movimiento — si es "aparte" no hay con qué pagarlo. Cuando se muestra, es obligatoria: el
+  // saldo es la suma de las cuentas.
+  const showAccountField = picker.show && payTxAmount !== 0 && (!isSaving || (canMovimientosManuales && generateMovement))
   const accountMissing = showAccountField && !accountId
   // El campo Fecha sólo tiene sentido cuando de verdad se va a generar un movimiento — pagar una
   // bolsa/fijo siempre genera uno (o, con todo cubierto por guardados, ninguno, pero la fecha sigue
@@ -119,10 +128,6 @@ export function MarkPaidDialog({
   // Lo guardado "aparte" (sin movimiento): informativo en el modo Pagar, pero nunca descuenta del
   // movimiento que genera el pago — esa plata todavía no salió de ningún lado.
   const asideSavedCents = alreadySavedCents - alreadySavedMovementCents
-  // Lo que de verdad va a generar el pago, dado el importe que se está por confirmar — sólo se
-  // conoce del lado del cliente para el aviso; el RPC hace este mismo cálculo de nuevo con lo que
-  // haya en la base al momento de pagar (ver `rpc_mark_fixed_expense_paid`).
-  const payTxAmount = !isRecurring && !isSaving && cents != null ? Math.max(cents - alreadySavedMovementCents, 0) : null
 
   function selectMode(next: Mode) {
     if (next === mode) return
@@ -135,7 +140,9 @@ export function MarkPaidDialog({
   }
 
   function handleConfirm() {
-    if (cents == null || cents <= 0) {
+    // FI-18: mismo tope que el alta del fijo — sin esto, 11 cifras tiraban el error genérico de la
+    // base en vez de uno claro acá.
+    if (cents == null || cents <= 0 || cents >= MAX_AMOUNT_CENTS) {
       setError('Ingresá un importe válido')
       return
     }
