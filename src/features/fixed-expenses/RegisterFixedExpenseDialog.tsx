@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { format, getDate, parseISO, startOfMonth } from 'date-fns'
+import { format, getDate, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
 import { Badge } from '@/components/ui/Badge'
@@ -9,7 +10,12 @@ import { SearchInput } from '@/components/ui/SearchInput'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { useCycle } from '@/lib/useCycle'
 import { useFixedExpensePayments, useFixedExpenseSavings, useFixedExpenses } from '@/features/fixed-expenses/api'
-import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseStatus } from '@/features/fixed-expenses/aggregate'
+import {
+  fixedExpenseStatusKey,
+  fixedExpenseUrgency,
+  summarizeFixedExpenses,
+  type FixedExpenseStatus,
+} from '@/features/fixed-expenses/aggregate'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 
 interface RegisterFixedExpenseDialogProps {
@@ -73,11 +79,8 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
         open={open}
         onClose={onClose}
         fixedExpense={selected.fe}
-        period={
-          selected.dueDate
-            ? format(startOfMonth(parseISO(selected.dueDate)), 'yyyy-MM-dd')
-            : format(startOfMonth(today), 'yyyy-MM-dd')
-        }
+        // Bloque 4: `selected.period` YA es el mes de esta instancia.
+        period={selected.period}
         alreadyPaidCents={selected.paidCents}
         alreadySavedCents={selected.savedCents}
         alreadySavedMovementCents={selected.savedMovementCents}
@@ -115,15 +118,22 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
             <ul className="-mx-panel flex max-h-[45vh] flex-col overflow-y-auto">
               {visible.map((status) => {
                 const urgency = status.dueDate ? fixedExpenseUrgency(parseISO(status.dueDate), today) : null
+                // Bloque 4: con `cycle.months.length > 1` (semana a caballo de dos meses) un mismo
+                // fijo puede listarse dos veces — una instancia por mes — así que hace falta
+                // distinguirlas.
+                const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
                 return (
-                  <li key={status.fe.id}>
+                  <li key={fixedExpenseStatusKey(status)}>
                     <button
                       type="button"
                       onClick={() => setSelected(status)}
                       className="flex w-full items-center gap-3 px-panel py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-fg">{status.fe.name}</p>
+                        <p className="truncate text-[14px] font-semibold text-fg">
+                          {status.fe.name}
+                          {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
+                        </p>
                         {status.fe.is_recurring && <p className="text-[12px] text-fg-muted">bolsa</p>}
                       </div>
                       {/* Mismo badge de urgencia que Fijos.tsx — una bolsa no vence, así que no le

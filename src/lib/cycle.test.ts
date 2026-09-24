@@ -259,10 +259,15 @@ describe('withMonthCarry', () => {
     expect(withMonthCarry(firstHalf).to).toBe(firstHalf.to)
   })
 
-  it('un ciclo semanal a caballo de dos meses no se toca — `from` y `to` caen en meses distintos', () => {
+  // FI-06 del QA de Fijos (bloque 4): antes esta función NO ensanchaba cuando la ventana ya cruzaba
+  // de mes, a diferencia de la base (`rpc_projected_balance_range`, que hace
+  // `date_trunc('month', p_from)` sin condición) — con una semana 28/9–4/10, el proyectado restaba
+  // un atrasado de septiembre que el panel del cliente no mostraba en ninguna línea. Ahora ensancha
+  // siempre, también acá.
+  it('un ciclo semanal a caballo de dos meses TAMBIÉN se ensancha hasta el inicio del mes de `from` — espejo de la base', () => {
     const semana = cycleContaining(weekly, new Date(2026, 8, 30, 12)) // 29 sep – 5 oct
     expect(semana.months).toHaveLength(2)
-    expect(withMonthCarry(semana)).toEqual({ from: semana.from, to: semana.to })
+    expect(withMonthCarry(semana)).toEqual({ from: '2026-09-01', to: semana.to })
   })
 
   it('una ventana que ya cruza un mes entero atrás (el horizonte de `projectionWindow`) no se ensancha más', () => {

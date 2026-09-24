@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { format, getDate, parseISO, startOfMonth } from 'date-fns'
+import { format, getDate, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Check, Pause, Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
@@ -16,6 +17,7 @@ import { cn } from '@/lib/cn'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
 import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from '@/lib/cycle'
+import { pendingBeforeCents } from '@/lib/projectedBalance'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
@@ -31,6 +33,7 @@ import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expen
 import {
   compareFixedExpenses,
   cycleTotalCents,
+  fixedExpenseStatusKey,
   fixedExpenseUrgency,
   summarizeFixedExpenses,
   type FixedExpenseStatus,
@@ -55,6 +58,7 @@ function FixedExpenseRow({
   urgency,
   busy,
   hidden,
+  showMonth,
   onPrimaryAction,
   onOpenDetail,
 }: {
@@ -64,10 +68,18 @@ function FixedExpenseRow({
   urgency: FixedExpenseUrgency
   busy: boolean
   hidden: boolean
+  /** Bloque 4 (FI-04/FI-06): con un ciclo semanal a caballo de dos meses, un mismo fijo puede
+   *  aparecer dos veces — una instancia por mes (`status.period`). Sin aclarar de cuál mes es cada
+   *  una, dos filas "Expensas" seguidas son indistinguibles. `cycle.months.length > 1` en el llamador. */
+  showMonth: boolean
   onPrimaryAction: () => void
   onOpenDetail: () => void
 }) {
-  const { fe, paidCents, remainingCents, done, overspentCents, savedCents, dueDate } = status
+  const { fe, period, paidCents, remainingCents, done, overspentCents, savedCents, dueDate } = status
+  const monthLabel = showMonth ? format(parseISO(period), 'MMM', { locale: es }) : null
+  // Con dos instancias del mismo fijo (una por mes), los `aria-label` que repiten `fe.name` dejan de
+  // ser distintivos para un lector de pantalla — sumar el mes los vuelve a distinguir.
+  const accessibleName = monthLabel ? `${fe.name} (${monthLabel})` : fe.name
   // L2 del QA: el día REAL de este mes, no `fe.due_day` crudo — un `due_day` 31 en septiembre (30
   // días) mostraba «Vence el 31» en vez de «Vence el 30».
   const dueDayThisMonth = dueDate ? getDate(parseISO(dueDate)) : (fe.due_day ?? '—')
@@ -83,7 +95,7 @@ function FixedExpenseRow({
         // Una bolsa no se "tilda" — cada carga es un pago suelto, así que el control siempre agrega
         // una carga nueva (incluso ya completa: se puede seguir cargando nafta pasado el
         // presupuesto, sólo que no descuenta más del proyectado). Lo terminado se ve en la barra.
-        <IconSquare onClick={onPrimaryAction} aria-label={`${fe.name}: registrar carga`}>
+        <IconSquare onClick={onPrimaryAction} aria-label={`${accessibleName}: registrar carga`}>
           <Plus className="size-2.5" strokeWidth={1.5} aria-hidden />
         </IconSquare>
       ) : (
@@ -92,7 +104,7 @@ function FixedExpenseRow({
           disabled={busy}
           onClick={onPrimaryAction}
           aria-pressed={done}
-          aria-label={done ? `${fe.name}: pagado` : `${fe.name}: marcar como pagado`}
+          aria-label={done ? `${accessibleName}: pagado` : `${accessibleName}: marcar como pagado`}
         >
           {done && <Check className="size-3" strokeWidth={1.8} aria-hidden />}
         </IconSquare>
@@ -101,13 +113,14 @@ function FixedExpenseRow({
       <button
         type="button"
         onClick={onOpenDetail}
-        aria-label={`${fe.name}: ver detalle`}
+        aria-label={`${accessibleName}: ver detalle`}
         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
         <div className="min-w-0 flex-1">
           <p className={cn('truncate text-[13.5px] font-semibold', done && !overspent ? 'text-fg-muted' : 'text-fg')}>
             {fe.name}
+            {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
           </p>
 
           {/* A 320px el badge de vencimiento (columna aparte, `shrink-0`) le dejaba tan poco lugar
@@ -327,7 +340,11 @@ export function Fijos() {
   const allStatuses = useMemo(() => [...pending, ...doneItems], [pending, doneItems])
 
   const bolsaStatuses = useMemo(
-    () => allStatuses.filter((s) => s.fe.is_recurring).sort((a, b) => compareFixedExpenses(a.fe, b.fe)),
+    // Empate por `period`: con una semana a caballo de dos meses, la misma bolsa puede tener una
+    // instancia pagada (mes cerrado) y otra pendiente (mes en curso) — sin esto, `[...pending,
+    // ...doneItems]` las desordena (todo lo pendiente antes que lo pagado), en vez de septiembre
+    // antes que octubre.
+    () => allStatuses.filter((s) => s.fe.is_recurring).sort((a, b) => compareFixedExpenses(a.fe, b.fe) || a.period.localeCompare(b.period)),
     [allStatuses],
   )
   const oneTimePending = useMemo(() => pending.filter((s) => !s.fe.is_recurring), [pending])
@@ -579,12 +596,13 @@ export function Fijos() {
                 <ul className="pb-3">
                   {bolsaStatuses.map((status) => (
                     <FixedExpenseRow
-                      key={status.fe.id}
+                      key={fixedExpenseStatusKey(status)}
                       status={status}
                       categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
                       urgency="neutral"
                       busy={unmarkPayment.isPending}
                       hidden={balanceHidden}
+                      showMonth={cycle.months.length > 1}
                       onPrimaryAction={() => handlePrimaryAction(status)}
                       onOpenDetail={() => setDetailFixed(status.fe)}
                     />
@@ -603,12 +621,13 @@ export function Fijos() {
                   <ul className="pb-3">
                     {items.map((status) => (
                       <FixedExpenseRow
-                        key={status.fe.id}
+                        key={fixedExpenseStatusKey(status)}
                         status={status}
                         categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
                         urgency={g.key}
                         busy={unmarkPayment.isPending}
                         hidden={balanceHidden}
+                        showMonth={cycle.months.length > 1}
                         onPrimaryAction={() => handlePrimaryAction(status)}
                         onOpenDetail={() => setDetailFixed(status.fe)}
                       />
@@ -636,6 +655,14 @@ export function Fijos() {
               savedFixedCents={savedTotalCents}
               unpaidDebtsCount={unpaidDebtsCount}
               unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+              // FI-08: en un período futuro, lo que sigue impago del período en curso — 0 (sin fila)
+              // en el actual, donde el desglose ya cierra solo.
+              pendingBeforeCents={pendingBeforeCents(
+                currentBalance ?? 0,
+                pendingTotalCents,
+                misDeudasSummary.totalPendingCents,
+                projectedBalance,
+              )}
               hidden={balanceHidden}
             />
 
@@ -646,42 +673,52 @@ export function Fijos() {
                   <Money cents={paidCentsTotal} size="row" hidden={balanceHidden} />
                 </div>
                 <ul className="flex min-w-0 flex-col px-panel pb-5">
-                  {doneStatuses.map((s) => (
-                    <li key={s.fe.id} className="flex min-w-0 items-center gap-2.5 py-[7px]">
-                      {/* Una bolsa completa no se "despaga" (sigue siendo un + que suma otra carga,
-                          en su propia sección) — sólo el fijo único puede desmarcarse acá. */}
-                      {s.fe.is_recurring ? (
-                        <span className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-inverse text-on-inverse">
-                          <Check className="size-2.5" strokeWidth={2} aria-hidden />
-                        </span>
-                      ) : (
+                  {doneStatuses.map((s) => {
+                    // Bloque 4: con `cycle.months.length > 1` un mismo fijo puede tener una
+                    // instancia pagada (mes cerrado) y otra pendiente (mes en curso) a la vez — el
+                    // mes acá desambigua cuál de las dos es esta fila.
+                    const monthLabel = cycle.months.length > 1 ? format(parseISO(s.period), 'MMM', { locale: es }) : null
+                    const accessibleName = monthLabel ? `${s.fe.name} (${monthLabel})` : s.fe.name
+                    return (
+                      <li key={fixedExpenseStatusKey(s)} className="flex min-w-0 items-center gap-2.5 py-[7px]">
+                        {/* Una bolsa completa no se "despaga" (sigue siendo un + que suma otra carga,
+                            en su propia sección) — sólo el fijo único puede desmarcarse acá. */}
+                        {s.fe.is_recurring ? (
+                          <span className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-inverse text-on-inverse">
+                            <Check className="size-2.5" strokeWidth={2} aria-hidden />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePrimaryAction(s)}
+                            disabled={unmarkPayment.isPending}
+                            aria-label={`${accessibleName}: quitar pago`}
+                            className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-inverse text-on-inverse transition-opacity duration-150 hover:opacity-70 disabled:opacity-50"
+                          >
+                            <Check className="size-2.5" strokeWidth={2} aria-hidden />
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handlePrimaryAction(s)}
-                          disabled={unmarkPayment.isPending}
-                          aria-label={`${s.fe.name}: quitar pago`}
-                          className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-inverse text-on-inverse transition-opacity duration-150 hover:opacity-70 disabled:opacity-50"
+                          onClick={() => setDetailFixed(s.fe)}
+                          aria-label={`${accessibleName}: ver detalle`}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                         >
-                          <Check className="size-2.5" strokeWidth={2} aria-hidden />
+                          <span
+                            aria-hidden
+                            className="size-[7px] shrink-0 rounded-full"
+                            style={{ backgroundColor: categoryById.get(s.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-secondary">
+                            {s.fe.name}
+                            {monthLabel && <span className="text-fg-muted"> · {monthLabel}</span>}
+                          </span>
+                          {s.fe.is_recurring && <span className="text-[11px] text-fg-faint">bolsa</span>}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setDetailFixed(s.fe)}
-                        aria-label={`${s.fe.name}: ver detalle`}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                      >
-                        <span
-                          aria-hidden
-                          className="size-[7px] shrink-0 rounded-full"
-                          style={{ backgroundColor: categoryById.get(s.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-secondary">{s.fe.name}</span>
-                        {s.fe.is_recurring && <span className="text-[11px] text-fg-faint">bolsa</span>}
-                      </button>
-                      <Money cents={s.paidCents} tone="dim" size="row" hidden={balanceHidden} />
-                    </li>
-                  ))}
+                        <Money cents={s.paidCents} tone="dim" size="row" hidden={balanceHidden} />
+                      </li>
+                    )
+                  })}
                 </ul>
               </Panel>
             )}
@@ -732,10 +769,10 @@ export function Fijos() {
           open={!!markingPaid}
           onClose={() => setMarkingPaid(null)}
           fixedExpense={markingPaid.fe}
-          // El mes de ESTE fijo, no el primer mes del ciclo a secas: con un ciclo semanal a caballo
-          // de dos meses (bloque 5 del plan) un fijo de una sola vez puede vencer en el segundo — y
-          // una bolsa usa la misma ancla "en vivo" (`month`) que ya calculó `summarizeFixedExpenses`.
-          period={markingPaid.dueDate ? format(startOfMonth(parseISO(markingPaid.dueDate)), 'yyyy-MM-dd') : format(startOfMonth(month), 'yyyy-MM-dd')}
+          // Bloque 4: `markingPaid.period` YA es el mes de ESTA instancia — `summarizeFixedExpenses`
+          // ahora genera una por (fijo, mes), así que no hace falta rederivarlo del `dueDate` ni de
+          // `month` (el ancla "en vivo" que arma esta pantalla más abajo).
+          period={markingPaid.period}
           alreadyPaidCents={markingPaid.paidCents}
           alreadySavedCents={markingPaid.savedCents}
           alreadySavedMovementCents={markingPaid.savedMovementCents}

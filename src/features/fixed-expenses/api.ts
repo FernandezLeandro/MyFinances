@@ -416,6 +416,10 @@ export function useAddFixedExpenseSaving() {
         p_note: note ?? null,
         p_account_id: accountId ?? null,
         p_occurred_on: occurredOn ?? null,
+        // FI-15 (bloque 4): mismo motivo que ya tienen `rpc_mark_fixed_expense_paid`/
+        // `rpc_projected_balance_range` — sin esto, un guardado cargado sin `occurredOn` explícito usa
+        // `current_date` (UTC) del lado de la base para el movimiento que genera.
+        p_today: localTodayISO(),
       })
       if (error) throw error
     },

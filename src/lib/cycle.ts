@@ -145,9 +145,13 @@ export function shiftCycle(config: CycleConfig, cycle: Cycle, delta: number): Cy
   }
 }
 
-/** `true` si `cycle` es el que contiene a `today`. */
+/** `true` si `cycle` es el que contiene a `today`. FI-09 del QA de Fijos: antes recalculaba el ciclo
+ *  de hoy con `weekStartsOn: 1` fijo — con una semana que arranca el domingo, la semana actual nunca
+ *  coincidía y Fijos la trataba como otra (sin "Atrasado", "Vence" en vez de "Venció"). Comparar
+ *  contra `[from, to]` no necesita saber cómo se armó el ciclo. */
 export function isCurrentCycle(cycle: Cycle, today: Date): boolean {
-  return cycle.id === cycleContaining({ kind: cycle.kind, weekStartsOn: 1 }, today).id
+  const t = iso(today)
+  return t >= cycle.from && t <= cycle.to
 }
 
 /** Label largo para el header de navegación — "septiembre 2026" (mensual), "1–15 sep 2026" /
@@ -248,15 +252,12 @@ export function dueFallsInCycle(window: Pick<Cycle, 'from' | 'to'>, monthStart: 
  *  (`20260923040001_proyectado_atrasados_del_mes.sql`). En ciclo mensual, `window.from` ya es el
  *  día 1: no-op — nadie en ciclo mensual nota un cambio.
  *
- *  No ensancha si `window` ya cruza el borde del mes (un semanal a caballo de dos meses,
- *  `cycle.months.length === 2`): ahí `from` y `to` caen en meses distintos, y estirar `from` hasta el
- *  principio del mes de `from` arrastraría de más — el caso semanal-cruzando-meses queda fuera del
- *  alcance de N2, sin cambio de comportamiento. */
+ *  FI-06 del QA de Fijos: también ensancha cuando `window` cruza el borde del mes (una semana 28/9–4/10
+ *  arrastra desde el 1/9). Antes no lo hacía, pero la base sí (`date_trunc('month', p_from)` en el
+ *  `where`), así que en esa semana el proyectado restaba un atrasado de septiembre que el panel no
+ *  mostraba en ninguna línea. */
 export function withMonthCarry(window: Pick<Cycle, 'from' | 'to'>): { from: string; to: string } {
-  const carriedFrom = startOfMonth(parseISO(window.from))
-  const to = parseISO(window.to)
-  const sameMonth = carriedFrom.getFullYear() === to.getFullYear() && carriedFrom.getMonth() === to.getMonth()
-  return sameMonth ? { from: iso(carriedFrom), to: window.to } : { from: window.from, to: window.to }
+  return { from: iso(startOfMonth(parseISO(window.from))), to: window.to }
 }
 
 /** Ventana de barrido para el saldo proyectado — deliberadamente NO es `[cycle.from, cycle.to]`.

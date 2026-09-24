@@ -21,6 +21,10 @@ interface SaldoProyectadoPanelProps {
   /** Tarjetas + compras sueltas impagas de este período (ver `summarizeMisDeudas`). */
   unpaidDebtsCount: number
   unpaidDebtsCents: number
+  /** Bloque 4 (FI-08): `pendingBeforeCents` (`src/lib/projectedBalance.ts`) — lo que el proyectado
+   *  descuenta de un período ANTERIOR al que se mira (sólo pasa en un período futuro), sin línea
+   *  propia hasta esto. `undefined`/`0` la omite — en el período actual siempre da 0. */
+  pendingBeforeCents?: number
   hidden: boolean
   /** Hoy oculta el panel entero cuando no hay nada que descontar (redundante con el hero de
    *  arriba); Fijos lo deja siempre visible con una línea aclaratoria. */
@@ -59,6 +63,7 @@ export function SaldoProyectadoPanel({
   savedFixedCents,
   unpaidDebtsCount,
   unpaidDebtsCents,
+  pendingBeforeCents,
   hidden,
   hideWhenNothingPending = false,
   showCurrentBalanceRow = true,
@@ -80,6 +85,9 @@ export function SaldoProyectadoPanel({
   }
   if (unpaidDebtsCount > 0) {
     rows.push({ label: `Deudas por pagar (${unpaidDebtsCount})`, cents: -unpaidDebtsCents, tone: 'negativeOnInverse' })
+  }
+  if (pendingBeforeCents) {
+    rows.push({ label: 'Pendiente de antes', cents: -pendingBeforeCents, tone: 'negativeOnInverse' })
   }
 
   // Mismos términos que las filas de arriba: comprometido = fijos + deudas pendientes, sobre el
