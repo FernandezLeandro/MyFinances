@@ -49,7 +49,12 @@ import {
   useFixedExpenseSavings,
   useProjectedBalanceRange,
 } from '@/features/fixed-expenses/api'
-import { fixedExpenseUrgency, summarizeFixedExpenses, type FixedExpenseUrgency } from '@/features/fixed-expenses/aggregate'
+import {
+  cycleTotalCents,
+  fixedExpenseUrgency,
+  summarizeFixedExpenses,
+  type FixedExpenseUrgency,
+} from '@/features/fixed-expenses/aggregate'
 import { FijosCicloCard } from '@/features/fixed-expenses/FijosCicloCard'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
 import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
@@ -191,9 +196,9 @@ export function Hoy() {
   )
   // Sólo para `FijosCicloCard` (BASIC, sin `movimientos-manuales`): total y pagado de TODOS los
   // fijos elegibles del ciclo, pagados o no — mismo criterio que `totalCents`/`paidCentsTotal` en
-  // Fijos.tsx.
+  // Fijos.tsx. FI-13: `cycleTotalCents`, no la suma de `fe.cents` (el importe ACTUAL de la plantilla).
   const totalFixedCents = useMemo(
-    () => [...pendingFixed, ...doneFixed].reduce((acc, s) => acc + s.fe.cents, 0),
+    () => [...pendingFixed, ...doneFixed].reduce((acc, s) => acc + cycleTotalCents(s), 0),
     [pendingFixed, doneFixed],
   )
   const paidFixedCents = useMemo(

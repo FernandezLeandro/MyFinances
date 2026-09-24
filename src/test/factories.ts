@@ -220,6 +220,7 @@ export function makeFixedExpensePayment(
     transaction_id: null,
     is_recurring: false,
     note: null,
+    previous_template_amount: null,
     ...p,
   }
 }

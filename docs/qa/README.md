@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/11/12 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 3 / 6 / 10 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/07/10/11/12/13 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 2 / 4 / 10 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -103,6 +103,21 @@ misma vuelta.
 - **Doble toque:** `locator.dblclick()` manda dos `click` seguidos y alcanza para reproducir FI-01/FI-11.
 - **Dato de base, no basura:** la cuenta de QA tiene un movimiento «dblclick test» de $1.500 del
   2026-09-22, vinculado a un pago — viene de la pasada original de FI-01. No borrarlo al limpiar.
+- **Un fijo nuevo puede nacer invisible.** Si el `due_day` por default del form (10) ya pasó respecto a
+  `starts_on` (hoy), el fijo recién creado queda afuera de Fijos ESTE mes (FI-07) — no aparece ni en la
+  lista principal ni en «Pausados», así que no hay botón para editarlo ni borrarlo. Para un test que
+  pague/edite un fijo de una sola vez el mismo día que lo crea, pasar `input#dueDay` explícito por
+  encima del default. Si ya quedó uno así (por un script que crasheó a mitad de camino), no hace falta
+  SQL: navegar a «Mes siguiente» lo saca a la luz, ahí sí aparece para borrarlo.
+- **`getByLabel('Mes siguiente')` da 4 matches** (dos instancias de `CycleNav`, cada una con su propia
+  duplicación mobile/desktop) — ni `.first()` ni `.last()` garantizan pegarle al visible. Filtrar con
+  `.all()` + `isVisible()` y clickear el primero que sea visible.
+- **Verificar un total agregado (FI-13, FI-07) sin fabricar todo desde cero:** si la cuenta de QA ya
+  tiene datos reales de una pasada anterior que exponían el bug (ej. «QA Servicio», pagado con un
+  importe y con la plantilla después empujada a otro por un pago futuro), usarlos de base — calcular el
+  total esperado aparte con una consulta de sólo lectura que espeje la fórmula nueva, y compararlo contra
+  lo que muestra la pantalla. Es una verificación más fuerte que un fixture armado a mano, porque usa el
+  escenario que originalmente encontró el bug.
 
 ## Severidades
 

@@ -4,6 +4,7 @@ import { cycleContaining, type CycleConfig } from '@/lib/cycle'
 import {
   amountAfterCopy,
   compareFixedExpenses,
+  cycleTotalCents,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
   removeLinkedMovementCopy,
@@ -34,6 +35,72 @@ describe('summarizeFixedExpenses — fijo de una sola vez', () => {
     expect(s.done).toHaveLength(1)
     expect(s.done[0].paidCents).toBe(50_000_00)
     expect(s.pendingTotalCents).toBe(0)
+  })
+})
+
+// FI-07 del QA de Fijos: un fijo nuevo con día ya pasado aparecía atrasado y restaba del proyectado
+// el mismo mes en que se cargó — aunque no existiera cuando "venció" (`starts_on` es posterior).
+describe('summarizeFixedExpenses — FI-07: alta a mitad de mes con día ya pasado', () => {
+  it('día ya pasado (antes de starts_on), sin pago → no cuenta este mes', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(0)
+    expect(s.done).toHaveLength(0)
+    expect(s.pendingTotalCents).toBe(0)
+  })
+
+  it('día todavía no pasado (después de starts_on) → cuenta normal, pendiente', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 25, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pendingTotalCents).toBe(30_000_00)
+  })
+
+  it('día ya pasado, pero YA tiene un pago ese período → no se esconde', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const payment = makeFixedExpensePayment({ fixed_expense_id: 'f1', amountPaidCents: 30_000_00, period: '2026-08-01' })
+    const s = summarizeFixedExpenses([fe], [payment], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.done).toHaveLength(1)
+    expect(s.done[0].paidCents).toBe(30_000_00)
+  })
+
+  it('el mismo día del alta (starts_on == vencimiento) → sí cuenta', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 22, starts_on: '2026-08-22' })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending).toHaveLength(1)
+  })
+
+  it('mes siguiente al alta → cuenta normal (el vencimiento de ese mes es posterior a starts_on)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 30_000_00, due_day: 5, starts_on: '2026-08-22' })
+    const SEPTIEMBRE = new Date(2026, 8, 1)
+    const HOY_EN_SEPTIEMBRE = new Date(2026, 8, 10)
+    const s = summarizeFixedExpenses([fe], [], SEPTIEMBRE, HOY_EN_SEPTIEMBRE)
+    expect(s.pending).toHaveLength(1)
+    expect(s.pendingTotalCents).toBe(30_000_00)
+  })
+})
+
+describe('cycleTotalCents', () => {
+  // FI-13: "Total del mes" sumaba el importe ACTUAL de la plantilla — con un aumento a mitad de año
+  // (pagado $10.000, el fijo ahora vale $11.111), el total no cerraba contra Pagado + Falta pagar.
+  it('fijo de una vez, pagado → lo que de verdad se pagó, no el importe actual', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 11_111_00 })
+    expect(cycleTotalCents({ fe, paidCents: 10_000_00, done: true })).toBe(10_000_00)
+  })
+
+  it('fijo de una vez, pendiente → el importe vigente (lo que sale si se paga hoy)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 11_111_00 })
+    expect(cycleTotalCents({ fe, paidCents: 0, done: false })).toBe(11_111_00)
+  })
+
+  it('bolsa, dentro del presupuesto → el presupuesto', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_recurring: true })
+    expect(cycleTotalCents({ fe, paidCents: 30_000_00, done: false })).toBe(50_000_00)
+  })
+
+  it('bolsa, pasada del presupuesto → lo cargado, no el presupuesto (no esconde el exceso)', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00, is_recurring: true })
+    expect(cycleTotalCents({ fe, paidCents: 63_000_00, done: true })).toBe(63_000_00)
   })
 })
 

@@ -30,6 +30,7 @@ import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBefo
 import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expenses/period'
 import {
   compareFixedExpenses,
+  cycleTotalCents,
   fixedExpenseUrgency,
   summarizeFixedExpenses,
   type FixedExpenseStatus,
@@ -334,7 +335,8 @@ export function Fijos() {
 
   const totalCount = allStatuses.length
   const doneCount = doneStatuses.length
-  const totalCents = useMemo(() => allStatuses.reduce((acc, s) => acc + s.fe.cents, 0), [allStatuses])
+  // FI-13: no es la suma de `fe.cents` (el importe ACTUAL de la plantilla) — ver `cycleTotalCents`.
+  const totalCents = useMemo(() => allStatuses.reduce((acc, s) => acc + cycleTotalCents(s), 0), [allStatuses])
   const paidCentsTotal = useMemo(() => allStatuses.reduce((acc, s) => acc + s.paidCents, 0), [allStatuses])
   const paidPct = totalCents > 0 ? Math.min((paidCentsTotal / totalCents) * 100, 100) : 0
 

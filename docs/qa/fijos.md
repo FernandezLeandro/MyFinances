@@ -11,6 +11,8 @@
   - Bloque 1: FI-02, FI-03 y FI-05 resueltos y verificados en vivo. Migración
     `20260923070001_fijos_movimiento_vinculado.sql`, aplicada a producción con OK de Lean.
   - Bloque 2: FI-01, FI-11 y FI-12 resueltos y verificados en vivo. Sin migración (sólo front).
+  - Bloque 3: FI-07, FI-10 y FI-13 resueltos y verificados en vivo. Migración
+    `20260923080001_fijos_alta_y_deshacer_importe.sql`, aplicada a producción con OK de Lean.
 
   Ver el detalle en cada hallazgo y lo aprendido en [README](README.md).
 
@@ -42,13 +44,13 @@ Los problemas vienen por cuatro lados:
 | FI-04 | Alto | Abierto | Semana entre dos meses: un pago del mes anterior marca pagado el siguiente, y quitarlo borra el viejo |
 | FI-05 | Alto | **Resuelto** (2026-09-23) | Básico: tocar el movimiento de un fijo en Movimientos quita el pago sin confirmar |
 | FI-06 | Alto | Abierto | Semana entre dos meses: el panel del proyectado no cierra y las bolsas mezclan períodos |
-| FI-07 | Alto | Abierto | Un fijo nuevo con día ya pasado aparece atrasado y resta del proyectado |
+| FI-07 | Alto | **Resuelto** (2026-09-23) | Un fijo nuevo con día ya pasado aparece atrasado y resta del proyectado |
 | FI-08 | Medio | Abierto | Períodos futuros: el panel del proyectado no cierra |
 | FI-09 | Medio | Abierto | Semana que no empieza el lunes: Fijos no reconoce la semana actual |
-| FI-10 | Medio | Abierto | Quitar un pago no deshace el cambio de importe del fijo |
+| FI-10 | Medio | **Resuelto** (2026-09-23) | Quitar un pago no deshace el cambio de importe del fijo |
 | FI-11 | Medio | **Resuelto** (2026-09-23) | Doble click en «Marcar pagado»: queda pagado pero sale un error |
 | FI-12 | Medio | **Resuelto** (2026-09-23) | Guardar o cargar de más no avisa |
-| FI-13 | Medio | Abierto | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
+| FI-13 | Medio | **Resuelto** (2026-09-23) | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
 | FI-14 | Medio | Abierto | La base acepta datos inválidos o pagos armados a mano por API |
 | FI-15 | Medio | Por lectura de código | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
 | FI-16 | Bajo | Abierto | Nombre de sólo espacios guarda un fijo sin nombre |
@@ -180,7 +182,7 @@ Misma semana 28/9–4/10:
   de $80.000»). Mientras el mes es el actual, el sub-período se toma de *hoy*, no de la semana que se mira
   (`aggregate.ts:93-102`).
 
-### FI-07 · Un fijo nuevo con día ya pasado aparece atrasado — Alto
+### FI-07 · Un fijo nuevo con día ya pasado aparece atrasado — Alto — Resuelto
 
 - **Pasos:** el 22/9, cargar un fijo nuevo con vencimiento el día 5.
 - **Obtenido:** en septiembre aparece en «Atrasado · Venció el 5» y resta del proyectado, aunque su
@@ -188,6 +190,18 @@ Misma semana 28/9–4/10:
 - **Impacto:** alguien que carga todos sus fijos a mitad de mes ve el proyectado bajar por todo lo que ya
   pagó ese mes (esa plata ya está fuera de su saldo). Es una decisión de producto: que el primer mes cuente
   sólo desde `starts_on`, o preguntar «¿ya lo pagaste este mes?» al crearlo.
+- **Decisión de Lean:** el primer mes cuenta sólo desde `starts_on` — un fijo con vencimiento anterior al
+  alta arranca el mes que viene.
+- **Arreglo:** `summarizeFixedExpenses` (`aggregate.ts`) excluye un fijo «una vez al mes» cuyo
+  vencimiento materializado de ESE mes es anterior a `starts_on` — no cuenta como atrasado, no resta del
+  proyectado, y no aparece en ningún lado hasta el mes siguiente. Si ya tiene un pago ese período, no se
+  esconde. Espejo en la base: `rpc_projected_balance_range`
+  (`20260923080001_fijos_alta_y_deshacer_importe.sql`), aplicada a producción con OK de Lean.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23), con datos reales de la 1.ª pasada: «Expensas»
+  (vence el 15, `starts_on` 22/9) dejó de aparecer en Fijos de septiembre y de restar del proyectado —
+  antes de este arreglo hubiera sumado $180.000 a «Atrasado». El total de «Total del mes» ($837.500) y
+  «Falta pagar» ($97.000) que mostró la pantalla coincidieron centavo a centavo con el cálculo hecho
+  aparte por SQL de sólo lectura sobre los fijos activos de la cuenta.
 
 ### FI-08 · Períodos futuros: el panel no cierra — Medio
 
@@ -210,7 +224,7 @@ Misma semana 28/9–4/10:
   Hoy, en cambio, dice «Venció».
 - **Por qué:** `isCurrentCycle` fija `weekStartsOn: 1` (`src/lib/cycle.ts:150`).
 
-### FI-10 · Quitar un pago no deshace el cambio de importe — Medio
+### FI-10 · Quitar un pago no deshace el cambio de importe — Medio — Resuelto
 
 - **Pasos:**
   1. Pagar «QA Servicio» ($10.000) con $12.345,67. Avisa «El importe del fijo pasa a este valor de acá en
@@ -220,6 +234,16 @@ Misma semana 28/9–4/10:
   tipeado, hay que editar el fijo a mano.
 - **Relacionado:** pagar un mes **futuro** también cambia el importe del fijo, y eso mueve el total de los
   meses anteriores (FI-13).
+- **Arreglo:** columna nueva `fixed_expense_payments.previous_template_amount`
+  (`20260923080001_fijos_alta_y_deshacer_importe.sql`). `rpc_mark_fixed_expense_paid` la llena con el
+  importe ANTERIOR de la plantilla, sólo cuando el pago la actualiza (mes en curso o futuro).
+  `rpc_unmark_fixed_expense_payment` restaura ese importe al desmarcar — pero sólo si la plantilla sigue
+  exactamente en lo que puso ese pago (`amount = amount_paid`): si un pago posterior la volvió a cambiar,
+  no toca nada (esa edición manda). Los pagos de ANTES de esta migración no tienen este dato (columna
+  `null`), así que desmarcarlos no restaura nada — ya era el comportamiento de siempre para ellos.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23): fijo de prueba pagado $10.000 → pagado de nuevo con
+  $15.000 (plantilla pasó a $15.000) → quitar el pago → la plantilla volvió a $10.000. Fixture borrado al
+  terminar.
 
 ### FI-11 · Doble click en «Marcar pagado» — Medio — Resuelto
 
@@ -256,7 +280,7 @@ Misma semana 28/9–4/10:
   «Guardás $5.000,00 de más.»; cargar de más en una bolsa mostró «Te pasás $1.500,00 del presupuesto
   mensual.» — ambos antes de confirmar, sin tocar la base. Fixtures borrados al terminar.
 
-### FI-13 · «Disponible» y «Total del mes» usan el importe actual — Medio
+### FI-13 · «Disponible» y «Total del mes» usan el importe actual — Medio — Resuelto
 
 - **Obtenido:** en Básico, la tarjeta de Hoy muestra «Disponible $1.060.389,50», pero Sueldo − Pagado −
   Falta pagar da $1.061.500,50.
@@ -264,6 +288,15 @@ Misma semana 28/9–4/10:
   $11.111. El total del ciclo suma el importe **actual** de cada fijo, no lo pagado en ese mes
   (`Hoy.tsx:195-198`). Lo mismo pasa con «Total del mes» en Fijos. Con FI-02 y FI-10 el desfasaje es más
   fácil de provocar.
+- **Arreglo:** función pura `cycleTotalCents` (`aggregate.ts`, con test): un fijo de una vez pagado aporta
+  lo que de verdad se pagó (`paidCents`), pendiente aporta el importe vigente, y una bolsa aporta lo mayor
+  entre el presupuesto y lo cargado. La usan «Total del mes» en Fijos y `totalFixedCents`/«Disponible» en
+  Hoy — con esto, Total = Pagado + Falta pagar por construcción.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23), con «QA Servicio» real ($10.000 pagado en septiembre,
+  plantilla en $11.111 por el pago de octubre — el mismo caso del hallazgo original, sin fabricar nada
+  nuevo): «Total del mes» de Fijos mostró $837.500, que coincide centavo a centavo con sumar
+  `cycleTotalCents` a mano por SQL de sólo lectura sobre los 7 fijos activos de septiembre (usa los
+  $10.000 pagados de «QA Servicio», no los $11.111 de la plantilla actual).
 
 ### FI-14 · La base acepta datos inválidos o pagos armados a mano — Medio
 

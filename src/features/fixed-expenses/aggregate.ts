@@ -150,6 +150,20 @@ export function compareFixedExpenses(a: FixedExpense, b: FixedExpense): number {
   return (a.due_day ?? 32) - (b.due_day ?? 32)
 }
 
+/**
+ * Bloque 3 (FI-13): cuánto aporta CADA fijo a "Total del mes/quincena/semana" — antes ese total
+ * sumaba siempre el importe ACTUAL de la plantilla (`fe.cents`), aunque el mes se hubiera pagado con
+ * otro importe (aumento a mitad de año) o un mes futuro ya la hubiera actualizado (FI-02/FI-10), y
+ * "Disponible" (`Sueldo − Pagado − Falta pagar`) no cerraba con ese total. Con esto, Total = Pagado +
+ * Falta pagar por construcción: pagado aporta lo que de verdad salió (`paidCents`), pendiente aporta
+ * el importe vigente (lo que sale si se paga hoy), y una bolsa aporta lo mayor entre el presupuesto y
+ * lo cargado (si se pasó, el total tiene que reflejar el exceso, no esconderlo).
+ */
+export function cycleTotalCents(status: Pick<FixedExpenseStatus, 'fe' | 'paidCents' | 'done'>): number {
+  if (status.fe.is_recurring) return Math.max(status.fe.cents, status.paidCents)
+  return status.done ? status.paidCents : status.fe.cents
+}
+
 export interface FixedExpensesSummary {
   pending: FixedExpenseStatus[]
   done: FixedExpenseStatus[]
@@ -224,6 +238,12 @@ export function summarizeFixedExpenses(
     .map((fe) =>
       statusFor(fe, payments, savings, period, today, dueDateInCycle(fe, monthsToCheck, carriedWindow ?? fallbackWindow), weekStartsOn),
     )
+    // FI-07: un fijo "una vez al mes" cuyo vencimiento materializado en ESTE mes es anterior a
+    // `starts_on` no existía cuando "venció" — no cuenta como atrasado ni resta del proyectado, salvo
+    // que YA tenga un pago ahí (no esconder un pago real). Una bolsa no vence (`dueDate` siempre
+    // `null`) y no pasa por este filtro. Espejo de `rpc_projected_balance_range`
+    // (`20260923080001_fijos_alta_y_deshacer_importe.sql`).
+    .filter((s) => s.fe.is_recurring || s.dueDate == null || s.dueDate >= s.fe.starts_on || s.done)
     .sort((a, b) => compareFixedExpenses(a.fe, b.fe))
 
   const pending = statuses.filter((s) => !s.done)

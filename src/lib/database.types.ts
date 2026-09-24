@@ -300,6 +300,9 @@ export interface Database {
           transaction_id: string | null
           is_recurring: boolean
           note: string | null
+          /** FI-10: importe de la plantilla ANTES de este pago, sólo si este pago la actualizó —
+           *  `rpc_unmark_fixed_expense_payment` lo usa para deshacer ese cambio al desmarcar. */
+          previous_template_amount: string | null
         }
         Insert: {
           id?: string
@@ -310,6 +313,7 @@ export interface Database {
           transaction_id?: string | null
           is_recurring?: boolean
           note?: string | null
+          previous_template_amount?: number | string | null
         }
         Update: Partial<{ transaction_id: string | null; note: string | null }>
         Relationships: []
