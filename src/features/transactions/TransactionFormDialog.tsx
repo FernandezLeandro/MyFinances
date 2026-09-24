@@ -11,35 +11,54 @@ import { Select } from '@/components/ui/Select'
 import { Money } from '@/components/ui/Money'
 import { parseAmountToCents } from '@/lib/money'
 import { useCategories } from '@/features/categories/api'
-import { useCreateReceivable } from '@/features/receivables/api'
+import { useCreateReceivable, useDeleteReceivablePayment, useUnexpenseReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
-import { useBalanceLocations } from '@/features/accounts/api'
-import { accountFieldMode, effectiveDefaultAccountId } from '@/features/accounts/aggregate'
-import { useFixedExpenseSavingByTransaction, useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
+import { useAccountBalances, useBalanceLocations } from '@/features/accounts/api'
+import { accountFieldMode, accountNameOf, effectiveDefaultAccountId, overdraftNote } from '@/features/accounts/aggregate'
+import { useUnmarkWithLegacyConfirm } from '@/features/fixed-expenses/api'
 import { UnmarkBeforeAccountsDialog } from '@/features/fixed-expenses/UnmarkBeforeAccountsDialog'
-import { RemoveLinkedMovementDialog } from '@/features/fixed-expenses/RemoveLinkedMovementDialog'
+import { ConfirmDeleteMovementDialog } from '@/features/transactions/ConfirmDeleteMovementDialog'
+import { useUnmarkCreditCardPaid, useUnmarkCreditPurchasePaid } from '@/features/credits/api'
 import { useCan } from '@/features/access/useCan'
 import {
   useCreateTransaction,
   useDeleteTransaction,
+  useTransactionOrigin,
   useUpdateTransaction,
   type Transaction,
   type TransactionType,
 } from '@/features/transactions/api'
+import { movementFieldLocks, originDeleteAction, originDeleteCopy, type TransactionOrigin } from '@/features/transactions/origin'
 
 /** Cómo se calcula la parte de la otra persona en un gasto compartido. */
 type SplitMode = '50' | 'percent' | 'amount'
+
+/** MO-16 del QA de Movimientos: sin tope, `2030-01-01` o `0001-01-01` se guardaban sin aviso. */
+const MIN_OCCURRED_ON = '2000-01-01'
+
+/** Fecha local de hoy, en `yyyy-MM-dd` — se recalcula en cada parseo/render, no es una constante de
+ *  módulo, así que no queda "vieja" si el diálogo sigue abierto al cruzar la medianoche. */
+function todayISO(): string {
+  return format(new Date(), 'yyyy-MM-dd')
+}
 
 const schema = z
   .object({
     type: z.enum(['income', 'expense']),
     amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
-      message: 'Ingresá un importe válido',
+      // MO-12 del QA de Movimientos: sin un ejemplo, un formato ambiguo ("1,234.56") pasaba la
+      // validación de otra forma (con la coma como decimal) y se guardaba mal, sin que nada avisara
+      // qué formato se esperaba.
+      message: 'Ingresá un importe válido (ej. 1.234,56)',
     }),
     categoryId: z.string(),
-    occurredOn: z.string().min(1, 'Falta la fecha'),
-    description: z.string().max(140).optional(),
+    occurredOn: z
+      .string()
+      .min(1, 'Falta la fecha')
+      .refine((v) => v >= MIN_OCCURRED_ON, { message: 'La fecha no puede ser anterior al 2000' })
+      .refine((v) => v <= todayISO(), { message: 'No podés cargar una fecha futura' }),
+    description: z.string().max(300, 'Como mucho 300 caracteres').optional(),
     accountId: z.string().optional(),
     compartido: z.boolean(),
     personName: z.string().max(80).optional(),
@@ -108,6 +127,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   // tocar nada le pisa la categoría en silencio.
   const { data: categories } = useCategories(true)
   const { data: locations } = useBalanceLocations()
+  const { data: balances } = useAccountBalances()
   const defaultAccountId = effectiveDefaultAccountId(locations ?? [])
   const activeAccountCount = (locations ?? []).filter((l) => !l.is_archived).length
   // `required`: todo movimiento nuevo lleva cuenta (el saldo es la suma de las cuentas). `legacy`: un
@@ -128,14 +148,29 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   // un toque, sólo con una nota. Se resuelve como "quitar el pago" (mismo RPC, mismo resultado neto:
   // se va el movimiento y el fijo vuelve a pendiente), no como un `deleteTx` distinto.
   const unmarkLegacyPayment = useUnmarkWithLegacyConfirm({ onSuccess: onClose })
-  // Bloque 1 del QA de Fijos (FI-02/FI-03): un pago se sabe por `transaction.fixed_expense_payment_id`
-  // (ya viene en la fila); un guardado con movimiento no tiene esa columna, así que hace falta esta
-  // query chica — sólo corre editando, y nunca junto con la de arriba (un movimiento no es las dos
-  // cosas a la vez).
-  const { data: linkedSaving } = useFixedExpenseSavingByTransaction(
-    transaction && !transaction.fixed_expense_payment_id ? transaction.id : null,
-  )
-  const linkedKind: 'payment' | 'saving' | null = transaction?.fixed_expense_payment_id ? 'payment' : linkedSaving ? 'saving' : null
+  // Bloque 3 del arreglo de Movimientos (MO-02, MO-04, MO-05, MO-06): las mismas RPC de "deshacer"
+  // que ya usan Mis Deudas y Me Deben, para que Eliminar acá nunca deje el origen desincronizado.
+  const unmarkCardPayment = useUnmarkCreditCardPaid()
+  const unmarkInstallment = useUnmarkCreditPurchasePaid()
+  const unexpenseReceivable = useUnexpenseReceivable()
+  const deleteReceivablePayment = useDeleteReceivablePayment()
+  // Bloque 2 del arreglo de Movimientos: una sola consulta reemplaza a la vieja
+  // `useFixedExpenseSavingByTransaction` (que sólo sabía de fijos) — sólo corre editando, y ni
+  // siquiera ahí cuando ya se sabe gratis que es el pago de un fijo (`fixed_expense_payment_id` viene
+  // en la fila, sin consultar nada).
+  const originQuery = useTransactionOrigin(transaction && !transaction.fixed_expense_payment_id ? transaction.id : null)
+  const origin: TransactionOrigin | null = !transaction
+    ? null
+    : transaction.fixed_expense_payment_id
+      ? { kind: 'fixed_payment' }
+      : (originQuery.data ?? null)
+  // Mientras el origen todavía no resolvió (sólo aplica editando: al crear, la consulta ni corre),
+  // Guardar/Eliminar quedan deshabilitados — mostrar el form sin saber si hay que bloquear el importe
+  // sería peor que esperar el instante que tarda esta consulta.
+  const originLoading = isEditing && !transaction?.fixed_expense_payment_id && originQuery.isPending
+  const linkedKind: 'payment' | 'saving' | null =
+    origin?.kind === 'fixed_payment' ? 'payment' : origin?.kind === 'fixed_saving' ? 'saving' : null
+  const locks = movementFieldLocks(origin ?? { kind: 'plain' })
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const {
@@ -245,6 +280,22 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
       : null
   const miParteCents = totalCents != null && otroCents != null ? totalCents - otroCents : null
 
+  // Bloque 6 del arreglo de Movimientos (D4, MO-14): un aviso, no un bloqueo, cuando cargar o editar
+  // un gasto deja la cuenta elegida en negativo — mismo criterio que ya usa `TransferDetailDialog`
+  // para una transferencia, pero acá sin frenar el guardado.
+  const accountId = watch('accountId')
+  const overdraft =
+    accountMode === 'required' && totalCents != null
+      ? overdraftNote({
+          type,
+          accountId: accountId || null,
+          cents: totalCents,
+          balances,
+          nameOf: (id) => accountNameOf(new Map((locations ?? []).map((l) => [l.id, l])), id),
+          original: transaction ? { accountId: transaction.account_id, type: transaction.type, cents: transaction.cents } : null,
+        })
+      : null
+
   async function onSubmit(values: FormValues) {
     if (accountMode === 'required' && !values.accountId) {
       setError('accountId', { message: 'Elegí una cuenta' })
@@ -298,37 +349,73 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
 
   function onDelete() {
     if (!transaction) return
-    // FI-03/FI-05 del QA de Fijos: antes esto borraba al instante — ahora pide confirmar en
-    // `RemoveLinkedMovementDialog` primero. El freno `payment_before_accounts` (legacy) sigue siendo
-    // aparte: lo dispara `unmarkLegacyPayment` recién al confirmar, si corresponde.
-    if (linkedKind) {
-      setConfirmingDelete(true)
-      return
-    }
-    // `.mutate()`, no `mutateAsync` + `await`: mismo motivo que `confirmDelete` más abajo — si la
-    // base lo rechaza, awaitar acá dejaría una promesa rechazada sin manejar en la consola (FI-11).
-    deleteTx.mutate(transaction.id, { onSuccess: onClose })
+    // FI-03/FI-05 del QA de Fijos: antes, un movimiento vinculado a un fijo se borraba al instante.
+    // MO-01 del QA de Movimientos: un movimiento suelto tenía el mismo problema — ahora los dos
+    // pasan por `ConfirmDeleteMovementDialog` primero. El freno `payment_before_accounts` (legacy)
+    // sigue siendo aparte: lo dispara `unmarkLegacyPayment` recién al confirmar, si corresponde.
+    setConfirmingDelete(true)
   }
 
+  // Bloque 3 del arreglo de Movimientos: cada origen deshace su propio vínculo con la RPC que ya usa
+  // su pantalla, en vez de un `delete` directo que dejaba una tarjeta/cuota "pagada" o una deuda
+  // "descontada" sin el movimiento real detrás (MO-02, MO-04, MO-05, MO-06). `.mutate()` en todos los
+  // casos, no `mutateAsync` + `await`: mismo motivo de siempre — si la base lo rechaza, awaitar acá
+  // dejaría una promesa rechazada sin manejar en la consola (FI-11).
   function confirmDelete() {
     setConfirmingDelete(false)
     if (!transaction) return
+
     if (transaction.fixed_expense_payment_id) {
       unmarkLegacyPayment.unmarkPayment(transaction.fixed_expense_payment_id)
       return
     }
-    // Guardado: un delete directo — si el mes ya está pagado, lo frena el trigger
-    // `transactions_block_delete_paid_saving` y el toast lo explica (`errors.ts`). `.mutate()`, no
-    // `mutateAsync` + `await`: si la base lo rechaza, el toast ya sale por el `onError` global
-    // (`main.tsx`) — awaitar acá dejaría además una promesa rechazada sin manejar en la consola,
-    // mismo patrón que FI-11 (verificado en vivo contra la cuenta de QA).
-    deleteTx.mutate(transaction.id, { onSuccess: onClose })
+
+    switch (originDeleteAction(origin ?? { kind: 'plain' })) {
+      case 'deleteFixedSaving':
+        // Un mes ya pagado lo frena el trigger `transactions_block_delete_paid_saving`, con su
+        // propio toast (`errors.ts`).
+        deleteTx.mutate(transaction.id, { onSuccess: onClose })
+        return
+      case 'unmarkCardPayment': {
+        const card = origin as Extract<TransactionOrigin, { kind: 'card_payment' }>
+        unmarkCardPayment.mutate({ cardId: card.cardId, period: card.period }, { onSuccess: onClose })
+        return
+      }
+      case 'unmarkInstallment': {
+        const installment = origin as Extract<TransactionOrigin, { kind: 'installment' }>
+        unmarkInstallment.mutate({ purchaseId: installment.purchaseId, period: installment.period }, { onSuccess: onClose })
+        return
+      }
+      case 'unexpenseReceivable': {
+        const receivable = origin as Extract<TransactionOrigin, { kind: 'receivable_expensed' }>
+        unexpenseReceivable.mutate(receivable.receivableId, { onSuccess: onClose })
+        return
+      }
+      case 'deleteReceivablePayment': {
+        const payment = origin as Extract<TransactionOrigin, { kind: 'receivable_payment' }>
+        deleteReceivablePayment.mutate(payment.paymentId, { onSuccess: onClose })
+        return
+      }
+      case 'unmarkFixedPayment':
+        // No debería llegar acá: `transaction.fixed_expense_payment_id` ya lo cubrió arriba. Se deja
+        // por completitud del switch, no por un caso real.
+        return
+      case 'delete':
+      default:
+        // Tu parte de un gasto compartido, un ajuste (no debería llegar: ver `MovementDetailDialog`)
+        // o un movimiento suelto: delete directo.
+        deleteTx.mutate(transaction.id, { onSuccess: onClose })
+    }
   }
 
   function selectType(next: TransactionType) {
     if (next === type || linkedKind) return
     setValue('type', next)
     setValue('categoryId', '') // la categoría elegida ya no aplica al otro tipo
+    // MO-09 del QA de Movimientos: el bloque Compartido sólo se MUESTRA para `type === 'expense'`,
+    // pero `compartido` seguía en `true` en el estado del form — al guardar como Ingreso, el split
+    // armado desaparecía sin avisar. Se apaga acá para que el estado sea consistente con lo que se ve.
+    if (next === 'income' && compartido) setValue('compartido', false)
   }
 
   return (
@@ -344,7 +431,15 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
                 variant="danger"
                 size="dialogFooter"
                 onClick={onDelete}
-                disabled={deleteTx.isPending || unmarkLegacyPayment.isPending}
+                disabled={
+                  originLoading ||
+                  deleteTx.isPending ||
+                  unmarkLegacyPayment.isPending ||
+                  unmarkCardPayment.isPending ||
+                  unmarkInstallment.isPending ||
+                  unexpenseReceivable.isPending ||
+                  deleteReceivablePayment.isPending
+                }
                 className="sm:mr-auto"
               >
                 Eliminar
@@ -353,41 +448,43 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
             <Button variant="ghost" size="dialogFooter" onClick={onClose}>
               Cancelar
             </Button>
-            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || originLoading}>
               {isSubmitting ? 'Guardando…' : 'Guardar'}
             </Button>
           </>
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          {/* Bloque 1 del QA de Fijos (FI-02/FI-03): un movimiento vinculado a un pago o a un
-              guardado sincroniza su importe con el fijo (trigger
-              `transactions_sync_linked_fixed_expense`, `20260923070001_fijos_movimiento_vinculado.sql`)
-              y no puede cambiar de tipo — de ahí que los chips de abajo queden sin `onClick` en ese
-              caso. Eliminar pide confirmar en `RemoveLinkedMovementDialog` (montado más abajo) en vez
-              de borrar directo — antes pasaba sin aviso (N4/FI-03/FI-05 del QA). */}
-          {isEditing && linkedKind && (
+          {/* Bloque 1 del QA de Fijos (FI-02/FI-03) y Bloque 4 del arreglo de Movimientos
+              (MO-03/MO-07/MO-08): qué se puede tocar sale de `movementFieldLocks(origin)` — un pago o
+              un guardado de fijo deja el importe editable (lo sincroniza el trigger
+              `transactions_sync_linked_fixed_expense`); el resto de los orígenes vinculados (tarjeta,
+              cuota, deuda) bloquea también el importe, porque acá no hay ningún trigger que reparta
+              ese cambio del lado del origen. Eliminar pide confirmar en `ConfirmDeleteMovementDialog`
+              (montado más abajo) en vez de borrar directo — antes pasaba sin aviso (N4/FI-03/FI-05 del
+              QA; MO-01 extendió la misma confirmación a cualquier movimiento suelto). */}
+          {isEditing && locks.note && (
             <p className="text-[12px] text-fg-muted">
-              {linkedKind === 'payment'
-                ? 'Este movimiento viene de pagar un fijo: cambiar el importe actualiza el pago. Si lo eliminás, el fijo vuelve a quedar pendiente.'
-                : 'Este movimiento es un guardado para un fijo: cambiar el importe actualiza el guardado. Si lo eliminás, esa plata deja de estar apartada.'}{' '}
-              El tipo (Gasto/Ingreso) no se puede cambiar.
-              {accountMode === 'legacy' &&
+              {locks.note}
+              {/* Antes de este bloque, este agregado no distinguía pago/guardado — se mantiene igual
+                  (no sólo para `linkedKind === 'payment'`) para no regresar ese comportamiento. */}
+              {linkedKind &&
+                accountMode === 'legacy' &&
                 ' Es de antes de tus cuentas: si después lo volvés a pagar, se descuenta dos veces.'}
             </p>
           )}
 
           <div className="flex gap-2">
-            <Chip size="lg" active={type === 'expense'} onClick={linkedKind ? undefined : () => selectType('expense')}>
+            <Chip size="lg" active={type === 'expense'} onClick={locks.lockType ? undefined : () => selectType('expense')}>
               Gasto
             </Chip>
-            <Chip size="lg" active={type === 'income'} onClick={linkedKind ? undefined : () => selectType('income')}>
+            <Chip size="lg" active={type === 'income'} onClick={locks.lockType ? undefined : () => selectType('income')}>
               Ingreso
             </Chip>
           </div>
 
           <Field label="Importe" error={errors.amount?.message}>
-            <AmountInput invalid={!!errors.amount} {...register('amount')} />
+            <AmountInput invalid={!!errors.amount} disabled={locks.lockAmount} {...register('amount')} />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
@@ -404,7 +501,14 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
             </Field>
 
             <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
-              <Input id="occurredOn" type="date" invalid={!!errors.occurredOn} {...register('occurredOn')} />
+              <Input
+                id="occurredOn"
+                type="date"
+                min={MIN_OCCURRED_ON}
+                max={todayISO()}
+                invalid={!!errors.occurredOn}
+                {...register('occurredOn')}
+              />
             </Field>
           </div>
 
@@ -423,9 +527,15 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
           {accountMode === 'legacy' && (
             <p className="text-[12px] text-fg-muted">Movimiento anterior a tus cuentas: no suma al saldo actual.</p>
           )}
+          {overdraft && <p className="text-[12px] text-negative">{overdraft}</p>}
 
-          <Field label="Descripción" htmlFor="description" hint="Opcional">
-            <Input id="description" autoComplete="off" {...register('description')} />
+          <Field label="Descripción" htmlFor="description" hint="Opcional" error={errors.description?.message}>
+            {/* MO-10 del QA de Movimientos: sin `maxLength` ni `error` conectado, pasarse de 300
+                caracteres (el mismo tope que ya usa `left(v_description, 300)` en
+                `rpc_mark_credit_card_paid`) dejaba Guardar sin hacer nada, sin ninguna pista de por
+                qué — el caso más fácil de pisar sin querer era heredar una descripción larga de un
+                pago de tarjeta y sólo cambiarle la categoría. */}
+            <Input id="description" autoComplete="off" maxLength={300} invalid={!!errors.description} {...register('description')} />
           </Field>
 
           {/* Sólo en alta de un gasto: es el flujo del usuario que compra algo y paga la mitad —
@@ -506,12 +616,18 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
         onClose={unmarkLegacyPayment.cancelConfirm}
         onConfirm={unmarkLegacyPayment.confirmForce}
       />
-      {transaction && linkedKind && (
-        <RemoveLinkedMovementDialog
+      {transaction && (
+        <ConfirmDeleteMovementDialog
           open={confirmingDelete}
-          busy={deleteTx.isPending || unmarkLegacyPayment.isPending}
-          kind={linkedKind}
-          description={transaction.description}
+          busy={
+            deleteTx.isPending ||
+            unmarkLegacyPayment.isPending ||
+            unmarkCardPayment.isPending ||
+            unmarkInstallment.isPending ||
+            unexpenseReceivable.isPending ||
+            deleteReceivablePayment.isPending
+          }
+          copy={originDeleteCopy(origin ?? { kind: 'plain' }, transaction.description)}
           onClose={() => setConfirmingDelete(false)}
           onConfirm={confirmDelete}
         />

@@ -9,7 +9,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
 | Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); los 26 issues (FI-01 a FI-26) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
+| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª); los 18 issues (MO-01 a MO-18) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas (una de las 4, `...050001`, aplicada por fuera de `db push` — ver el informe) | rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |

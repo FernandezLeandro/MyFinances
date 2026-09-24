@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { formatMoney, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import type { MovementPeriod } from '@/features/transactions/movementPeriod'
+import type { Transaction } from '@/features/transactions/api'
 import type { AccountKind, BalanceLocation } from './api'
 import type { AccountTransfer } from './transfers-api'
 
@@ -668,6 +669,76 @@ export function transferDeleteEffect(input: {
     text: `Si la eliminás, ${fromName} pasa a ${formatMoney(fromAfter)} y ${toName} a ${formatMoney(toAfter)}.`,
     warning: toAfter < 0 ? `${toName} queda en negativo: esa plata ya se usó desde ahí.` : null,
   }
+}
+
+export interface TransactionDeleteEffect {
+  text: string
+  /** Sólo si la cuenta queda en negativo. */
+  warning: string | null
+}
+
+/**
+ * Mismo criterio que `transferDeleteEffect`, para un movimiento suelto — Bloque 4 del arreglo de
+ * Movimientos (D1, MO-08): un "Ajuste de saldo" era editable/borrable desde Movimientos sin ningún
+ * aviso de cómo quedaba la cuenta. `MovementDetailDialog` lo usa ahí y, en Básico, para cualquier
+ * otro movimiento suelto que no sea el pago de un fijo (Bloque 5, D2) — eliminar cualquiera de los
+ * dos mueve el saldo de la cuenta de la misma forma: un ingreso suma, así que borrarlo saca esa
+ * plata; un gasto resta, así que borrarlo la devuelve.
+ */
+export function transactionDeleteEffect(input: {
+  transaction: Pick<Transaction, 'type' | 'cents' | 'account_id'>
+  balances: ReadonlyMap<string, number> | undefined
+  nameOf: (accountId: string) => string
+}): TransactionDeleteEffect {
+  const { transaction, balances, nameOf } = input
+  if (!transaction.account_id) {
+    return { text: 'No tiene una cuenta asignada: eliminarlo no mueve ningún saldo.', warning: null }
+  }
+
+  const name = nameOf(transaction.account_id)
+  const before = balances?.get(transaction.account_id)
+  const isIncome = transaction.type === 'income'
+
+  if (before === undefined) {
+    return {
+      text: isIncome ? `Si lo eliminás, salen ${formatMoney(transaction.cents)} de ${name}.` : `Si lo eliminás, vuelven ${formatMoney(transaction.cents)} a ${name}.`,
+      warning: null,
+    }
+  }
+
+  const after = isIncome ? before - transaction.cents : before + transaction.cents
+  return {
+    text: `Si lo eliminás, ${name} pasa a ${formatMoney(after)}.`,
+    warning: after < 0 ? `${name} queda en negativo.` : null,
+  }
+}
+
+/**
+ * Bloque 6 del arreglo de Movimientos (D4, MO-14): un aviso — no bloquea, a diferencia de las
+ * transferencias — cuando cargar o editar un gasto deja la cuenta elegida en negativo. Sólo aplica a
+ * un gasto con cuenta elegida; un ingreso nunca puede dejarla negativa por sí solo. Al editar,
+ * `original` es el importe/tipo/cuenta que el movimiento ya tenía — sin esto, el saldo actual (que
+ * ya incluye ese importe viejo) contaría el gasto dos veces si la cuenta no cambió.
+ */
+export function overdraftNote(input: {
+  type: 'income' | 'expense'
+  accountId: string | null
+  cents: number
+  balances: ReadonlyMap<string, number> | undefined
+  nameOf: (accountId: string) => string
+  original?: { accountId: string | null; type: 'income' | 'expense'; cents: number } | null
+}): string | null {
+  const { type, accountId, cents, balances, nameOf, original } = input
+  if (type !== 'expense' || !accountId || cents <= 0) return null
+
+  const before = balances?.get(accountId)
+  if (before === undefined) return null
+
+  const oldEffectHere = original && original.accountId === accountId ? (original.type === 'income' ? original.cents : -original.cents) : 0
+  const after = before - oldEffectHere - cents
+
+  if (after >= 0) return null
+  return `${nameOf(accountId)} queda en ${formatMoney(after)}.`
 }
 
 // ---------------------------------------------------------------------------------------------

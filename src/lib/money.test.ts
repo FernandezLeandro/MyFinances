@@ -106,6 +106,19 @@ describe('parseAmountToCents', () => {
   it('devuelve null con más de un punto que no sea separador de miles', () => {
     expect(parseAmountToCents('1.2.3')).toBeNull()
   })
+
+  it('un punto tras un "0" inicial no es separador de miles, aunque tenga 3 dígitos después', () => {
+    // MO-13 del QA de Movimientos: "0.500" (pensado como cero con cincuenta centavos) pasaba la
+    // heurística de "punto seguido de exactamente 3 dígitos" y se guardaba como $500,00 — un error
+    // de tres órdenes de magnitud sin ningún aviso. Nadie escribe un grupo de miles que arranca en
+    // "0" ("0.500.000" no existe), así que el punto es decimal — y con 3 dígitos decimales, el mismo
+    // chequeo de FI-18 lo rechaza en vez de adivinar mal.
+    expect(parseAmountToCents('0.500')).toBeNull()
+    expect(parseAmountToCents('-0.500')).toBeNull()
+    // Con 2 decimales sigue siendo un importe válido: "0.50" = $0,50, no se rompe por el fix.
+    expect(parseAmountToCents('0.50')).toBe(50)
+    expect(parseAmountToCents('0.5')).toBe(50)
+  })
 })
 
 describe('sanitizeAmountInput', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  confirmDeleteMovementCopy,
   dailySpendBars,
   dailySpendPeakLabel,
   dayNetTotals,
@@ -298,5 +299,43 @@ describe('movementCountLabel', () => {
 
   it('sólo transferencias: no dice «0 movimientos»', () => {
     expect(movementCountLabel(0, 3)).toBe('3 transferencias')
+  })
+})
+
+// Nació como `removeLinkedMovementCopy` en el Bloque 1 del QA de Fijos (FI-03, FI-05), sólo para
+// `payment`/`saving`; el Bloque 1 del arreglo de Movimientos (MO-01) sumó `plain` y lo mudó acá.
+describe('confirmDeleteMovementCopy', () => {
+  it('pago, con nombre: nombra el fijo y dice que vuelve a pendiente', () => {
+    const c = confirmDeleteMovementCopy({ kind: 'payment', description: 'Expensas' })
+    expect(c.title).toBe('¿Quitar este pago?')
+    expect(c.confirmLabel).toBe('Quitar pago')
+    expect(c.paragraphs[0]).toContain('«Expensas»')
+    expect(c.paragraphs[0]).toContain('vuelve a quedar pendiente')
+  })
+
+  it('pago, sin descripción (o sólo espacios): copy genérico, sin comillas vacías', () => {
+    expect(confirmDeleteMovementCopy({ kind: 'payment', description: null }).paragraphs[0]).not.toContain('«')
+    expect(confirmDeleteMovementCopy({ kind: 'payment', description: '   ' }).paragraphs[0]).not.toContain('«')
+  })
+
+  it('guardado: título y copy distintos — no habla de "pendiente" sino de la plata apartada', () => {
+    const c = confirmDeleteMovementCopy({ kind: 'saving', description: 'Guardado · Gimnasio' })
+    expect(c.title).toBe('¿Eliminar este guardado?')
+    expect(c.confirmLabel).toBe('Eliminar guardado')
+    expect(c.paragraphs[0]).toContain('«Guardado · Gimnasio»')
+    expect(c.paragraphs[0]).toContain('deja de estar apartada')
+    expect(c.paragraphs.join(' ')).not.toContain('pendiente')
+  })
+
+  // MO-01: antes de este bloque, un movimiento suelto se borraba al instante sin ningún aviso.
+  it('plain, con nombre: pide confirmar y nombra el movimiento', () => {
+    const c = confirmDeleteMovementCopy({ kind: 'plain', description: 'Supermercado' })
+    expect(c.title).toBe('¿Eliminar este movimiento?')
+    expect(c.confirmLabel).toBe('Eliminar')
+    expect(c.paragraphs[0]).toContain('«Supermercado»')
+  })
+
+  it('plain, sin descripción: copy genérico, sin comillas vacías', () => {
+    expect(confirmDeleteMovementCopy({ kind: 'plain', description: null }).paragraphs[0]).not.toContain('«')
   })
 })

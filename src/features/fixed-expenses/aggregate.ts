@@ -397,43 +397,6 @@ export function preAccountsPaymentCopy({
   }
 }
 
-/**
- * Texto de la confirmación antes de quitar/eliminar un movimiento vinculado a un fijo (Bloque 1 del
- * QA de Fijos, FI-03 y FI-05): hasta acá esto pasaba sin avisar — un toque en Movimientos (Básico) o
- * el botón Eliminar del formulario borraban el pago o el guardado al instante. `description` es la
- * del propio movimiento (para un pago, es el nombre del fijo o la nota de la carga de bolsa que puso
- * `rpc_mark_fixed_expense_paid`/`rpc_add_fixed_expense_saving`; no hace falta pedirlo aparte).
- */
-export function removeLinkedMovementCopy({
-  kind,
-  description,
-}: {
-  kind: 'payment' | 'saving'
-  description: string | null
-}): PreAccountsPaymentCopy {
-  const name = description?.trim() || null
-  if (kind === 'saving') {
-    return {
-      title: '¿Eliminar este guardado?',
-      confirmLabel: 'Eliminar guardado',
-      paragraphs: [
-        name
-          ? `Se borra «${name}»: esa plata deja de estar apartada para el fijo.`
-          : 'Este movimiento es un guardado para un fijo: al eliminarlo, esa plata deja de estar apartada.',
-      ],
-    }
-  }
-  return {
-    title: '¿Quitar este pago?',
-    confirmLabel: 'Quitar pago',
-    paragraphs: [
-      name
-        ? `Se borra «${name}» y el fijo vuelve a quedar pendiente.`
-        : 'Se borra este movimiento y el fijo vuelve a quedar pendiente.',
-    ],
-  }
-}
-
 /** FI-19 del QA de Fijos: nombre duplicado entre fijos del usuario, sin distinguir mayúsculas ni
  *  espacios — mismo criterio que `accountNameError` en `accounts/aggregate.ts`, pero acá compara
  *  contra TODOS los fijos (activos y pausados): a diferencia de una cuenta archivada (que no vuelve

@@ -63,7 +63,17 @@ export function parseAmountToCents(input: string): number | null {
 
   // es-AR usa "." de miles y "," de decimales; toleramos también el formato inglés.
   const hasComma = raw.includes(',')
-  const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
+  // MO-13 del QA de Movimientos: sin coma, "0.500" pasaba la heurística de separador de miles de
+  // abajo (un punto seguido de exactamente 3 dígitos) y se guardaba como $500 en vez de $0,50 — nadie
+  // escribe un grupo de miles que arranca en "0" (no existe "0.500.000"), así que un número que
+  // empieza en "0." nunca tiene un separador de miles: el punto es decimal, y con 3+ dígitos después
+  // el chequeo de más de 2 decimales de abajo lo rechaza en vez de adivinar mal.
+  const startsWithZeroDot = /^-?0\./.test(raw)
+  const normalized = hasComma
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : startsWithZeroDot
+      ? raw
+      : raw.replace(/(?<=\d)\.(?=\d{3}\b)/g, '')
 
   const digitsOnly = normalized.replace(/[^\d.-]/g, '')
   // Sin esto, texto sin ningún dígito (p.ej. "abc") queda en "" tras el replace, y `Number('')`

@@ -8,7 +8,6 @@ import {
   fixedExpenseNameError,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
-  removeLinkedMovementCopy,
   summarizeFixedExpenses,
 } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
@@ -685,31 +684,10 @@ describe('preAccountsPaymentCopy', () => {
   })
 })
 
-// Bloque 1 del QA de Fijos (FI-03, FI-05): antes de este bloque, quitar el pago desde Movimientos o
-// eliminar el movimiento de un guardado pasaba al instante, sin avisar.
-describe('removeLinkedMovementCopy', () => {
-  it('pago, con nombre: nombra el fijo y dice que vuelve a pendiente', () => {
-    const c = removeLinkedMovementCopy({ kind: 'payment', description: 'Expensas' })
-    expect(c.title).toBe('¿Quitar este pago?')
-    expect(c.confirmLabel).toBe('Quitar pago')
-    expect(c.paragraphs[0]).toContain('«Expensas»')
-    expect(c.paragraphs[0]).toContain('vuelve a quedar pendiente')
-  })
-
-  it('pago, sin descripción (o sólo espacios): copy genérico, sin comillas vacías', () => {
-    expect(removeLinkedMovementCopy({ kind: 'payment', description: null }).paragraphs[0]).not.toContain('«')
-    expect(removeLinkedMovementCopy({ kind: 'payment', description: '   ' }).paragraphs[0]).not.toContain('«')
-  })
-
-  it('guardado: título y copy distintos — no habla de "pendiente" sino de la plata apartada', () => {
-    const c = removeLinkedMovementCopy({ kind: 'saving', description: 'Guardado · Gimnasio' })
-    expect(c.title).toBe('¿Eliminar este guardado?')
-    expect(c.confirmLabel).toBe('Eliminar guardado')
-    expect(c.paragraphs[0]).toContain('«Guardado · Gimnasio»')
-    expect(c.paragraphs[0]).toContain('deja de estar apartada')
-    expect(c.paragraphs.join(' ')).not.toContain('pendiente')
-  })
-})
+// `removeLinkedMovementCopy` (Bloque 1 del QA de Fijos, FI-03/FI-05) se generalizó a
+// `confirmDeleteMovementCopy` y se mudó a `src/features/transactions/aggregate.ts` (Bloque 1 del
+// arreglo de Movimientos, MO-01) — ya no es sólo de Fijos, cubre cualquier movimiento suelto. Sus
+// tests viven ahora en `transactions/aggregate.test.ts`.
 
 // Bloque 2 del plan de arreglo (FI-12): antes, guardar o cargar de más decía lo mismo que "exacto"
 // ("Con esto lo tenés cubierto."/"Completás el presupuesto"), sin avisar del excedente.

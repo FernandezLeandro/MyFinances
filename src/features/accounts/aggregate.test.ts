@@ -33,7 +33,9 @@ import {
   totalFigureSize,
   planAdjustment,
   reactivateResultText,
+  overdraftNote,
   stopUsingAccountsSummary,
+  transactionDeleteEffect,
   transferDeleteEffect,
   UNASSIGNED_ACCOUNT_NAME,
 } from './aggregate'
@@ -937,5 +939,137 @@ describe('transferDeleteEffect', () => {
   it('una punta sin saldo conocido cae en el texto sin cifras', () => {
     const balances = new Map([['banco', 10_00]])
     expect(transferDeleteEffect({ transfer, balances, nameOf }).text).toContain('vuelven')
+  })
+})
+
+// Bloque 4 del arreglo de Movimientos (D1, MO-08): antes, un "Ajuste de saldo" se editaba/borraba
+// desde Movimientos sin ningún aviso de cómo quedaba la cuenta.
+describe('transactionDeleteEffect', () => {
+  const names: Record<string, string> = { banco: 'Banco' }
+  const nameOf = (id: string) => names[id] ?? 'otra cuenta'
+
+  it('un gasto: eliminarlo devuelve la plata a la cuenta', () => {
+    const balances = new Map([['banco', 10_000_00]])
+    const effect = transactionDeleteEffect({
+      transaction: { type: 'expense', cents: 3_000_00, account_id: 'banco' },
+      balances,
+      nameOf,
+    })
+    expect(effect.text).toBe(`Si lo eliminás, Banco pasa a ${formatMoney(13_000_00)}.`)
+    expect(effect.warning).toBeNull()
+  })
+
+  it('un ingreso: eliminarlo saca esa plata de la cuenta, y puede dejarla en negativo', () => {
+    const balances = new Map([['banco', 2_000_00]])
+    const effect = transactionDeleteEffect({
+      transaction: { type: 'income', cents: 5_000_00, account_id: 'banco' },
+      balances,
+      nameOf,
+    })
+    expect(effect.text).toBe(`Si lo eliminás, Banco pasa a ${formatMoney(-3_000_00)}.`)
+    expect(effect.warning).toBe('Banco queda en negativo.')
+  })
+
+  it('sin cuenta asignada: no mueve ningún saldo', () => {
+    const effect = transactionDeleteEffect({
+      transaction: { type: 'expense', cents: 1_000_00, account_id: null },
+      balances: new Map(),
+      nameOf,
+    })
+    expect(effect.text).toContain('No tiene una cuenta asignada')
+    expect(effect.warning).toBeNull()
+  })
+
+  it('sin saldos todavía (cargando): explica el efecto sin cifras ni aviso', () => {
+    const gasto = transactionDeleteEffect({
+      transaction: { type: 'expense', cents: 1_000_00, account_id: 'banco' },
+      balances: undefined,
+      nameOf,
+    })
+    expect(gasto.text).toBe(`Si lo eliminás, vuelven ${formatMoney(1_000_00)} a Banco.`)
+    const ingreso = transactionDeleteEffect({
+      transaction: { type: 'income', cents: 1_000_00, account_id: 'banco' },
+      balances: undefined,
+      nameOf,
+    })
+    expect(ingreso.text).toBe(`Si lo eliminás, salen ${formatMoney(1_000_00)} de Banco.`)
+  })
+})
+
+// Bloque 6 del arreglo de Movimientos (D4, MO-14): aviso, no bloqueo, cuando un gasto deja la cuenta
+// en negativo.
+describe('overdraftNote', () => {
+  const names: Record<string, string> = { banco: 'Banco', efectivo: 'Efectivo' }
+  const nameOf = (id: string) => names[id] ?? 'otra cuenta'
+
+  it('un gasto que deja la cuenta en negativo avisa cuánto queda', () => {
+    const balances = new Map([['banco', 5_000_00]])
+    const note = overdraftNote({ type: 'expense', accountId: 'banco', cents: 8_000_00, balances, nameOf })
+    expect(note).toBe(`Banco queda en ${formatMoney(-3_000_00)}.`)
+  })
+
+  it('un gasto que no la deja negativa: sin nota', () => {
+    const balances = new Map([['banco', 5_000_00]])
+    expect(overdraftNote({ type: 'expense', accountId: 'banco', cents: 4_000_00, balances, nameOf })).toBeNull()
+  })
+
+  it('justo en cero no es negativo', () => {
+    const balances = new Map([['banco', 5_000_00]])
+    expect(overdraftNote({ type: 'expense', accountId: 'banco', cents: 5_000_00, balances, nameOf })).toBeNull()
+  })
+
+  it('un ingreso nunca avisa, aunque haya cuenta y saldo', () => {
+    const balances = new Map([['banco', 0]])
+    expect(overdraftNote({ type: 'income', accountId: 'banco', cents: 100, balances, nameOf })).toBeNull()
+  })
+
+  it('sin cuenta elegida, o sin saldo todavía cargado: sin nota (no se puede calcular)', () => {
+    const balances = new Map([['banco', 0]])
+    expect(overdraftNote({ type: 'expense', accountId: null, cents: 100, balances, nameOf })).toBeNull()
+    expect(overdraftNote({ type: 'expense', accountId: 'banco', cents: 100, balances: undefined, nameOf })).toBeNull()
+  })
+
+  it('editar el importe de un gasto en la MISMA cuenta no cuenta el importe viejo dos veces', () => {
+    // Saldo actual ya descuenta el gasto viejo de $2.000: con cuenta $5.000 y gasto viejo $2.000, el
+    // saldo "antes de este movimiento" era $7.000. Subirlo a $6.000 deja $1.000 — no debería avisar.
+    const balances = new Map([['banco', 5_000_00]])
+    const note = overdraftNote({
+      type: 'expense',
+      accountId: 'banco',
+      cents: 6_000_00,
+      balances,
+      nameOf,
+      original: { accountId: 'banco', type: 'expense', cents: 2_000_00 },
+    })
+    expect(note).toBeNull()
+  })
+
+  it('editar y subir el importe lo suficiente sí avisa, incluso en la misma cuenta', () => {
+    const balances = new Map([['banco', 5_000_00]])
+    const note = overdraftNote({
+      type: 'expense',
+      accountId: 'banco',
+      cents: 9_000_00,
+      balances,
+      nameOf,
+      original: { accountId: 'banco', type: 'expense', cents: 2_000_00 },
+    })
+    expect(note).toBe(`Banco queda en ${formatMoney(-2_000_00)}.`)
+  })
+
+  it('editar y cambiar de cuenta: el importe viejo no se resta de la cuenta nueva', () => {
+    const balances = new Map([
+      ['banco', 5_000_00],
+      ['efectivo', 1_000_00],
+    ])
+    const note = overdraftNote({
+      type: 'expense',
+      accountId: 'efectivo',
+      cents: 3_000_00,
+      balances,
+      nameOf,
+      original: { accountId: 'banco', type: 'expense', cents: 2_000_00 },
+    })
+    expect(note).toBe(`Efectivo queda en ${formatMoney(-2_000_00)}.`)
   })
 })

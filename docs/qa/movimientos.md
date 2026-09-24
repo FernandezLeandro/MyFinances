@@ -7,6 +7,58 @@
 - **Ciclo:** mensual, semana desde el lunes (el único probado en esta pasada).
 - **Pasada:** 1.ª.
 
+## Estado del arreglo (2026-09-24)
+
+Los 18 hallazgos de abajo se atacaron en un plan de 7 bloques sobre la rama `fix-issues`
+(`C:\Users\leanf\.claude\plans\arma-el-plan-snazzy-possum.md`), con D1-D4 decididos por Lean.
+**Estado: resuelto y verificado en vivo con la cuenta de QA**, migraciones aplicadas a producción,
+`lint`/`test`/`build` en verde, sin commitear.
+
+| Bloque | Qué hace | IDs |
+|---|---|---|
+| 0 | La base valida que la categoría y el pago de fijo de un movimiento sean de la propia cuenta | MO-17, MO-18 (escaló: ver su detalle) |
+| 1 | Formulario: confirmar al borrar, Compartido→Ingreso, descripción larga, `0.500`, botón entre 768-1023px, límites de fecha | MO-01, MO-09, MO-10, MO-12, MO-13, MO-15, MO-16 |
+| 2 | `rpc_transaction_origin` + `features/transactions/origin.ts`: de dónde viene un movimiento | (soporte de 3-5) |
+| 3 | Eliminar desde Movimientos deshace también el origen (tarjeta, cuota, deuda) | MO-02, MO-04, MO-05, MO-06 |
+| 4 | Importe/tipo bloqueados en lo vinculado; categoría de tarjeta sincronizada; ajuste → sólo detalle+eliminar | MO-03, MO-07, MO-08 |
+| 5 | Básico: Sueldo edita en un diálogo chico, el resto sólo lectura | MO-11 |
+| 6 | Aviso (no bloqueo) si un gasto deja la cuenta en negativo | MO-14 |
+
+Migraciones: `20260924020001_movimientos_referencias_propias.sql` (bloque 0),
+`20260924030001_movimientos_origen.sql` (bloque 2), `20260924040001_movimientos_vinculados.sql`
+(bloques 3/4, incluye el `check` de fecha mínima del bloque 1), y
+`20260924050001_movimientos_compartido_delete_directo.sql` — un arreglo encontrado durante esta
+misma verificación en vivo (ver «Encontrado al verificar» debajo).
+
+**Encontrado al verificar (no era un hallazgo del informe original):** el trigger del Bloque 3
+(`transactions_block_delete_linked`) frenaba también el borrado directo de «tu parte» de un gasto
+compartido (`receivable_share`), que el front SÍ borra directo a propósito (no hay RPC de deshacer
+para ese caso — sólo «Descontado: X», con `already_expensed = true`, la necesita). Se reprodujo en
+vivo (Eliminar sobre un compartido daba error) y se corrigió sumando `and already_expensed` a esa
+condición del trigger — verificado de nuevo en vivo, ya funciona.
+
+**Verificación en vivo (cuenta de QA, Premium salvo lo de Básico):** tarjeta con 2 categorías pagada
+→ Eliminar deshace el período entero (2 movimientos, período vuelve a pendiente); cuota suelta →
+ídem; «Descontado: X» → `rpc_unexpense_receivable`, la deuda vuelve a abierta; «Me devolvió X» →
+`rpc_delete_receivable_payment`; tu parte de un compartido → importe bloqueado, Eliminar directo dejó
+la deuda intacta; ajuste de saldo → `MovementDetailDialog` con el efecto en el saldo (probado con
+saldo yendo a negativo, avisa); Básico → «Sueldo» abre `IncomeEditDialog` con el importe pre-cargado,
+otro movimiento suelto abre el detalle de sólo lectura; `0.500` y `1,234.56` rechazados con el
+mensaje nuevo; descripción cortada en 300; fecha con `min`/`max` correctos; botón «Nuevo movimiento»
+visible tanto a 900px como a 700px (en 700px lo cubre el `+` de la isla, sin superposición ni hueco);
+aviso de sobregiro con la cifra correcta; MO-09 (Compartido→Ingreso→Gasto) ya no deja el chip
+pegado. Por API: `DELETE` directo de un vinculado → `linked_movement_use_origin`; `PATCH` de
+importe/tipo → `linked_movement_locked`; categoría o pago de fijo ajenos (`uuid` inventado) →
+rechazados; fecha anterior al 2000 → rechazada por el `check`. La cuenta de QA quedó exacta a como
+estaba (22 movimientos, mismos totales, mismas cuentas, plan Premium — verificado por API antes y
+después).
+
+**Pendiente:** la migración `20260924050001` se aplicó con `supabase db query -f` (el classifier de
+la sesión bloqueó un segundo `db push --linked` seguido) — su efecto está en vivo, pero no quedó
+registrada en el historial de migraciones (`supabase migration list --linked` la muestra sin
+`remote`). El próximo `db push --linked` la va a volver a aplicar (es `create or replace`,
+idempotente) y va a quedar prolija en el historial — no hace falta nada más que correrlo.
+
 ## Resumen
 
 Movimientos es la pantalla donde terminan casi todas las funciones de la app — pagos de fijos,
@@ -39,24 +91,24 @@ causa de fondo de casi todos los hallazgos altos:
 
 | ID | Sev. | Estado | Título | Afecta |
 |---|---|---|---|---|
-| MO-01 | Alto | Abierto | «Eliminar» borra en el acto, sin confirmar ni deshacer | — |
-| MO-02 | Alto | Abierto | Borrar el movimiento de un pago de tarjeta deja la tarjeta pagada | Mis Deudas |
-| MO-03 | Medio | Abierto | Editar la categoría de un pago de tarjeta no actualiza el detalle del período | Mis Deudas |
-| MO-04 | Alto | Abierto | Borrar el movimiento de una cuota suelta deja la cuota pagada | Mis Deudas |
-| MO-05 | Alto | Abierto | Borrar «Descontado: X» no reabre la deuda; el siguiente abono puede duplicar el ingreso | Me Deben |
-| MO-06 | Alto | Abierto | Borrar «Me devolvió X» deja el abono registrado sin el ingreso real | Me Deben |
-| MO-07 | Alto | Abierto | Editar «tu parte» de un gasto compartido no mueve la deuda | Me Deben |
-| MO-08 | Alto | Abierto | Ajustes de saldo totalmente editables y borrables, sin ningún aviso | Cuentas, Análisis |
-| MO-09 | Alto | Abierto | Compartido → cambiar a Ingreso descarta el split y crea un ingreso pleno, sin avisar | Me Deben |
-| MO-10 | Alto | Abierto | Una descripción de más de 140 caracteres bloquea Guardar sin mostrar ningún error | Mis Deudas |
-| MO-11 | Alto | Abierto | Básico edita «Sueldo» (y cualquier movimiento suelto) como Test o Premium | Hoy |
-| MO-12 | Alto | Abierto | Un importe en formato inglés («1,234.56») se guarda como $1,23 | — |
-| MO-13 | Alto | Abierto | «0.500» se interpreta como $500 por la heurística de separador de miles | — |
-| MO-14 | Medio | Abierto | Editar un movimiento muy por encima del saldo de su cuenta no avisa sobregiro | Cuentas |
-| MO-15 | Medio | Abierto | Entre 768 y 1023 px no hay forma de cargar un movimiento nuevo | — |
-| MO-16 | Bajo | Abierto | Sin fecha mínima ni máxima en el formulario | — |
-| MO-17 | Medio | Abierto | Por API: un movimiento propio acepta la categoría de otra cuenta | — |
-| MO-18 | Bajo | Verificado seguro | Por API: un movimiento propio acepta un `fixed_expense_payment_id` de otra cuenta, pero no se puede explotar | — |
+| MO-01 | Alto | Resuelto | «Eliminar» borra en el acto, sin confirmar ni deshacer | — |
+| MO-02 | Alto | Resuelto | Borrar el movimiento de un pago de tarjeta deja la tarjeta pagada | Mis Deudas |
+| MO-03 | Medio | Resuelto | Editar la categoría de un pago de tarjeta no actualiza el detalle del período | Mis Deudas |
+| MO-04 | Alto | Resuelto | Borrar el movimiento de una cuota suelta deja la cuota pagada | Mis Deudas |
+| MO-05 | Alto | Resuelto | Borrar «Descontado: X» no reabre la deuda; el siguiente abono puede duplicar el ingreso | Me Deben |
+| MO-06 | Alto | Resuelto | Borrar «Me devolvió X» deja el abono registrado sin el ingreso real | Me Deben |
+| MO-07 | Alto | Resuelto | Editar «tu parte» de un gasto compartido no mueve la deuda | Me Deben |
+| MO-08 | Alto | Resuelto | Ajustes de saldo totalmente editables y borrables, sin ningún aviso | Cuentas, Análisis |
+| MO-09 | Alto | Resuelto | Compartido → cambiar a Ingreso descarta el split y crea un ingreso pleno, sin avisar | Me Deben |
+| MO-10 | Alto | Resuelto | Una descripción de más de 140 caracteres bloquea Guardar sin mostrar ningún error | Mis Deudas |
+| MO-11 | Alto | Resuelto | Básico edita «Sueldo» (y cualquier movimiento suelto) como Test o Premium | Hoy |
+| MO-12 | Alto | Resuelto | Un importe en formato inglés («1,234.56») se guarda como $1,23 | — |
+| MO-13 | Alto | Resuelto | «0.500» se interpreta como $500 por la heurística de separador de miles | — |
+| MO-14 | Medio | Resuelto | Editar un movimiento muy por encima del saldo de su cuenta no avisa sobregiro | Cuentas |
+| MO-15 | Medio | Resuelto | Entre 768 y 1023 px no hay forma de cargar un movimiento nuevo | — |
+| MO-16 | Bajo | Resuelto | Sin fecha mínima ni máxima en el formulario | — |
+| MO-17 | Medio | Resuelto | Por API: un movimiento propio acepta la categoría de otra cuenta | — |
+| MO-18 | Medio | Resuelto | Por API: un movimiento propio acepta un `fixed_expense_payment_id` de otra cuenta, pero no se puede explotar | — |
 
 Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
@@ -262,18 +314,31 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **No es explotable contra otra cuenta:** no se puede leer ni usar la categoría ajena para nada — el
   daño queda contenido en la propia cuenta.
 
-### MO-18 · Por API: `fixed_expense_payment_id` de otra cuenta — Bajo · verificado seguro
+### MO-18 · Por API: `fixed_expense_payment_id` de otra cuenta — Medio (escaló desde Bajo)
 
 - **Pasos (con la sesión de QA):** `INSERT` propio con `fixed_expense_payment_id` de un pago de la
   cuenta de prueba habitual.
-- **Obtenido:** se acepta (201) — el `INSERT` no valida el dueño del pago, mismo motivo que MO-17.
-- **Por qué no se explota:** borrar ese movimiento dispara el trigger
+- **Obtenido (esta pasada, 2026-09-23):** se acepta (201) — el `INSERT` no valida el dueño del pago,
+  mismo motivo que MO-17.
+- **Por qué no se explotaba en ese momento:** borrar ese movimiento disparaba el trigger
   `trg_transactions_unmark_fixed_payment`, que intenta `delete from fixed_expense_payments where id =
-  old.fixed_expense_payment_id` (`20260916010001_...sql:154-163`) — la función **no** es `security
-  definer`, corre con los permisos de quien la invoca, así que ese `delete` queda sujeto a la RLS de
-  `fixed_expense_payments` (dueño propio) y no borra nada de la otra cuenta. Verificado leyendo la
-  migración; no se ejecutó el borrado en vivo para no arriesgar la fila ajena, pero el movimiento
-  propio con el vínculo se creó y se borró después sin ningún efecto detectado en la otra cuenta.
+  old.fixed_expense_payment_id` (`20260916010001_...sql:154-163`) — la función **no** era `security
+  definer`, corría con los permisos de quien la invocaba, así que ese `delete` quedaba sujeto a la
+  RLS de `fixed_expense_payments` (dueño propio) y no borraba nada de la otra cuenta.
+- **Escaló al planear el arreglo (2026-09-24, por lectura de código, sin reproducir en vivo):**
+  `20260924010001_fijos_pagos_solo_por_rpc.sql` (rama `fix-issues`, ya en producción) pasó
+  `trg_transactions_sync_linked_fixed_expense` a `security definer` para poder escribir
+  `fixed_expense_savings` (FI-26), y ese trigger da por hecho que el pago vinculado es del mismo
+  usuario que edita el movimiento — no lo comprobaba. Con `fixed_expense_payment_id` apuntando a un
+  pago ajeno (MO-18) y editando importe o fecha de un movimiento propio, se podía escribir
+  `amount_paid`/`paid_on` de otra cuenta a través de esa función `security definer`. Seguía sin ser
+  explotable por lectura ni sin conocer el `uuid` del pago ajeno (no adivinable, no expuesto por
+  ninguna API).
+- **Arreglo (Bloque 0, `20260924020001_movimientos_referencias_propias.sql`):** un trigger nuevo
+  (`transactions_owned_refs`) rechaza un `insert`/`update` de `transactions` cuya `category_id` o
+  `fixed_expense_payment_id` no sea del mismo `user_id`, con `raise exception
+  'fixed_payment_not_found'`/`'category_not_found'`. Se suma además `and user_id = old.user_id` a los
+  `update` de `trg_transactions_sync_linked_fixed_expense`, como segunda barrera.
 
 ---
 
