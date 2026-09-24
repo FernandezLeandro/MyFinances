@@ -16,7 +16,10 @@ import { bagPeriodNoun } from '@/features/fixed-expenses/period'
 
 const schema = z
   .object({
-    name: z.string().min(1, 'Falta el nombre').max(80),
+    // FI-16: `.trim()` antes de `min(1)` — si no, "   " pasa la validación (largo 3) y se guarda
+    // vacío (`onSubmit` recorta antes de mandarlo a la API). FI-17: mensaje propio para `.max`, no el
+    // default de Zod en inglés.
+    name: z.string().trim().min(1, 'Falta el nombre').max(80, 'Máximo 80 caracteres'),
     amount: z.string().refine((v) => parseAmountToCents(v) !== null && parseAmountToCents(v)! > 0, {
       message: 'Ingresá un importe válido',
     }),
@@ -107,7 +110,8 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
 
   async function onSubmit(values: FormValues) {
     const payload = {
-      name: values.name.trim(),
+      // Ya viene recortado por el `.trim()` del schema — no hace falta repetirlo acá.
+      name: values.name,
       cents: parseAmountToCents(values.amount)!,
       categoryId: values.categoryId || null,
       dueDay: values.isRecurring ? null : Number(values.dueDay),
@@ -188,6 +192,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
               id="name"
               placeholder={isRecurring ? 'Nafta, mercadería de mamá…' : 'Internet, prepaga, alquiler…'}
               invalid={!!errors.name}
+              maxLength={80}
               {...register('name')}
             />
           </Field>

@@ -92,6 +92,13 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /linked_movement_amount_invalid/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /fixed_expense_saving_period_paid/.test(message))
     return 'Este guardado es de un mes ya pagado: primero quitá el pago del fijo.'
+  // Bloque 5 del QA de Fijos (FI-14): API directa contra un fijo/pago que no existe, pausado, o con
+  // una fecha futura (`20260923090001_fijos_blindaje.sql`). `fixed_expense_not_found` ya existía en
+  // `rpc_mark_fixed_expense_paid` desde antes, pero nunca había tenido mensaje propio.
+  if (code === 'P0001' && /fixed_expense_not_found/.test(message)) return 'Ese fijo ya no existe.'
+  if (code === 'P0001' && /fixed_expense_inactive/.test(message)) return 'Este fijo está pausado: activalo antes de pagarlo.'
+  if (code === 'P0001' && /fixed_expense_payment_future_date/.test(message)) return 'No podés pagar con una fecha futura.'
+  if (code === 'P0001' && /fixed_expense_payment_not_found/.test(message)) return 'Ese pago ya no existe.'
 
   return DEFAULT_MESSAGE
 }

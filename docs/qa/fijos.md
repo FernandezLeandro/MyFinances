@@ -51,10 +51,10 @@ Los problemas vienen por cuatro lados:
 | FI-11 | Medio | **Resuelto** (2026-09-23) | Doble click en «Marcar pagado»: queda pagado pero sale un error |
 | FI-12 | Medio | **Resuelto** (2026-09-23) | Guardar o cargar de más no avisa |
 | FI-13 | Medio | **Resuelto** (2026-09-23) | «Disponible» y «Total del mes» usan el importe actual del fijo, no lo pagado |
-| FI-14 | Medio | Abierto | La base acepta datos inválidos o pagos armados a mano por API |
+| FI-14 | Medio | **Parcial** (2026-09-23) | La base acepta datos inválidos o pagos armados a mano por API |
 | FI-15 | Medio | Por lectura de código | Bolsas quincenales/semanales: el servidor ubica la carga por fecha UTC |
-| FI-16 | Bajo | Abierto | Nombre de sólo espacios guarda un fijo sin nombre |
-| FI-17 | Bajo | Abierto | El error de más de 80 caracteres sale en inglés |
+| FI-16 | Bajo | **Resuelto** (2026-09-23) | Nombre de sólo espacios guarda un fijo sin nombre |
+| FI-17 | Bajo | **Resuelto** (2026-09-23) | El error de más de 80 caracteres sale en inglés |
 | FI-18 | Bajo | Abierto | Importes raros se aceptan en silencio; 11 cifras dan un error genérico |
 | FI-19 | Bajo | Abierto | Se permiten dos fijos con el mismo nombre |
 | FI-20 | Bajo | Abierto | «Falta pagar en 28–4 sep» |
@@ -298,7 +298,7 @@ Misma semana 28/9–4/10:
   `cycleTotalCents` a mano por SQL de sólo lectura sobre los 7 fijos activos de septiembre (usa los
   $10.000 pagados de «QA Servicio», no los $11.111 de la plantilla actual).
 
-### FI-14 · La base acepta datos inválidos o pagos armados a mano — Medio
+### FI-14 · La base acepta datos inválidos o pagos armados a mano — Medio — Parcialmente resuelto
 
 Todo esto es por API directa, con la sesión de la cuenta, y **sólo sobre sus propios datos**:
 - `fixed_expenses` acepta nombre vacío, nombre de 500 caracteres, «una vez al mes» sin día (se ve «Vence el
@@ -314,6 +314,26 @@ Todo esto es por API directa, con la sesión de la cuenta, y **sólo sobre sus p
 - no se pudo leer, pagar, quitar, guardar, editar ni borrar nada de otra cuenta;
 - pagar con una cuenta ajena da `account_not_found`.
 
+**Arreglado (Bloque 5, `20260923090001_fijos_blindaje.sql`):**
+- `fixed_expenses` ahora tiene `check` propios: nombre no vacío y ≤80 caracteres
+  (`fixed_expenses_name_not_blank`), y `is_recurring` coherente con `due_day`
+  (`fixed_expenses_due_day_matches_recurring`) — ya no se puede guardar una bolsa con día ni un fijo de
+  una vez sin él.
+- `rpc_mark_fixed_expense_paid` rechaza pagar un fijo pausado (`fixed_expense_inactive`) y una fecha
+  futura (`fixed_expense_payment_future_date`).
+- `rpc_unmark_fixed_expense_payment` con un id que no existe da error (`fixed_expense_payment_not_found`)
+  en vez de responder OK sin hacer nada.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23), por API directa con la sesión de la cuenta (mismo
+  método que encontró el hallazgo): pagar un fijo de prueba pausado → rechazado; pagarlo con una fecha de
+  pasado mañana → rechazado; desmarcar un id de pago inventado → rechazado. Los tres con el código de
+  error nuevo, no un 200 silencioso. Fixture borrado al terminar.
+
+**Sigue abierto, a propósito:** `fixed_expense_payments` sigue aceptando un insert/update directo (sin
+pasar por la RPC). Sacar esas policies rompería el flujo normal de «Marcar pagado» y el trigger de
+sincronización del Bloque 1 — ninguno de los dos es `security definer`, corren con el permiso de quien
+llama, apoyados en esas mismas policies. Convertirlos requiere una revisión de seguridad aparte, no un
+ajuste chico — queda pendiente (ver el comentario al principio de la migración).
+
 ### FI-15 · Bolsas quincenales/semanales: carga ubicada por fecha UTC — Medio · por lectura de código
 
 - **Evidencia:** una carga hecha el 22/9 a las 23:53 (Argentina) quedó con `paid_at` 2026-09-23 02:53 UTC.
@@ -327,12 +347,22 @@ Todo esto es por API directa, con la sesión de la cuenta, y **sólo sobre sus p
 
 ### FI-16 a FI-25 · Bajos
 
-- **FI-16 · Nombre de sólo espacios:**
+- **FI-16 · Nombre de sólo espacios — Resuelto:**
   - Zod valida `min(1)` antes del `trim` (`FixedExpenseFormDialog.tsx:19,110`), así que «   » se guarda como
     un fijo sin nombre;
   - en la lista es una fila en blanco con el importe.
-- **FI-17 · Error en inglés:** 81 caracteres muestran «Too big: expected string to have <=80
+  - **Arreglo:** el schema pasa a `z.string().trim().min(1, 'Falta el nombre').max(80, 'Máximo 80
+    caracteres')` — recorta antes de validar el mínimo. De yapa, la base ahora tiene un `check` propio
+    (`fixed_expenses_name_not_blank`, Bloque 5) por si algo la esquiva.
+- **FI-17 · Error en inglés — Resuelto:** 81 caracteres muestran «Too big: expected string to have <=80
   characters» (el mensaje por defecto de Zod). El input tampoco tiene `maxLength`.
+  - **Arreglo:** mensaje propio en el `.max(80, …)` del schema, más `maxLength={80}` en el `<input>` —
+    ahora no se puede ni tipear el carácter 81 (verificado tipeando 90 caracteres: el input corta en
+    80). El mensaje en castellano sólo se ve si algo evita el `maxLength` del DOM (ej. un paste raro o
+    una API directa contra el schema); se verificó bypaseándolo a mano.
+- **Verificado en vivo** (cuenta de QA, 2026-09-23), ambos: nombre «   » → «Falta el nombre», no guarda;
+  90 caracteres tipeados → el input queda en 80; forzando 81 caracteres por fuera del `maxLength` →
+  «Máximo 80 caracteres», nunca el mensaje en inglés de Zod.
 - **FI-18 · Importes:**
   - «-500» se guarda como $500 y «1,2,3» como $1,23, sin avisar;
   - «0,005» redondea a $0,01;

@@ -92,6 +92,19 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError({ code: 'P0001', message: 'account_invalid_name' })).toBe('Ponele un nombre a la cuenta.')
   })
 
+  // Bloque 5 del QA de Fijos (FI-14): API directa sobre un fijo/pago que no existe, pausado o con
+  // fecha futura.
+  it('P0001 de Fijos (bloque 5, FI-14) → mensajes propios', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'fixed_expense_not_found' })).toBe('Ese fijo ya no existe.')
+    expect(mensajeDeError({ code: 'P0001', message: 'fixed_expense_inactive' })).toBe(
+      'Este fijo está pausado: activalo antes de pagarlo.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'fixed_expense_payment_future_date' })).toBe(
+      'No podés pagar con una fecha futura.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'fixed_expense_payment_not_found' })).toBe('Ese pago ya no existe.')
+  })
+
   it('TypeError de "Failed to fetch" → sin conexión', () => {
     expect(mensajeDeError(new TypeError('Failed to fetch'))).toBe('Sin conexión. Revisá internet y probá de nuevo.')
   })

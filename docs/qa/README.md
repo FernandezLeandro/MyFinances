@@ -8,7 +8,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
 | Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/07/10/11/12/13 arreglados y verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 2 / 4 / 10 |
+| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); FI-01/02/03/05/07/10/11/12/13/16/17 arreglados, FI-14 parcial, verificados el 2026-09-23 | rama `accounts`, `4bacfa9` | 0 / 2 / 4 / 8 |
 | Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª) | rama `accounts`, `71b4b3d` | 0 / 12 / 4 / 1 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
@@ -118,6 +118,24 @@ misma vuelta.
   total esperado aparte con una consulta de sólo lectura que espeje la fórmula nueva, y compararlo contra
   lo que muestra la pantalla. Es una verificación más fuerte que un fixture armado a mano, porque usa el
   escenario que originalmente encontró el bug.
+- **El botón «Pausados» del header hace dos cosas a la vez:** pide los fijos inactivos
+  (`useFixedExpenses(showPaused)`, que por default sólo trae los activos) Y despliega el panel chico de
+  «pausados» — comparten el mismo estado `showPaused`, no hay un «Ver» aparte que clickear después.
+- **Un `Editar` anidado dentro del detalle sólo cierra el form, no el detalle de abajo.** Guardar un
+  cambio desde «Editar» dentro de `FixedExpenseDetailDialog` deja el detalle todavía abierto,
+  tapando los clicks siguientes («intercepts pointer events») — hay que cerrarlo aparte con «Cerrar»
+  antes de seguir.
+- **Probar la base directo con la sesión de la cuenta, sin instalar `@supabase/supabase-js`:** el token
+  ya está en `localStorage` (`Object.keys(localStorage).find(k => k.includes('auth-token'))`, con
+  `.access_token` adentro). Desde `page.evaluate`, un `fetch` a
+  `${SUPABASE_URL}/rest/v1/rpc/<nombre>` (o `/rest/v1/<tabla>` para un `insert`/`delete` directo) con
+  `apikey`/`Authorization: Bearer <token>` alcanza — mismo método que «API directa, con la sesión de la
+  cuenta» que ya usa el formato de los informes (ver FI-14 en [fijos.md](fijos.md)).
+- **Limpiar con la API directa cuando la UI no llega:** un fixture que quedó pausado y sin pagos (sin
+  plata real de por medio) se puede borrar con un `DELETE` autenticado a `/rest/v1/<tabla>?name=eq.…`
+  en vez de navegar la UI para encontrarlo — más rápido que reproducir varios clicks sólo para limpiar,
+  siempre que no haya movimientos vinculados de por medio (ahí sí conviene la UI, ver el punto de
+  arriba sobre movimientos huérfanos).
 
 ## Severidades
 
@@ -136,8 +154,9 @@ misma vuelta.
 - **Resumen**, más la tabla de hallazgos (ID, severidad, estado, título).
 - **Cada hallazgo:** pasos, esperado, obtenido, evidencia y, si se sabe, por qué pasa (`archivo:línea`).
 - **Estados:** Abierto, Resuelto (con cómo se verificó), No reproducido, Verificado seguro (se probó
-  un vector y no se pudo explotar), o Por lectura de código (se vio en el código y no se pudo
-  reproducir en vivo).
+  un vector y no se pudo explotar), Por lectura de código (se vio en el código y no se pudo
+  reproducir en vivo), o Parcial (un hallazgo con varios puntos, cuando sólo algunos se arreglaron —
+  el detalle dice cuáles siguen abiertos y por qué).
 - **Columna «Afecta»** (opcional, cuando el hallazgo cruza pantallas): si el disparador es de esta
   área pero el daño se ve en otra (ej. borrar desde Movimientos deja una tarjeta de Mis Deudas
   «pagada»), el hallazgo va con el ID de esta área y una columna «Afecta» lista las pantallas donde
