@@ -7,14 +7,14 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
-| Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); los 26 issues (FI-01 a FI-26) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª); los 18 issues (MO-01 a MO-18) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas (una de las 4, `...050001`, aplicada por fuera de `db push` — ver el informe) | rama `fix-issues` | 0 / 0 / 0 / 0 |
+| Cuentas | [cuentas.md](cuentas.md) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
+| Gastos fijos | [fijos.md](fijos.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
+| Movimientos | [movimientos.md](movimientos.md)| rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
 | Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª); 13 de 14 issues (HO-01 a HO-14) resueltos y verificados en vivo al 2026-09-24; HO-04 queda Parcial (gap de $3.000 sin cerrar del todo); migración aplicada | rama `fix-issues` | 0 / 1 / 0 / 0 |
-| Análisis | [analisis.md](analisis.md) | 2026-09-23 (1.ª) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
+| Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
