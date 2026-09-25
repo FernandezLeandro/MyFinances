@@ -13,7 +13,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª); 13 de 14 issues (HO-01 a HO-14) resueltos y verificados en vivo al 2026-09-24; HO-04 queda Parcial (gap de $3.000 sin cerrar del todo); migración aplicada | rama `fix-issues` | 0 / 1 / 0 / 0 |
+| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª); 14 de 14 issues (HO-01 a HO-14) resueltos y verificados en vivo al 2026-09-25 (HO-04 cerrado: el gap de $3.000 era de la verificación, no de la app); migración aplicada; HO-15 nuevo (categoría pasada a ingreso) queda abierto | rama `fix-issues` | 0 / 0 / 1 / 0 |
 | Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
@@ -43,8 +43,9 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
   nadie lo haya anotado ahí — en el QA de Hoy, el arreglo de Fijos (FI-06) ya había cerrado la mayor
   parte de HO-04, FI-20 ya había arreglado la etiqueta de HO-09, y MO-01 (Movimientos) ya cubría la
   mitad de HO-11. Da por resuelto sólo lo que la lectura de código respalda, y de última palabra la
-  verificación en vivo — FI-06 parecía cerrar HO-04 del todo y en los hechos quedó un gap de $3.000
-  sin cerrar (ver `hoy.md`).
+  verificación en vivo — FI-06 parecía cerrar HO-04 del todo y una verificación con `page.clock`
+  lejos de la fecha real dejó ver un gap de $3.000 que costó una pasada más rastrear hasta confirmar
+  que era de la prueba, no de la app (ver `hoy.md` y la lección de `page.clock` más abajo).
 
 ## Automatizar con Playwright: lo aprendido
 
@@ -158,6 +159,17 @@ misma vuelta.
   23, 58) })` y después `page.clock.pauseAt(...)`/`fastForward(...)` para cruzar el borde — sirve para
   cualquier bug de "a tal hora pasa esto" en cualquier área (ver FI-23 y el borde sin reproducir de FI-15
   en [fijos.md](fijos.md)), no sólo Fijos.
+- **`page.clock` sólo dentro de ±1 día de la fecha real, si la pantalla compara contra una RPC que
+  recibe `p_today`.** Varias funciones (`rpc_projected_balance_range`, `rpc_mark_fixed_expense_paid`,
+  `rpc_add_fixed_expense_saving`) acotan el `p_today` que reciben a ±1 día de `current_date` del
+  servidor (defensa a propósito contra un reloj de dispositivo mal configurado, ver
+  `hoy_del_cliente.sql`). Un `page.clock` que se aleja más de 1 día de la fecha real hace que el
+  cliente y el servidor calculen "hoy" distinto — con una bolsa semanal/quincenal, eso puede escopear
+  semanas distintas de cada lado y dar un gap que **no es un bug de la app, es la prueba mirando dos
+  "hoy" diferentes** (pasó en el QA de Hoy, HO-04: page.clock a 6 días del real dejaba un gap de $3.000
+  que resultó ser enteramente de la verificación). Para un caso que necesita simular varios días hacia
+  adelante o atrás, verificar en vez contra la RPC llamada con ese mismo `p_today` (así el "esperado" ya
+  incluye el clamp), no contra el cálculo del cliente solo.
 - **Bajo RLS, un `update` sin policy no falla: afecta 0 filas sin avisar.** Un trigger o RPC que no es
   `security definer` corre con el permiso de quien llama; si escribe una tabla con RLS que no tiene
   policy para esa operación (pasó con `fixed_expense_savings`, FI-26 en [fijos.md](fijos.md)), no hay
