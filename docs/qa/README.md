@@ -13,8 +13,8 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | HO-15 nuevo (categoría pasada a ingreso) queda abierto | rama `fix-issues` | 0 / 0 / 1 / 0 |
-| Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
+| Hoy | [hoy.md](hoy.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
+| Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 4 / 4 / 0 |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
@@ -45,7 +45,11 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
   mitad de HO-11. Da por resuelto sólo lo que la lectura de código respalda, y de última palabra la
   verificación en vivo — FI-06 parecía cerrar HO-04 del todo y una verificación con `page.clock`
   lejos de la fecha real dejó ver un gap de $3.000 que costó una pasada más rastrear hasta confirmar
-  que era de la prueba, no de la app (ver `hoy.md` y la lección de `page.clock` más abajo).
+  que era de la prueba, no de la app (ver `hoy.md` y la lección de `page.clock` más abajo). También
+  pasa al revés: un arreglo de esta área puede cerrar un hallazgo anotado en otra — el arreglo de
+  HO-15 (Hoy, categoría con `kind` inmutable) cerró también AN-02 (Análisis), mismo disparador exacto
+  (pasar una categoría de Gasto a Ingreso con movimientos ya cargados). Vale la pena grepear el título
+  del hallazgo en los demás informes antes de cerrarlo como "sólo de esta área".
 
 ## Automatizar con Playwright: lo aprendido
 
@@ -302,8 +306,5 @@ esa pasada.
 - **Movimientos, Hoy:** la fila de un ajuste de saldo con categoría asignada sigue diciendo "Ajuste de
   saldo · afuera de Análisis", pero en los hechos sí cuenta en Análisis (ver AN-01 en `analisis.md`) —
   la etiqueta miente en ese caso. Confirmado en vivo en el QA de Análisis.
-- **Ajustes (Categorías):** pasar una categoría de Gasto a Ingreso deja sus gastos viejos contando en
-  "Fijo vs. variable" de Análisis pero no en el resto de sus paneles (ver AN-02). El disparador es
-  Categorías, el daño se ve en Análisis. Confirmado en vivo en el QA de Análisis.
 - **Movimientos:** el drill-down desde Análisis a "Sin categoría" trae también ingresos y ajustes de
   saldo, que Análisis excluye de ese mismo total (ver AN-08 en `analisis.md`) — confirmado en vivo.

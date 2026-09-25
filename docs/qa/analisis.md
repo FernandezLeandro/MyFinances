@@ -33,9 +33,9 @@ blanco**, y un problema de **layout a 320px** que hace ilegible una tabla entera
 - **Un ajuste de saldo con categoría asignada entra al hero, al donut y al Top, pero no a "Fijo vs.
   variable"** — y además la fila de Movimientos que lo generó sigue diciendo "afuera de Análisis",
   cuando en realidad sí cuenta (AN-01).
-- **Pasar una categoría de Gasto a Ingreso hace que sus gastos viejos desaparezcan del hero, el donut, el
-  Top y el promedio — pero sigan contando en "Fijo vs. variable"** (AN-02): dos paneles de la misma
-  pantalla, mismo período, que ya no suman lo mismo.
+- **Pasar una categoría de Gasto a Ingreso hacía que sus gastos viejos desaparecieran del hero, el donut,
+  el Top y el promedio — pero siguieran contando en "Fijo vs. variable"** (AN-02, resuelto: el tipo de
+  una categoría ya no se puede cambiar, ver el detalle abajo).
 - **Borrar una de las dos fechas de "Personalizado" rompe la pantalla entera**: queda en blanco (0
   caracteres de contenido), sin ningún mensaje de error, por una excepción no capturada (AN-03).
   Recargar la página lo arregla (vuelve al ciclo actual).
@@ -73,7 +73,7 @@ bug.
 | ID | Sev. | Estado | Título | Afecta |
 |---|---|---|---|---|
 | AN-01 | Alto | Abierto | Un ajuste con categoría cuenta en Análisis pero su fila sigue diciendo "afuera de Análisis" | Movimientos, Hoy |
-| AN-02 | Alto | Abierto | Categoría pasada a Ingreso: el hero, el donut, el Top y el promedio dejan de sumar sus gastos viejos, pero "Fijo vs. variable" sigue contándolos | Ajustes |
+| AN-02 | Alto | Resuelto | Categoría pasada a Ingreso: el hero, el donut, el Top y el promedio dejan de sumar sus gastos viejos, pero "Fijo vs. variable" sigue contándolos | Ajustes |
 | AN-03 | Alto | Abierto | "Personalizado" con una fecha borrada deja la pantalla en blanco, sin aviso | — |
 | AN-05 | Alto | Abierto | Con ciclo quincenal o semanal, "Ingresos" y "Neto" muestran el mes calendario completo, no el período elegido | — |
 | AN-09 | Alto | Abierto | Un error de red en Ingresos se ve como $0 real y deja "Neto" en negativo falso, sin ningún aviso | — |
@@ -121,7 +121,7 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo). AN-10 a AN-17 son de la 2.ª 
   cualquiera puede convertir sin querer un ajuste en gasto categorizado con sólo asignarle una categoría
   desde el diálogo de edición — no hace falta tocar la base a mano.
 
-### AN-02 · Categoría pasada a Ingreso: el hero, el donut, el Top y el promedio dejan de sumar sus gastos viejos, pero "Fijo vs. variable" sigue contándolos — Alto
+### AN-02 · Categoría pasada a Ingreso: el hero, el donut, el Top y el promedio dejan de sumar sus gastos viejos, pero "Fijo vs. variable" sigue contándolos — Alto, Resuelto
 
 **Afecta:** Ajustes (la acción que dispara esto es "Categorías", no Análisis).
 
@@ -143,6 +143,14 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo). AN-10 a AN-17 son de la 2.ª 
   `summarizeFijoVsVariable` lo siguen contando.
 - **Nota:** el gasto tampoco se ve en Movimientos con su categoría real — el selector de categorías de
   Movimientos sólo lista las de Gasto, así que un filtro por esa categoría ya no la encuentra.
+- **Arreglo (2026-09-25, mismo trabajo que HO-15 en `docs/qa/hoy.md`):** el disparador de este hallazgo
+  era justamente poder cambiar el `kind` de una categoría con movimientos ya cargados — decisión de
+  Lean: el tipo de una categoría se elige al crearla y no se cambia más. Migración
+  `20260925010001_categorias_tipo_fijo.sql` bloquea el `update` de `kind` en la base
+  (`trg_category_kind_locked`) y el front (`CategoryRowEditor`) le sacó los chips Gasto/Ingreso al
+  editor — el escenario de este hallazgo ya no se puede reproducir. Verificado en vivo con la cuenta de
+  QA (por SQL directo: `update categories set kind` → `category_kind_locked`); detalle completo de la
+  verificación en `docs/qa/hoy.md` (HO-15).
 
 ### AN-03 · "Personalizado" con una fecha borrada deja la pantalla en blanco, sin aviso — Alto
 
