@@ -1,41 +1,39 @@
 # QA de Hoy
 
-- **Fecha:** 2026-09-23 (1.ª pasada), 2026-09-24 (2.ª) y 2026-09-24→25 (3.ª), hora Argentina.
-- **Planes:** Premium, Básico y Test.
-- **Ciclos:** mensual, y semanal (semana actual sin cruzar mes, y la semana 28/9–4/10 vista con
+- **Fecha:** 2026-09-23 (1.ª pasada), 2026-09-24 (2.ª), 2026-09-24→25 (3.ª), hora Argentina.
+- **Planes:** Premium, Básico, Test.
+- **Ciclos:** mensual; semanal (semana actual sin cruzar mes, y semana 28/9–4/10 vista con
   `?ciclo=`, ver HO-05).
-- **Pasada:** 3.ª, cierre — los 14 hallazgos originales resueltos y verificados, más lo que quedaba
-  «afuera» (HO-15 a HO-19), salvo lo relacionado a Me Deben/gastos compartidos (se van a rediseñar).
-- **HO-15, resuelto 2026-09-25** (4.ª pasada, sólo este hallazgo): ver el bloque de abajo.
+- **Pasada:** 3.ª, cierre. 14 hallazgos originales resueltos y verificados, más lo que quedaba
+  «afuera» (HO-15 a HO-19). Excepto Me Deben/gastos compartidos (se rediseñan).
+- **HO-15, resuelto 2026-09-25** (4.ª pasada, sólo este hallazgo): ver bloque abajo.
 
 ## Estado del arreglo (2026-09-24 → 2026-09-25)
 
-Los 14 hallazgos de abajo se atacaron en un plan de 6 bloques sobre la rama `fix-issues`
-(`C:\Users\leanf\.claude\plans\ahi-cambie-a-modo-zany-pnueli.md`), con D1 y D2 decididos por Lean.
-**Estado: 14 de 14 resueltos y verificados en vivo con la cuenta de QA.** Migración aplicada a
-producción, `lint`/`test` (634)/`build` en verde, sin commitear.
+14 hallazgos atacados en plan de 6 bloques sobre rama `fix-issues`
+(`C:\Users\leanf\.claude\plans\ahi-cambie-a-modo-zany-pnueli.md`). D1 y D2 decididos por Lean.
+**Estado: 14/14 resueltos, verificados en vivo con cuenta QA.** Migración aplicada a
+producción. `lint`/`test` (634)/`build` verdes. Sin commitear.
 
-**Antes de planear, se re-chequeó cada hallazgo contra `fix-issues`** (los arreglos de Fijos y
-Movimientos ya habían tocado el mismo código que usa Hoy): HO-04 parecía resuelto por FI-06 (no lo
-estaba del todo, ver abajo), la etiqueta de HO-09 ya la arregló FI-20, y la confirmación de HO-11 ya
-la traía MO-01. Los tres se re-verificaron igual, no se dieron por hechos.
+**Antes de planear, cada hallazgo re-chequeado contra `fix-issues`** (arreglos de Fijos y
+Movimientos ya tocaron código que usa Hoy): HO-04 parecía resuelto por FI-06 (no del todo, ver
+abajo); etiqueta de HO-09 ya arreglada por FI-20; confirmación de HO-11 ya venía con MO-01. Los tres
+re-verificados igual, no dados por hechos.
 
 ### HO-04 cerrado — el gap de $3.000 era de la verificación, no de la app
 
-La 2.ª pasada (2026-09-24) había dejado un gap de $3.000 entre el título "Proyectado" y el
-desglose, con la semana 28/9–4/10 vista mediante `page.clock` fijado en el 30/9 — 6 días después
-del día real (24/9). Esta 3.ª pasada reprodujo el número exacto peso a peso con los datos reales de
-la cuenta de QA (una bolsa semanal "Súper", $80.000, con un pago de $3.000 el 22/9) y encontró la
-causa: **no es un bug de `summarizeFixedExpenses` ni de la RPC — es que `page.clock` corrió "hoy"
-más allá del margen que la base tolera.**
+2.ª pasada (2026-09-24) dejó gap de $3.000 entre título "Proyectado" y desglose, con semana
+28/9–4/10 vista vía `page.clock` fijado en 30/9 — 6 días después del día real (24/9). 3.ª pasada
+reprodujo número exacto con datos reales de cuenta QA (bolsa semanal "Súper", $80.000, pago de
+$3.000 el 22/9) y encontró causa: **no es bug de `summarizeFixedExpenses` ni de la RPC — `page.clock`
+corrió "hoy" más allá del margen que la base tolera.**
 
-`rpc_projected_balance_range` acota el "hoy" que recibe a **±1 día de `current_date`**
-(`hoy_del_cliente.sql`, pensado para que un reloj de dispositivo mal configurado no pueda mover el
-proyectado más de un día). Con "hoy" = 30/9 en el cliente pero "hoy" real ≈ 24/9 en el servidor, los
-dos lados calcularon la semana vigente de la bolsa **distinto**: el cliente escopeó los pagos de la
-semana 28/9–4/10 (la que se estaba mirando), el servidor los de la semana 21–27/9 (la que
-efectivamente contiene su "hoy" clampeado) — el pago del 22/9 cayó del lado del servidor y no del
-cliente. Recalculando fijo por fijo:
+`rpc_projected_balance_range` acota el "hoy" recibido a **±1 día de `current_date`**
+(`hoy_del_cliente.sql`, para que reloj de dispositivo mal configurado no mueva el proyectado más de
+un día). Con "hoy" = 30/9 en cliente y ≈ 24/9 real en servidor, ambos lados calcularon semana vigente
+de la bolsa **distinto**: cliente escopeó pagos de semana 28/9–4/10 (la mirada), servidor los de
+21–27/9 (la que contiene su "hoy" clampeado). Pago del 22/9 cayó del lado servidor, no cliente.
+Recalculando fijo por fijo:
 
 | | Cliente (hoy=30/9, `summarizeFixedExpenses`) | Servidor (hoy real, RPC) |
 |---|---|---|
@@ -44,57 +42,55 @@ cliente. Recalculando fijo por fijo:
 | QA Dia2 (una vez, due 2 — ambos meses) | $10.000 | $10.000 |
 | **Total Fijos** | **$198.000** | **$195.000** |
 
-$198.000 − $195.000 = **$3.000**, exacto. Con la RPC llamada directo (`p_today=2026-09-30` y
-`p_today` nulo dan el MISMO resultado, $1.231.889 — confirma el clamp) y con `rpc_current_balance() =
-$1.426.889`, el servidor descuenta $195.000 en Fijos, ninguna Deuda: cierra perfecto.
+$198.000 − $195.000 = **$3.000**, exacto. RPC llamada directo (`p_today=2026-09-30` y `p_today` nulo
+dan MISMO resultado, $1.231.889 — confirma clamp) con `rpc_current_balance() =
+$1.426.889`: servidor descuenta $195.000 en Fijos, ninguna Deuda. Cierra perfecto.
 
-**Por qué no es reproducible por un usuario real:** el `today` que escopea la semana de una bolsa en
-`statusFor` (`aggregate.ts`) es SIEMPRE el "hoy" real del dispositivo (`useToday()`/`new Date()`),
-nunca la ventana que se está mirando — navegar Fijos a una semana futura no lo cambia. Sólo diverge
-del servidor cuando el reloj del dispositivo está corrido más de 1 día del real, exactamente el caso
-que el clamp existe para acotar. **No se toca código de producción.**
+**Por qué usuario real no lo reproduce:** `today` que escopea semana de bolsa en `statusFor`
+(`aggregate.ts`) es SIEMPRE "hoy" real del dispositivo (`useToday()`/`new Date()`), nunca ventana
+mirada — navegar Fijos a semana futura no lo cambia. Sólo diverge del servidor si reloj del
+dispositivo corrido >1 día, justo el caso que el clamp acota. **No se toca código de producción.**
 
-Test de regresión agregado en `aggregate.test.ts` ("HO-04: la semana que escopea una bolsa semanal
-es la de 'hoy', no la del ciclo mirado") que fija este comportamiento con los mismos números.
+Test de regresión en `aggregate.test.ts` ("HO-04: la semana que escopea una bolsa semanal
+es la de 'hoy', no la del ciclo mirado") fija comportamiento con mismos números.
 
-**Lección para la próxima verificación en vivo:** `page.clock` sólo dentro de ±1 día de la fecha
-real cuando la pantalla compara contra una RPC que recibe `p_today` — más allá de eso, cliente y
-servidor dejan de mirar la misma ventana y cualquier gap que aparezca es de la prueba, no de la app
-(sumado a `docs/qa/README.md`).
+**Lección para próxima verificación en vivo:** `page.clock` sólo dentro de ±1 día de fecha real
+cuando pantalla compara contra RPC que recibe `p_today` — más allá, cliente y servidor miran
+ventanas distintas y cualquier gap es de la prueba, no de la app (sumado a `docs/qa/README.md`).
 
 ## Resumen
 
-Hoy no carga casi ningún dato propio: junta números de Fijos, Cuentas, Mis Deudas y Movimientos. La
-mayoría de esos números cierran bien — el desglose del proyectado sumó exacto contra `rpc_current_balance`
-y `rpc_projected_balance_range` en el ciclo mensual normal — pero aparecieron varios casos concretos donde
-no cierran o se ven mal:
+Hoy casi no carga datos propios: junta números de Fijos, Cuentas, Mis Deudas y Movimientos. Mayoría
+cierra bien — desglose del proyectado sumó exacto contra `rpc_current_balance` y
+`rpc_projected_balance_range` en ciclo mensual normal — pero hubo casos concretos que no cierran o se
+ven mal:
 
-- **En una semana que cruza dos meses, el desglose del proyectado no suma el total que muestra arriba**
-  (diferencia de $332.345,67 en el caso probado): el servidor resta algo de más que el desglose no
-  informa (HO-04, cerrado — el gap final resultó ser de la verificación, no de la app, ver arriba).
-- **Una categoría con gastos ya cargados se podía pasar a "ingreso" y los hacía desaparecer del
-  desglose por categoría**, aunque siguieran sumando en "Gastos" (HO-15, también afectaba a Análisis;
-  cerrado — el tipo de una categoría ahora es inmutable, ver abajo).
+- **Semana que cruza dos meses: desglose del proyectado no suma el total de arriba** (diferencia de
+  $332.345,67 en caso probado): servidor resta algo de más que desglose no informa (HO-04, cerrado —
+  gap final era de la verificación, no de la app, ver arriba).
+- **Categoría con gastos cargados podía pasarse a "ingreso" y los hacía desaparecer del desglose por
+  categoría**, aunque siguieran sumando en "Gastos" (HO-15, afectaba también Análisis; cerrado — tipo
+  de categoría ahora inmutable, ver abajo).
 
 ## Hallazgos
 
 | ID | Sev. | Estado | Título | Afecta |
 |---|---|---|---|---|
-| HO-01 | Alto | Resuelto | El saldo negativo no cambia de color en el hero | — |
-| HO-02 | Alto | Resuelto | El ojo no oculta la lista de movimientos del mes | Movimientos |
-| HO-03 | Alto | Resuelto | Una tarjeta sin compras cuenta como deuda impaga de $0 | Mis Deudas |
-| HO-04 | Alto | Resuelto | Semana entre dos meses: el desglose del proyectado no suma el total | Fijos |
-| HO-05 | Alto | Resuelto | `?ciclo=` en la URL hace que Hoy muestre otro período | — |
-| HO-06 | Alto | Resuelto | Sin aviso de error: saldo cortado deja tres cifras que no cierran entre sí | — |
-| HO-07 | Medio | Resuelto | "Guardado" de un fijo da un número distinto en escritorio y en mobile | — |
-| HO-08 | Medio | Resuelto | Un movimiento con fecha futura encabeza la lista sin marca | Cuentas |
+| HO-01 | Alto | Resuelto | Saldo negativo no cambia de color en hero | — |
+| HO-02 | Alto | Resuelto | Ojo no oculta lista de movimientos del mes | Movimientos |
+| HO-03 | Alto | Resuelto | Tarjeta sin compras cuenta como deuda impaga de $0 | Mis Deudas |
+| HO-04 | Alto | Resuelto | Semana entre dos meses: desglose del proyectado no suma total | Fijos |
+| HO-05 | Alto | Resuelto | `?ciclo=` en URL hace que Hoy muestre otro período | — |
+| HO-06 | Alto | Resuelto | Sin aviso de error: saldo cortado deja tres cifras que no cierran | — |
+| HO-07 | Medio | Resuelto | "Guardado" de fijo da número distinto en escritorio y mobile | — |
+| HO-08 | Medio | Resuelto | Movimiento con fecha futura encabeza lista sin marca | Cuentas |
 | HO-09 | Bajo | Resuelto | Copy fijo en "mes" con otros ciclos; semana entre meses dice "28–4 sep" | Fijos |
-| HO-10 | Alto | Resuelto | "Sueldo asignado" y el diálogo de Sueldo muestran cifras distintas | Movimientos |
-| HO-11 | Alto | Resuelto | El diálogo de Sueldo mezcla cualquier ingreso y su X borra sin confirmar | Cuentas |
-| HO-12 | Alto | Resuelto | Test resta una deuda que el plan no puede ver ni pagar en ningún lado | — |
-| HO-13 | Medio | Resuelto | Doble click en "Agregar" del diálogo de Sueldo duplica la asignación | Movimientos |
-| HO-14 | Bajo | Resuelto | La tarjeta de fijos de Básico no tiene ojo para ocultar el saldo | — |
-| HO-15 | Medio | Resuelto | Categoría pasada a "ingreso" hacía desaparecer sus gastos ya cargados del desglose | Análisis |
+| HO-10 | Alto | Resuelto | "Sueldo asignado" y diálogo de Sueldo muestran cifras distintas | Movimientos |
+| HO-11 | Alto | Resuelto | Diálogo de Sueldo mezcla cualquier ingreso y su X borra sin confirmar | Cuentas |
+| HO-12 | Alto | Resuelto | Test resta deuda que el plan no puede ver ni pagar | — |
+| HO-13 | Medio | Resuelto | Doble click en "Agregar" del diálogo de Sueldo duplica asignación | Movimientos |
+| HO-14 | Bajo | Resuelto | Tarjeta de fijos de Básico sin ojo para ocultar saldo | — |
+| HO-15 | Medio | Resuelto | Categoría pasada a "ingreso" hacía desaparecer sus gastos cargados del desglose | Análisis |
 
 Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
@@ -103,171 +99,163 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
 ### HO-15 · Una categoría pasada a "ingreso" hacía desaparecer del desglose los gastos ya cargados — Medio, Resuelto
 
-- **Pasos:** crear una categoría de gasto, cargar un movimiento de gasto en ella, después editar la
-  categoría y cambiarla a "Ingreso" (`CategoryRowEditor`, sin ningún freno) — mirar el desglose por
-  categoría de Hoy/Análisis y "Gastos" del período.
-- **Esperado:** el movimiento sigue siendo un gasto real (`transactions.type = 'expense'`) — tiene
-  que seguir sumando en algún lado del desglose por categoría, aunque sea en "Sin categoría".
-- **Obtenido:** el movimiento desaparece del desglose por categoría por completo (ni en su categoría
-  vieja, ni en "Sin categoría"), mientras "Gastos" no se mueve — las dos cifras dejan de cerrar entre
-  sí. Reproducido con una transacción de $10.000: antes del cambio, `v_range_summary().total_expense`
-  y la suma de `v_spend_by_category()` daban los dos $579.501,10 (exacto); después de pasar la
-  categoría a `income`, `total_expense` seguía en $579.501,10 pero la suma de
-  `v_spend_by_category()` bajó a $569.501,10 — los $10.000 de diferencia son exactos.
-- **Por qué:** `v_spend_by_category` (`20260912020001_spend_by_category_uncategorized.sql`) arma la
-  lista con `left join transactions ... where c.kind = 'expense'` — una categoría que ya cambió a
-  `income` queda afuera del `left join` por completo, así que cualquier gasto viejo que sigue
-  apuntando a ella no aparece en ninguna fila (ni la propia categoría, que ya no calza el filtro; ni
-  "Sin categoría", porque `category_id` no es `null`). `v_range_summary` (Gastos, Ingresos) no mira
-  `kind` en absoluto — sólo `transactions.type` — así que no nota el cambio. No hay ningún freno del
-  lado del cliente ni de la base que impida cambiar `kind` con movimientos ya cargados
-  (`useUpdateCategory` hace un `update` directo, sin RPC).
-- **Afecta:** Hoy y Análisis por igual (mismo RPC). No se encontró en el QA de Análisis anterior
-  (`docs/qa/analisis.md`) — se suma acá porque apareció en esta pasada.
-- **Decisión pendiente de Lean** (no se arregla solo — necesita elegir entre estas, y probablemente
-  una migración):
-  1. bloquear el cambio de `kind` en `rpc_update_category` (o una policy) si la categoría ya tiene
+- **Pasos:** crear categoría de gasto, cargar movimiento de gasto en ella, editar categoría y
+  cambiarla a "Ingreso" (`CategoryRowEditor`, sin freno) — mirar desglose por categoría de
+  Hoy/Análisis y "Gastos" del período.
+- **Esperado:** movimiento sigue siendo gasto real (`transactions.type = 'expense'`) — debe seguir
+  sumando en algún lado del desglose por categoría, aunque sea "Sin categoría".
+- **Obtenido:** movimiento desaparece del desglose por completo (ni categoría vieja, ni "Sin
+  categoría"), mientras "Gastos" no se mueve — cifras dejan de cerrar. Reproducido con transacción de
+  $10.000: antes del cambio, `v_range_summary().total_expense` y suma de `v_spend_by_category()`
+  daban ambos $579.501,10 (exacto); tras pasar categoría a `income`, `total_expense` seguía
+  $579.501,10 pero suma de `v_spend_by_category()` bajó a $569.501,10 — diferencia de $10.000 exacta.
+- **Por qué:** `v_spend_by_category` (`20260912020001_spend_by_category_uncategorized.sql`) arma lista
+  con `left join transactions ... where c.kind = 'expense'` — categoría ya cambiada a `income` queda
+  fuera del `left join`, así que gasto viejo que apunta a ella no aparece en ninguna fila (ni propia
+  categoría, que no calza filtro; ni "Sin categoría", porque `category_id` no es `null`).
+  `v_range_summary` (Gastos, Ingresos) no mira `kind` — sólo `transactions.type` — no nota el cambio.
+  Ningún freno en cliente ni base impide cambiar `kind` con movimientos cargados (`useUpdateCategory`
+  hace `update` directo, sin RPC).
+- **Afecta:** Hoy y Análisis igual (mismo RPC). No encontrado en QA de Análisis anterior
+  (`docs/qa/analisis.md`) — sumado acá porque apareció en esta pasada.
+- **Decisión pendiente de Lean** (no se arregla solo — elegir entre estas, probablemente con
+  migración):
+  1. bloquear cambio de `kind` en `rpc_update_category` (o policy) si la categoría ya tiene
      transacciones del tipo contrario;
-  2. en `v_spend_by_category`, sumar esos gastos "huérfanos" a la fila "Sin categoría" en vez de
+  2. en `v_spend_by_category`, sumar esos gastos "huérfanos" a fila "Sin categoría" en vez de
      perderlos;
-  3. dejarlo como está y avisarlo en el editor de categorías ("cambiar el tipo puede esconder gastos
+  3. dejarlo así y avisar en editor de categorías ("cambiar el tipo puede esconder gastos
      ya cargados").
-- **No verificado con una categoría de INGRESO pasada a gasto** (el espejo) — por lectura de la
-  misma función, `v_spend_by_category` sólo mira categorías `kind = 'expense'`, así que ese caso no
-  aplica del mismo modo (una categoría de ingreso nunca aparecía ahí antes tampoco).
+- **No verificado con categoría de INGRESO pasada a gasto** (espejo) — por lectura de misma función,
+  `v_spend_by_category` sólo mira categorías `kind = 'expense'`, así que ese caso no aplica igual
+  (categoría de ingreso nunca aparecía ahí antes tampoco).
 
-**Arreglo (2026-09-25):** decisión de Lean — Gasto e Ingreso son mundos independientes, el tipo de una
-categoría se elige al crearla y no se cambia más (ni desde `/categorias` ni desde el catálogo de admin
-`/admin/categorias`, que sólo es la plantilla que siembra cada cuenta nueva). Migración
+**Arreglo (2026-09-25):** decisión de Lean — Gasto e Ingreso son mundos independientes; tipo de
+categoría se elige al crearla y no cambia más (ni desde `/categorias` ni desde catálogo admin
+`/admin/categorias`, que es sólo plantilla que siembra cada cuenta nueva). Migración
 `20260925010001_categorias_tipo_fijo.sql`:
 
 - `kind` inmutable en `categories` y `default_categories` (`trg_category_kind_locked`, `before update
-  of kind`, compara valores — un `update` que reenvía el mismo `kind` no falla).
-- `trg_transactions_owned_refs` (`20260924020001_movimientos_referencias_propias.sql`) suma el chequeo:
-  si el movimiento tiene `category_id`, su `kind` tiene que ser igual a `transactions.type`, si no
+  of kind`, compara valores — `update` que reenvía mismo `kind` no falla).
+- `trg_transactions_owned_refs` (`20260924020001_movimientos_referencias_propias.sql`) suma chequeo:
+  si movimiento tiene `category_id`, su `kind` debe igualar `transactions.type`, si no
   `category_kind_mismatch` (distinto de `category_not_found`, que sigue siendo "ajena o borrada").
-- `trg_expense_category_kind` en `fixed_expenses` y `credit_purchases`: sólo aceptan una categoría
-  `kind = 'expense'` — sin esto, un fijo o una compra con categoría de ingreso (sólo posible por API
-  directa) quedaría impagable con un error opaco al generar su movimiento.
+- `trg_expense_category_kind` en `fixed_expenses` y `credit_purchases`: sólo aceptan categoría
+  `kind = 'expense'` — sin esto, fijo o compra con categoría de ingreso (sólo posible por API
+  directa) quedaría impagable con error opaco al generar su movimiento.
 
 Diagnóstico previo (sólo lectura, `db query --linked`, 2026-09-24): **0** movimientos, fijos o compras
-en producción con una categoría del tipo contrario — no hizo falta arreglar datos.
+en producción con categoría de tipo contrario — no hizo falta arreglar datos.
 
-Front: `CategoryRowEditor` (`src/features/categories/`) perdió los chips Gasto/Ingreso — el tipo lo
-decide el panel donde se aprieta "+ Nueva" en `/categorias`; `useUpdateCategory` y
-`useUpdateDefaultCategory` ya no aceptan `kind` en su input. En `/admin/categorias` los chips quedan
-sólo en el alta (`AddCategoryForm`); al editar se ve como etiqueta fija, igual que en la fila normal.
-Mensajes nuevos en `src/lib/errors.ts` para `category_kind_locked` y `category_kind_mismatch`, con
-test de regresión en `errors.test.ts`.
+Front: `CategoryRowEditor` (`src/features/categories/`) perdió chips Gasto/Ingreso — tipo lo decide
+panel donde se aprieta "+ Nueva" en `/categorias`; `useUpdateCategory` y `useUpdateDefaultCategory` ya
+no aceptan `kind` en input. En `/admin/categorias` chips quedan sólo en alta (`AddCategoryForm`); al
+editar se ve etiqueta fija, igual que fila normal. Mensajes nuevos en `src/lib/errors.ts` para
+`category_kind_locked` y `category_kind_mismatch`, con test de regresión en `errors.test.ts`.
 
 **Verificado en vivo (2026-09-25):**
 
 - Migración aplicada a producción (`db push --linked`); `migration list --linked` confirmó local=remote
   en todas.
-- Por SQL directo con la cuenta de QA (bloque transaccional, con cleanup): `update categories set
-  kind` → `category_kind_locked`; el mismo `update` reenviando el `kind` actual no falla; insertar un
-  gasto con una categoría de ingreso → `category_kind_mismatch`; insertar el mismo gasto con su
-  categoría correcta → éxito; un fijo con categoría de ingreso → `category_kind_mismatch`; `update
-  default_categories set kind` → `category_kind_locked`. Los siete casos dieron el resultado esperado.
-- Por Playwright contra la cuenta de QA (dev server propio en el 5173, cerrado al terminar): en
-  `/categorias` el editor no muestra chips ni al crear ni al editar; "+ Nueva" en "De gasto" creó una
-  categoría de gasto; editar su nombre (sin tocar el tipo) funcionó. Sin verificación de click-through
-  en `/admin/categorias` (la cuenta de QA no tiene rol admin) — cubierto por el chequeo de
-  `default_categories` por SQL de arriba.
-- `lint`/`test` (635, +1 por el caso nuevo de `errors.test.ts`)/`build` en verde. Chequeo de secretos
-  de `CLAUDE.md` vacío.
+- SQL directo con cuenta QA (bloque transaccional, con cleanup): `update categories set
+  kind` → `category_kind_locked`; mismo `update` reenviando `kind` actual no falla; insertar gasto con
+  categoría de ingreso → `category_kind_mismatch`; mismo gasto con categoría correcta → éxito; fijo con
+  categoría de ingreso → `category_kind_mismatch`; `update
+  default_categories set kind` → `category_kind_locked`. Siete casos dieron resultado esperado.
+- Playwright contra cuenta QA (dev server propio en 5173, cerrado al terminar): en `/categorias`
+  editor no muestra chips ni al crear ni al editar; "+ Nueva" en "De gasto" creó categoría de gasto;
+  editar nombre (sin tocar tipo) funcionó. Sin click-through en `/admin/categorias` (cuenta QA sin rol
+  admin) — cubierto por chequeo SQL de `default_categories` arriba.
+- `lint`/`test` (635, +1 por caso nuevo de `errors.test.ts`)/`build` verdes. Chequeo de secretos de
+  `CLAUDE.md` vacío.
 - Foto por API antes y después: sin resto de `QA-HO15*` en `categories`, `transactions`,
-  `fixed_expenses` ni `default_categories` — todo lo cargado en la verificación se borró (por API en el
-  bloque SQL, por UI la categoría creada con Playwright).
-- **Sin commitear**, en `fix-issues` (igual que el resto de Hoy).
+  `fixed_expenses` ni `default_categories` — todo lo cargado se borró (por API en bloque SQL, por UI la
+  categoría creada con Playwright).
+- **Sin commitear**, en `fix-issues` (igual que resto de Hoy).
 
 ## Verificado en esta pasada, sin hallazgos
 
-- **HO-16 · Medianoche con la app abierta:** con `page.clock` a las 23:58 del día real y avanzando 5
-  minutos sin navegar, la RPC `rpc_projected_balance_range` se volvió a pedir SOLA con el `p_today`
-  actualizado (`2026-09-24` → `2026-09-25`) apenas cruzó la medianoche — la cadena `useToday()` →
-  `useCycle().current` (nueva referencia) → el `useMemo` de `summarizeFixedExpenses` en Hoy.tsx
-  (que depende de `cycle`) se dispara sola. No hace falta que `today` (la variable local de
-  Hoy.tsx) esté en las deps del `useMemo`: en la práctica siempre se recalcula en el mismo render
-  que cambia `cycle`. No se probó específicamente el cruce de una SEMANA (domingo→lunes) por no caer
-  la fecha real en ese borde esta pasada — la cadena de recálculo es la misma, así que se infiere
-  igual de sólida, pero queda para una próxima pasada que si caiga en ese borde.
-- **HO-17 · Dos pestañas:** pagar un fijo o cargar un movimiento en una pestaña B actualiza sola la
-  pestaña A al volver a enfocarla (React Query, `refetchOnWindowFocus`, default de la app) — probado
-  con QA Dia2 (marcar/desmarcar pagado) y un movimiento nuevo. El **tema** (`theme:dark`,
-  localStorage) NO se sincroniza entre pestañas — es esperado: `createPersistedFlag` usa un pub-sub
-  en memoria del módulo, sin `window.addEventListener('storage', …)`, así que cada pestaña sólo se
-  entera de un cambio propio. Cada viewer conserva su propio tema, no es un bug.
-  - **Nota de método:** el refetch-por-foco no se pudo confirmar con Playwright headless
+- **HO-16 · Medianoche con la app abierta:** `page.clock` a 23:58 del día real, avanzando 5 min sin
+  navegar: RPC `rpc_projected_balance_range` se re-pidió SOLA con `p_today` actualizado
+  (`2026-09-24` → `2026-09-25`) al cruzar medianoche — cadena `useToday()` → `useCycle().current`
+  (nueva referencia) → `useMemo` de `summarizeFixedExpenses` en Hoy.tsx (depende de `cycle`) se
+  dispara sola. No hace falta `today` (variable local de Hoy.tsx) en deps del `useMemo`: en práctica
+  siempre se recalcula en mismo render que cambia `cycle`. No probado cruce de SEMANA (domingo→lunes)
+  porque fecha real no cayó en ese borde — misma cadena, se infiere igual de sólida, pero queda para
+  pasada que sí caiga en ese borde.
+- **HO-17 · Dos pestañas:** pagar fijo o cargar movimiento en pestaña B actualiza sola pestaña A al
+  re-enfocarla (React Query, `refetchOnWindowFocus`, default de la app) — probado con QA Dia2
+  (marcar/desmarcar pagado) y movimiento nuevo. **Tema** (`theme:dark`, localStorage) NO se sincroniza
+  entre pestañas — esperado: `createPersistedFlag` usa pub-sub en memoria del módulo, sin
+  `window.addEventListener('storage', …)`, así que cada pestaña sólo ve cambio propio. Cada viewer
+  conserva su tema, no es bug.
+  - **Nota de método:** refetch-por-foco no confirmable con Playwright headless
     (`document.visibilityState` de la pestaña de atrás quedó en `'visible'` incluso con la otra al
     frente — Chromium headless con dos `Page`s del mismo contexto no siempre reproduce la
     oclusión real de pestañas), así que este punto se apoya en la lectura de código
     (`refetchOnWindowFocus` es el default de `QueryClient`, sin override en `main.tsx`) más que en
     la corrida en vivo.
-- **HO-18 · Seguridad por API:** sin sesión (sólo la `anon key`), `rpc_current_balance`,
+- **HO-18 · Seguridad por API:** sin sesión (sólo `anon key`), `rpc_current_balance`,
   `rpc_projected_balance_range`, `v_range_summary`, `v_spend_by_category`, `transactions` y
   `fixed_expense_payments` devuelven `0`/vacío — nunca error con datos, nunca datos de otra cuenta
-  (todo depende de `auth.uid()`, que es `null` sin sesión). Con la sesión de QA, cada fila que
-  vuelve es de su propio `user_id`. Mismo patrón ya confirmado en el QA de Movimientos.
-- **HO-19 · Layout 768–1023px:** 768, 820, 900 y 1023px, claro y oscuro, con montos de 8 cifras
-  (interceptando la respuesta de `rpc_current_balance`/`rpc_projected_balance_range`/
-  `v_range_summary` con `page.route`, sin escribir nada en la cuenta) — sin scroll horizontal en
-  ningún ancho, el borde izquierdo y el ancho del contenido siguen al shell en los dos temas.
+  (todo depende de `auth.uid()`, `null` sin sesión). Con sesión QA, cada fila es de su propio
+  `user_id`. Mismo patrón ya confirmado en QA de Movimientos.
+- **HO-19 · Layout 768–1023px:** 768, 820, 900 y 1023px, claro y oscuro, montos de 8 cifras
+  (interceptando respuesta de `rpc_current_balance`/`rpc_projected_balance_range`/
+  `v_range_summary` con `page.route`, sin escribir en cuenta) — sin scroll horizontal en ningún ancho;
+  borde izquierdo y ancho de contenido siguen al shell en ambos temas.
 - **Categoría archivada en el desglose:** por lectura de código, `v_spend_by_category` no filtra
-  `is_archived` — una categoría archivada con gasto histórico lo sigue mostrando igual que una
-  activa. No es un bug (una categoría archivada no deja de haber existido). No se armó un caso en
-  vivo porque el resultado ya se desprende de la SQL sin ambigüedad.
-- **Coherencia con Hoy abierto (HO-G) y el donut lado a lado con Análisis:** quedan fuera de esta
-  pasada — Me Deben y los gastos compartidos se van a eliminar o rediseñar (decisión de Lean), y el
-  donut comparte el mismo RPC (`v_spend_by_category`) que Hoy con el mismo `from`/`to`, así que por
-  construcción da el mismo total en las dos pantallas para el mismo período; no se armó una
-  comparación visual lado a lado aparte.
+  `is_archived` — categoría archivada con gasto histórico lo sigue mostrando como activa. No es bug
+  (archivada no deja de haber existido). Sin caso en vivo: resultado se desprende de la SQL sin
+  ambigüedad.
+- **Coherencia con Hoy abierto (HO-G) y donut lado a lado con Análisis:** fuera de esta pasada — Me
+  Deben y gastos compartidos se eliminan o rediseñan (decisión de Lean); donut comparte mismo RPC
+  (`v_spend_by_category`) que Hoy con mismo `from`/`to`, así que por construcción da mismo total en
+  ambas pantallas para mismo período; sin comparación visual lado a lado aparte.
 
 ## Estado de la cuenta de QA al cerrar
 
 **1.ª pasada (informe, 2026-09-23):**
 
-- **Perfil:** Premium, ciclo mensual, semana desde el lunes — igual que al empezar (se probó Básico y
-  Test por SQL directo en medio de la pasada, y se devolvió a Premium al terminar cada bloque).
-- **Datos:** la foto final por SQL coincide exacta con la inicial — 22 movimientos, mismos totales de
-  ingresos y gastos, 2 ajustes, `rpc_current_balance() = $1.426.889,00`, 2 cuentas sin archivar con la
-  misma apertura, 9 fijos, 0 tarjetas, 0 compras sueltas, 1 deuda (la preexistente). Todo lo cargado en
-  esta pasada (marcado `QA-HO`: 9 fijos, 3 tarjetas, 3 compras, 5 movimientos propios y 1 cuenta) se
-  borró y se verificó por SQL que no queda ningún resto — incluidas las 4 asignaciones de sueldo de
-  prueba sin la marca `QA-HO` (descripción "Sueldo", cargadas para probar HO-13), identificadas por
-  importe y fecha antes de borrarlas.
+- **Perfil:** Premium, ciclo mensual, semana desde lunes — igual que al empezar (Básico y Test
+  probados por SQL directo en medio, vuelta a Premium al terminar cada bloque).
+- **Datos:** foto final por SQL coincide exacta con inicial — 22 movimientos, mismos totales de
+  ingresos y gastos, 2 ajustes, `rpc_current_balance() = $1.426.889,00`, 2 cuentas sin archivar con
+  misma apertura, 9 fijos, 0 tarjetas, 0 compras sueltas, 1 deuda (preexistente). Todo lo cargado
+  (marcado `QA-HO`: 9 fijos, 3 tarjetas, 3 compras, 5 movimientos propios, 1 cuenta) borrado y
+  verificado por SQL sin restos — incluidas 4 asignaciones de sueldo de prueba sin marca `QA-HO`
+  (descripción "Sueldo", cargadas para HO-13), identificadas por importe y fecha antes de borrar.
 
 **2.ª pasada (verificación de los arreglos, 2026-09-24):**
 
-- **Perfil:** Premium, ciclo mensual, semana desde el lunes — igual que al empezar. Se probaron
-  Básico (HO-10, HO-11, HO-13, HO-14) y Test (HO-12) cambiando `plan` por SQL directo (con el OK ya
-  dado por Lean para toda la pasada) y se devolvió a Premium al terminar cada bloque; `cycle_kind`
-  pasó por `weekly` (HO-04/HO-09, con `page.clock` fijando "hoy" en la semana 28/9–4/10) y volvió a
-  `monthly` por REST directo (esas dos columnas sí están en el grant de `authenticated`).
+- **Perfil:** Premium, ciclo mensual, semana desde lunes — igual que al empezar. Probados Básico
+  (HO-10, HO-11, HO-13, HO-14) y Test (HO-12) cambiando `plan` por SQL directo (OK de Lean para toda
+  la pasada), vuelta a Premium al terminar cada bloque; `cycle_kind` pasó por `weekly` (HO-04/HO-09,
+  con `page.clock` fijando "hoy" en semana 28/9–4/10) y volvió a `monthly` por REST directo (ambas
+  columnas están en grant de `authenticated`).
 - **Datos:** foto por API antes y después, exacta — 22 movimientos, `rpc_current_balance() =
-  $1.426.889,00`, 2 cuentas, 9 fijos (8 activos), 0 tarjetas, 0 compras sueltas. Todo lo cargado en
-  esta pasada (marcado `QA-HO2`: 1 ajuste temporal, 1 movimiento futuro, 1 tarjeta vacía, 1 fijo con
-  dos guardados y su movimiento vinculado, 1 ingreso con categoría, 1 fila de sueldo del doble
-  click, 1 tarjeta+compra para Test) se borró; el único resto que costó encontrar fue el movimiento
-  "Guardado · QA-HO2 Fijo" ($30.000) que había generado el guardado-con-movimiento del caso de
-  HO-07 — el `transaction_id` leído de `fixed_expense_savings` ANTES de borrar el fijo no alcanzó
-  (ver la lección nueva en «Estado del arreglo»); se encontró y se borró con una consulta aparte
-  por descripción, después de borrar el fijo, y se confirmó con una foto final limpia.
+  $1.426.889,00`, 2 cuentas, 9 fijos (8 activos), 0 tarjetas, 0 compras sueltas. Todo lo cargado
+  (marcado `QA-HO2`: 1 ajuste temporal, 1 movimiento futuro, 1 tarjeta vacía, 1 fijo con dos guardados
+  y su movimiento vinculado, 1 ingreso con categoría, 1 fila de sueldo del doble click, 1
+  tarjeta+compra para Test) borrado. Único resto difícil: movimiento "Guardado · QA-HO2 Fijo"
+  ($30.000) generado por guardado-con-movimiento de HO-07 — `transaction_id` leído de
+  `fixed_expense_savings` ANTES de borrar el fijo no alcanzó (ver lección nueva en «Estado del
+  arreglo»); encontrado y borrado con consulta aparte por descripción tras borrar el fijo, confirmado
+  con foto final limpia.
 - **Migración aplicada a producción:** `20260924060001_proyectado_deudas_por_plan.sql` (HO-12/D2).
-  El resto de los arreglos son sólo de cliente, sin migración.
+  Resto de arreglos sólo cliente, sin migración.
 
 **3.ª pasada (cierre de HO-04 + lo que quedaba afuera, 2026-09-24→25):**
 
-- **Perfil:** Premium, ciclo mensual, semana desde el lunes — sin cambios de plan ni de ciclo esta
-  vez (HO-04 se cerró con lecturas por API sobre los datos ya cargados, sin navegar a otro ciclo).
+- **Perfil:** Premium, ciclo mensual, semana desde lunes — sin cambios de plan ni ciclo (HO-04
+  cerrado con lecturas por API sobre datos cargados, sin navegar a otro ciclo).
 - **Datos:** foto por API antes y después, exacta — 22 movimientos, `rpc_current_balance() =
-  $1.426.889,00`. Lo cargado en esta pasada se probó y se deshizo en el momento, sin dejar marca
-  `QA-HO3` en la cuenta: un pago de "QA Dia2" (marcado y desmarcado dos veces, por el bloque de
-  «dos pestañas»), una categoría temporal "QA-HO3 Temp" con una transacción de $10.000 (HO-15, creada
-  y borrada por API), y un movimiento "QA-HO3 dos pestañas" ($1.234, creado por UI y borrado por UI).
-  El único resto que costó encontrar fue un pago de QA Dia2 que quedó pagado tras un timing de
-  Playwright con `bringToFront()` entre dos pestañas — se encontró por API (`fixed_expense_payments`
-  filtrado por ese fijo) y se deshizo con la RPC oficial `rpc_unmark_fixed_expense_payment`, no con
-  un `DELETE` directo a la tabla.
-- **Sin migración.** Playwright se instaló y se usó sólo en el scratchpad de la sesión (nunca en el
-  repo); el dev server propio (puerto 5174, siguiente libre al 5173) se cerró al terminar.
+  $1.426.889,00`. Lo cargado se probó y deshizo en el momento, sin marca `QA-HO3` en cuenta: pago de
+  "QA Dia2" (marcado/desmarcado dos veces, bloque «dos pestañas»), categoría temporal "QA-HO3 Temp"
+  con transacción de $10.000 (HO-15, creada y borrada por API), movimiento "QA-HO3 dos pestañas"
+  ($1.234, creado y borrado por UI). Único resto difícil: pago de QA Dia2 que quedó pagado tras timing
+  de Playwright con `bringToFront()` entre pestañas — encontrado por API (`fixed_expense_payments`
+  filtrado por ese fijo) y deshecho con RPC oficial `rpc_unmark_fixed_expense_payment`, no con
+  `DELETE` directo a tabla.
+- **Sin migración.** Playwright instalado y usado sólo en scratchpad de sesión (nunca en repo); dev
+  server propio (puerto 5174, siguiente libre al 5173) cerrado al terminar.
