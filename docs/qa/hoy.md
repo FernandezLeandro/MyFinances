@@ -8,6 +8,89 @@
   `?ciclo=`, ver HO-05).
 - **Pasada:** 1.ª.
 
+## Estado del arreglo (2026-09-24)
+
+Los 14 hallazgos de abajo se atacaron en un plan de 6 bloques sobre la rama `fix-issues`
+(`C:\Users\leanf\.claude\plans\ahi-cambie-a-modo-zany-pnueli.md`), con D1 y D2 decididos por Lean.
+**Estado: 13 de 14 resueltos y verificados en vivo con la cuenta de QA; HO-04 queda Parcial** (el
+arreglo de FI-06 no alcanza para un caso nuevo que apareció al verificar — ver su detalle).
+Migración aplicada a producción, `lint`/`test` (633)/`build` en verde, sin commitear.
+
+**Antes de planear, se re-chequeó cada hallazgo contra `fix-issues`** (los arreglos de Fijos y
+Movimientos ya habían tocado el mismo código que usa Hoy): HO-04 parecía resuelto por FI-06 (no lo
+está del todo, ver abajo), la etiqueta de HO-09 ya la arregló FI-20, y la confirmación de HO-11 ya
+la traía MO-01. Los tres se re-verificaron igual, no se dieron por hechos.
+
+| Bloque | Qué hace | IDs |
+|---|---|---|
+| 1 | Color del saldo negativo, el ojo oculta también la lista de movimientos, ojo nuevo en la tarjeta de Básico | HO-01, HO-02, HO-14 |
+| 2 | Una tarjeta sin cuotas deja de contar como deuda; "guardado" unificado entre escritorio y mobile | HO-03, HO-07 |
+| 3 | Hoy ignora `?ciclo=`; error visible si se corta el saldo; movimiento futuro marcado; copy por ciclo | HO-05, HO-06, HO-08, HO-09 |
+| 4 | «Ingresos del ciclo» = mismo número en la tarjeta y en el diálogo; filas ajenas sin X; doble click no duplica | HO-10, HO-11, HO-13 |
+| 5 | Un plan sin Mis Deudas no resta deudas del proyectado | HO-12 |
+| 6 | Verificación en vivo (Playwright + API directa) y esta documentación | — |
+
+**Decisiones de Lean (2026-09-24):**
+- **D1 · «Sueldo asignado»** pasa a ser **todo ingreso no-ajuste del ciclo** (la misma regla que ya
+  usa `v_range_summary`), sin migración — la tarjeta y el diálogo de Sueldo muestran siempre el
+  mismo número. Copy nuevo: «Ingresos del ciclo». Una fila que no nació en el diálogo (con
+  categoría o de pagar un fijo) se lista sin X, con «cargado desde Movimientos».
+- **D2 · Un plan sin Mis Deudas no resta deudas del proyectado** (mismo criterio de «datos en
+  pausa» que ya usa Cuentas en Básico) — con migración.
+
+Migración: `20260924060001_proyectado_deudas_por_plan.sql` — `rpc_projected_balance_range` suma
+`p_include_debts boolean default true`; con `false` (lo que mandan Hoy y Fijos sin `mis-deudas`) el
+término de cuotas de tarjeta queda en 0. Aplicada con `supabase db push --linked`, confirmada con
+`migration list --linked` (local=remote) y con la firma real leída de `pg_proc` en producción.
+
+**Verificación en vivo (cuenta de QA, Premium salvo lo de Básico/Test):** Playwright con sesión real
+(login por UI, resto por API directa con el token de `localStorage` — mismo método que ya usa el
+resto de los informes) contra un dev server propio en el puerto 5174. Cada bug se reprodujo con
+datos nuevos marcados `QA-HO2`, devueltos exactos al terminar (ver «Estado de la cuenta de QA al
+cerrar»). Detalle de cada verificación en la sección de su propio hallazgo, abajo.
+
+**Aprendido en esta verificación (nuevo en `docs/qa/README.md`):**
+- `useCountUp` anima el "Saldo actual" del hero — leer su valor apenas carga la página puede
+  capturarlo a mitad de la animación (cifras con centavos fraccionarios sin sentido). Para un valor
+  exacto, leer la fila "Saldo actual" del desglose (`SummaryPanel`/`SaldoProyectadoPanel`), que no
+  anima.
+- El signo negativo que usa `splitMoney` es el carácter Unicode `−` (U+2212, MINUS SIGN), no el
+  guion ASCII `-` — un regex que sólo busca `-` no matchea `aria-label="−$50.000,00"`.
+- React Query reintenta 3 veces con backoff (~1s+2s+4s ≈ 7s) antes de dar `isError` — para probar
+  un error de red con `page.route(...).abort()`, esperar ese tiempo antes de mirar la UI; a los 1-2s
+  todavía se ve el esqueleto de carga, no el error.
+- `createPersistedFlag` (tema, ojo de saldo) guarda `'1'`/`'0'` en `localStorage`, no `'true'`/`'false'`
+  — poner el string equivocado deja el flag en su default sin tirar ningún error.
+- Para simular un día puntual con `page.clock.install({ time: ... })`, instalarlo ANTES de navegar:
+  `bag_cycle_from`/`bag_cycle_to` y `useCycle` leen `new Date()`, y sólo lo ven si el reloj ya está
+  instalado cuando arranca el primer render.
+- Cambiar `cycle_kind`/`cycle_week_starts_on` de la cuenta de QA se puede hacer por REST directo
+  (`PATCH /profiles`, con el token de sesión) — esas dos columnas sí están en el grant de
+  `authenticated`, a diferencia de `plan`/`role` (que siguen necesitando `db query` por SQL).
+- Al limpiar un guardado con movimiento (`rpc_add_fixed_expense_saving` con
+  `generateMovement: true`), no alcanza con `fixed_expense_savings.transaction_id` leído ANTES de
+  borrar el fijo para encontrar el movimiento a borrar — verificar con una consulta APARTE, después
+  de borrar, buscando por descripción (`ilike 'Guardado · <nombre>%'`) o por fecha, no confiar en el
+  mapeo armado de antemano.
+
+### HO-04 sigue Parcial — el gap que encontró esta verificación
+
+Con la semana 28/9–4/10 real (reloj fijado a 2026-09-30 con `page.clock`, ciclo semanal), el
+desglose sigue sin sumar el título: **Proyectado $1.231.889,00**, pero **Saldo actual $1.426.889,00
+− Fijos por pagar (6) $198.000,00 = $1.228.889,00** — una diferencia de **$3.000,00** que ni el
+desglose ni ninguna otra fila muestran. El gap es mucho más chico que el original ($332.345,67:
+FI-06 sí cerró la mayor parte), pero no llegó a cero.
+
+Por lectura de código, el sospechoso es `statusFor` (`aggregate.ts:90-108`): una bolsa (`is_recurring`)
+genera una instancia por cada mes que toca el ciclo (`summarizeFixedExpenses`, bloque FI-04), y cada
+instancia calcula su propio `scopedPayments` — para la instancia del mes que SÍ es `today`'s month,
+filtra los pagos a la semana vigente (`isCurrentMonth` → `true`); para la instancia del OTRO mes
+(acá, octubre) cae a `isCurrentMonth === false` y usa `fePayments` SIN filtrar por semana. Con una
+bolsa **semanal** (no mensual) cuya semana vigente cruza a ese otro mes, esa rama sin filtrar puede
+contar un pago de una semana anterior como si fuera de la semana actual — sin confirmar si el
+servidor hace exactamente lo mismo o distinto ahí. No se terminó de rastrear el mecanismo exacto
+esta pasada (ver la nota de abajo, en el propio HO-04).
+
 ## Resumen
 
 Hoy no carga casi ningún dato propio: junta números de Fijos, Cuentas, Mis Deudas y Movimientos. La
@@ -57,20 +140,20 @@ no cierran o se ven mal:
 
 | ID | Sev. | Estado | Título | Afecta |
 |---|---|---|---|---|
-| HO-01 | Alto | Abierto | El saldo negativo no cambia de color en el hero | — |
-| HO-02 | Alto | Abierto | El ojo no oculta la lista de movimientos del mes | Movimientos |
-| HO-03 | Alto | Abierto | Una tarjeta sin compras cuenta como deuda impaga de $0 | Mis Deudas |
-| HO-04 | Alto | Abierto | Semana entre dos meses: el desglose del proyectado no suma el total | Fijos |
-| HO-05 | Alto | Abierto | `?ciclo=` en la URL hace que Hoy muestre otro período | — |
-| HO-06 | Alto | Abierto | Sin aviso de error: saldo cortado deja tres cifras que no cierran entre sí | — |
-| HO-07 | Medio | Abierto | "Guardado" de un fijo da un número distinto en escritorio y en mobile | — |
-| HO-08 | Medio | Abierto | Un movimiento con fecha futura encabeza la lista sin marca | Cuentas |
-| HO-09 | Bajo | Abierto | Copy fijo en "mes" con otros ciclos; semana entre meses dice "28–4 sep" | Fijos |
-| HO-10 | Alto | Abierto | "Sueldo asignado" y el diálogo de Sueldo muestran cifras distintas | Movimientos |
-| HO-11 | Alto | Abierto | El diálogo de Sueldo mezcla cualquier ingreso y su X borra sin confirmar | Cuentas |
-| HO-12 | Alto | Abierto | Test resta una deuda que el plan no puede ver ni pagar en ningún lado | — |
-| HO-13 | Medio | Abierto | Doble click en "Agregar" del diálogo de Sueldo duplica la asignación | Movimientos |
-| HO-14 | Bajo | Abierto | La tarjeta de fijos de Básico no tiene ojo para ocultar el saldo | — |
+| HO-01 | Alto | Resuelto | El saldo negativo no cambia de color en el hero | — |
+| HO-02 | Alto | Resuelto | El ojo no oculta la lista de movimientos del mes | Movimientos |
+| HO-03 | Alto | Resuelto | Una tarjeta sin compras cuenta como deuda impaga de $0 | Mis Deudas |
+| HO-04 | Alto | Parcial | Semana entre dos meses: el desglose del proyectado no suma el total | Fijos |
+| HO-05 | Alto | Resuelto | `?ciclo=` en la URL hace que Hoy muestre otro período | — |
+| HO-06 | Alto | Resuelto | Sin aviso de error: saldo cortado deja tres cifras que no cierran entre sí | — |
+| HO-07 | Medio | Resuelto | "Guardado" de un fijo da un número distinto en escritorio y en mobile | — |
+| HO-08 | Medio | Resuelto | Un movimiento con fecha futura encabeza la lista sin marca | Cuentas |
+| HO-09 | Bajo | Resuelto | Copy fijo en "mes" con otros ciclos; semana entre meses dice "28–4 sep" | Fijos |
+| HO-10 | Alto | Resuelto | "Sueldo asignado" y el diálogo de Sueldo muestran cifras distintas | Movimientos |
+| HO-11 | Alto | Resuelto | El diálogo de Sueldo mezcla cualquier ingreso y su X borra sin confirmar | Cuentas |
+| HO-12 | Alto | Resuelto | Test resta una deuda que el plan no puede ver ni pagar en ningún lado | — |
+| HO-13 | Medio | Resuelto | Doble click en "Agregar" del diálogo de Sueldo duplica la asignación | Movimientos |
+| HO-14 | Bajo | Resuelto | La tarjeta de fijos de Básico no tiene ojo para ocultar el saldo | — |
 
 Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
@@ -87,6 +170,10 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** `<Money tone="accent">` está fijo en `Hoy.tsx:329`, sin condicionar el tono al signo.
 - **Nota:** el resto de la pantalla sí usa colores por signo (Gastos en rojo, filas de movimientos con
   `tone={income ? 'accent' : 'negative'}`) — sólo este hero queda afuera.
+- **Arreglo:** `tone={currentBalanceCents < 0 ? 'negative' : 'accent'}` en el hero (`Hoy.tsx`).
+- **Verificado en vivo:** ajuste temporal que dejó el saldo en −$3.573.111,00 → el `<span>` del hero
+  pasó a `class="...text-negative..."`; al borrar el ajuste, volvió a `text-accent`. Por API directa
+  (sesión de la cuenta de QA), no por captura.
 
 ### HO-02 · El ojo no oculta la lista de movimientos del mes — Alto
 
@@ -98,6 +185,11 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   ven en pantalla con el ojo activado, sólo esta sección delata el detalle real.
 - **Por qué:** `TransactionRow` (`TransactionRow.tsx:42-48`) no recibe la prop `hidden` — Hoy no se la
   pasa.
+- **Arreglo:** `TransactionRow` suma `hidden?: boolean`, pasado a su `<Money>`; Hoy le pasa
+  `balanceHidden`.
+- **Verificado en vivo:** con el ojo activo, las 15 filas de plata visibles en la lista (hero,
+  flujo, proyectado, vencimientos y "Movimientos de septiembre") mostraron `aria-label="Saldo
+  oculto"` — cero importes con formato `$N.NNN,NN` visibles en toda la pantalla.
 
 ### HO-03 · Una tarjeta sin compras cuenta como deuda impaga de $0 — Alto
 
@@ -112,6 +204,14 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** `summarizeMisDeudas` (`credits/aggregate.ts:54`) calcula `paid` de una tarjeta sin ítems
   como "hay algún pago" — sin ítems y sin pago, da `paid = false`, así que cuenta como deuda impaga
   aunque no tenga nada que pagar ese período.
+- **Arreglo:** `CardSummary` suma `hasDue` (`items.length > 0`); `MisDeudasSummary` suma
+  `unpaidCount` (tarjetas `!paid && hasDue`, más las compras sueltas impagas) — no se tocó `paid`
+  (Mis Deudas todavía lo usa para separar "pagadas" de la lista principal). Hoy, Fijos y Mis Deudas
+  pasaron a usar `unpaidCount` en vez de contar `!paid` a mano.
+- **Verificado en vivo:** con una tarjeta nueva sin ninguna compra, "Deudas por pagar" no apareció
+  en el proyectado (antes de la tarjeta: 0 filas con ese texto; después: 0 filas también) — la
+  cuenta de QA no tiene otras deudas activas, así que el caso "0 antes, 0 después" es exactamente lo
+  que se esperaba del arreglo.
 
 ### HO-04 · Semana entre dos meses: el desglose del proyectado no suma el total — Alto
 
@@ -130,6 +230,16 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   de lo que el servidor efectivamente descontó.
 - **Mismo bloque, ya sabido:** el header de la sección pasa a decir "Movimientos de **28–4 sep**" (sin el
   mes de octubre) — ver HO-09.
+- **Estado: Parcial.** FI-06 (QA de Fijos, `withMonthCarry` + instancias por (fijo, mes)) cerró la
+  mayor parte de esta diferencia, pero **queda un gap de $3.000,00** en la misma clase de escenario
+  — ver el detalle completo, con el sospechoso identificado por lectura de código, en «HO-04 sigue
+  Parcial» al principio del informe (sección «Estado del arreglo»). El copy de HO-09 (etiqueta y
+  "de la semana") sí quedó resuelto del todo.
+- **Verificado en vivo:** semana 28/9–4/10 real (reloj fijado con `page.clock` a 2026-09-30, ciclo
+  semanal desde el lunes) → "Proyectado a fin de semana" = **$1.231.889,00**, pero el desglose dice
+  "Saldo actual $1.426.889,00 − Fijos por pagar (6) $198.000,00" = **$1.228.889,00** — diferencia de
+  **$3.000,00**, reproducida de forma estable (mismo resultado en dos corridas seguidas contra la
+  misma cuenta, sin tocar datos entre medio). Sin fila "Deudas por pagar" (0 tarjetas en la cuenta).
 
 ### HO-05 · `?ciclo=` en la URL hace que Hoy muestre otro período — Alto
 
@@ -145,6 +255,10 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   alguien viendo Hoy con datos de otro mes sin darse cuenta.
 - **Por qué:** `useCycle()` (`useCycle.ts:73-75`) lee el ciclo también del parámetro `?ciclo=` de la URL,
   sin distinguir Hoy de las pantallas que sí navegan a propósito (Fijos, Movimientos, Análisis).
+- **Arreglo:** Hoy pasa a usar `const { current: cycle, config } = useCycle()` — `current` es el
+  ciclo que CONTIENE a hoy, siempre, sin mirar la URL (ya lo exponía el hook, sólo faltaba usarlo).
+- **Verificado en vivo:** la fila "Saldo actual" del desglose dio exactamente `$1.426.889,00` tanto
+  en `/hoy` como en `/hoy?ciclo=2026-08-01` — mismo valor, mismo string, sin diferencia.
 
 ### HO-06 · Sin aviso de error: saldo cortado deja tres cifras que no cierran entre sí — Alto
 
@@ -160,6 +274,16 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
     $10.449.345,66 − $17.500,00), sin ningún mensaje que avise que algo falló.
 - **Por qué:** ni el hero ni `SummaryPanel` miran `balance.isError` — sólo `isPending`
   (`Hoy.tsx:326-330`, `SummaryPanel.tsx:73-77`).
+- **Arreglo:** `SummaryPanel` suma `isError`/`onRetry` (muestra `ErrorState` en vez de la cifra y el
+  desglose); `SaldoProyectadoPanel` los recibe y los pasa; el hero mira `balance.isError` y muestra
+  `ErrorState` en vez del esqueleto. En Hoy, `isSummaryPanelError = balance.isError ||
+  isProjectedError` (cualquiera de las dos fuentes que suma el panel) y reintenta las que hayan
+  fallado.
+- **Verificado en vivo:** `route.abort()` sobre `rpc_current_balance` → a los ~9s (agotados los 3
+  reintentos por defecto de React Query) aparecieron 2 alertas visibles (`role="alert"`: el hero y
+  el panel de escritorio) más una tercera oculta (la copia mobile, `lg:hidden` a 1440px) con
+  "¡No se pudo cargar / Reintentar", y **cero** apariciones de "$0,00" en toda la pantalla. Al
+  destrabar la ruta y recargar, la fila "Saldo actual" volvió a `$1.426.889,00` exacto.
 
 ### HO-07 · "Guardado" de un fijo da un número distinto en escritorio y en mobile — Medio
 
@@ -172,6 +296,14 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** son dos JSX casi idénticos con un tope distinto — escritorio topa contra el importe total
   del fijo (`Math.min(status.savedCents, status.fe.cents)`, `Hoy.tsx:497`), mobile contra lo que falta
   pagar (`Math.min(status.savedCents, status.remainingCents)`, `Hoy.tsx:558`).
+- **Arreglo:** función pura `upcomingSavedCents(status)` (`fixed-expenses/aggregate.ts`, con test)
+  con el tope correcto (contra `fe.cents`, el de escritorio). Las dos filas casi idénticas se
+  unificaron en un solo componente, `UpcomingFixedRow` (`src/components/UpcomingFixedRow.tsx`), con
+  una variante `dense` para la versión mobile — la duplicación era la causa de fondo del bug, así
+  que dejó de ser posible que las dos copias se desincronicen.
+- **Verificado en vivo:** el caso exacto del informe (fijo $80.000, $30.000 cubiertos por un pago
+  con movimiento, $70.000 guardados en total) mostró **"$70.000,00 guardado"** en las dos vistas, a
+  1440px y a 390px, en la misma carga de página.
 
 ### HO-08 · Un movimiento con fecha futura encabeza la lista sin marca — Medio
 
@@ -185,6 +317,18 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** `dayLabel` (`Hoy.tsx:66-71`) sólo distingue "Hoy"/"Ayer"/el nombre del día — no hay rama
   para una fecha posterior a hoy. Además `rpc_current_balance` no filtra por fecha, así que ese
   movimiento ya está restado del "Saldo actual" aunque todavía no pasó.
+- **Arreglo:** `dayLabel` se movió a un módulo puro (`transactions/aggregate.ts`, con test) y suma
+  "Mañana" y "Programado · {fecha}" para una fecha posterior a hoy; `isFutureOccurredOn` (mismo
+  módulo) marca la fila con `future`, que `TransactionRow` atenúa (`opacity-60`). El "Saldo actual"
+  sigue sin filtrar por fecha a propósito: desde MO-16 (Movimientos) y FI-14 (Fijos) ya no entran
+  fechas futuras por el formulario ni por las RPC de pago — filtrar cambiaría el saldo de toda la
+  app por un caso que ya no se puede generar desde la UI.
+- **Verificado en vivo, con datos reales de la cuenta** (sin fabricar nada): el movimiento
+  "Cumpleaños" con fecha 30/9 que ya tenía la cuenta apareció bajo el grupo **"Programado ·
+  miércoles 30 de septiembre"**, con la fila visiblemente atenuada (`opacity: 0.6` en su
+  `getComputedStyle`) — en claro y en oscuro, a 1440 y a 390px. También probado con un movimiento
+  propio `QA-HO2` de fecha "mañana" (25/9), cargado por API ya que el formulario bloquea la fecha
+  futura: grupo "Mañana", misma atenuación.
 
 ### HO-09 · Copy fijo en "mes" con otros ciclos; semana entre meses dice "28–4 sep" — Bajo
 
@@ -195,6 +339,15 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   octubre. Mismo patrón que FI-20 en Fijos.
 - **Por qué:** `cycleShortLabel` (`cycle.ts:204-209`) arma la etiqueta semanal con un solo `MMM`, tomado
   siempre del `from`.
+- **Estado de la etiqueta ("Movimientos de 28–4 sep"):** ya resuelto por FI-20 del QA de Fijos
+  (`cycleShortLabel` arma "28 sep – 4 oct" cuando las dos puntas caen en meses distintos).
+- **Arreglo del copy "mes" fijo:** helper puro nuevo `cycleArticleLabel(kind)` en `src/lib/cycle.ts`
+  ("el mes"/"la quincena"/"la semana", con test), al lado de `cycleThisLabel`/`cycleOfLabel` que ya
+  existían. Aplicado a "Flujo {del mes|de la quincena|de la semana}" (`cycleOfLabel`), "En qué se
+  fue {el mes|la quincena|la semana}" (`cycleArticleLabel`) y los dos estados vacíos ("Todavía no
+  cargaste nada/gastos {este mes|esta quincena|esta semana}", `cycleThisLabel`).
+- **Verificado en vivo:** con ciclo semanal, "Flujo de la semana" y "En qué se fue la semana"; con
+  ciclo quincenal, "Flujo de la quincena". El título "Movimientos de 28–4 sep" ya venía bien.
 
 ### HO-10 · "Sueldo asignado" y el diálogo de Sueldo muestran cifras distintas — Alto
 
@@ -214,6 +367,14 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   - El diálogo (`AssignIncomeDialog.tsx:36,40`) trae con `useTransactions({..., type: 'income'})` y
     suma **todos** los ingresos, ajustes incluidos — un paso más permisivo todavía.
   - Ninguna de las dos cifras es "lo que asignaste como sueldo", y encima no coinciden entre sí.
+- **Arreglo (D1):** una sola definición, `isCycleIncome` (`src/features/cycle-income/aggregate.ts`,
+  con test que fija que suma lo mismo que `v_range_summary.total_income`) — ingreso no-ajuste del
+  ciclo, sin importar de dónde salió. La tarjeta ya usaba esa misma regla (`totalIncome` de
+  `v_range_summary`); el diálogo pasó a filtrar con `isCycleIncome` en vez de traer todo
+  `type: 'income'` sin filtrar ajustes. Copy nuevo en los dos lados: "Ingresos del ciclo".
+- **Verificado en vivo:** con un ingreso nuevo con categoría sumado a los que ya tenía la cuenta, la
+  tarjeta mostró **"$2.091.345,50"** y el diálogo, en el mismo momento, **el mismo
+  "$2.091.345,50"** — mismo `aria-label`, no sólo mismo texto redondeado.
 
 ### HO-11 · El diálogo de Sueldo mezcla cualquier ingreso y su X borra sin confirmar — Alto
 
@@ -231,6 +392,16 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** `useTransactions({from, to, type: 'income'})` sin filtrar por origen
   (`AssignIncomeDialog.tsx:36`), y `onClick={() => removeIncome.mutate(income.id)}` directo, sin
   confirmar (`AssignIncomeDialog.tsx:115`).
+- **Estado de la X sin confirmar:** ya resuelto por MO-01 del QA de Movimientos — el diálogo usa el
+  mismo `ConfirmDeleteMovementDialog` que ya se generalizó ahí.
+- **Arreglo de la mezcla (D1):** `isRemovableFromDialog` (mismo módulo nuevo que HO-10) — sin
+  categoría y sin `fixed_expense_payment_id`, que es exactamente cómo nace lo que arma este
+  diálogo. Una fila que no cumple eso se lista sin X, con "· cargado desde Movimientos" al lado de
+  su descripción.
+- **Verificado en vivo:** una fila con categoría (simulando algo cargado desde Movimientos) apareció
+  sin botón (`li.querySelector('button')` da `null`) y con el texto "· cargado desde Movimientos" —
+  las filas preexistentes de la cuenta que ya tenían categoría ("QA Servicio", entre otras) también
+  aparecieron así, sin haber tocado nada.
 
 ### HO-12 · Test resta una deuda que el plan no puede ver ni pagar en ningún lado — Alto
 
@@ -243,6 +414,17 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** `Hoy.tsx:426-427` pasa `unpaidDebtsCents`/`unpaidDebtsCount` al proyectado sin mirar
   `canMisDeudas`, y `rpc_projected_balance_range` tampoco filtra por plan (el plan es sólo interfaz,
   como dice `CLAUDE.md`) — pero acá el efecto es que Test ve un número que no puede auditar.
+- **Arreglo (D2, con migración):** `rpc_projected_balance_range` suma `p_include_debts boolean
+  default true` (`20260924060001_proyectado_deudas_por_plan.sql`) — con `false`, el término de
+  cuotas de tarjeta queda en 0. `useProjectedBalanceRange(from, to, includeDebts)` lo expone; Hoy y
+  Fijos pasan `canMisDeudas`; Mis Deudas usa el default (`true`). Sin `canMisDeudas`, la fila
+  "Deudas por pagar" tampoco aparece (se gatea a 0 antes de llegar al panel).
+- **Verificado en vivo, en dos capas:** (1) por API directa, con una tarjeta de $22.000 en una
+  cuota: `rpc_projected_balance_range(..., p_include_debts: true)` dio exactamente $22.000 menos
+  que con `p_include_debts: false` — la migración distingue el término exacto, ni un peso de más o
+  de menos; (2) en pantalla, con el plan de la cuenta de QA cambiado a Test por SQL (con el OK ya
+  dado por Lean para esta pasada) y la misma tarjeta cargada: cero filas "Deudas por pagar" y el
+  proyectado mostrado sin restarla.
 
 ### HO-13 · Doble click en "Agregar" del diálogo de Sueldo duplica la asignación — Medio
 
@@ -254,12 +436,28 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Por qué:** el botón tiene `disabled={addIncome.isPending}` (`AssignIncomeDialog.tsx:90`), pero ese
   `isPending` se activa recién cuando React procesa el primer click — un segundo click que llega antes
   de ese re-render pasa igual. Mismo patrón que FI-01 (bolsas) en Fijos.
+- **Arreglo:** mismo candado que FI-01/FI-11 (`MarkPaidDialog`) — un `useRef` síncrono que se marca
+  antes de disparar la mutación y se libera en `onSettled`, más `.mutate()` en vez de `await
+  mutateAsync()` (evita además la promesa sin manejar en consola que documenta el README de QA). Se
+  aplicó el mismo patrón en `IncomeEditDialog.handleSave`, que tenía el mismo `await mutateAsync()`.
+- **Verificado en vivo:** `locator.dblclick()` sobre "Agregar" con un importe nuevo → por API,
+  **0 filas** con ese importe antes del click y **exactamente 1** después (no 2).
 
 ### HO-14 · La tarjeta de fijos de Básico no tiene ojo para ocultar el saldo — Bajo
 
 - **Obtenido:** a diferencia del hero de Premium/Test, `FijosCicloCard` no tiene ningún control para
   ocultar sus cifras — en Básico, "Disponible"/"Total del ciclo"/"Falta pagar" quedan siempre visibles.
 - **Por qué:** `FijosCicloCard.tsx` no usa `EyeToggle` en ningún lado del header.
+- **Encontrado al re-chequear (sube la severidad, ver el motivo en «Estado del arreglo»):**
+  `FijosCicloCard` ya recibía `hidden` del mismo `useHiddenBalance('saldo-actual')` que el hero de
+  Premium/Test, pero sin `EyeToggle` no había forma de sacarlo de `true` una vez que quedaba así —
+  una cuenta que ocultó el saldo en un plan superior y bajó a Básico quedaba con la tarjeta
+  enmascarada para siempre.
+- **Arreglo:** `EyeToggle` en el header de `FijosCicloCard`, con el mismo `onToggleHidden` que ya
+  usa el resto de la pantalla (`toggleBalanceHidden` de `useHiddenBalance('saldo-actual')`) — un
+  solo control, no uno nuevo por pantalla.
+- **Verificado en vivo:** con el plan de la cuenta en Básico, el botón "Ocultar saldo" apareció
+  junto al título de la tarjeta; al tocarlo, las cifras pasaron a `aria-label="Saldo oculto"`.
 
 ---
 
@@ -304,8 +502,16 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **Seguridad por API (HO-I):** las RPC de lectura de Hoy no se probaron a mano contra la cuenta de
   prueba habitual esta vez (se apoyó en lo ya verificado en el QA de Movimientos, mismas tablas).
 - **Layout entre 768 y 1023px** específicamente (se cubrió 320, 390 y 1440).
+- **HO-04, el mecanismo exacto del gap de $3.000 que quedó Parcial:** se identificó un sospechoso
+  por lectura de código (`statusFor` en `aggregate.ts`, la rama `scopedPayments` de una bolsa cuya
+  instancia NO es la del mes de "hoy") pero no se terminó de confirmar contra el SQL real del
+  servidor — retomar comparando `rpc_projected_balance_range` término a término (por ejemplo,
+  aislando cada fijo con ventanas de un solo día) contra el cliente, en vez de una sola corrida
+  completa.
 
 ## Estado de la cuenta de QA al cerrar
+
+**1.ª pasada (informe, 2026-09-23):**
 
 - **Perfil:** Premium, ciclo mensual, semana desde el lunes — igual que al empezar (se probó Básico y
   Test por SQL directo en medio de la pasada, y se devolvió a Premium al terminar cada bloque).
@@ -316,3 +522,22 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
   borró y se verificó por SQL que no queda ningún resto — incluidas las 4 asignaciones de sueldo de
   prueba sin la marca `QA-HO` (descripción "Sueldo", cargadas para probar HO-13), identificadas por
   importe y fecha antes de borrarlas.
+
+**2.ª pasada (verificación de los arreglos, 2026-09-24):**
+
+- **Perfil:** Premium, ciclo mensual, semana desde el lunes — igual que al empezar. Se probaron
+  Básico (HO-10, HO-11, HO-13, HO-14) y Test (HO-12) cambiando `plan` por SQL directo (con el OK ya
+  dado por Lean para toda la pasada) y se devolvió a Premium al terminar cada bloque; `cycle_kind`
+  pasó por `weekly` (HO-04/HO-09, con `page.clock` fijando "hoy" en la semana 28/9–4/10) y volvió a
+  `monthly` por REST directo (esas dos columnas sí están en el grant de `authenticated`).
+- **Datos:** foto por API antes y después, exacta — 22 movimientos, `rpc_current_balance() =
+  $1.426.889,00`, 2 cuentas, 9 fijos (8 activos), 0 tarjetas, 0 compras sueltas. Todo lo cargado en
+  esta pasada (marcado `QA-HO2`: 1 ajuste temporal, 1 movimiento futuro, 1 tarjeta vacía, 1 fijo con
+  dos guardados y su movimiento vinculado, 1 ingreso con categoría, 1 fila de sueldo del doble
+  click, 1 tarjeta+compra para Test) se borró; el único resto que costó encontrar fue el movimiento
+  "Guardado · QA-HO2 Fijo" ($30.000) que había generado el guardado-con-movimiento del caso de
+  HO-07 — el `transaction_id` leído de `fixed_expense_savings` ANTES de borrar el fijo no alcanzó
+  (ver la lección nueva en «Estado del arreglo»); se encontró y se borró con una consulta aparte
+  por descripción, después de borrar el fijo, y se confirmó con una foto final limpia.
+- **Migración aplicada a producción:** `20260924060001_proyectado_deudas_por_plan.sql` (HO-12/D2).
+  El resto de los arreglos son sólo de cliente, sin migración.

@@ -11,6 +11,10 @@ interface SaldoProyectadoPanelProps {
   title?: string
   projectedCents: number | undefined
   isPending: boolean
+  /** HO-06 del QA de Hoy: si el proyectado o el saldo actual fallaron, se muestra un error en vez
+   *  del desglose — antes el panel seguía mostrando números (viejos o en $0) con total confianza. */
+  isError?: boolean
+  onRetry?: () => void
   currentBalanceCents: number
   pendingFixedCount: number
   pendingFixedCents: number
@@ -57,6 +61,8 @@ export function SaldoProyectadoPanel({
   title,
   projectedCents,
   isPending,
+  isError = false,
+  onRetry,
   currentBalanceCents,
   pendingFixedCount,
   pendingFixedCents,
@@ -71,7 +77,7 @@ export function SaldoProyectadoPanel({
   footnote,
 }: SaldoProyectadoPanelProps) {
   const nothingPending = pendingFixedCount === 0 && unpaidDebtsCount === 0
-  if (hideWhenNothingPending && !isPending && nothingPending) return null
+  if (hideWhenNothingPending && !isPending && !isError && nothingPending) return null
 
   const resolvedTitle = title ?? `Saldo proyectado a fin de ${cycleEndNoun(cycleKind)}`
 
@@ -100,10 +106,12 @@ export function SaldoProyectadoPanel({
       title={resolvedTitle}
       cents={projectedCents}
       isPending={isPending}
+      isError={isError}
+      onRetry={onRetry}
       hidden={hidden}
       inverse
       extra={
-        bar && !isPending ? (
+        bar && !isPending && !isError ? (
           <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
             <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
             <div className="h-full bg-accent-text" style={{ width: `${100 - committedPct}%` }} />

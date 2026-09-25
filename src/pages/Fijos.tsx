@@ -18,6 +18,7 @@ import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
 import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from '@/lib/cycle'
 import { pendingBeforeCents } from '@/lib/projectedBalance'
+import { useCan } from '@/features/access/useCan'
 import { useCategories } from '@/features/categories/api'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
@@ -284,7 +285,14 @@ export function Fijos() {
   const { data: payments } = useFixedExpensePayments(periods)
   const { data: fixedSavings } = useFixedExpenseSavings(periods)
   const { data: currentBalance } = useCurrentBalance()
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(horizonte.from, horizonte.to)
+  // HO-12 del QA de Hoy (D2): sin `mis-deudas` (Test), el proyectado no resta cuotas de tarjeta que
+  // el plan no tiene dónde ver ni pagar — mismo criterio en Hoy y acá.
+  const canMisDeudas = useCan('mis-deudas')
+  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(
+    horizonte.from,
+    horizonte.to,
+    canMisDeudas,
+  )
   const { data: categories } = useCategories(true)
   const unmarkPayment = useUnmarkWithLegacyConfirm()
 
@@ -312,8 +320,9 @@ export function Fijos() {
       ),
     [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
-  const unpaidDebtsCount =
-    misDeudasSummary.perCard.filter((c) => !c.paid).length + misDeudasSummary.standalone.filter((s) => !s.paid).length
+  // HO-03 del QA de Hoy: `unpaidCount` ya descuenta una tarjeta sin cuotas este período (antes
+  // contaba como deuda impaga de $0 sólo por no tener pago).
+  const unpaidDebtsCount = misDeudasSummary.unpaidCount
 
   // Todo lo elegible del período, activo o pausado — se usa para el estado vacío general y para el
   // aviso de pausados del rail. `summarizeFixedExpenses` hace este mismo filtro puertas adentro,
@@ -662,8 +671,8 @@ export function Fijos() {
               pendingFixedCount={pending.length}
               pendingFixedCents={pendingTotalCents}
               savedFixedCents={savedTotalCents}
-              unpaidDebtsCount={unpaidDebtsCount}
-              unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+              unpaidDebtsCount={canMisDeudas ? unpaidDebtsCount : 0}
+              unpaidDebtsCents={canMisDeudas ? misDeudasSummary.totalPendingCents : 0}
               // FI-08: en un período futuro, lo que sigue impago del período en curso — 0 (sin fila)
               // en el actual, donde el desglose ya cierra solo.
               pendingBeforeCents={pendingBeforeCents(

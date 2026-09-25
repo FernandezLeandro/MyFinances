@@ -140,18 +140,28 @@ export function useFixedExpenseSavingByTransaction(transactionId: string | null)
 
 /** Sobre un rango arbitrario — la variante "horizonte, no ventana" del bloque 3 del plan de ciclos
  *  (ver `rpc_projected_balance_range` y el comentario de `projectionWindow` en `src/lib/cycle.ts`
- *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando). */
-export function useProjectedBalanceRange(from: string, to: string) {
+ *  sobre por qué `from` no siempre es el inicio del ciclo que se está mirando).
+ *
+ *  HO-12 del QA de Hoy (D2): `includeDebts = false` en un plan sin `mis-deudas` — sin eso, el
+ *  proyectado restaba las cuotas de una tarjeta que ese plan no tiene dónde ver ni pagar (ver
+ *  `20260924060001_proyectado_deudas_por_plan.sql`). Mis Deudas, que sólo se monta con el plan que
+ *  sí la tiene, usa el default. */
+export function useProjectedBalanceRange(from: string, to: string, includeDebts = true) {
   const { user } = useAuth()
   // "Hoy" lo manda el cliente: `current_date` de la base es UTC y, pasadas las 21:00 en Argentina,
   // ya es mañana (ver la migración `hoy_del_cliente`). En la key para que cambie de día sola.
   const today = localTodayISO()
 
   return useQuery({
-    queryKey: ['projected-balance-range', user?.id, from, to, today],
+    queryKey: ['projected-balance-range', user?.id, from, to, today, includeDebts],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('rpc_projected_balance_range', { p_from: from, p_to: to, p_today: today })
+      const { data, error } = await supabase.rpc('rpc_projected_balance_range', {
+        p_from: from,
+        p_to: to,
+        p_today: today,
+        p_include_debts: includeDebts,
+      })
       if (error) throw error
       return centsFromNumeric(String(data ?? 0))
     },

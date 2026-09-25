@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Plus, Wallet } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { EyeToggle } from '@/components/ui/EyeToggle'
 import { Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
 import { StackedBar } from '@/components/ui/StackedBar'
@@ -19,10 +20,15 @@ interface FijosCicloCardProps {
   missingToSaveCents: number
   /** `summarizeFixedExpenses.pendingTotalCents`. */
   pendingCents: number
-  /** Sueldo asignado a este ciclo (`useCycleIncomes`), sumado — 0 si todavía no asignó nada. */
+  /** HO-10 del QA de Hoy: todo ingreso no-ajuste del ciclo (`isCycleIncome`, la misma regla que
+   *  `AssignIncomeDialog` y `v_range_summary`) — 0 si todavía no cargó nada. */
   incomeCents: number
   onAssignIncome: () => void
   hidden: boolean
+  /** HO-14 del QA de Hoy: a diferencia del hero de Premium/Test, esta tarjeta no tenía ojo propio —
+   *  una cuenta que ocultó el saldo en un plan superior y bajó a Básico quedaba enmascarada para
+   *  siempre, sin forma de destapar. */
+  onToggleHidden: () => void
   onRegister: () => void
 }
 
@@ -46,6 +52,7 @@ export function FijosCicloCard({
   incomeCents,
   onAssignIncome,
   hidden,
+  onToggleHidden,
   onRegister,
 }: FijosCicloCardProps) {
   const hasSaved = savedCents > 0
@@ -61,7 +68,10 @@ export function FijosCicloCard({
   return (
     <Panel className="flex flex-col gap-5 p-panel">
       <div className="flex items-center justify-between gap-3">
-        <p className="eyebrow">Fijos de {cycleLabel}</p>
+        <div className="flex items-center gap-2">
+          <p className="eyebrow">Fijos de {cycleLabel}</p>
+          <EyeToggle hidden={hidden} onToggle={onToggleHidden} label="saldo" />
+        </div>
         <div className="flex gap-2">
           <Button
             size="compact"
@@ -100,7 +110,7 @@ export function FijosCicloCard({
 
       <StatRow className="flex-wrap gap-x-7 gap-y-3">
         {hasIncome && (
-          <Stat label="Sueldo asignado">
+          <Stat label="Ingresos del ciclo">
             <Money cents={incomeCents} tone="fg" size="figure" hidden={hidden} />
           </Stat>
         )}

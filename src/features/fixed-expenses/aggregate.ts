@@ -414,3 +414,13 @@ export function fixedExpenseNameError(input: { name: string; expenses: readonly 
   const clash = input.expenses.some((fe) => fe.id !== input.excludeId && fe.name.trim().toLowerCase() === normalized)
   return clash ? 'Ya tenés un fijo con ese nombre.' : null
 }
+
+/** HO-07 del QA de Hoy: la fila "guardado" de Vencimientos mostraba un número distinto en
+ *  escritorio (`min(savedCents, fe.cents)`) que en mobile (`min(savedCents, remainingCents)`) cuando
+ *  lo guardado superaba lo que falta pagar — dos JSX casi idénticos con un tope distinto. Se
+ *  centraliza acá el tope correcto: contra el importe TOTAL del fijo, no contra `remainingCents`
+ *  (que ya resta lo guardado CON movimiento, así que usarlo de tope mostraría de menos apenas lo
+ *  guardado cubre sólo una parte del fijo). */
+export function upcomingSavedCents(status: Pick<FixedExpenseStatus, 'savedCents' | 'fe'>): number {
+  return Math.min(status.savedCents, status.fe.cents)
+}

@@ -9,6 +9,7 @@ import {
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
   summarizeFixedExpenses,
+  upcomingSavedCents,
 } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
@@ -748,5 +749,21 @@ describe('fixedExpenseNameError — FI-19', () => {
   it('name undefined (primer render de react-hook-form, antes de reset()): no explota', () => {
     // @ts-expect-error — el tipo dice `string`, pero en runtime react-hook-form entrega `undefined`.
     expect(fixedExpenseNameError({ name: undefined, expenses: [alquiler, gimnasio] })).toBeNull()
+  })
+})
+
+describe('upcomingSavedCents', () => {
+  // HO-07 del QA de Hoy: caso real del informe — fijo de $80.000, $30.000 ya cubiertos por un pago
+  // con movimiento (remainingCents = 50.000) y $70.000 guardados en total. Escritorio mostraba
+  // "$70.000 guardado" (tope contra `fe.cents`) y mobile "$50.000 guardado" (tope contra
+  // `remainingCents`) — dos cifras distintas para la misma fila, al mismo tiempo.
+  it('guardado supera lo que falta pagar → topa contra el importe TOTAL del fijo, no contra lo que falta', () => {
+    const fe = makeFixedExpense({ id: 'fe-1', cents: 80_000_00 })
+    expect(upcomingSavedCents({ fe, savedCents: 70_000_00 })).toBe(70_000_00)
+  })
+
+  it('guardado por debajo del total → no topa, devuelve el guardado tal cual', () => {
+    const fe = makeFixedExpense({ id: 'fe-1', cents: 80_000_00 })
+    expect(upcomingSavedCents({ fe, savedCents: 20_000_00 })).toBe(20_000_00)
   })
 })

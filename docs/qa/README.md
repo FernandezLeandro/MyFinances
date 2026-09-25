@@ -13,7 +13,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª) | rama `accounts`, `37b5384` | 0 / 9 / 3 / 2 |
+| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª); 13 de 14 issues (HO-01 a HO-14) resueltos y verificados en vivo al 2026-09-24; HO-04 queda Parcial (gap de $3.000 sin cerrar del todo); migración aplicada | rama `fix-issues` | 0 / 1 / 0 / 0 |
 | Análisis | [analisis.md](analisis.md) | 2026-09-23 (1.ª) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
@@ -38,6 +38,13 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
   bug arreglado en vivo. Usar datos de prueba nuevos y descartables, no los que ya dejó una pasada
   anterior (ver «Automatizar con Playwright» abajo) — y dejar la cuenta exactamente como estaba antes
   de irse (mismo saldo, mismos movimientos, mismo plan).
+- **Antes de planear los arreglos de un informe, re-chequear cada hallazgo contra la rama actual.**
+  Los arreglos de otras áreas tocan código compartido y pueden cerrar hallazgos de ésta sin que
+  nadie lo haya anotado ahí — en el QA de Hoy, el arreglo de Fijos (FI-06) ya había cerrado la mayor
+  parte de HO-04, FI-20 ya había arreglado la etiqueta de HO-09, y MO-01 (Movimientos) ya cubría la
+  mitad de HO-11. Da por resuelto sólo lo que la lectura de código respalda, y de última palabra la
+  verificación en vivo — FI-06 parecía cerrar HO-04 del todo y en los hechos quedó un gap de $3.000
+  sin cerrar (ver `hoy.md`).
 
 ## Automatizar con Playwright: lo aprendido
 
@@ -184,6 +191,41 @@ misma vuelta.
   `npx supabase db query -f <archivo> --linked` (no bloqueada) — pero el archivo queda sin registrar
   en `supabase migration list --linked` hasta el próximo `db push --linked` normal, así que hay que
   anotarlo en el informe.
+- **Login real por la UI, no fabricar el `localStorage` a mano.** El formato interno que usa
+  supabase-js para la sesión puede no coincidir con lo que uno arma — más simple y más confiable
+  llenar `#email`/`#password` y click en «Entrar», y de ahí en más sacar el token de
+  `localStorage` (`sb-<project-ref>-auth-token`, `.access_token`) para el resto de las llamadas por
+  API (ver QA de Hoy, 2026-09-24).
+- **`useCountUp` (el conteo animado del saldo hero) puede devolver un valor a mitad de camino** si
+  se lee el DOM apenas carga la página — aunque el código diga que no anima en el primer render, en
+  Vite dev con `StrictMode` el efecto puede correr dos veces. Para un valor EXACTO, leer una fila no
+  animada del desglose (`SummaryPanel`), no la cifra grande del hero.
+- **El signo negativo de `splitMoney` es `−` (U+2212, MINUS SIGN), no el guion ASCII `-`.** Un regex
+  que arma un test para parsear `aria-label="−$50.000,00"` tiene que aceptar los dos caracteres, o
+  falla en silencio (no tira error, simplemente no matchea y el número sale mal).
+- **React Query reintenta 3 veces con backoff (~1s+2s+4s ≈ 7s) antes de dar `isError`.** Para
+  probar un error de red con `page.route(url, route => route.abort())`, esperar ese tiempo antes de
+  mirar la UI — a los 1-2s todavía se ve el estado de carga, no el de error.
+- **`createPersistedFlag` (tema, ojo de saldo) guarda `'1'`/`'0'` en `localStorage`, no
+  `'true'`/`'false'`.** Setear el string equivocado desde un script no tira ningún error: el flag
+  simplemente se queda en su default, y el resultado parece «no pasó nada» en vez de un fallo obvio.
+- **`page.clock.install({ time: ... })` tiene que instalarse ANTES de navegar** a la página cuyo
+  primer render depende de "hoy" (`useCycle`, `bag_cycle_from`/`bag_cycle_to`) — instalado después
+  de que el primer render ya corrió con la hora real, ese render no se refresca solo.
+- **Cambiar `cycle_kind`/`cycle_week_starts_on` de la cuenta de QA se puede hacer por REST directo**
+  (`PATCH` a `/rest/v1/profiles` con el token de la sesión) sin pasar por SQL — esas dos columnas sí
+  están en el grant de `authenticated` (a diferencia de `plan`/`role`, que siguen necesitando
+  `db query` con el OK de Lean).
+- **Un guardado con movimiento (`rpc_add_fixed_expense_saving` con `generateMovement: true`) deja un
+  movimiento vinculado que no siempre aparece en la primera lectura de
+  `fixed_expense_savings.transaction_id`** hecha ANTES de borrar el fijo de prueba. Verificar la
+  limpieza con una consulta APARTE, después de borrar, buscando por descripción
+  (`ilike 'Guardado · <nombre>%'`) — no confiar sólo en el mapeo armado de antemano.
+- **Escopear cualquier lectura del DOM a `document.querySelector('dialog[open]')`** cuando se abre
+  un diálogo sobre una pantalla con datos parecidos atrás (ej. Movimientos detrás de "Asignar
+  sueldo") — un `document.querySelectorAll('li')` sin escopear puede engancharse con una fila de la
+  pantalla de fondo, y el resultado se ve como un bug real (texto que no correspondía) cuando es un
+  problema del selector.
 
 ## Severidades
 

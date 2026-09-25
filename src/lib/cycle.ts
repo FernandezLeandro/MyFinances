@@ -204,6 +204,13 @@ export function cycleOfLabel(kind: CycleKind): string {
   return kind === 'monthly' ? 'del mes' : `de la ${cycleEndNoun(kind)}`
 }
 
+/** "el mes" / "la quincena" / "la semana" — el artículo concordado SIN preposición, para frases
+ *  tipo "En qué se fue {esto}" que van antes del sustantivo, no después. HO-09 del QA de Hoy: ese
+ *  copy y otros de Hoy quedaban fijos en "mes" con un ciclo quincenal o semanal. */
+export function cycleArticleLabel(kind: CycleKind): string {
+  return kind === 'monthly' ? 'el mes' : `la ${cycleEndNoun(kind)}`
+}
+
 /** Versión corta para la píldora de mobile — igual criterio que `MonthNav`'s `mobileLabel`. FI-20 del
  *  QA de Fijos: una semana que cruza de mes decía "28–4 sep" (el mes de `from`, aunque `to` sea de
  *  otro) — con el navegador de arriba diciendo bien "28 sep – 4 oct". Con los dos meses distintos,

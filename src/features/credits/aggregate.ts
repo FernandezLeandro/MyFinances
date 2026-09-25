@@ -19,6 +19,11 @@ export interface CardSummary {
   /** `savedCents / totalCents * 100`, clampeado a [0, 100]. `0` si `totalCents` es `0` (evita NaN). */
   savedPercent: number
   paid: boolean
+  /** `items.length > 0` — HO-03 del QA de Hoy: una tarjeta sin ninguna cuota este período no es una
+   *  deuda pendiente, aunque `paid` dé `false` (no hay pago porque no hay nada que pagar). Sirve
+   *  para distinguir "impaga" de "sin nada que pagar" sin tocar `paid`, que Mis Deudas ya usa para
+   *  separar la lista de pagadas. */
+  hasDue: boolean
   /** Cuándo se marcó pagada, o `null` si no hay pago este período — para mostrar "pagada el D de mes". */
   paidAt: string | null
   /** El vencimiento materializado más próximo entre `items` (`'yyyy-MM-dd'`), o `null` sin ítems —
@@ -54,7 +59,7 @@ export function summarizeCard(
   const paid = periods.length === 0 ? relevantPayments.length > 0 : periods.every((period) => relevantPayments.some((p) => p.period === period))
   const paidAt = relevantPayments[0]?.paid_at ?? null
 
-  return { card, items, totalCents, savedCents, missingCents, savedPercent, paid, paidAt, dueOn }
+  return { card, items, totalCents, savedCents, missingCents, savedPercent, paid, hasDue: items.length > 0, paidAt, dueOn }
 }
 
 export interface PurchaseSummary {
@@ -103,6 +108,12 @@ export interface MisDeudasSummary {
   totalSavedCents: number
   /** `totalPendingCents - totalSavedCents`, nunca negativo. */
   totalMissingCents: number
+  /** HO-03 del QA de Hoy: cuántas tarjetas y compras sueltas están efectivamente impagas — una
+   *  tarjeta sin `hasDue` (sin ninguna cuota este período) no cuenta, aunque `paid` dé `false`. Antes
+   *  cada pantalla contaba `perCard.filter(c => !c.paid).length` a mano, e inflaba el contador con
+   *  tarjetas vacías. Las compras sueltas siempre tienen cuota (`standalone` ya las filtra), así que
+   *  no necesitan el mismo chequeo. */
+  unpaidCount: number
 }
 
 export function summarizeMisDeudas(
@@ -125,6 +136,7 @@ export function summarizeMisDeudas(
     unpaidCards.reduce((sum, c) => sum + c.totalCents, 0) + unpaidStandalone.reduce((sum, s) => sum + s.totalCents, 0)
   const totalSavedCents = unpaidCards.reduce((sum, c) => sum + c.savedCents, 0)
   const totalMissingCents = Math.max(totalPendingCents - totalSavedCents, 0)
+  const unpaidCount = unpaidCards.filter((c) => c.hasDue).length + unpaidStandalone.length
 
-  return { perCard, standalone, totalPendingCents, totalSavedCents, totalMissingCents }
+  return { perCard, standalone, totalPendingCents, totalSavedCents, totalMissingCents, unpaidCount }
 }
