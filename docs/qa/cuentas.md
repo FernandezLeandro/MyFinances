@@ -89,16 +89,3 @@ Entre paréntesis, el ID que tenían en el informe original.
 - El guardado parcial de un fijo reduce el pago real.
 - Sin overflow de 320 a 1920 px.
 
-## Pendiente
-
-- **Mergeado a `main` y desplegado.**
-- **Aplicado después del informe (commit `4bacfa9`):**
-  - «hoy» lo manda el cliente (`20260923050001_hoy_del_cliente`). Verificado en vivo en el
-    [QA de Fijos](fijos.md);
-  - `useCan` cae a Básico si falla el perfil, y `RequireAuth` muestra un error con «Reintentar».
-- **CU-19 (antes «quedó afuera»):** editar el nombre de una cuenta a vacío no pasaba por
-  `rpc_create_account` (que sí valida al alta) — `useUpdateBalanceLocation` hace un `.update()`
-  directo, y la columna sólo tenía `not null`. Migración
-  `20260923060001_cuenta_nombre_no_vacio.sql` agrega `check (btrim(name) <> '')`, aplicada en prod.
-- **Quedó afuera:** carreras con dos pestañas (se decidió no perseguirlo, caso raro y de bajo
-  impacto), y ciclo semanal en vivo (este último se cubrió en el QA de Fijos).

@@ -1,22 +1,9 @@
 # QA de Gastos fijos
 
-- **Fecha:** 2026-09-22 (22:30) → 2026-09-23 (01:00), hora Argentina. Una parte cayó a propósito entre
-  las 21:00 y las 24:00, cuando la fecha UTC ya es el día siguiente.
 - **Código:** rama `accounts`, commit `4bacfa9`, con la migración `20260923050001_hoy_del_cliente`
   aplicada al empezar.
 - **Planes:** Premium (casi todo), Básico y Test (lo que cambia por plan).
 - **Ciclos:** mensual, quincenal, semanal con inicio lunes y semanal con inicio domingo.
-- **Pasada:** 1.ª.
-- **Arreglos (2026-09-23, sin re-testear la pasada entera):**
-  - Bloque 1: FI-02, FI-03 y FI-05 resueltos y verificados en vivo. Migración
-    `20260923070001_fijos_movimiento_vinculado.sql`, aplicada a producción con OK de Lean.
-  - Bloque 2: FI-01, FI-11 y FI-12 resueltos y verificados en vivo. Sin migración (sólo front).
-  - Bloque 3: FI-07, FI-10 y FI-13 resueltos y verificados en vivo. Migración
-    `20260923080001_fijos_alta_y_deshacer_importe.sql`, aplicada a producción con OK de Lean.
-  - Bloque 5: FI-16 y FI-17 resueltos, FI-14 parcial, verificados en vivo. Migración
-    `20260923090001_fijos_blindaje.sql`, aplicada a producción con OK de Lean.
-  - Bloque 4 (2026-09-24): FI-04, FI-06, FI-08, FI-09 y FI-15 resueltos y verificados en vivo.
-    Migración `20260923100001_fijos_bolsa_paid_on.sql`, aplicada a producción con OK de Lean.
 
   Con esto no quedó ningún Alto ni Medio abierto salvo el resto de FI-14 (a propósito).
 
@@ -32,8 +19,6 @@
 
   Con esto **no queda ningún issue abierto en Fijos.**
 
-  Nada de esto está commiteado (Claude no commitea). Ver el detalle de cada uno abajo y lo aprendido en
-  [README](README.md).
 
 ## Resumen
 
