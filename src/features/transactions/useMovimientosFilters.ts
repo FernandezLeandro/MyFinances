@@ -11,6 +11,12 @@ import type { MovementFilters } from '@/features/transactions/TransactionFilters
 interface UseMovimientosFiltersOptions {
   initialPeriod?: MovementPeriod
   initialCategoryId?: string
+  /** Drill-down desde Análisis a "Sin categoría" (AN-08 del QA): esa lista es sólo gasto, sin
+   *  ajustes — sin esto, el filtro de acá (`category_id is null`, a secas) traía también ingresos y
+   *  ajustes sin categoría, que no suman al total de origen. Sólo se usa junto con
+   *  `initialCategoryId === UNCATEGORIZED_ID`; el resto de los orígenes (categoría real, cuenta) no
+   *  lo mandan. */
+  initialType?: MovementFilters['type']
   initialAccountIds?: string[]
   /** Ciclo configurado por el usuario (`useCycleConfig()`) — sólo afecta al preset 'month', que
    *  pasa a representar el ciclo (mensual/quincenal/semanal) en vez de siempre el mes calendario.
@@ -25,10 +31,16 @@ interface UseMovimientosFiltersOptions {
  * entran acá: esas queries siguen viviendo en la página, que también las necesita para pintar las
  * filas — `exportCsv` sólo las recibe como parámetro al momento de exportar.
  */
-export function useMovimientosFilters({ initialPeriod, initialCategoryId, initialAccountIds, config }: UseMovimientosFiltersOptions) {
+export function useMovimientosFilters({
+  initialPeriod,
+  initialCategoryId,
+  initialType,
+  initialAccountIds,
+  config,
+}: UseMovimientosFiltersOptions) {
   const [filters, setFilters] = useState<MovementFilters>(() => ({
     period: initialPeriod ?? defaultMovementPeriod(),
-    type: 'all',
+    type: initialType ?? 'all',
     categoryIds: initialCategoryId ? [initialCategoryId] : [],
     accountIds: initialAccountIds ?? [],
   }))

@@ -1,4 +1,4 @@
-import { addMonths, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
+import { addMonths, differenceInCalendarDays, endOfMonth, format, isValid, parseISO, startOfMonth, subDays, subMonths } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   cycleContaining,
@@ -106,6 +106,12 @@ export function periodRangeLabel(range: { from: string; to: string }): string {
  *  `useTopCategoriesComparison` y el total del hero de Análisis, para que las dos comparativas
  *  midan exactamente lo mismo. */
 export function previousRange(from: string, to: string): { from: string; to: string } {
+  // AN-03 del QA de Análisis: con "Personalizado" y una de las dos fechas borrada, `period.from`/
+  // `.to` podían llegar acá vacíos — `parseISO('')` da una fecha inválida, y `format()` sobre eso
+  // tira `RangeError: Invalid time value` sin capturar, que se llevaba puesta la pantalla entera.
+  // Se devuelve el rango de entrada tal cual: no hay "anterior" que calcular sin un rango válido, y
+  // el llamador (`Analisis.tsx`) ya no rompe render con eso.
+  if (!isValid(parseISO(from)) || !isValid(parseISO(to))) return { from, to }
   const days = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1
   return {
     to: iso(subDays(parseISO(from), 1)),

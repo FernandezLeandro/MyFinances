@@ -3,36 +3,9 @@ import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, s
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric } from '@/lib/money'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { UNCATEGORIZED_ID } from '@/features/categories/api'
-import type { CategorySpendRow } from '@/features/analytics/aggregate'
-
-export interface MonthlyPoint {
-  period: string
-  incomeCents: number
-  expenseCents: number
-  netCents: number
-  runningBalanceCents: number
-}
-
-export function useMonthlySeries(from: string, to: string) {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['monthly-series', user?.id, from, to],
-    enabled: !!user,
-    queryFn: async (): Promise<MonthlyPoint[]> => {
-      const { data, error } = await supabase.rpc('rpc_monthly_series', { p_from: from, p_to: to })
-      if (error) throw error
-      return (data ?? []).map((row) => ({
-        period: row.period,
-        incomeCents: centsFromNumeric(row.total_income),
-        expenseCents: centsFromNumeric(row.total_expense),
-        netCents: centsFromNumeric(row.net),
-        runningBalanceCents: centsFromNumeric(row.running_balance),
-      }))
-    },
-  })
-}
+import type { CategorySpendRow, ClassifiableTransaction } from '@/features/analytics/aggregate'
 
 export interface CategoryComparison {
   categoryId: string
@@ -149,6 +122,41 @@ export function useCategoryMonthlySeries(anchor: string) {
         months.map((m) => fetchSpendByCategory(m, format(endOfMonth(parseISO(m)), 'yyyy-MM-dd'))),
       )
       return results.map(toCategorySpendRows)
+    },
+  })
+}
+
+/** Tope explícito de PostgREST — mismo motivo que `TRANSACTIONS_ROW_LIMIT` en `transactions/api.ts`. */
+const CLASSIFICATION_PAGE_SIZE = 1000
+
+/** Todos los gastos del rango, con sólo las columnas que necesita "Fijo vs. variable" — a
+ *  diferencia de `useTransactions` (usado por Movimientos, con su propio `TRANSACTIONS_ROW_LIMIT`),
+ *  pagina con `fetchAllPages` para no cortar en silencio a los 1000 (AN-10 del QA de Análisis: con
+ *  más de 1000 gastos en el rango, "Fijo vs. variable" contaba menos que el hero, que sí es un RPC
+ *  agregado sin tope). La query key arranca con `'transactions'` para que
+ *  `TRANSACTION_QUERY_KEYS` (`transactions/queryKeys.ts`) la invalide igual que a `useTransactions`. */
+export function useExpenseRowsForClassification(from: string, to: string) {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['transactions', user?.id, 'classification', from, to],
+    enabled: !!user,
+    queryFn: async (): Promise<ClassifiableTransaction[]> => {
+      const rows = await fetchAllPages(async (offset, limit) => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('id, type, amount, is_adjustment, fixed_expense_payment_id, is_credit_card_payment')
+          .eq('type', 'expense')
+          .gte('occurred_on', from)
+          .lte('occurred_on', to)
+          .order('occurred_on', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
+        if (error) throw error
+        return data ?? []
+      }, CLASSIFICATION_PAGE_SIZE)
+
+      return rows.map((row) => ({ ...row, cents: centsFromNumeric(row.amount) }))
     },
   })
 }

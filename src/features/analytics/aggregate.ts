@@ -16,6 +16,14 @@ export interface FijoVsVariableSummary {
   variablePct: number
 }
 
+/** Lo mínimo que necesita `summarizeFijoVsVariable` — así `useExpenseRowsForClassification`
+ *  (`analytics/api.ts`, AN-10) puede pedir sólo estas columnas en vez del `select *` de
+ *  `useTransactions`, más liviano para traer TODO el rango sin el tope de 1000 filas. */
+export type ClassifiableTransaction = Pick<
+  Transaction,
+  'id' | 'type' | 'cents' | 'is_adjustment' | 'fixed_expense_payment_id' | 'is_credit_card_payment'
+>
+
 /**
  * "Comprometido" = tiene `fixed_expense_payment_id`, o es un pago de tarjeta (`is_credit_card_payment`),
  * o es el pago de una compra en cuotas SIN tarjeta — esas no llevan `is_credit_card_payment` (ver el
@@ -24,7 +32,7 @@ export interface FijoVsVariableSummary {
  * `credit_purchase_payments.transaction_id` para no subestimar lo comprometido.
  */
 export function summarizeFijoVsVariable(
-  transactions: Transaction[],
+  transactions: ClassifiableTransaction[],
   committedPurchaseTransactionIds: Set<string>,
 ): FijoVsVariableSummary {
   let committedCents = 0

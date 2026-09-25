@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { format } from 'date-fns'
 import type { CycleConfig } from '@/lib/cycle'
-import { comparisonRange, defaultPeriod, presetToRange, shiftPeriodMonth, type Period } from './period'
+import { comparisonRange, defaultPeriod, presetToRange, previousRange, shiftPeriodMonth, type Period } from './period'
 
 // `new Date(2026, 8, 10)` (constructor local) — mismo gotcha de siempre con `new Date(string)`.
 const ANCHOR = format(new Date(2026, 8, 10), 'yyyy-MM-dd')
@@ -81,5 +81,22 @@ describe('comparisonRange', () => {
     const withCycle = comparisonRange({ preset: '3m', anchor: ANCHOR }, range, biweekly)
     const withoutCycle = comparisonRange({ preset: '3m', anchor: ANCHOR }, range, monthly)
     expect(withCycle).toEqual(withoutCycle)
+  })
+
+  // Regresión AN-03 (QA de Análisis): "Personalizado" con una fecha borrada llegaba acá con
+  // `from`/`to` vacío — `parseISO('')` da fecha inválida y `format()` tiraba `Invalid time value`
+  // sin capturar, tumbando toda la pantalla (React descarta el árbol entero sin error boundary).
+  it('con preset "custom" y una fecha vacía, no explota — devuelve el rango tal cual', () => {
+    const period: Period = { preset: 'custom', anchor: ANCHOR, from: '', to: '2026-09-15' }
+    expect(() => comparisonRange(period, { from: '', to: '2026-09-15' }, monthly)).not.toThrow()
+    expect(comparisonRange(period, { from: '', to: '2026-09-15' }, monthly)).toEqual({ from: '', to: '2026-09-15' })
+  })
+})
+
+describe('previousRange', () => {
+  it('fecha inválida en cualquiera de las dos puntas: devuelve el rango de entrada, no explota', () => {
+    expect(() => previousRange('', '2026-09-15')).not.toThrow()
+    expect(previousRange('', '2026-09-15')).toEqual({ from: '', to: '2026-09-15' })
+    expect(previousRange('2026-09-01', '')).toEqual({ from: '2026-09-01', to: '' })
   })
 })
