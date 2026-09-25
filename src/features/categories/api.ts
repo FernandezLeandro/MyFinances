@@ -51,12 +51,14 @@ export function useCreateCategory() {
   })
 }
 
+// Sin `kind` en el input (HO-15, docs/qa/hoy.md): el tipo se elige al crear y no se cambia más — la
+// base lo bloquea igual (`trg_category_kind_locked`), pero el cliente ni siquiera lo ofrece.
 export function useUpdateCategory() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...input }: { id: string; name: string; kind: CategoryKind; color: string }) => {
+    mutationFn: async ({ id, ...input }: { id: string; name: string; color: string }) => {
       const { error } = await supabase.from('categories').update(input).eq('id', id)
       if (error) throw error
     },

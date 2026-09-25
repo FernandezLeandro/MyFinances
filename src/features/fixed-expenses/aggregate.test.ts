@@ -9,6 +9,7 @@ import {
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
   summarizeFixedExpenses,
+  upcomingSavedCents,
 } from './aggregate'
 import { makeFixedExpense, makeFixedExpensePayment, makeFixedExpenseSaving } from '@/test/factories'
 
@@ -484,6 +485,35 @@ describe('summarizeFixedExpenses — con months (bloque 5, semanal a caballo de 
     expect(s.pending[0].period).toBe('2026-10-01')
     expect(s.pending[0].remainingCents).toBe(60_000_00)
   })
+
+  // HO-04 del QA de Hoy (docs/qa/hoy.md): el gap de $3.000 entre el título "Proyectado" y el
+  // desglose, en la semana 28/9–4/10, resultó ser un artefacto de la VERIFICACIÓN (`page.clock`
+  // puso "hoy" en el 30/9, 6 días después del día real, más allá del ±1 día que tolera
+  // `rpc_projected_balance_range` — ver `hoy_del_cliente.sql`), no un bug de
+  // `summarizeFixedExpenses`. Reproducido peso a peso con los datos reales de la cuenta de QA: una
+  // bolsa semanal de $80.000 con un pago de $3.000 el 22/9 (semana 21–27 sep, la que contiene el
+  // "hoy" REAL) mientras se mira la semana 28/9–4/10 con "hoy" = 30/9 (ya dentro de esa semana) —
+  // el pago del 22/9 cae en la semana ANTERIOR a la que escopea `subCycle` acá abajo, así que la
+  // instancia de septiembre no lo cuenta y pide el importe completo. Server y cliente hacen
+  // EXACTAMENTE lo mismo (los dos escopean por la semana de SU "hoy", no por la ventana mirada) —
+  // difieren sólo cuando "hoy" del cliente se aleja del "hoy" real del servidor más de lo que el
+  // ±1 día de la RPC tolera, algo que un reloj de dispositivo normal no hace. No es un bug: es que
+  // `today` decide la semana escopeada, nunca la ventana que se está mirando.
+  it('HO-04: la semana que escopea una bolsa semanal es la de "hoy", no la del ciclo mirado — un pago de la semana anterior no cuenta', () => {
+    const super_ = makeFixedExpense({ id: 'super', cents: 80_000_00, is_recurring: true, bag_frequency: 'weekly' })
+    const pago = makeFixedExpensePayment({
+      fixed_expense_id: 'super',
+      amountPaidCents: 3_000_00,
+      period: '2026-09-01',
+      paid_on: '2026-09-22', // semana 21–27 sep, NO la semana 28 sep–4 oct que se está mirando
+    })
+    const s = summarizeFixedExpenses([super_], [pago], new Date(2026, 8, 1), HOY_30_SEP, semana, semana.months)
+    const sept = s.pending.find((p) => p.period === '2026-09-01')
+    // El pago existe pero cae fuera de la semana que escopea `today` (30/9) — no descuenta nada de
+    // esta instancia, aunque su `period` sea septiembre.
+    expect(sept?.remainingCents).toBe(80_000_00)
+    expect(sept?.paidCents).toBe(0)
+  })
 })
 
 describe('summarizeFixedExpenses — guardado (bloque 3 del plan "BASIC centrado en fijos")', () => {
@@ -748,5 +778,21 @@ describe('fixedExpenseNameError — FI-19', () => {
   it('name undefined (primer render de react-hook-form, antes de reset()): no explota', () => {
     // @ts-expect-error — el tipo dice `string`, pero en runtime react-hook-form entrega `undefined`.
     expect(fixedExpenseNameError({ name: undefined, expenses: [alquiler, gimnasio] })).toBeNull()
+  })
+})
+
+describe('upcomingSavedCents', () => {
+  // HO-07 del QA de Hoy: caso real del informe — fijo de $80.000, $30.000 ya cubiertos por un pago
+  // con movimiento (remainingCents = 50.000) y $70.000 guardados en total. Escritorio mostraba
+  // "$70.000 guardado" (tope contra `fe.cents`) y mobile "$50.000 guardado" (tope contra
+  // `remainingCents`) — dos cifras distintas para la misma fila, al mismo tiempo.
+  it('guardado supera lo que falta pagar → topa contra el importe TOTAL del fijo, no contra lo que falta', () => {
+    const fe = makeFixedExpense({ id: 'fe-1', cents: 80_000_00 })
+    expect(upcomingSavedCents({ fe, savedCents: 70_000_00 })).toBe(70_000_00)
+  })
+
+  it('guardado por debajo del total → no topa, devuelve el guardado tal cual', () => {
+    const fe = makeFixedExpense({ id: 'fe-1', cents: 80_000_00 })
+    expect(upcomingSavedCents({ fe, savedCents: 20_000_00 })).toBe(20_000_00)
   })
 })

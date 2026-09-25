@@ -62,16 +62,21 @@ export function useReorderDefaultCategories() {
   })
 }
 
+// Sin `kind` en el input (HO-15, docs/qa/hoy.md): igual que en la cuenta, el tipo se elige al crear
+// y no se cambia más — la base lo bloquea igual (`trg_category_kind_locked`), pero el cliente ni
+// siquiera lo ofrece.
 export function useUpdateDefaultCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...input }: Partial<DefaultCategoryInput> & { id: string; isArchived?: boolean }) => {
+    mutationFn: async ({
+      id,
+      ...input
+    }: Partial<Omit<DefaultCategoryInput, 'kind'>> & { id: string; isArchived?: boolean }) => {
       const { error } = await supabase
         .from('default_categories')
         .update({
           ...(input.name !== undefined && { name: input.name }),
-          ...(input.kind !== undefined && { kind: input.kind }),
           ...(input.color !== undefined && { color: input.color }),
           ...(input.sortOrder !== undefined && { sort_order: input.sortOrder }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),

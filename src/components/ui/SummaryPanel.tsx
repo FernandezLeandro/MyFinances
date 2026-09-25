@@ -4,6 +4,7 @@ import { Panel } from '@/components/ui/Panel'
 import { KeyValueRow } from '@/components/ui/KeyValueRow'
 import { Money, type MoneyTone } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ErrorState } from '@/components/ui/ErrorState'
 
 export interface SummaryRow {
   label: string
@@ -20,6 +21,11 @@ interface SummaryPanelProps {
   title: string
   cents: number | undefined
   isPending?: boolean
+  /** HO-06 del QA de Hoy: si alguna de las consultas que arman este panel falló, se muestra un
+   *  `ErrorState` en vez de la cifra y el desglose — antes, con `isPending` en `false` y `cents`
+   *  `undefined`, el panel mostraba "$0,00" con la misma confianza que si fuera el valor real. */
+  isError?: boolean
+  onRetry?: () => void
   /** Enmascara la cifra principal y cada fila con `cents` (no las que usan `value`). */
   hidden?: boolean
   /** El `ring-1 ring-accent/15` que distingue al panel "cabecera" de un grupo de resúmenes — el total
@@ -47,6 +53,8 @@ export function SummaryPanel({
   title,
   cents,
   isPending = false,
+  isError = false,
+  onRetry,
   hidden = false,
   accent = false,
   inverse = false,
@@ -70,32 +78,38 @@ export function SummaryPanel({
       <p className="eyebrow" style={inverse ? { color: 'var(--color-on-inverse-muted)' } : undefined}>
         {title}
       </p>
-      {isPending ? (
-        <Skeleton className="mt-2 h-9 w-32" />
+      {isError ? (
+        <ErrorState onRetry={onRetry} className="-mx-panel" />
       ) : (
-        <Money cents={cents ?? 0} tone={inverse ? 'onInverse' : 'fg'} size="figure" className="mt-2" hidden={hidden} />
-      )}
+        <>
+          {isPending ? (
+            <Skeleton className="mt-2 h-9 w-32" />
+          ) : (
+            <Money cents={cents ?? 0} tone={inverse ? 'onInverse' : 'fg'} size="figure" className="mt-2" hidden={hidden} />
+          )}
 
-      {extra}
+          {extra}
 
-      {rows && rows.length > 0 && (
-        <dl
-          className={cn('mt-5 space-y-2 border-t pt-4 text-[13px]', inverse ? 'border-inverse-divider' : 'border-divider')}
-        >
-          {rows.map((row) => (
-            <KeyValueRow key={row.label} label={<span className={labelClass}>{row.label}</span>}>
-              {row.value !== undefined ? (
-                row.value
-              ) : (
-                <Money cents={row.cents ?? 0} tone={row.tone ?? (inverse ? 'onInverseSecondary' : 'dim')} hidden={hidden} />
-              )}
-            </KeyValueRow>
-          ))}
-        </dl>
-      )}
+          {rows && rows.length > 0 && (
+            <dl
+              className={cn('mt-5 space-y-2 border-t pt-4 text-[13px]', inverse ? 'border-inverse-divider' : 'border-divider')}
+            >
+              {rows.map((row) => (
+                <KeyValueRow key={row.label} label={<span className={labelClass}>{row.label}</span>}>
+                  {row.value !== undefined ? (
+                    row.value
+                  ) : (
+                    <Money cents={row.cents ?? 0} tone={row.tone ?? (inverse ? 'onInverseSecondary' : 'dim')} hidden={hidden} />
+                  )}
+                </KeyValueRow>
+              ))}
+            </dl>
+          )}
 
-      {footnote && (
-        <p className={cn('mt-3 text-[12px]', inverse ? 'text-on-inverse-muted' : 'text-fg-muted')}>{footnote}</p>
+          {footnote && (
+            <p className={cn('mt-3 text-[12px]', inverse ? 'text-on-inverse-muted' : 'text-fg-muted')}>{footnote}</p>
+          )}
+        </>
       )}
     </Panel>
   )

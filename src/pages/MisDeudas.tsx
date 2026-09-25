@@ -260,7 +260,9 @@ export function MisDeudas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [fixedExpenses, fixedPayments, cycle, isCurrent, config],
   )
-  const unpaidDebtsCount = summary.perCard.filter((c) => !c.paid).length + summary.standalone.filter((s) => !s.paid).length
+  // HO-03 del QA de Hoy: `unpaidCount` ya descuenta una tarjeta sin cuotas este período (antes
+  // contaba como deuda impaga de $0 sólo por no tener pago).
+  const unpaidDebtsCount = summary.unpaidCount
 
   // Aparte del desglose por categoría en Análisis, esto responde directo "cuánto pagué de deudas
   // este mes" — la tarjeta pagada no suma a totalPendingCents (ya salió como movimiento), así que

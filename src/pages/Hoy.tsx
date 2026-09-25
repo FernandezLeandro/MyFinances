@@ -1,10 +1,8 @@
 import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { format, getDate, isSameDay, parseISO, subDays } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
 import { useCycle } from '@/lib/useCycle'
-import { cycleEndNoun, cycleShortLabel } from '@/lib/cycle'
+import { cycleArticleLabel, cycleEndNoun, cycleOfLabel, cycleShortLabel, cycleThisLabel } from '@/lib/cycle'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { buttonClasses } from '@/components/ui/button-styles'
@@ -13,12 +11,12 @@ import { Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
 import { StackedBar } from '@/components/ui/StackedBar'
 import { GroupHeader } from '@/components/ui/GroupHeader'
-import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TransactionRow } from '@/components/TransactionRow'
 import { SaldoProyectadoPanel } from '@/components/SaldoProyectadoPanel'
+import { UpcomingFixedRow } from '@/components/UpcomingFixedRow'
 import { useCountUp } from '@/lib/useCountUp'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
@@ -31,6 +29,7 @@ import {
   useTransactions,
   type Transaction,
 } from '@/features/transactions/api'
+import { dayLabel, isFutureOccurredOn } from '@/features/transactions/aggregate'
 import { TransactionFormDialog } from '@/features/transactions/TransactionFormDialog'
 import { useCan } from '@/features/access/useCan'
 import { useBalanceLocations } from '@/features/accounts/api'
@@ -49,13 +48,7 @@ import {
   useFixedExpenseSavings,
   useProjectedBalanceRange,
 } from '@/features/fixed-expenses/api'
-import {
-  cycleTotalCents,
-  fixedExpenseStatusKey,
-  fixedExpenseUrgency,
-  summarizeFixedExpenses,
-  type FixedExpenseUrgency,
-} from '@/features/fixed-expenses/aggregate'
+import { cycleTotalCents, fixedExpenseStatusKey, summarizeFixedExpenses } from '@/features/fixed-expenses/aggregate'
 import { FijosCicloCard } from '@/features/fixed-expenses/FijosCicloCard'
 import { RegisterFixedExpenseDialog } from '@/features/fixed-expenses/RegisterFixedExpenseDialog'
 import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
@@ -66,33 +59,6 @@ import { AssignIncomeDialog } from '@/features/cycle-income/AssignIncomeDialog'
 const CategoryDonut = lazy(() =>
   import('@/features/analytics/CategoryDonut').then((m) => ({ default: m.CategoryDonut })),
 )
-
-/** "Hoy" / "Ayer" / el nombre del día — alcanza con lo reciente, así la lista no repite la fecha
- *  completa en cada fila. */
-function dayLabel(occurredOn: string, today: Date): string {
-  const date = parseISO(occurredOn)
-  if (isSameDay(date, today)) return 'Hoy'
-  if (isSameDay(date, subDays(today, 1))) return 'Ayer'
-  return format(date, "EEEE d 'de' MMMM", { locale: es })
-}
-
-const urgencyBadgeVariant: Record<FixedExpenseUrgency, 'red' | 'amber' | 'neutral'> = {
-  red: 'red',
-  amber: 'amber',
-  neutral: 'neutral',
-}
-
-const urgencyDotClass: Record<FixedExpenseUrgency, string> = {
-  red: 'bg-negative',
-  amber: 'bg-badge-amber-fg',
-  neutral: 'bg-border-strong',
-}
-
-function urgencyTag(dueDay: number, urgency: FixedExpenseUrgency): string {
-  if (urgency === 'red') return 'Venció'
-  if (urgency === 'amber') return 'Esta semana'
-  return `Vence el ${dueDay}`
-}
 
 // El widget de Movimientos muestra los últimos 5 fijos en mobile; en escritorio, los que entren
 // hasta el borde de la pantalla sin obligar a scrollear, con 5 de piso y 12 de techo.
@@ -119,11 +85,13 @@ export function Hoy() {
   const canMisDeudas = useCan('mis-deudas')
   const today = new Date()
 
-  // Hoy nunca navega — siempre muestra el ciclo que contiene a hoy (`useCycle()` sin flechas). Con
-  // el ciclo mensual de siempre (default de todo usuario que no configuró nada en Ajustes) esto es
-  // exactamente `monthStart`/`monthEnd` de antes; con quincenal/semanal, la mitad o la semana en
-  // curso — el cambio de comportamiento que el bloque 3 del plan de ciclos habilita a propósito.
-  const { cycle, config } = useCycle()
+  // Hoy nunca navega — siempre muestra el ciclo que contiene a hoy. HO-05 del QA de Hoy: usar
+  // `cycle` de `useCycle()` (la posición de la URL) dejaba que un `?ciclo=` ajeno — un link
+  // compartido, o quedado de otra pantalla que sí navega — mostrara acá otro período sin ningún
+  // aviso. `current` es el ciclo que CONTIENE a hoy, siempre, sin mirar la URL. Con el ciclo mensual
+  // de siempre (default de todo usuario que no configuró nada en Ajustes) esto es exactamente
+  // `monthStart`/`monthEnd` de antes; con quincenal/semanal, la mitad o la semana en curso.
+  const { current: cycle, config } = useCycle()
   const cycleFrom = cycle.from
   const cycleTo = cycle.to
   // Los pagos/ahorros/cuotas siguen atados al MES (eje B, no configurable — ver `src/lib/cycle.ts`):
@@ -140,7 +108,21 @@ export function Hoy() {
   const { data: locations } = useBalanceLocations()
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('saldo-actual')
 
-  const { data: projectedBalance, isPending: isProjectedPending } = useProjectedBalanceRange(cycleFrom, cycleTo)
+  const {
+    data: projectedBalance,
+    isPending: isProjectedPending,
+    isError: isProjectedError,
+    refetch: refetchProjected,
+  } = useProjectedBalanceRange(cycleFrom, cycleTo, canMisDeudas)
+  // HO-06 del QA de Hoy: con `rpc_current_balance` cortada, el desglose seguía mostrando "$0,00" con
+  // confianza, y el título de arriba se quedaba con el proyectado VIEJO (esa consulta seguía en
+  // caché) — tres cifras que ya no cerraban entre sí, sin ningún aviso. El panel se cae a error si
+  // CUALQUIERA de las dos fuentes que suma falló, no sólo la propia.
+  const isSummaryPanelError = balance.isError || isProjectedError
+  const retrySummaryPanel = () => {
+    if (balance.isError) balance.refetch()
+    if (isProjectedError) refetchProjected()
+  }
   // FI-22: `true` — un fijo pausado con un pago/carga en el ciclo sigue sumando en «Pagado»/«Total»
   // acá también (mismo motivo que en Fijos.tsx).
   const { data: fixedExpenses } = useFixedExpenses(true)
@@ -172,9 +154,14 @@ export function Hoy() {
       ),
     [cards, standalonePurchases, installments, savings, cardPayments, purchasePayments],
   )
-  const unpaidCards = misDeudasSummary.perCard.filter((c) => !c.paid)
+  // HO-03 del QA de Hoy: una tarjeta sin cuotas este período (`!hasDue`) contaba como deuda impaga
+  // de $0 — inflaba "Deudas por pagar" y aparecía en el riel sin nada que mostrar.
+  const unpaidCards = misDeudasSummary.perCard.filter((c) => !c.paid && c.hasDue)
   const unpaidStandalone = misDeudasSummary.standalone.filter((s) => !s.paid)
-  const unpaidDebtsCount = unpaidCards.length + unpaidStandalone.length
+  // HO-12 del QA de Hoy (D2): sin `mis-deudas` (Test), el proyectado no resta ninguna deuda — el
+  // riel de abajo ya está gateado por `canMisDeudas` aparte, así que usa `misDeudasSummary` crudo.
+  const unpaidDebtsCount = canMisDeudas ? misDeudasSummary.unpaidCount : 0
+  const projectedUnpaidDebtsCents = canMisDeudas ? misDeudasSummary.totalPendingCents : 0
 
   const {
     pending: pendingFixed,
@@ -309,9 +296,7 @@ export function Hoy() {
   const expensePct = totalFlow > 0 ? (totalExpense / totalFlow) * 100 : 0
 
   // Con ciclo mensual da exactamente lo mismo que `format(today, 'MMMM', {locale: es})` de antes
-  // ("septiembre"); con quincenal/semanal, el rango corto ("5–20 sep"). El resto del copy fijo
-  // ("Flujo del mes", "este mes") queda con la palabra "mes" a propósito por ahora — generalizarlo
-  // es trabajo de UI aparte, no de esta migración de datos (ver plan, bloque 6).
+  // ("septiembre"); con quincenal/semanal, el rango corto ("5–20 sep").
   const monthLabel = cycleShortLabel(cycle)
   const spend = spendQuery.data ?? []
   const spendTotal = spend.reduce((acc, s) => acc + s.cents, 0)
@@ -331,15 +316,28 @@ export function Hoy() {
               <p className="eyebrow">Saldo actual</p>
               <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} label="saldo" />
             </div>
-            {balance.isPending ? (
+            {balance.isError ? (
+              // HO-06 del QA de Hoy: antes el esqueleto de carga se quedaba para siempre — `isPending`
+              // sólo es `true` mientras la primera consulta está en vuelo, no cuando ya falló.
+              <ErrorState onRetry={() => balance.refetch()} className="mt-3 -mx-panel" />
+            ) : balance.isPending ? (
               <Skeleton className="mt-3 h-12 w-56 lg:h-16 lg:w-64" />
             ) : (
-              <Money cents={animatedBalance} tone="accent" size="hero" className="mt-2 -ml-1 lg:mt-3" hidden={balanceHidden} />
+              // HO-01 del QA de Hoy: la cifra quedaba en el mismo azul de marca en positivo y en
+              // negativo — sólo el signo "−" delante avisaba. El resto de la pantalla ya distingue
+              // por signo (Gastos, filas de movimientos); acá faltaba.
+              <Money
+                cents={animatedBalance}
+                tone={currentBalanceCents < 0 ? 'negative' : 'accent'}
+                size="hero"
+                className="mt-2 -ml-1 lg:mt-3"
+                hidden={balanceHidden}
+              />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="eyebrow lg:hidden">Flujo del mes</p>
+            <p className="eyebrow lg:hidden">Flujo {cycleOfLabel(cycle.kind)}</p>
             {summary.isPending ? (
               <Skeleton className="mt-3 h-3 w-full" />
             ) : (
@@ -410,6 +408,7 @@ export function Hoy() {
           incomeCents={totalIncome}
           onAssignIncome={() => setAssignIncomeOpen(true)}
           hidden={balanceHidden}
+          onToggleHidden={toggleBalanceHidden}
           onRegister={() => setRegisterOpen(true)}
         />
       )}
@@ -427,19 +426,21 @@ export function Hoy() {
               title={`Proyectado a fin de ${cycleEndNoun(cycle.kind)}`}
               projectedCents={projectedBalance}
               isPending={isProjectedPending}
+              isError={isSummaryPanelError}
+              onRetry={retrySummaryPanel}
               currentBalanceCents={currentBalanceCents}
               pendingFixedCount={pendingFixed.length}
               pendingFixedCents={pendingFixedTotal}
               savedFixedCents={savedFixedTotal}
               unpaidDebtsCount={unpaidDebtsCount}
-              unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+              unpaidDebtsCents={projectedUnpaidDebtsCents}
               hidden={balanceHidden}
             />
           )}
 
           {canAnalisis && (
             <Panel className="p-panel-tight">
-              <p className="eyebrow">En qué se fue el mes</p>
+              <p className="eyebrow">En qué se fue {cycleArticleLabel(cycle.kind)}</p>
               {spendQuery.isError ? (
                 <ErrorState onRetry={() => spendQuery.refetch()} className="mt-3" />
               ) : spendQuery.isPending ? (
@@ -452,7 +453,7 @@ export function Hoy() {
                   </div>
                 </div>
               ) : spend.length === 0 ? (
-                <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos este mes.</p>
+                <p className="mt-3.5 text-[13px] text-fg-muted">Todavía no cargaste gastos {cycleThisLabel(cycle.kind)}.</p>
               ) : (
                 <div className="mt-3.5 flex items-center gap-4">
                   <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
@@ -485,39 +486,15 @@ export function Hoy() {
               <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
             ) : (
               <ul className="mt-2.5 flex flex-col">
-                {upcoming.map((status) => {
-                  // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
-                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
-                  const dueDay = getDate(parseISO(status.dueDate as string))
-                  const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
-                  // Bloque 4: con una semana a caballo de dos meses, un mismo fijo puede listarse dos
-                  // veces (una instancia por mes) — el mes desambigua.
-                  const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
-                  return (
-                    <li key={fixedExpenseStatusKey(status)} className="flex items-center gap-2.5 py-1.5">
-                      <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
-                      <div className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] font-semibold text-fg">
-                          {status.fe.name}
-                          {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
-                        </span>
-                        {/* Bloque 3: sólo si ya guardó algo — no vale la pena una línea en $0 por
-                            cada fijo pendiente. */}
-                        {status.savedCents > 0 && (
-                          <span className="block text-[11px] text-fg-muted">
-                            {/* Capado contra el importe total, no `remainingCents`: éste ya resta lo
-                                guardado CON movimiento (sale del saldo real), así que usarlo de tope
-                                acá mostraría de menos lo guardado apenas cubre parte del fijo. */}
-                            <Money cents={Math.min(status.savedCents, status.fe.cents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
-                            guardado
-                          </span>
-                        )}
-                      </div>
-                      <Badge variant={urgencyBadgeVariant[urgency]}>{urgencyTag(dueDay, urgency)}</Badge>
-                      <Money cents={status.remainingCents} tone="fg" size="row" hidden={balanceHidden} />
-                    </li>
-                  )
-                })}
+                {upcoming.map((status) => (
+                  <UpcomingFixedRow
+                    key={fixedExpenseStatusKey(status)}
+                    status={status}
+                    today={today}
+                    showMonthLabel={cycle.months.length > 1}
+                    hidden={balanceHidden}
+                  />
+                ))}
               </ul>
             )}
           </Panel>
@@ -534,12 +511,14 @@ export function Hoy() {
             title={`Proyectado a fin de ${cycleEndNoun(cycle.kind)}`}
             projectedCents={projectedBalance}
             isPending={isProjectedPending}
+            isError={isSummaryPanelError}
+            onRetry={retrySummaryPanel}
             currentBalanceCents={currentBalanceCents}
             pendingFixedCount={pendingFixed.length}
             pendingFixedCents={pendingFixedTotal}
             savedFixedCents={savedFixedTotal}
             unpaidDebtsCount={unpaidDebtsCount}
-            unpaidDebtsCents={misDeudasSummary.totalPendingCents}
+            unpaidDebtsCents={projectedUnpaidDebtsCents}
             hidden={balanceHidden}
             showCurrentBalanceRow={false}
             bar
@@ -557,34 +536,16 @@ export function Hoy() {
             <p className="mt-3 text-[13px] text-fg-muted">No tenés fijos por vencer.</p>
           ) : (
             <ul className="mt-2.5 flex flex-col">
-              {upcoming.map((status) => {
-                // L2 del QA: el día REAL del vencimiento este mes, no `fe.due_day` crudo — un fijo con `due_day` 31
-                  // en septiembre (30 días) mostraba «Vence el 31» en vez de «Vence el 30».
-                  const dueDay = getDate(parseISO(status.dueDate as string))
-                const urgency = fixedExpenseUrgency(parseISO(status.dueDate as string), today)
-                const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
-                return (
-                  <li key={fixedExpenseStatusKey(status)} className="flex items-center gap-2.5 py-1.5">
-                    <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${urgencyDotClass[urgency]}`} />
-                    <div className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold text-fg">
-                        {status.fe.name}
-                        {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
-                      </span>
-                      {status.savedCents > 0 && (
-                        <span className="block text-[11px] text-fg-muted">
-                          <Money cents={Math.min(status.savedCents, status.remainingCents)} tone="dim" size="inline" hidden={balanceHidden} />{' '}
-                          guardado
-                        </span>
-                      )}
-                    </div>
-                    <Badge variant={urgencyBadgeVariant[urgency]} className="shrink-0">
-                      {urgencyTag(dueDay, urgency)}
-                    </Badge>
-                    <Money cents={status.remainingCents} tone="fg" size="row" className="ml-auto shrink-0" hidden={balanceHidden} />
-                  </li>
-                )
-              })}
+              {upcoming.map((status) => (
+                <UpcomingFixedRow
+                  key={fixedExpenseStatusKey(status)}
+                  status={status}
+                  today={today}
+                  showMonthLabel={cycle.months.length > 1}
+                  hidden={balanceHidden}
+                  dense
+                />
+              ))}
             </ul>
           )}
         </Panel>
@@ -630,6 +591,8 @@ export function Hoy() {
                         tx={tx}
                         category={categoryById.get(tx.category_id ?? '')}
                         account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
+                        hidden={balanceHidden}
+                        future={isFutureOccurredOn(tx.occurred_on, today)}
                       />
                     ))}
                   </ul>
@@ -639,7 +602,7 @@ export function Hoy() {
           ) : (
             <EmptyState
               glyph="∅"
-              title="Todavía no cargaste nada este mes"
+              title={`Todavía no cargaste nada ${cycleThisLabel(cycle.kind)}`}
               hint={canMovimientosManuales ? 'Arrancá con tu primer ingreso o gasto del día.' : 'Los movimientos salen de pagar tus fijos.'}
               action={
                 canMovimientosManuales ? (

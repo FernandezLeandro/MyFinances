@@ -633,7 +633,9 @@ export interface Database {
         Returns: { total_income: string; total_expense: string; balance: string }[]
       }
       rpc_projected_balance_range: {
-        Args: { p_from: string; p_to: string; p_today?: string | null }
+        // HO-12 del QA de Hoy (D2): `p_include_debts` — `false` cuando el plan no tiene "Mis
+        // deudas" (ver `20260924060001_proyectado_deudas_por_plan.sql`).
+        Args: { p_from: string; p_to: string; p_today?: string | null; p_include_debts?: boolean }
         Returns: number
       }
       v_spend_by_category: {

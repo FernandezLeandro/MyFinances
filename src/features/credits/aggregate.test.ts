@@ -10,6 +10,16 @@ describe('summarizeCard', () => {
     expect(s.savedPercent).toBe(0)
     expect(s.missingCents).toBe(0)
     expect(s.paid).toBe(false)
+    // HO-03 del QA de Hoy: sin ítems, `hasDue` es `false` — `paid: false` acá NO significa "deuda
+    // impaga", significa "no hay nada que pagar este período".
+    expect(s.hasDue).toBe(false)
+  })
+
+  it('tarjeta con cuotas este mes → hasDue true', () => {
+    const card = makeCard({ id: 'c1' })
+    const items = [makeInstallment({ card_id: 'c1', amountCents: 10_000 })]
+    const s = summarizeCard(card, items, [], [])
+    expect(s.hasDue).toBe(true)
   })
 
   it('suma las cuotas de la tarjeta, ignora las de otras tarjetas', () => {
@@ -193,6 +203,35 @@ describe('summarizeMisDeudas', () => {
     expect(summary.totalPendingCents).toBe(0)
     expect(summary.totalSavedCents).toBe(0)
     expect(summary.totalMissingCents).toBe(0)
+    expect(summary.unpaidCount).toBe(0)
+  })
+
+  // HO-03 del QA de Hoy: una tarjeta sin ninguna compra en el ciclo (sin ítems, sin pago) contaba
+  // como deuda impaga de $0 e inflaba "Deudas por pagar" — `unpaidCount` no debe contarla.
+  it('tarjeta sin cuotas este período no cuenta como deuda impaga, aunque paid dé false', () => {
+    const empty = makeCard({ id: 'vacia' })
+    const withDue = makeCard({ id: 'con-cuota' })
+    const items = [makeInstallment({ card_id: 'con-cuota', amountCents: 10_000 })]
+
+    const summary = summarizeMisDeudas([empty, withDue], [], items, [], [], [])
+
+    expect(summary.perCard.find((c) => c.card.id === 'vacia')?.paid).toBe(false)
+    expect(summary.perCard.find((c) => c.card.id === 'vacia')?.hasDue).toBe(false)
+    // Sólo la tarjeta con cuota real cuenta.
+    expect(summary.unpaidCount).toBe(1)
+    expect(summary.totalPendingCents).toBe(10_000)
+  })
+
+  it('tarjeta pagada con cuota → no cuenta en unpaidCount; compra suelta impaga sí', () => {
+    const paid = makeCard({ id: 'pagada' })
+    const items = [makeInstallment({ card_id: 'pagada', amountCents: 5_000 })]
+    const payments = [makePayment({ card_id: 'pagada' })]
+    const purchase = makePurchase({ id: 'p1' })
+    const purchaseItems = [...items, makeInstallment({ card_id: null, purchase_id: 'p1', amountCents: 3_000 })]
+
+    const summary = summarizeMisDeudas([paid], [purchase], purchaseItems, [], payments, [])
+
+    expect(summary.unpaidCount).toBe(1)
   })
 
   it('compras sueltas pendientes suman al total, sin aportar a lo guardado', () => {

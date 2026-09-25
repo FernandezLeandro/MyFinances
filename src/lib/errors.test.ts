@@ -112,6 +112,20 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError({ code: 'P0001', message: 'fixed_payment_not_found' })).toBe('Ese pago ya no existe.')
   })
 
+  // HO-15 (docs/qa/hoy.md): una categoría de gasto pasada a "ingreso" hacía desaparecer sus
+  // movimientos ya cargados del desglose por categoría sin avisar — el tipo ahora es inmutable
+  // (`trg_category_kind_locked`) y un movimiento/fijo/compra no puede usar una categoría del tipo
+  // contrario (`trg_transactions_owned_refs`/`trg_expense_category_kind`,
+  // `20260925010001_categorias_tipo_fijo.sql`).
+  it('P0001 de HO-15 → tipo de categoría inmutable', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'category_kind_locked' })).toBe(
+      'El tipo de una categoría no se puede cambiar: creá una nueva del otro tipo.',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'category_kind_mismatch' })).toBe(
+      'Esa categoría es de otro tipo: elegí una de gasto o de ingreso según corresponda.',
+    )
+  })
+
   // Bloques 3 y 4 del arreglo de Movimientos (MO-02 a MO-08): borrar/editar por API directa un
   // movimiento vinculado a una tarjeta, una cuota o una deuda, saltando la RPC de deshacer.
   it('P0001 de Movimientos (bloques 3/4) → movimiento vinculado a otra pantalla', () => {

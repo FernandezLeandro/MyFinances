@@ -3,7 +3,9 @@ import {
   confirmDeleteMovementCopy,
   dailySpendBars,
   dailySpendPeakLabel,
+  dayLabel,
   dayNetTotals,
+  isFutureOccurredOn,
   mergeMovementList,
   movementCategoryLabel,
   movementCountLabel,
@@ -337,5 +339,48 @@ describe('confirmDeleteMovementCopy', () => {
 
   it('plain, sin descripción: copy genérico, sin comillas vacías', () => {
     expect(confirmDeleteMovementCopy({ kind: 'plain', description: null }).paragraphs[0]).not.toContain('«')
+  })
+})
+
+// HO-08 del QA de Hoy: un movimiento con fecha posterior a hoy encabezaba la lista con el mismo
+// trato que uno de hoy — sin "Mañana" ni "Programado", sin ninguna marca.
+describe('dayLabel', () => {
+  const HOY = new Date(2026, 8, 23) // 23 de septiembre
+
+  it('hoy → "Hoy"', () => {
+    expect(dayLabel('2026-09-23', HOY)).toBe('Hoy')
+  })
+
+  it('ayer → "Ayer"', () => {
+    expect(dayLabel('2026-09-22', HOY)).toBe('Ayer')
+  })
+
+  it('un día atrás de ayer → el nombre del día', () => {
+    expect(dayLabel('2026-09-21', HOY)).toContain('lunes')
+  })
+
+  it('mañana → "Mañana"', () => {
+    expect(dayLabel('2026-09-24', HOY)).toBe('Mañana')
+  })
+
+  it('más adelante que mañana → "Programado · " + el día', () => {
+    expect(dayLabel('2026-09-30', HOY)).toContain('Programado ·')
+    expect(dayLabel('2026-09-30', HOY)).toContain('miércoles')
+  })
+})
+
+describe('isFutureOccurredOn', () => {
+  const HOY = new Date(2026, 8, 23)
+
+  it('hoy → false', () => {
+    expect(isFutureOccurredOn('2026-09-23', HOY)).toBe(false)
+  })
+
+  it('pasado → false', () => {
+    expect(isFutureOccurredOn('2026-09-22', HOY)).toBe(false)
+  })
+
+  it('mañana → true', () => {
+    expect(isFutureOccurredOn('2026-09-24', HOY)).toBe(true)
   })
 })

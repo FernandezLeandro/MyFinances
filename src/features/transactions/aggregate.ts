@@ -5,7 +5,7 @@
  * resumen de la pantalla siempre coincide con lo que se ve en la tabla de abajo, en vez de
  * recalcularse aparte con un criterio propio.
  */
-import { differenceInCalendarDays, eachDayOfInterval, format, parseISO } from 'date-fns'
+import { addDays, differenceInCalendarDays, eachDayOfInterval, format, isSameDay, parseISO, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { AccountTransfer } from '@/features/accounts/transfers-api'
 import type { Transaction, TransactionType } from './api'
@@ -63,6 +63,27 @@ export function summarizeTransactions(transactions: Transaction[], from: string,
     dailyAverageExpenseCents: daysElapsed > 0 ? Math.round(totalExpenseCents / daysElapsed) : 0,
     daysElapsed,
   }
+}
+
+/** HO-08 del QA de Hoy: antes vivía adentro de `Hoy.tsx` y sólo distinguía "Hoy"/"Ayer"/el nombre
+ *  del día — un movimiento con fecha posterior a hoy (heredado de otra pantalla, o cargado por API)
+ *  encabezaba la lista con el mismo trato que uno de hoy, sin ninguna marca. Movido a un módulo puro
+ *  para poder testear el borde de "mañana" vs. más adelante, y compartido con `isFutureOccurredOn`
+ *  (misma fecha de corte para las dos cosas). */
+export function dayLabel(occurredOn: string, today: Date): string {
+  const date = parseISO(occurredOn)
+  if (isSameDay(date, today)) return 'Hoy'
+  if (isSameDay(date, subDays(today, 1))) return 'Ayer'
+  if (isSameDay(date, addDays(today, 1))) return 'Mañana'
+  if (date > today) return `Programado · ${format(date, "EEEE d 'de' MMMM", { locale: es })}`
+  return format(date, "EEEE d 'de' MMMM", { locale: es })
+}
+
+/** HO-08: además del label del grupo, la fila en sí se ve atenuada — esta plata todavía no salió
+ *  (ni entró). Misma fecha de corte que `dayLabel` ("Mañana"/"Programado" ya avisan en el label). */
+export function isFutureOccurredOn(occurredOn: string, today: Date): boolean {
+  const date = parseISO(occurredOn)
+  return !isSameDay(date, today) && date > today
 }
 
 /** El texto secundario de una fila de movimiento: "Ajuste de saldo · afuera de Análisis" para un

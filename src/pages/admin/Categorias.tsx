@@ -26,10 +26,8 @@ function CategoryRow({
   category,
   isEditing,
   draftName,
-  draftKind,
   draftColor,
   onDraftNameChange,
-  onDraftKindChange,
   onDraftColorChange,
   onStartEdit,
   onCancelEdit,
@@ -40,10 +38,8 @@ function CategoryRow({
   category: DefaultCategory
   isEditing: boolean
   draftName: string
-  draftKind: DefaultCategoryKind
   draftColor: string
   onDraftNameChange: (v: string) => void
-  onDraftKindChange: (k: DefaultCategoryKind) => void
   onDraftColorChange: (c: string) => void
   onStartEdit: () => void
   onCancelEdit: () => void
@@ -54,6 +50,8 @@ function CategoryRow({
   const updateCategory = useUpdateDefaultCategory()
   const dragControls = useDragControls()
 
+  // El tipo no se edita (HO-15, docs/qa/hoy.md): se elige al crear (`AddCategoryForm`, con chips) y
+  // queda fijo — acá se muestra como etiqueta, igual que en la fila normal.
   if (isEditing) {
     return (
       <Reorder.Item value={category} dragListener={false} className="bg-surface">
@@ -69,14 +67,9 @@ function CategoryRow({
               autoFocus
               className="h-9 min-w-0 flex-1 rounded-control border border-accent/30 bg-surface px-2.5 text-[13.5px] text-fg outline-none"
             />
-            <div className="flex shrink-0 gap-1">
-              <Chip active={draftKind === 'expense'} onClick={() => onDraftKindChange('expense')}>
-                Gasto
-              </Chip>
-              <Chip active={draftKind === 'income'} onClick={() => onDraftKindChange('income')}>
-                Ingreso
-              </Chip>
-            </div>
+            <span className="shrink-0 text-[12px] text-fg-muted">
+              {category.kind === 'income' ? 'Ingreso' : 'Gasto'}
+            </span>
             <ColorPicker value={draftColor} onChange={onDraftColorChange} />
           </div>
           <div className="flex shrink-0 gap-1.5">
@@ -199,7 +192,6 @@ function CategoryList({ categories }: { categories: DefaultCategory[] }) {
 
   const [editingId, setEditingId] = useState<EditingTarget>(null)
   const [draftName, setDraftName] = useState('')
-  const [draftKind, setDraftKind] = useState<DefaultCategoryKind>('expense')
   const [draftColor, setDraftColor] = useState('')
 
   // Resincroniza cuando cambian los datos del server (alta, archivado, o el propio reorder ya
@@ -223,14 +215,13 @@ function CategoryList({ categories }: { categories: DefaultCategory[] }) {
   function startEdit(c: DefaultCategory) {
     setEditingId(c.id)
     setDraftName(c.name)
-    setDraftKind(c.kind)
     setDraftColor(c.color)
   }
 
   async function saveEdit() {
     const trimmed = draftName.trim()
     if (!trimmed || !editingId) return
-    await updateCategory.mutateAsync({ id: editingId, name: trimmed, kind: draftKind, color: draftColor })
+    await updateCategory.mutateAsync({ id: editingId, name: trimmed, color: draftColor })
     setEditingId(null)
   }
 
@@ -243,10 +234,8 @@ function CategoryList({ categories }: { categories: DefaultCategory[] }) {
             category={c}
             isEditing={editingId === c.id}
             draftName={draftName}
-            draftKind={draftKind}
             draftColor={draftColor}
             onDraftNameChange={setDraftName}
-            onDraftKindChange={setDraftKind}
             onDraftColorChange={setDraftColor}
             onStartEdit={() => startEdit(c)}
             onCancelEdit={() => setEditingId(null)}

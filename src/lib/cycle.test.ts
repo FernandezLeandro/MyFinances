@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { endOfMonth, format, startOfMonth } from 'date-fns'
 import {
   type CycleConfig,
+  cycleArticleLabel,
   cycleById,
   cycleContaining,
   cycleFromUrlParam,
@@ -282,6 +283,16 @@ describe('cycleOfLabel', () => {
     expect(cycleOfLabel('monthly')).toBe('del mes')
     expect(cycleOfLabel('biweekly')).toBe('de la quincena')
     expect(cycleOfLabel('weekly')).toBe('de la semana')
+  })
+})
+
+// HO-09 del QA de Hoy: "En qué se fue el mes" y otros copys de Hoy quedaban fijos en "mes" con un
+// ciclo quincenal o semanal.
+describe('cycleArticleLabel', () => {
+  it('mensual, quincenal y semanal, con el artículo concordado, sin preposición', () => {
+    expect(cycleArticleLabel('monthly')).toBe('el mes')
+    expect(cycleArticleLabel('biweekly')).toBe('la quincena')
+    expect(cycleArticleLabel('weekly')).toBe('la semana')
   })
 })
 

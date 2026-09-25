@@ -7,14 +7,14 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 
 | Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
 |---|---|---|---|---|
-| Cuentas | [cuentas.md](cuentas.md) | 2026-09-22 (3.ª) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | 2026-09-22/23 (1.ª); los 26 issues (FI-01 a FI-26) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Movimientos | [movimientos.md](movimientos.md) | 2026-09-23 (1.ª); los 18 issues (MO-01 a MO-18) resueltos y verificados en vivo al 2026-09-24; migraciones aplicadas (una de las 4, `...050001`, aplicada por fuera de `db push` — ver el informe) | rama `fix-issues` | 0 / 0 / 0 / 0 |
+| Cuentas | [cuentas.md](cuentas.md) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
+| Gastos fijos | [fijos.md](fijos.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
+| Movimientos | [movimientos.md](movimientos.md)| rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª) | rama `accounts`, `37b5384` | 0 / 9 / 3 / 2 |
-| Análisis | [analisis.md](analisis.md) | 2026-09-23 (1.ª) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
+| Hoy | [hoy.md](hoy.md) | HO-15 nuevo (categoría pasada a ingreso) queda abierto | rama `fix-issues` | 0 / 0 / 1 / 0 |
+| Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
@@ -38,6 +38,14 @@ C / A / M / B = Crítico / Alto / Medio / Bajo.
   bug arreglado en vivo. Usar datos de prueba nuevos y descartables, no los que ya dejó una pasada
   anterior (ver «Automatizar con Playwright» abajo) — y dejar la cuenta exactamente como estaba antes
   de irse (mismo saldo, mismos movimientos, mismo plan).
+- **Antes de planear los arreglos de un informe, re-chequear cada hallazgo contra la rama actual.**
+  Los arreglos de otras áreas tocan código compartido y pueden cerrar hallazgos de ésta sin que
+  nadie lo haya anotado ahí — en el QA de Hoy, el arreglo de Fijos (FI-06) ya había cerrado la mayor
+  parte de HO-04, FI-20 ya había arreglado la etiqueta de HO-09, y MO-01 (Movimientos) ya cubría la
+  mitad de HO-11. Da por resuelto sólo lo que la lectura de código respalda, y de última palabra la
+  verificación en vivo — FI-06 parecía cerrar HO-04 del todo y una verificación con `page.clock`
+  lejos de la fecha real dejó ver un gap de $3.000 que costó una pasada más rastrear hasta confirmar
+  que era de la prueba, no de la app (ver `hoy.md` y la lección de `page.clock` más abajo).
 
 ## Automatizar con Playwright: lo aprendido
 
@@ -151,6 +159,17 @@ misma vuelta.
   23, 58) })` y después `page.clock.pauseAt(...)`/`fastForward(...)` para cruzar el borde — sirve para
   cualquier bug de "a tal hora pasa esto" en cualquier área (ver FI-23 y el borde sin reproducir de FI-15
   en [fijos.md](fijos.md)), no sólo Fijos.
+- **`page.clock` sólo dentro de ±1 día de la fecha real, si la pantalla compara contra una RPC que
+  recibe `p_today`.** Varias funciones (`rpc_projected_balance_range`, `rpc_mark_fixed_expense_paid`,
+  `rpc_add_fixed_expense_saving`) acotan el `p_today` que reciben a ±1 día de `current_date` del
+  servidor (defensa a propósito contra un reloj de dispositivo mal configurado, ver
+  `hoy_del_cliente.sql`). Un `page.clock` que se aleja más de 1 día de la fecha real hace que el
+  cliente y el servidor calculen "hoy" distinto — con una bolsa semanal/quincenal, eso puede escopear
+  semanas distintas de cada lado y dar un gap que **no es un bug de la app, es la prueba mirando dos
+  "hoy" diferentes** (pasó en el QA de Hoy, HO-04: page.clock a 6 días del real dejaba un gap de $3.000
+  que resultó ser enteramente de la verificación). Para un caso que necesita simular varios días hacia
+  adelante o atrás, verificar en vez contra la RPC llamada con ese mismo `p_today` (así el "esperado" ya
+  incluye el clamp), no contra el cálculo del cliente solo.
 - **Bajo RLS, un `update` sin policy no falla: afecta 0 filas sin avisar.** Un trigger o RPC que no es
   `security definer` corre con el permiso de quien llama; si escribe una tabla con RLS que no tiene
   policy para esa operación (pasó con `fixed_expense_savings`, FI-26 en [fijos.md](fijos.md)), no hay
@@ -184,6 +203,41 @@ misma vuelta.
   `npx supabase db query -f <archivo> --linked` (no bloqueada) — pero el archivo queda sin registrar
   en `supabase migration list --linked` hasta el próximo `db push --linked` normal, así que hay que
   anotarlo en el informe.
+- **Login real por la UI, no fabricar el `localStorage` a mano.** El formato interno que usa
+  supabase-js para la sesión puede no coincidir con lo que uno arma — más simple y más confiable
+  llenar `#email`/`#password` y click en «Entrar», y de ahí en más sacar el token de
+  `localStorage` (`sb-<project-ref>-auth-token`, `.access_token`) para el resto de las llamadas por
+  API (ver QA de Hoy, 2026-09-24).
+- **`useCountUp` (el conteo animado del saldo hero) puede devolver un valor a mitad de camino** si
+  se lee el DOM apenas carga la página — aunque el código diga que no anima en el primer render, en
+  Vite dev con `StrictMode` el efecto puede correr dos veces. Para un valor EXACTO, leer una fila no
+  animada del desglose (`SummaryPanel`), no la cifra grande del hero.
+- **El signo negativo de `splitMoney` es `−` (U+2212, MINUS SIGN), no el guion ASCII `-`.** Un regex
+  que arma un test para parsear `aria-label="−$50.000,00"` tiene que aceptar los dos caracteres, o
+  falla en silencio (no tira error, simplemente no matchea y el número sale mal).
+- **React Query reintenta 3 veces con backoff (~1s+2s+4s ≈ 7s) antes de dar `isError`.** Para
+  probar un error de red con `page.route(url, route => route.abort())`, esperar ese tiempo antes de
+  mirar la UI — a los 1-2s todavía se ve el estado de carga, no el de error.
+- **`createPersistedFlag` (tema, ojo de saldo) guarda `'1'`/`'0'` en `localStorage`, no
+  `'true'`/`'false'`.** Setear el string equivocado desde un script no tira ningún error: el flag
+  simplemente se queda en su default, y el resultado parece «no pasó nada» en vez de un fallo obvio.
+- **`page.clock.install({ time: ... })` tiene que instalarse ANTES de navegar** a la página cuyo
+  primer render depende de "hoy" (`useCycle`, `bag_cycle_from`/`bag_cycle_to`) — instalado después
+  de que el primer render ya corrió con la hora real, ese render no se refresca solo.
+- **Cambiar `cycle_kind`/`cycle_week_starts_on` de la cuenta de QA se puede hacer por REST directo**
+  (`PATCH` a `/rest/v1/profiles` con el token de la sesión) sin pasar por SQL — esas dos columnas sí
+  están en el grant de `authenticated` (a diferencia de `plan`/`role`, que siguen necesitando
+  `db query` con el OK de Lean).
+- **Un guardado con movimiento (`rpc_add_fixed_expense_saving` con `generateMovement: true`) deja un
+  movimiento vinculado que no siempre aparece en la primera lectura de
+  `fixed_expense_savings.transaction_id`** hecha ANTES de borrar el fijo de prueba. Verificar la
+  limpieza con una consulta APARTE, después de borrar, buscando por descripción
+  (`ilike 'Guardado · <nombre>%'`) — no confiar sólo en el mapeo armado de antemano.
+- **Escopear cualquier lectura del DOM a `document.querySelector('dialog[open]')`** cuando se abre
+  un diálogo sobre una pantalla con datos parecidos atrás (ej. Movimientos detrás de "Asignar
+  sueldo") — un `document.querySelectorAll('li')` sin escopear puede engancharse con una fila de la
+  pantalla de fondo, y el resultado se ve como un bug real (texto que no correspondía) cuando es un
+  problema del selector.
 
 ## Severidades
 

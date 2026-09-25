@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Field, AmountInput, Input } from '@/components/ui/Input'
@@ -26,23 +26,31 @@ export function IncomeEditDialog({ transaction, onClose }: IncomeEditDialogProps
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const updateTx = useUpdateTransaction()
   const deleteTx = useDeleteTransaction()
+  // HO-13 del QA de Hoy: mismo candado que `AssignIncomeDialog` (FI-01/FI-11) — y `.mutate()` en vez
+  // de `await mutateAsync()` (lección del README de QA: sin `try/catch`, un `mutateAsync` esperado
+  // deja una promesa rechazada sin manejar en la consola si la base frena la escritura).
+  const submittingRef = useRef(false)
 
-  async function handleSave() {
+  function handleSave() {
     const cents = parseAmountToCents(input)
     if (cents == null || cents <= 0) {
       setAmountError('Ingresá un importe válido')
       return
     }
-    await updateTx.mutateAsync({
-      id: transaction.id,
-      type: transaction.type,
-      cents,
-      occurredOn: transaction.occurred_on,
-      categoryId: transaction.category_id,
-      description: note.trim() || null,
-      accountId: transaction.account_id,
-    })
-    onClose()
+    if (submittingRef.current) return
+    submittingRef.current = true
+    updateTx.mutate(
+      {
+        id: transaction.id,
+        type: transaction.type,
+        cents,
+        occurredOn: transaction.occurred_on,
+        categoryId: transaction.category_id,
+        description: note.trim() || null,
+        accountId: transaction.account_id,
+      },
+      { onSuccess: onClose, onSettled: () => { submittingRef.current = false } },
+    )
   }
 
   return (
