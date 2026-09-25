@@ -99,46 +99,6 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 ---
 
 
-
-
-
-### HO-04 · Semana entre dos meses: el desglose del proyectado no suma el total — Alto
-
-- **Pasos:** ciclo semanal (lunes) → `/hoy?ciclo=2026-09-28` (semana 28 sep–4 oct, cruza septiembre y
-  octubre) → comparar el desglose contra el título del panel.
-- **Esperado:** Saldo actual − Fijos por pagar − Deudas por pagar = Proyectado, como cierra siempre en un
-  período que no cruza meses (verificado: en la semana 21–27 sep, $1.442.655,00 − $324.345,67 − $0,00 =
-  $1.118.309,33, exacto contra el título).
-- **Obtenido**, en la semana 28/9–4/10: título "Proyectado a fin de semana" = **−$9.124.190,66**, pero el
-  desglose de abajo dice Saldo $1.442.655,00 − Fijos $10.234.999,99 − Deudas $0,00 = **−$8.792.344,99**.
-  Diferencia: **$332.345,67** que el servidor restó de más y el desglose no muestra en ningún lado.
-- **Por qué (por lectura de código, con la sospecha ya anotada antes de probar):**
-  `rpc_projected_balance_range` (`hoy_del_cliente.sql:52-93`) arrastra el cálculo de un fijo o de una
-  bolsa hasta el 1.º del mes de `p_from` cuando corresponde, pero `summarizeFixedExpenses` en el cliente
-  (`cycle.ts:255-260`) no hace ese mismo arrastre para una semana — de ahí que el cliente muestre menos
-  de lo que el servidor efectivamente descontó.
-- **Mismo bloque, ya sabido:** el header de la sección pasa a decir "Movimientos de **28–4 sep**" (sin el
-  mes de octubre) — ver HO-09.
-- **Estado: Resuelto.** FI-06 (QA de Fijos, `withMonthCarry` + instancias por (fijo, mes)) cerró la
-  mayor parte de esta diferencia. Quedó un gap de $3.000,00 en la 2.ª pasada que parecía la misma
-  clase de bug — la 3.ª pasada lo rastreó término a término y confirmó que era un artefacto de esa
-  verificación (`page.clock` con "hoy" a más de 1 día del real, fuera del margen que tolera
-  `rpc_projected_balance_range`), no un bug de la app — ver el detalle completo en «HO-04 cerrado» al
-  principio del informe (sección «Estado del arreglo»), con el test de regresión que agregó. El copy
-  de HO-09 (etiqueta y "de la semana") quedó resuelto del todo desde la 2.ª pasada.
-- **Verificado en vivo (2.ª pasada):** semana 28/9–4/10 real (reloj fijado con `page.clock` a
-  2026-09-30, ciclo semanal desde el lunes) → "Proyectado a fin de semana" = **$1.231.889,00**, pero
-  el desglose decía "Saldo actual $1.426.889,00 − Fijos por pagar (6) $198.000,00" = **$1.228.889,00**
-  — diferencia de **$3.000,00**. Sin fila "Deudas por pagar" (0 tarjetas en la cuenta).
-- **Verificado en vivo (3.ª pasada, cierre):** RPC llamada directo con `p_from=2026-09-28`,
-  `p_to=2026-10-04` — `p_today=2026-09-30` y `p_today` nulo dan el MISMO resultado, $1.231.889,00
-  (confirma el clamp de ±1 día). Recalculando cada fijo de la cuenta a mano contra los datos reales
-  (bolsa semanal "Súper" $80.000 con un pago de $3.000 el 22/9, bolsa mensual "QA BolsaMes", fijo
-  "QA Dia2" con vencimiento en los dos meses) el total del cliente da $198.000 y el del servidor
-  $195.000 — $3.000 de diferencia, exacto, íntegro en "Súper" (semana 28/9–4/10 escopeada por el
-  cliente vs. semana 21–27/9 por el servidor). Sin escribir nada en la cuenta (sólo lecturas por
-  REST) — detalle completo en «Estado del arreglo».
-
 ### HO-15 · Una categoría pasada a "ingreso" hace desaparecer del desglose los gastos ya cargados — Medio
 
 - **Pasos:** crear una categoría de gasto, cargar un movimiento de gasto en ella, después editar la

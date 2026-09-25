@@ -13,7 +13,7 @@ probó, qué se encontró y qué quedó pendiente, para armar después la foto d
 | Mis Deudas | — | pendiente (ver transversales) | | |
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | 2026-09-23 (1.ª); 14 de 14 issues (HO-01 a HO-14) resueltos y verificados en vivo al 2026-09-25 (HO-04 cerrado: el gap de $3.000 era de la verificación, no de la app); migración aplicada; HO-15 nuevo (categoría pasada a ingreso) queda abierto | rama `fix-issues` | 0 / 0 / 1 / 0 |
+| Hoy | [hoy.md](hoy.md) | HO-15 nuevo (categoría pasada a ingreso) queda abierto | rama `fix-issues` | 0 / 0 / 1 / 0 |
 | Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 5 / 4 / 0 |
 | Admin | — | pendiente | | |
 
