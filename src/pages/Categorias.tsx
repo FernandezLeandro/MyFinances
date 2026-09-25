@@ -112,7 +112,6 @@ export function Categorias() {
 
   const [editingTarget, setEditingTarget] = useState<EditingTarget>(null)
   const [draftName, setDraftName] = useState('')
-  const [draftKind, setDraftKind] = useState<CategoryKind>('expense')
   const [draftColor, setDraftColor] = useState<string>(CATEGORY_COLORS[0].hex)
   const [archiveTarget, setArchiveTarget] = useState<Category | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
@@ -130,14 +129,12 @@ export function Categorias() {
   function startEdit(c: Category) {
     setEditingTarget(c.id)
     setDraftName(c.name)
-    setDraftKind(c.kind)
     setDraftColor(c.color)
   }
 
   function startCreate(kind: CategoryKind) {
     setEditingTarget(kind === 'expense' ? 'new-expense' : 'new-income')
     setDraftName('')
-    setDraftKind(kind)
     setDraftColor(CATEGORY_COLORS[0].hex)
   }
 
@@ -145,13 +142,16 @@ export function Categorias() {
     setEditingTarget(null)
   }
 
+  // El tipo no se edita (HO-15): al crear sale del panel donde se apretó "+ Nueva", al editar queda
+  // fijo — `useUpdateCategory` ni siquiera acepta `kind`.
   async function saveEdit() {
     const trimmed = draftName.trim()
     if (!trimmed) return
     if (editingTarget === 'new-expense' || editingTarget === 'new-income') {
-      await createCategory.mutateAsync({ name: trimmed, kind: draftKind, color: draftColor })
+      const kind: CategoryKind = editingTarget === 'new-expense' ? 'expense' : 'income'
+      await createCategory.mutateAsync({ name: trimmed, kind, color: draftColor })
     } else if (editingTarget) {
-      await updateCategory.mutateAsync({ id: editingTarget, name: trimmed, kind: draftKind, color: draftColor })
+      await updateCategory.mutateAsync({ id: editingTarget, name: trimmed, color: draftColor })
     }
     setEditingTarget(null)
   }
@@ -172,8 +172,6 @@ export function Categorias() {
       <CategoryRowEditor
         name={draftName}
         onNameChange={setDraftName}
-        kind={draftKind}
-        onKindChange={setDraftKind}
         color={draftColor}
         onColorChange={setDraftColor}
         onCancel={cancelEdit}
@@ -219,7 +217,9 @@ export function Categorias() {
       <header>
         <p className="eyebrow">Tu cuenta</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Categorías</h1>
-        <p className="mt-2 max-w-md text-[13px] text-fg-muted">Archivar una no borra sus movimientos.</p>
+        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
+          Archivar una no borra sus movimientos. El tipo se elige al crearla y ya no cambia.
+        </p>
       </header>
 
       {isPending ? (

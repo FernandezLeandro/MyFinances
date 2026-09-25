@@ -79,6 +79,15 @@ export function mensajeDeError(error: unknown): string {
   // llega acá por API directa, la UI nunca ofrece una categoría o un pago que no sean propios.
   if (code === 'P0001' && /category_not_found/.test(message)) return 'Esa categoría ya no existe.'
   if (code === 'P0001' && /fixed_payment_not_found/.test(message)) return 'Ese pago ya no existe.'
+  // HO-15 (docs/qa/hoy.md): el tipo de una categoría se elige al crearla y no se cambia más
+  // (`trg_category_kind_locked`/`trg_transactions_owned_refs`, `20260925010001_categorias_tipo_fijo.sql`)
+  // — sin esto, un gasto pasado a "ingreso" desaparecía del desglose por categoría sin avisar. La UI
+  // nunca ofrece cambiar el tipo ni una categoría del tipo contrario, así que esto sólo se ve por API
+  // directa.
+  if (code === 'P0001' && /category_kind_locked/.test(message))
+    return 'El tipo de una categoría no se puede cambiar: creá una nueva del otro tipo.'
+  if (code === 'P0001' && /category_kind_mismatch/.test(message))
+    return 'Esa categoría es de otro tipo: elegí una de gasto o de ingreso según corresponda.'
   if (code === 'P0001' && /account_adjust_nothing_to_adjust/.test(message)) return 'Ya coincide: no hay nada que reajustar.'
   if (code === 'P0001' && /account_adjust_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /account_insufficient_funds/.test(message)) return 'Esa cuenta no tiene tanta plata: bajá el importe.'

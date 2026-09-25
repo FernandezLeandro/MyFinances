@@ -6,6 +6,7 @@
   `?ciclo=`, ver HO-05).
 - **Pasada:** 3.ª, cierre — los 14 hallazgos originales resueltos y verificados, más lo que quedaba
   «afuera» (HO-15 a HO-19), salvo lo relacionado a Me Deben/gastos compartidos (se van a rediseñar).
+- **HO-15, resuelto 2026-09-25** (4.ª pasada, sólo este hallazgo): ver el bloque de abajo.
 
 ## Estado del arreglo (2026-09-24 → 2026-09-25)
 
@@ -71,8 +72,9 @@ no cierran o se ven mal:
 - **En una semana que cruza dos meses, el desglose del proyectado no suma el total que muestra arriba**
   (diferencia de $332.345,67 en el caso probado): el servidor resta algo de más que el desglose no
   informa (HO-04, cerrado — el gap final resultó ser de la verificación, no de la app, ver arriba).
-- **Una categoría con gastos ya cargados que se pasa a "ingreso" los hace desaparecer del desglose por
-  categoría**, aunque sigan sumando en "Gastos" (HO-15, también afecta a Análisis).
+- **Una categoría con gastos ya cargados se podía pasar a "ingreso" y los hacía desaparecer del
+  desglose por categoría**, aunque siguieran sumando en "Gastos" (HO-15, también afectaba a Análisis;
+  cerrado — el tipo de una categoría ahora es inmutable, ver abajo).
 
 ## Hallazgos
 
@@ -92,14 +94,14 @@ no cierran o se ven mal:
 | HO-12 | Alto | Resuelto | Test resta una deuda que el plan no puede ver ni pagar en ningún lado | — |
 | HO-13 | Medio | Resuelto | Doble click en "Agregar" del diálogo de Sueldo duplica la asignación | Movimientos |
 | HO-14 | Bajo | Resuelto | La tarjeta de fijos de Básico no tiene ojo para ocultar el saldo | — |
-| HO-15 | Medio | Abierto | Categoría pasada a "ingreso" hace desaparecer sus gastos ya cargados del desglose | Análisis |
+| HO-15 | Medio | Resuelto | Categoría pasada a "ingreso" hacía desaparecer sus gastos ya cargados del desglose | Análisis |
 
 Sev. = severidad (Crítico / Alto / Medio / Bajo).
 
 ---
 
 
-### HO-15 · Una categoría pasada a "ingreso" hace desaparecer del desglose los gastos ya cargados — Medio
+### HO-15 · Una categoría pasada a "ingreso" hacía desaparecer del desglose los gastos ya cargados — Medio, Resuelto
 
 - **Pasos:** crear una categoría de gasto, cargar un movimiento de gasto en ella, después editar la
   categoría y cambiarla a "Ingreso" (`CategoryRowEditor`, sin ningún freno) — mirar el desglose por
@@ -133,6 +135,51 @@ Sev. = severidad (Crítico / Alto / Medio / Bajo).
 - **No verificado con una categoría de INGRESO pasada a gasto** (el espejo) — por lectura de la
   misma función, `v_spend_by_category` sólo mira categorías `kind = 'expense'`, así que ese caso no
   aplica del mismo modo (una categoría de ingreso nunca aparecía ahí antes tampoco).
+
+**Arreglo (2026-09-25):** decisión de Lean — Gasto e Ingreso son mundos independientes, el tipo de una
+categoría se elige al crearla y no se cambia más (ni desde `/categorias` ni desde el catálogo de admin
+`/admin/categorias`, que sólo es la plantilla que siembra cada cuenta nueva). Migración
+`20260925010001_categorias_tipo_fijo.sql`:
+
+- `kind` inmutable en `categories` y `default_categories` (`trg_category_kind_locked`, `before update
+  of kind`, compara valores — un `update` que reenvía el mismo `kind` no falla).
+- `trg_transactions_owned_refs` (`20260924020001_movimientos_referencias_propias.sql`) suma el chequeo:
+  si el movimiento tiene `category_id`, su `kind` tiene que ser igual a `transactions.type`, si no
+  `category_kind_mismatch` (distinto de `category_not_found`, que sigue siendo "ajena o borrada").
+- `trg_expense_category_kind` en `fixed_expenses` y `credit_purchases`: sólo aceptan una categoría
+  `kind = 'expense'` — sin esto, un fijo o una compra con categoría de ingreso (sólo posible por API
+  directa) quedaría impagable con un error opaco al generar su movimiento.
+
+Diagnóstico previo (sólo lectura, `db query --linked`, 2026-09-24): **0** movimientos, fijos o compras
+en producción con una categoría del tipo contrario — no hizo falta arreglar datos.
+
+Front: `CategoryRowEditor` (`src/features/categories/`) perdió los chips Gasto/Ingreso — el tipo lo
+decide el panel donde se aprieta "+ Nueva" en `/categorias`; `useUpdateCategory` y
+`useUpdateDefaultCategory` ya no aceptan `kind` en su input. En `/admin/categorias` los chips quedan
+sólo en el alta (`AddCategoryForm`); al editar se ve como etiqueta fija, igual que en la fila normal.
+Mensajes nuevos en `src/lib/errors.ts` para `category_kind_locked` y `category_kind_mismatch`, con
+test de regresión en `errors.test.ts`.
+
+**Verificado en vivo (2026-09-25):**
+
+- Migración aplicada a producción (`db push --linked`); `migration list --linked` confirmó local=remote
+  en todas.
+- Por SQL directo con la cuenta de QA (bloque transaccional, con cleanup): `update categories set
+  kind` → `category_kind_locked`; el mismo `update` reenviando el `kind` actual no falla; insertar un
+  gasto con una categoría de ingreso → `category_kind_mismatch`; insertar el mismo gasto con su
+  categoría correcta → éxito; un fijo con categoría de ingreso → `category_kind_mismatch`; `update
+  default_categories set kind` → `category_kind_locked`. Los siete casos dieron el resultado esperado.
+- Por Playwright contra la cuenta de QA (dev server propio en el 5173, cerrado al terminar): en
+  `/categorias` el editor no muestra chips ni al crear ni al editar; "+ Nueva" en "De gasto" creó una
+  categoría de gasto; editar su nombre (sin tocar el tipo) funcionó. Sin verificación de click-through
+  en `/admin/categorias` (la cuenta de QA no tiene rol admin) — cubierto por el chequeo de
+  `default_categories` por SQL de arriba.
+- `lint`/`test` (635, +1 por el caso nuevo de `errors.test.ts`)/`build` en verde. Chequeo de secretos
+  de `CLAUDE.md` vacío.
+- Foto por API antes y después: sin resto de `QA-HO15*` en `categories`, `transactions`,
+  `fixed_expenses` ni `default_categories` — todo lo cargado en la verificación se borró (por API en el
+  bloque SQL, por UI la categoría creada con Playwright).
+- **Sin commitear**, en `fix-issues` (igual que el resto de Hoy).
 
 ## Verificado en esta pasada, sin hallazgos
 
