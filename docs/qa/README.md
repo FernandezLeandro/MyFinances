@@ -13,7 +13,7 @@ Registro de pasadas QA manual, una por área. Un solo lugar: qué se probó, qu�
 | Ahorros | — | pendiente | | |
 | Me Deben | — | pendiente (ver transversales) | | |
 | Hoy | [hoy.md](hoy.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Análisis | [analisis.md](analisis.md) | rama `accounts`, `eeeab9b` | 0 / 4 / 4 / 0 |
+| Análisis | [analisis.md](analisis.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
 | Admin | — | pendiente | | |
 
 C / A / M / B = Crítico / Alto / Medio / Bajo.
@@ -96,6 +96,10 @@ Notas técnicas para próxima verificación en vivo — evita repetir vuelta.
 - **Cambiar `cycle_kind`/`cycle_week_starts_on` de cuenta QA por REST directo** (`PATCH` a `/rest/v1/profiles` con token de sesión) sin SQL — esas dos columnas sí están en grant de `authenticated` (a diferencia de `plan`/`role`, que necesitan `db query` con OK de Lean).
 - **Guardado con movimiento (`rpc_add_fixed_expense_saving` con `generateMovement: true`) deja movimiento vinculado que no siempre aparece en primera lectura de `fixed_expense_savings.transaction_id`** hecha ANTES de borrar fijo de prueba. Verificar limpieza con consulta APARTE, tras borrar, por descripción (`ilike 'Guardado · <nombre>%'`) — no confiar sólo en mapeo previo.
 - **Escopear toda lectura DOM a `document.querySelector('dialog[open]')`** cuando se abre diálogo sobre pantalla con datos parecidos atrás (ej. Movimientos detrás de "Asignar sueldo") — `document.querySelectorAll('li')` sin escopear puede engancharse con fila del fondo, y parece bug real (texto que no correspondía) cuando es problema del selector.
+- **`route.abort()` de Playwright no siempre lleva a React Query a `isError`.** En un caso puntual (`credit_purchase_payments`, un `.select()` vía GET) la red seguía fallando pero el `failureCount` interno de la query no pasaba de 1 — reintentaba indefinidamente sin agotar los 3 reintentos, aun esperando 30 s (confirmado inspeccionando `queryClient.getQueryCache()` desde `page.evaluate`). En RPC vía POST (`v_range_summary`, `v_spend_by_category`) sí llegó a `isError` a los ~7 s, como es esperable. `route.fulfill({status:500, ...})` en vez de `abort()` es más confiable para forzar el agotamiento de reintentos — úsalo primero si el objetivo es ver `isError`, no simular un corte de red real.
+- **Un `page.goto()` a la MISMA url puede reusar la entrada de `history.state`** en vez de arrancar de cero — importa para cualquier pantalla que persista estado ahí (ver AN-14 en `analisis.md`): un test que dejó ese estado en otro lado (otro preset, otro mes) contamina al siguiente test que hace `goto` a la misma ruta. Pasar por otra pantalla en el medio (`goto('/hoy')` y después `goto('/analisis')`) fuerza una entrada nueva, sin estado.
+- **El FAB "Nuevo movimiento" (`MobileTabBar`) es sólo mobile y sin texto visible** — `button:has-text(...)` no lo encuentra; usar `button[aria-label="Nuevo movimiento"]` con viewport angosto (ej. 390px). El botón "Guardar" de `TransactionFormDialog` tampoco tiene `type="submit"` matcheable de forma confiable por selector de atributo; escopear al diálogo abierto y buscar por texto (`dialog[open] >> text=Guardar`).
+- **`PATCH` a `/rest/v1/profiles` (o cualquier tabla) sin filtro da 400 `UPDATE requires a WHERE clause`** — PostgREST exige `?id=eq.<uid>` en la URL aunque RLS ya acote a la fila propia.
 
 ## Severidades
 
@@ -138,5 +142,3 @@ Cosas vistas de reojo desde otra área, sin probar a fondo. Se mueven al informe
 - **Mis Deudas:** desglose de fijos no descuenta guardados con movimiento, puede no cerrar con número grande (`MisDeudas.tsx:258`). No visto porque cuenta QA no tiene deudas.
 - **Base:** RPC de pago aceptan fecha futura (UI la bloquea con `max`).
 - **Base:** RPC que crean movimientos sin fecha explícita (`rpc_add_fixed_expense_saving`, `rpc_mark_credit_card_paid` y varias más) usan `current_date` (UTC) en vez de fecha local — sólo se nota pasadas 21h Argentina. Visto por lectura de código en QA de Movimientos.
-- **Movimientos, Hoy:** fila de ajuste de saldo con categoría asignada sigue diciendo "Ajuste de saldo · afuera de Análisis", pero sí cuenta en Análisis (ver AN-01 en `analisis.md`) — etiqueta miente. Confirmado en vivo en QA de Análisis.
-- **Movimientos:** drill-down desde Análisis a "Sin categoría" trae también ingresos y ajustes de saldo, que Análisis excluye de ese total (ver AN-08 en `analisis.md`) — confirmado en vivo.

@@ -162,7 +162,12 @@ export function Movimientos() {
   // mes actual).
   const location = useLocation()
   const navigate = useNavigate()
-  const incoming = location.state as { categoryId?: string; period?: MovementPeriod; accountIds?: string[] } | null
+  const incoming = location.state as {
+    categoryId?: string
+    type?: 'all' | Transaction['type']
+    period?: MovementPeriod
+    accountIds?: string[]
+  } | null
   const cycleConfig = useCycleConfig()
 
   const {
@@ -183,6 +188,7 @@ export function Movimientos() {
   } = useMovimientosFilters({
     initialPeriod: incoming?.period,
     initialCategoryId: incoming?.categoryId,
+    initialType: incoming?.type,
     initialAccountIds: incoming?.accountIds,
     config: cycleConfig,
   })

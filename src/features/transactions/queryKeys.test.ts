@@ -11,6 +11,14 @@ describe('TRANSACTION_QUERY_KEYS', () => {
       expect.arrayContaining(['transactions', 'balance', 'projected-balance-range', 'account-balances']),
     )
   })
+
+  // Regresión AN-07 (QA de Análisis): "Top categorías" y "Promedio mensual" quedaban con el gasto
+  // viejo tras cargar un movimiento, con Análisis abierto — sus queries faltaban en esta lista.
+  it('cubre las queries de Análisis que no venían de spend-by-category', () => {
+    expect(TRANSACTION_QUERY_KEYS).toEqual(
+      expect.arrayContaining(['top-categories-comparison', 'category-monthly-series', 'previous-period-total']),
+    )
+  })
 })
 
 describe('TRANSFER_QUERY_KEYS', () => {

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronRight } from 'lucide-react'
@@ -15,12 +15,12 @@ import { useChartColors } from '@/lib/chartColors'
 import { splitTopN } from '@/lib/topN'
 import { cycleContaining, cycleLabel } from '@/lib/cycle'
 import { useCycleConfig } from '@/lib/useCycle'
-import { useSpendByCategory, useTransactions } from '@/features/transactions/api'
+import { useRangeSummary, useSpendByCategory } from '@/features/transactions/api'
 import { movementPeriodFromRange } from '@/features/transactions/movementPeriod'
 import { useCommittedPurchaseTransactionIds } from '@/features/credits/api'
 import {
   useCategoryMonthlySeries,
-  useMonthlySeries,
+  useExpenseRowsForClassification,
   usePreviousPeriodTotal,
   useTopCategoriesComparison,
 } from '@/features/analytics/api'
@@ -118,12 +118,16 @@ function PromedioRow({
   dim?: boolean
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
-      <span className="flex min-w-0 flex-1 items-center gap-2">
+    // AN-04 del QA de Análisis: a 320px, el nombre y las tres columnas de importe no entraban en
+    // una sola fila — el nombre quedaba cortado a un símbolo. Debajo de `sm`, `flex-wrap` baja el
+    // nombre a su propia línea (`basis-full`) y las tres columnas a una segunda, empujadas a la
+    // derecha con `ml-auto` en la primera. Desde `sm` (donde ya entraban) vuelve a ser una sola fila.
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-divider py-2.5 last:border-b-0">
+      <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:flex-1">
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color ?? 'var(--color-border-strong)' }} />
         <span className={cn('truncate text-[13px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
       </span>
-      <Money cents={avgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
+      <Money cents={avgCents} tone="dim" size="row" className="ml-auto w-20 shrink-0 justify-end sm:ml-0" />
       <Money cents={nowCents} tone={dim ? 'dim' : 'fg'} size="row" className="w-20 shrink-0 justify-end" />
       <span
         className={cn(
@@ -139,11 +143,22 @@ function PromedioRow({
 
 export function Analisis() {
   const cycleConfig = useCycleConfig()
-  const [period, setPeriod] = useState(() => defaultPeriod(cycleConfig))
+  const location = useLocation()
+  // AN-14 del QA de Análisis: el período elegido vivía sólo en `useState`, así que recargar la
+  // página o volver de un drill-down (History API) remontaba `Analisis` y lo reseteaba en silencio
+  // al ciclo actual. Se guarda en `history.state` (vía `navigate(..., { replace: true, state })`
+  // más abajo) — sobrevive a F5 y a "atrás" sin necesidad de parsear nada desde la URL.
+  const incomingPeriod = (location.state as { analisisPeriod?: ReturnType<typeof defaultPeriod> } | null)?.analisisPeriod
+  const [period, setPeriod] = useState(() => incomingPeriod ?? defaultPeriod(cycleConfig))
   const [otrosExpanded, setOtrosExpanded] = useState(false)
   const [promedioOtrosExpanded, setPromedioOtrosExpanded] = useState(false)
   const navigate = useNavigate()
   const chartColors = useChartColors()
+
+  useEffect(() => {
+    navigate(location.pathname, { replace: true, state: { analisisPeriod: period } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period])
 
   // `range`/`prevRange` son el rango YA RESUELTO de `period` contra el ciclo configurado — con
   // `preset === 'month'` no se lee `period.from`/`.to` directo en ningún lado de acá para abajo,
@@ -159,37 +174,45 @@ export function Analisis() {
   const spendQuery = useSpendByCategory(range.from, range.to)
   const prevTotalQuery = usePreviousPeriodTotal(prevRange.from, prevRange.to)
   const comparisonQuery = useTopCategoriesComparison(range.from, range.to, prevRange.from, prevRange.to)
-  const transactionsQuery = useTransactions({ from: range.from, to: range.to, type: 'expense' })
-  const { data: committedPurchaseIds } = useCommittedPurchaseTransactionIds()
+  const classificationQuery = useExpenseRowsForClassification(range.from, range.to)
+  const { data: committedPurchaseIds, isError: committedIdsError, refetch: refetchCommittedIds } = useCommittedPurchaseTransactionIds()
   const monthlySeriesQuery = useCategoryMonthlySeries(period.anchor)
-  // Exacto cuando `range.from`/`.to` están alineados a mes entero (todos los presets salvo
-  // "Personalizado" con ciclo mensual — ver `presetToRange`): el RPC agrupa por mes calendario, así
-  // que un rango que no calza con meses enteros (quincena, semana, "Personalizado" a mitad de mes)
-  // va a incluir esos días igual. Aceptado: el desvío es chico y el gráfico se queda mensual a
-  // propósito (ver "Qué se queda mensual a propósito" en el plan de ciclos).
-  const incomeSeriesQuery = useMonthlySeries(range.from, range.to)
+  // AN-05/AN-16 del QA de Análisis: antes se usaba `rpc_monthly_series` (agrupado por mes
+  // calendario) para "Ingresos" — con un ciclo quincenal/semanal, o una semana que cruza un límite
+  // de mes, mostraba uno o dos meses completos en vez del rango elegido. `v_range_summary` (ya
+  // usado por Hoy) filtra por rango exacto y excluye ajustes, igual que este total necesita.
+  const rangeSummaryQuery = useRangeSummary(range.from, range.to)
 
   const { data: spend } = spendQuery
   const { data: comparison } = comparisonQuery
-  const { data: transactions } = transactionsQuery
+  const { data: classificationRows } = classificationQuery
   const { data: monthlySeries } = monthlySeriesQuery
 
   const totalCents = (spend ?? []).reduce((acc, s) => acc + s.cents, 0)
-  const incomeCents = (incomeSeriesQuery.data ?? []).reduce((acc, p) => acc + p.incomeCents, 0)
+  const incomeCents = rangeSummaryQuery.data?.totalIncome ?? 0
   const netCents = incomeCents - totalCents
   const prevTotalCents = prevTotalQuery.data ?? 0
   const days = Math.max(1, differenceInCalendarDays(parseISO(range.to), parseISO(range.from)) + 1)
   const prevDays = Math.max(1, differenceInCalendarDays(parseISO(prevRange.to), parseISO(prevRange.from)) + 1)
   // Por PROMEDIO diario, no por total crudo — con `preset === 'month'` el período anterior puede
   // tener otra cantidad de días (una quincena de 15 contra una de 13–16), y comparar los totales
-  // sin más sería peras contra manzanas. Cuando `days === prevDays` (siempre en '3m'/'custom', y en
-  // 'month' con ciclo mensual) da exactamente el mismo % que comparar totales — cero regresión.
+  // sin más sería peras contra manzanas. Cuando `days === prevDays` (siempre en '3m'/'custom') da
+  // exactamente el mismo % que comparar totales — cero regresión.
   const changePct = prevTotalCents > 0 ? ((totalCents / days - prevTotalCents / prevDays) / (prevTotalCents / prevDays)) * 100 : null
+  // AN-17 del QA de Análisis: el sufijo "por día" sólo tiene sentido con ciclo quincenal/semanal —
+  // ahí "quincena"/"semana" suena a unidad fija y que difiera en 1-2 días sorprende. Con ciclo
+  // mensual, que un mes tenga 28-31 días es de toda la vida — septiembre vs. agosto YA difieren en
+  // días sin que nadie se confunda, y el sufijo apareciendo casi siempre ahí es ruido, no aclaración.
+  const showPorDia = cycleConfig.kind !== 'monthly' && days !== prevDays
 
   const fijoVsVariable = useMemo(
-    () => summarizeFijoVsVariable(transactions ?? [], committedPurchaseIds ?? new Set()),
-    [transactions, committedPurchaseIds],
+    () => summarizeFijoVsVariable(classificationRows ?? [], committedPurchaseIds ?? new Set()),
+    [classificationRows, committedPurchaseIds],
   )
+  // AN-13 del QA de Análisis: si `committedPurchaseTransactionIds` fallaba, el panel seguía
+  // mostrando un número — `?? new Set()` de arriba lo tomaba como "nada comprometido por esta vía"
+  // en vez de avisar, con riesgo de mover plata de "comprometido" a "variable" en silencio.
+  const fijoVsVariableError = classificationQuery.isError || committedIdsError
   const promedioMensual = useMemo(() => summarizeCategoryMonthlyAverages(monthlySeries ?? []), [monthlySeries])
 
   // `spend` ya viene ordenado desc por `useSpendByCategory` — acá sólo se corta. Con 6 o menos
@@ -245,11 +268,17 @@ export function Analisis() {
       setOtrosExpanded((v) => !v)
       return
     }
-    navigate('/movimientos', { state: { categoryId, period: movementPeriodFromRange(range.from, range.to) } })
+    // AN-08 del QA de Análisis: Análisis sólo habla de gasto — sin `type: 'expense'`, el drill-down
+    // a "Sin categoría" traía también ingresos y ajustes sin categoría, que ese total no incluye.
+    navigate('/movimientos', { state: { categoryId, type: 'expense', period: movementPeriodFromRange(range.from, range.to) } })
   }
 
   const isPending = spendQuery.isPending || comparisonQuery.isPending
-  const isError = spendQuery.isError
+  // AN-09/AN-12 del QA de Análisis: `incomeCents`/`prevTotalCents` con `?? 0` volvían $0 silencioso
+  // cuando su fuente fallaba (nadie miraba `.isError`) — "Neto" se leía como pérdida real y el hero
+  // "$X más que en agosto ($0,00)" como si ese mes no se hubiera gastado nada. Ahora las tres fuentes
+  // del hero entran al mismo estado de error de pantalla completa que ya tenía `spendQuery`.
+  const isError = spendQuery.isError || rangeSummaryQuery.isError || prevTotalQuery.isError
 
   return (
     <div className="flex flex-col gap-4">
@@ -283,7 +312,13 @@ export function Analisis() {
 
       {isError ? (
         <Panel className="px-panel py-10">
-          <ErrorState onRetry={() => spendQuery.refetch()} />
+          <ErrorState
+            onRetry={() => {
+              spendQuery.refetch()
+              rangeSummaryQuery.refetch()
+              prevTotalQuery.refetch()
+            }}
+          />
         </Panel>
       ) : isPending ? (
         <div className="flex flex-col gap-4">
@@ -313,7 +348,7 @@ export function Analisis() {
                 {changePct != null && (
                   <Badge variant={changePct > 0 ? 'red' : 'soft'} className="tnum">
                     {changePct > 0 ? '+' : '−'}
-                    {Math.abs(changePct).toFixed(1)}%
+                    {Math.abs(changePct).toFixed(1)}%{showPorDia ? ' por día' : ''}
                   </Badge>
                 )}
               </div>
@@ -427,6 +462,15 @@ export function Analisis() {
                   <p className="eyebrow">Promedio mensual por categoría</p>
                   {promedioMesesLabel && <span className="text-[11.5px] text-fg-muted">{promedioMesesLabel}</span>}
                 </div>
+                {/* AN-06 del QA de Análisis: la tabla se queda en mes calendario a propósito (mismo
+                    motivo que `useCategoryMonthlySeries` — es una tendencia, no el período elegido),
+                    pero con un ciclo quincenal/semanal eso ya no es obvio por el nombre del mes solo
+                    — se aclara para que no se lea como si cerrara con el donut de al lado. */}
+                {cycleConfig.kind !== 'monthly' && (
+                  <p className="mt-1 text-[11.5px] text-fg-muted">
+                    Por mes calendario completo, no por tu {cycleConfig.kind === 'biweekly' ? 'quincena' : 'semana'}.
+                  </p>
+                )}
                 {monthlySeriesQuery.isError ? (
                   <ErrorState onRetry={() => monthlySeriesQuery.refetch()} className="mt-4" />
                 ) : monthlySeriesQuery.isPending ? (
@@ -440,7 +484,9 @@ export function Analisis() {
                 ) : (
                   <div className="mt-3.5">
                     <div className="flex items-center gap-3 border-b border-divider pb-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
-                      <span className="min-w-0 flex-1">Categoría</span>
+                      {/* AN-04: oculta debajo de `sm`, donde `PromedioRow` ya baja el nombre a su
+                          propia línea — dejarla visible pisaba "Promedio" al lado (el bug original). */}
+                      <span className="hidden min-w-0 flex-1 sm:block">Categoría</span>
                       <span className="w-20 shrink-0 text-right">Promedio</span>
                       <span className="w-20 shrink-0 text-right">{anchorMonthLabel}</span>
                       <span className="w-12 shrink-0 text-right">Desvío</span>
@@ -462,15 +508,15 @@ export function Analisis() {
                           type="button"
                           onClick={() => setPromedioOtrosExpanded((v) => !v)}
                           aria-expanded={promedioOtrosExpanded}
-                          className="flex w-full items-center gap-3 border-b border-divider py-2.5 text-left last:border-b-0"
+                          className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-divider py-2.5 text-left last:border-b-0"
                         >
-                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:flex-1">
                             <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
                             <span className="truncate text-[13px] text-fg-muted">
                               Otros {promedioRest.length} categoría{promedioRest.length === 1 ? '' : 's'}
                             </span>
                           </span>
-                          <Money cents={promedioRestAvgCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
+                          <Money cents={promedioRestAvgCents} tone="dim" size="row" className="ml-auto w-20 shrink-0 justify-end sm:ml-0" />
                           <Money cents={promedioRestNowCents} tone="dim" size="row" className="w-20 shrink-0 justify-end" />
                           <span className="flex w-12 shrink-0 items-center justify-end">
                             <ChevronRight
@@ -505,34 +551,46 @@ export function Analisis() {
             <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
               <Panel className="order-2 p-panel lg:order-none">
                 <p className="eyebrow">Fijo vs. variable</p>
-                <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
-                  <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
-                  <div className="h-full bg-accent" style={{ width: `${fijoVsVariable.variablePct}%` }} />
-                </div>
-                <div className="mt-4 flex flex-col gap-4">
-                  <div className="flex items-start gap-2.5">
-                    <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-fg" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] text-fg-secondary">Ya estaba comprometido</p>
-                      <Money cents={fijoVsVariable.committedCents} size="figure" className="mt-0.5" />
-                      <p className="mt-0.5 text-[11.5px] text-fg-muted">{fijoVsVariable.committedPct}% del gasto · fijos y cuotas</p>
+                {fijoVsVariableError ? (
+                  <ErrorState
+                    onRetry={() => {
+                      classificationQuery.refetch()
+                      refetchCommittedIds()
+                    }}
+                    className="mt-4"
+                  />
+                ) : (
+                  <>
+                    <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
+                      <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
+                      <div className="h-full bg-accent" style={{ width: `${fijoVsVariable.variablePct}%` }} />
                     </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] text-fg-secondary">Decidiste vos</p>
-                      <Money cents={fijoVsVariable.variableCents} tone="accent" size="figure" className="mt-0.5" />
-                      <p className="mt-0.5 text-[11.5px] text-fg-muted">
-                        {fijoVsVariable.variablePct}% del gasto ·{' '}
-                        <Money cents={Math.round(fijoVsVariable.variableCents / days)} tone="dim" size="inline" /> por día
-                      </p>
+                    <div className="mt-4 flex flex-col gap-4">
+                      <div className="flex items-start gap-2.5">
+                        <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-fg" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12.5px] text-fg-secondary">Ya estaba comprometido</p>
+                          <Money cents={fijoVsVariable.committedCents} size="figure" className="mt-0.5" />
+                          <p className="mt-0.5 text-[11.5px] text-fg-muted">{fijoVsVariable.committedPct}% del gasto · fijos y cuotas</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12.5px] text-fg-secondary">Decidiste vos</p>
+                          <Money cents={fijoVsVariable.variableCents} tone="accent" size="figure" className="mt-0.5" />
+                          <p className="mt-0.5 text-[11.5px] text-fg-muted">
+                            {fijoVsVariable.variablePct}% del gasto ·{' '}
+                            <Money cents={Math.round(fijoVsVariable.variableCents / days)} tone="dim" size="inline" /> por día
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <p className="mt-4 text-[11.5px] leading-relaxed text-fg-muted">
-                  De cada $100 que gastaste, ${fijoVsVariable.committedPct} ya estaban decididos antes de que arrancara el período.
-                </p>
+                    <p className="mt-4 text-[11.5px] leading-relaxed text-fg-muted">
+                      De cada $100 que gastaste, ${fijoVsVariable.committedPct} ya estaban decididos antes de que arrancara el período.
+                    </p>
+                  </>
+                )}
               </Panel>
 
               <Panel className="order-3 p-panel lg:order-none">

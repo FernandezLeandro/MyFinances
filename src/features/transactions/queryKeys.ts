@@ -19,6 +19,13 @@ export const TRANSACTION_QUERY_KEYS = [
   'projected-balance-range',
   // El saldo derivado por cuenta suma exactamente estas mismas filas.
   'account-balances',
+  // AN-07 del QA de Análisis: con Análisis abierto, un movimiento nuevo actualizaba hero, donut y
+  // "Fijo vs. variable" al instante (ya invalidados por `spend-by-category`/`transactions`), pero
+  // "Top categorías vs. período anterior" y "Promedio mensual por categoría" quedaban viejos hasta
+  // recargar — faltaban sus queries acá.
+  'top-categories-comparison',
+  'category-monthly-series',
+  'previous-period-total',
 ] as const
 
 export type TransactionQueryKey = (typeof TRANSACTION_QUERY_KEYS)[number]

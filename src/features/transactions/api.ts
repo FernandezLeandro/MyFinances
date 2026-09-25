@@ -56,11 +56,14 @@ export function useTransactions(filters: TransactionFilters) {
         const realIds = filters.categoryIds.filter((id) => id !== UNCATEGORIZED_ID)
         const wantsUncategorized = filters.categoryIds.includes(UNCATEGORIZED_ID)
         // `.in()` no matchea NULL — "sin categoría" (category_id IS NULL) necesita su propia rama,
-        // mismo patrón que `accountIds`/`UNASSIGNED_ACCOUNT_ID` un poco más abajo.
+        // mismo patrón que `accountIds`/`UNASSIGNED_ACCOUNT_ID` un poco más abajo. Excluye
+        // `is_adjustment` (AN-08 del QA de Análisis): un ajuste de saldo siempre tiene
+        // `category_id null`, pero es "Ajuste de saldo", no un gasto sin categoría — mismo criterio
+        // que ya usa la rama "Sin categoría" de `v_spend_by_category`.
         if (wantsUncategorized && realIds.length) {
-          query = query.or(`category_id.is.null,category_id.in.(${realIds.join(',')})`)
+          query = query.or(`and(category_id.is.null,is_adjustment.is.false),category_id.in.(${realIds.join(',')})`)
         } else if (wantsUncategorized) {
-          query = query.is('category_id', null)
+          query = query.is('category_id', null).eq('is_adjustment', false)
         } else {
           query = query.in('category_id', realIds)
         }

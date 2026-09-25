@@ -65,7 +65,12 @@ export function PeriodSelector({
           <Input
             type="date"
             value={value.from}
-            onChange={(e) => onChange({ ...value, from: e.target.value })}
+            // AN-03 del QA de Análisis: borrar la fecha (campo vacío) dejaba `period.from === ''`,
+            // que `comparisonRange`/`format()` no sabían manejar y rompía la pantalla entera. Se
+            // ignora el vacío acá (mismo criterio que "nada pasa hasta fecha válida" del hallazgo);
+            // `max` es una segunda defensa nativa contra un rango invertido.
+            onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })}
+            max={value.to || undefined}
             className="h-9 min-w-0 flex-1 text-[13px]"
           />
           <span aria-hidden className="shrink-0 text-fg-muted">
@@ -74,7 +79,8 @@ export function PeriodSelector({
           <Input
             type="date"
             value={value.to}
-            onChange={(e) => onChange({ ...value, to: e.target.value })}
+            onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })}
+            min={value.from || undefined}
             className="h-9 min-w-0 flex-1 text-[13px]"
           />
         </div>
