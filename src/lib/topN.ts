@@ -24,3 +24,14 @@ export function splitTopN<T extends { cents: number }>(items: T[], n: number): S
   const rest = items.slice(n)
   return { top, rest, restCents: rest.reduce((sum, item) => sum + item.cents, 0) }
 }
+
+/**
+ * Igual que `splitTopN`, pero corta por peso en vez de por cantidad: a `rest` va lo que pesa menos
+ * que `minShare` del total. Nunca corta antes de `minCount`, así lo que otra vista muestra como
+ * top N sigue suelto acá. Misma regla `n + 1`: una sola chica no se agrupa.
+ */
+export function splitByMinShare<T extends { cents: number }>(items: T[], minShare: number, minCount: number): SplitTopN<T> {
+  const total = items.reduce((sum, item) => sum + item.cents, 0)
+  const cut = items.findIndex((item) => item.cents < total * minShare)
+  return splitTopN(items, cut === -1 ? items.length : Math.max(cut, minCount))
+}
