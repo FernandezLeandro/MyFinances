@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
 import { X } from 'lucide-react'
@@ -9,14 +9,17 @@ interface DialogProps {
   open: boolean
   onClose: () => void
   title: string
+  /** Línea chica bajo el título (ej. el tipo fijo de una categoría en su editor). */
+  subtitle?: ReactNode
   children: ReactNode
   footer?: ReactNode
   /** El footer ocupa todo el ancho y pone su propio padding — para la barra inferior de los
    *  diálogos-herramienta (`DialogBottomBar`), que lleva fondo propio a sangre completa. */
   footerBleed?: boolean
-  /** `sm` (420px) para las confirmaciones cortas. Va acá y no por `className`: `cn()` no dedupea,
+  /** `sm` (420px) para las confirmaciones cortas, `lg` (540px) para el editor de categoría (grillas
+   *  de color e ícono). Va acá y no por `className`: `cn()` no dedupea,
    *  así que dos anchos `sm:w-[…]` competirían con un ganador impredecible. */
-  size?: 'md' | 'sm'
+  size?: 'lg' | 'md' | 'sm'
   /** El diálogo muestra su propio estado de "guardando" (un botón con spinner): apaga el velo con
    *  spinner que tapa todo mientras hay una mutación en curso. Sólo para los que lo resuelven
    *  adentro — el resto sigue con el velo, que es lo que evita un doble envío. */
@@ -52,8 +55,11 @@ function unlockBodyScroll() {
  * scrolleando la página de atrás en vez del contenido — el bug reportado en los diálogos largos y en
  * los formularios largos.
  */
-export function Dialog({ open, onClose, title, children, footer, footerBleed, size = 'md', ownsPending, className }: DialogProps) {
+export function Dialog({ open, onClose, title, subtitle, children, footer, footerBleed, size = 'md', ownsPending, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  // Id propio y no uno fijo: con un diálogo abierto sobre otro (el sheet de colores del editor de
+  // categoría) un id repetido haría que los dos se anuncien con el mismo título.
+  const titleId = useId()
   // Un <dialog> abierto con showModal() vive en el "top layer" del navegador, siempre por
   // encima de cualquier overlay position:fixed normal sin importar su z-index. Por eso el
   // indicador de "guardando" tiene que vivir adentro del propio dialog, no como capa aparte.
@@ -122,7 +128,7 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, si
       onClose={onClose}
       onCancel={handleCancel}
       onKeyDown={handleKeyDown}
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
       className={cn(
         // Posicionamiento EXPLÍCITO, sin depender de los defaults que cada navegador le da a un
         // `dialog:modal`. La versión anterior centraba/anclaba con `margin:auto`, que sólo funciona
@@ -142,15 +148,20 @@ export function Dialog({ open, onClose, title, children, footer, footerBleed, si
         'fixed inset-x-0 top-auto bottom-3 z-50 m-0 w-full max-w-none overflow-hidden rounded-panel bg-surface p-0 text-fg',
         'overscroll-contain animate-sheet-in backdrop:bg-black/75',
         'sm:inset-0 sm:m-auto sm:h-fit sm:rounded-panel',
-        size === 'sm' ? 'sm:w-[min(26.25rem,calc(100vw-2rem))]' : 'sm:w-[min(30rem,calc(100vw-2rem))]',
+        size === 'sm' && 'sm:w-[min(26.25rem,calc(100vw-2rem))]',
+        size === 'md' && 'sm:w-[min(30rem,calc(100vw-2rem))]',
+        size === 'lg' && 'sm:w-[min(33.75rem,calc(100vw-2rem))]',
         className,
       )}
     >
       <div className="relative flex max-h-[85vh] flex-col sm:max-h-[80vh]">
         <div className="flex shrink-0 items-center justify-between gap-4 px-panel pt-6 pb-2">
-          <h2 id="dialog-title" className="font-display text-lg font-semibold">
-            {title}
-          </h2>
+          <div className="min-w-0">
+            <h2 id={titleId} className="font-display text-lg font-semibold">
+              {title}
+            </h2>
+            {subtitle && <div className="mt-0.5 text-[13px] text-fg-secondary">{subtitle}</div>}
+          </div>
           <button
             type="button"
             onClick={onClose}

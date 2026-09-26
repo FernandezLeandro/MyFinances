@@ -76,6 +76,7 @@ o administración). Fuente de verdad de qué habilita cada plan es `src/features
 - **vite-plugin-pwa** para manifest y service worker.
 - **Cloudflare Pages** para deploy, **GitHub Actions** para CI, Node 22 (`.nvmrc`).
 
+Para los estilos visuales, podemos optar por usar librerias de diseño tanto para animaciones como iconos, las mas modernas o utilizadas por los desarrolladores, no hacer todo manualmente si se puede usar una libreria.
 Sin backend propio: SPA habla directo con Supabase y **toda seguridad vive en políticas RLS de
 Postgres**. Ninguna tabla queda sin RLS.
 

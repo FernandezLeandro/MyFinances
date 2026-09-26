@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Archive, Pencil, Trash2, Undo2 } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { ChevronRight, Plus } from 'lucide-react'
+import { Panel } from '@/components/ui/Panel'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { SearchInput } from '@/components/ui/SearchInput'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { CATEGORY_COLORS } from '@/lib/categoryColors'
 import {
   useCategories,
   useCategoryUsageCounts,
@@ -13,288 +15,199 @@ import {
   useUpdateCategory,
   type Category,
   type CategoryKind,
-  type CategoryUsage,
 } from '@/features/categories/api'
-import { CategoryRowEditor } from '@/features/categories/CategoryRowEditor'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { CategoryEditorDialog } from '@/features/categories/CategoryEditorDialog'
 import { ArchiveCategoryDialog, DeleteCategoryDialog } from '@/features/categories/CategoryConfirmDialogs'
+import { filterCategories, tabCounts, type CategoryInput, type CategoryTab } from '@/features/categories/list'
 
-type EditingTarget = string | 'new-expense' | 'new-income' | null
+type EditorTarget = { kind: CategoryKind; category?: Category } | null
 
-function CategoryListRow({
-  category,
-  usage,
-  onEdit,
-  onArchive,
-  onReactivate,
-  onDelete,
-}: {
-  category: Category
-  usage: CategoryUsage | undefined
-  onEdit: () => void
-  onArchive: () => void
-  onReactivate: () => void
-  onDelete: () => void
-}) {
-  const usageCount = usage?.total ?? 0
-
-  return (
-    <div className="flex items-center gap-2.5 px-panel py-2.5">
-      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13.5px] text-fg">{category.name}</p>
-        <p className="mt-0.5 text-[11px] text-fg-muted">
-          {usageCount} movimiento{usageCount === 1 ? '' : 's'}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`Editar ${category.name}`}
-        className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
-      >
-        <Pencil className="size-3.5" strokeWidth={1.3} aria-hidden />
-      </button>
-      {category.is_archived ? (
-        <>
-          <button
-            type="button"
-            onClick={onReactivate}
-            aria-label={`Reactivar ${category.name}`}
-            className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
-          >
-            <Undo2 className="size-3.5" strokeWidth={1.3} aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            aria-label={`Eliminar ${category.name}`}
-            className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
-          >
-            <Trash2 className="size-3.5" strokeWidth={1.3} aria-hidden />
-          </button>
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={onArchive}
-          aria-label={`Archivar ${category.name}`}
-          className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-negative"
-        >
-          <Archive className="size-3.5" strokeWidth={1.3} aria-hidden />
-        </button>
-      )}
-    </div>
-  )
-}
+const TAB_LABELS: Record<CategoryTab, string> = { expense: 'Gasto', income: 'Ingreso', archived: 'Archivadas' }
 
 /**
- * Pantalla de categorías de la cuenta (`/categorias`) — antes vivía en un diálogo (`CategoryManagerDialog`,
- * ahora borrado); pasó a pantalla propia para que archivar/eliminar tengan lugar para explicarse sin
- * apretar un modal sobre otro. Se accede desde Ajustes y desde "Categorías" en Movimientos.
+ * Pantalla de categorías de la cuenta (`/categorias`), rediseño «Pantalla C» (2026-09-26,
+ * `design.local/categorias/README.md`): un solo panel con pestañas Gasto · Ingreso · Archivadas
+ * (con la cantidad de categorías de cada una, no de movimientos) y un buscador. Toda la fila abre el
+ * editor modal (`CategoryEditorDialog`), que es donde se archiva y, desde Archivadas, se elimina.
  *
- * Dos paneles por tipo (gasto/ingreso) más Archivadas, en vez de una lista mezclada con la etiqueta
- * del tipo repetida en cada fila (arquetipo 4, 19b). El alta y la edición comparten la misma
- * fila-editor (`CategoryRowEditor`, 20c).
- *
- * Archivar y eliminar son dos acciones distintas a propósito (ver conversación con Lean,
- * plan.md "al-eliminar-una-categoria"): archivar es reversible y no toca los registros existentes
- * (`useSetCategoryArchived`); eliminar es definitivo y sólo está disponible desde Archivadas — sus
- * movimientos/fijos/compras quedan como "Sin categoría" (`useDeleteCategory`, FKs `on delete set
- * null`). Archivar confirma sólo si hay registros asociados; eliminar confirma siempre.
+ * Archivar y eliminar son dos acciones distintas a propósito: archivar es reversible y no toca los
+ * registros existentes (`useSetCategoryArchived`); eliminar es definitivo y sólo está disponible
+ * para una archivada — sus movimientos/fijos/compras quedan como "Sin categoría" (`useDeleteCategory`,
+ * FKs `on delete set null`). Archivar confirma sólo si hay registros asociados; eliminar, siempre.
  */
 export function Categorias() {
-  const { data: categories, isPending } = useCategories(true)
+  const { data: categories, isPending, isError, refetch } = useCategories(true)
   const { data: usage } = useCategoryUsageCounts()
   const createCategory = useCreateCategory()
   const updateCategory = useUpdateCategory()
   const setArchived = useSetCategoryArchived()
   const deleteCategory = useDeleteCategory()
 
-  const [editingTarget, setEditingTarget] = useState<EditingTarget>(null)
-  const [draftName, setDraftName] = useState('')
-  const [draftColor, setDraftColor] = useState<string>(CATEGORY_COLORS[0].hex)
+  const [tab, setTab] = useState<CategoryTab>('expense')
+  const [query, setQuery] = useState('')
+  const [editor, setEditor] = useState<EditorTarget>(null)
   const [archiveTarget, setArchiveTarget] = useState<Category | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
 
-  const expenseCategories = useMemo(
-    () => (categories ?? []).filter((c) => c.kind === 'expense' && !c.is_archived),
-    [categories],
-  )
-  const incomeCategories = useMemo(
-    () => (categories ?? []).filter((c) => c.kind === 'income' && !c.is_archived),
-    [categories],
-  )
-  const archivedCategories = useMemo(() => (categories ?? []).filter((c) => c.is_archived), [categories])
+  const counts = useMemo(() => tabCounts(categories ?? []), [categories])
+  const visible = useMemo(() => filterCategories(categories ?? [], tab, query), [categories, tab, query])
 
-  function startEdit(c: Category) {
-    setEditingTarget(c.id)
-    setDraftName(c.name)
-    setDraftColor(c.color)
+  // El tipo no se edita (HO-15): al crear sale de la pestaña activa, al editar queda fijo —
+  // `useUpdateCategory` ni siquiera acepta `kind`.
+  function handleSave(input: CategoryInput) {
+    if (!editor) return
+    const close = { onSuccess: () => setEditor(null) }
+    if (editor.category) updateCategory.mutate({ id: editor.category.id, ...input }, close)
+    else createCategory.mutate({ ...input, kind: editor.kind }, close)
   }
 
-  function startCreate(kind: CategoryKind) {
-    setEditingTarget(kind === 'expense' ? 'new-expense' : 'new-income')
-    setDraftName('')
-    setDraftColor(CATEGORY_COLORS[0].hex)
+  // Sin registros asociados, archivar no tiene nada que explicar — se ahorra la confirmación.
+  function handleArchive(c: Category) {
+    setEditor(null)
+    if ((usage?.get(c.id)?.total ?? 0) === 0) setArchived.mutate({ id: c.id, isArchived: true })
+    else setArchiveTarget(c)
   }
 
-  function cancelEdit() {
-    setEditingTarget(null)
+  function handleReactivate(c: Category) {
+    setArchived.mutate({ id: c.id, isArchived: false }, { onSuccess: () => setEditor(null) })
   }
 
-  // El tipo no se edita (HO-15): al crear sale del panel donde se apretó "+ Nueva", al editar queda
-  // fijo — `useUpdateCategory` ni siquiera acepta `kind`.
-  async function saveEdit() {
-    const trimmed = draftName.trim()
-    if (!trimmed) return
-    if (editingTarget === 'new-expense' || editingTarget === 'new-income') {
-      const kind: CategoryKind = editingTarget === 'new-expense' ? 'expense' : 'income'
-      await createCategory.mutateAsync({ name: trimmed, kind, color: draftColor })
-    } else if (editingTarget) {
-      await updateCategory.mutateAsync({ id: editingTarget, name: trimmed, color: draftColor })
-    }
-    setEditingTarget(null)
+  function handleDelete(c: Category) {
+    setEditor(null)
+    setDeleteTarget(c)
   }
 
-  const isSaving = createCategory.isPending || updateCategory.isPending
-
-  // Sin registros asociados, archivar no tiene nada que explicar — se ahorra el modal.
-  function handleArchiveClick(c: Category) {
-    if ((usage?.get(c.id)?.total ?? 0) === 0) {
-      setArchived.mutate({ id: c.id, isArchived: true })
-    } else {
-      setArchiveTarget(c)
-    }
-  }
-
-  function renderEditorRow(kind: CategoryKind, categoryId?: string) {
-    return (
-      <CategoryRowEditor
-        name={draftName}
-        onNameChange={setDraftName}
-        color={draftColor}
-        onColorChange={setDraftColor}
-        onCancel={cancelEdit}
-        onSave={saveEdit}
-        saving={isSaving}
-        key={categoryId ?? `new-${kind}`}
-      />
-    )
-  }
-
-  function renderList(kindCategories: Category[], kind: CategoryKind) {
-    const newTarget = kind === 'expense' ? 'new-expense' : 'new-income'
-    return (
-      <div className="flex flex-col divide-y divide-fill-subtle">
-        {editingTarget === newTarget && renderEditorRow(kind)}
-        {kindCategories.length === 0 && editingTarget !== newTarget ? (
-          <div className="px-panel pb-5">
-            <EmptyState glyph="▤" title={`Sin categorías de ${kind === 'expense' ? 'gasto' : 'ingreso'}`} />
-          </div>
-        ) : (
-          kindCategories.map((c) =>
-            editingTarget === c.id ? (
-              <div key={c.id}>{renderEditorRow(kind, c.id)}</div>
-            ) : (
-              <CategoryListRow
-                key={c.id}
-                category={c}
-                usage={usage?.get(c.id)}
-                onEdit={() => startEdit(c)}
-                onArchive={() => handleArchiveClick(c)}
-                onReactivate={() => setArchived.mutate({ id: c.id, isArchived: false })}
-                onDelete={() => setDeleteTarget(c)}
-              />
-            ),
-          )
-        )}
-      </div>
-    )
-  }
+  const newKind: CategoryKind | null = tab === 'archived' ? null : tab
+  const newLabel = tab === 'income' ? 'Nueva de ingreso' : 'Nueva de gasto'
 
   return (
-    <div className="flex flex-col gap-8">
-      <header>
-        <p className="eyebrow">Tu cuenta</p>
-        <h1 className="mt-2 font-display text-figure font-semibold">Categorías</h1>
-        <p className="mt-2 max-w-md text-[13px] text-fg-muted">
-          Archivar una no borra sus movimientos. El tipo se elige al crearla y ya no cambia.
-        </p>
-      </header>
+    <div className="flex flex-col gap-5 sm:gap-7">
+      <div className="flex items-end gap-4">
+        <header className="min-w-0 flex-1">
+          <p className="eyebrow">Tu cuenta</p>
+          <h1 className="mt-2 font-display text-figure font-semibold">Categorías</h1>
+          <p className="mt-2 max-w-[620px] text-[13.5px] text-fg-secondary max-sm:hidden">
+            Archivar una no borra sus movimientos. El tipo se elige al crearla y ya no cambia.
+          </p>
+        </header>
+        {newKind && (
+          <button
+            type="button"
+            onClick={() => setEditor({ kind: newKind })}
+            aria-label={newLabel}
+            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-[14px] bg-accent text-sm font-semibold text-on-accent transition-colors hover:bg-accent-hover max-sm:w-11 sm:pr-[18px] sm:pl-3.5"
+          >
+            <Plus className="size-5" strokeWidth={2} aria-hidden />
+            <span className="max-sm:hidden">{newLabel}</span>
+          </button>
+        )}
+      </div>
 
-      {isPending ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Panel className="p-panel">
-            <Skeleton className="h-40 w-full" />
-          </Panel>
-          <Panel className="p-panel">
-            <Skeleton className="h-40 w-full" />
-          </Panel>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel>
-              <PanelHeader
-                title="De gasto"
-                action={
-                  <button
-                    type="button"
-                    onClick={() => startCreate('expense')}
-                    className="shrink-0 text-[12px] font-semibold text-accent hover:opacity-80"
-                  >
-                    + Nueva
-                  </button>
-                }
-              />
-              {renderList(expenseCategories, 'expense')}
-            </Panel>
-
-            <Panel>
-              <PanelHeader
-                title="De ingreso"
-                action={
-                  <button
-                    type="button"
-                    onClick={() => startCreate('income')}
-                    className="shrink-0 text-[12px] font-semibold text-accent hover:opacity-80"
-                  >
-                    + Nueva
-                  </button>
-                }
-              />
-              {renderList(incomeCategories, 'income')}
-            </Panel>
+      <Panel className="flex flex-col px-3 pt-3.5 pb-1.5 sm:px-6 sm:pt-[18px] sm:pb-3">
+        <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between sm:pb-2.5">
+          <SegmentedToggle
+            variant="tabs"
+            value={tab}
+            onChange={setTab}
+            options={(['expense', 'income', 'archived'] as const).map((t) => ({
+              value: t,
+              label: (
+                <>
+                  {TAB_LABELS[t]}
+                  <span className="tnum text-[12px] font-medium text-fg-muted">{counts[t]}</span>
+                </>
+              ),
+            }))}
+          />
+          <div className="sm:w-[300px]">
+            <SearchInput size="lg" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar categoría" aria-label="Buscar categoría" />
           </div>
+        </div>
 
-          {archivedCategories.length > 0 && (
-            <Panel>
-              <PanelHeader title="Archivadas" hint="Sus movimientos siguen intactos" />
-              <div className="flex flex-col divide-y divide-fill-subtle pb-2">
-                {archivedCategories.map((c) =>
-                  editingTarget === c.id ? (
-                    <div key={c.id}>{renderEditorRow(c.kind, c.id)}</div>
-                  ) : (
-                    <CategoryListRow
-                      key={c.id}
-                      category={c}
-                      usage={usage?.get(c.id)}
-                      onEdit={() => startEdit(c)}
-                      onArchive={() => handleArchiveClick(c)}
-                      onReactivate={() => setArchived.mutate({ id: c.id, isArchived: false })}
-                      onDelete={() => setDeleteTarget(c)}
-                    />
-                  ),
+        {tab === 'archived' && (
+          <p className="px-1.5 pt-1 pb-2 text-[13px] text-fg-secondary sm:pb-2.5">
+            No se ofrecen al cargar movimientos. Sus movimientos siguen intactos.
+          </p>
+        )}
+
+        {isError ? (
+          <ErrorState onRetry={() => refetch()} />
+        ) : isPending ? (
+          <div className="flex flex-col gap-2 py-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <EmptyState
+            glyph="▤"
+            title={
+              query.trim()
+                ? `Nada con «${query.trim()}»`
+                : tab === 'archived'
+                  ? 'No hay archivadas'
+                  : `Sin categorías de ${tab === 'expense' ? 'gasto' : 'ingreso'}`
+            }
+          />
+        ) : (
+          <ul className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+            {visible.map((c) => (
+              <li key={c.id} className="flex h-14 items-center gap-3 border-b border-border">
+                {c.is_archived ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditor({ kind: c.kind, category: c })}
+                      className="flex h-full min-w-0 flex-1 items-center gap-3 pl-1.5 text-left"
+                    >
+                      <CategoryChip color={c.color} icon={c.icon} archived />
+                      <span className="truncate text-[14px] text-fg-secondary">{c.name}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReactivate(c)}
+                      disabled={setArchived.isPending}
+                      className="h-9 shrink-0 rounded-control border border-border-strong px-3 text-[13px] font-semibold text-fg transition-colors hover:bg-fill-subtle disabled:opacity-50"
+                    >
+                      Reactivar
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditor({ kind: c.kind, category: c })}
+                    className="flex h-full min-w-0 flex-1 items-center gap-3 px-1.5 text-left text-[14px] font-medium text-fg"
+                  >
+                    <CategoryChip color={c.color} icon={c.icon} />
+                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                    <ChevronRight className="size-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+                  </button>
                 )}
-              </div>
-            </Panel>
-          )}
-        </>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {editor && (
+        <CategoryEditorDialog
+          key={editor.category?.id ?? `new-${editor.kind}`}
+          open
+          onClose={() => setEditor(null)}
+          kind={editor.kind}
+          category={editor.category}
+          saving={createCategory.isPending || updateCategory.isPending || setArchived.isPending}
+          onSave={handleSave}
+          onArchive={editor.category && !editor.category.is_archived ? () => handleArchive(editor.category!) : undefined}
+          onReactivate={editor.category?.is_archived ? () => handleReactivate(editor.category!) : undefined}
+          onDelete={editor.category?.is_archived ? () => handleDelete(editor.category!) : undefined}
+        />
       )}
 
       {archiveTarget && (
         <ArchiveCategoryDialog
-          open={!!archiveTarget}
+          open
           onClose={() => setArchiveTarget(null)}
           category={archiveTarget}
           usage={usage?.get(archiveTarget.id)}
@@ -305,7 +218,7 @@ export function Categorias() {
 
       {deleteTarget && (
         <DeleteCategoryDialog
-          open={!!deleteTarget}
+          open
           onClose={() => setDeleteTarget(null)}
           category={deleteTarget}
           usage={usage?.get(deleteTarget.id)}

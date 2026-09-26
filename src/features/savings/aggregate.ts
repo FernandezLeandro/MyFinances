@@ -8,10 +8,17 @@
  * el resto de la plata en MyFinances, sólo que el factor de escala ya no está fijo en 100.
  */
 import { centsFromNumeric, unitsFromNumeric } from '@/lib/money'
-import { CATEGORY_COLORS } from '@/lib/categoryColors'
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { SavingsBucket, SavingsEntry } from './api'
+
+/** Colores de las porciones de la composición, en orden de peso. Es la paleta de categorías anterior
+ *  (14, en rueda de color): cuando la de categorías pasó a 40 (`categoryColors.ts`), quedó acá tal
+ *  cual para que Ahorros no cambiara de colores — recorrer la de 40 arrancaría por los vivos. */
+export const SLICE_COLORS = [
+  '#C4402A', '#C2622E', '#B8862A', '#A6874A', '#6B8F2A', '#3B8A38', '#307E59',
+  '#1D8F7E', '#2C8396', '#2F6FB8', '#6A5BB8', '#8949A2', '#9B3B78', '#B23449',
+] as const
 
 export interface AssetNet {
   assetId: string
@@ -88,7 +95,7 @@ export function assetSlices(nets: AssetNet[], assets: Asset[], prices: Map<strin
     .map((v, i) => ({
       assetId: v.assetId,
       name: assetById.get(v.assetId)?.symbol ?? '?',
-      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length].hex,
+      color: SLICE_COLORS[i % SLICE_COLORS.length],
       cents: v.valueCents,
       pct: total > 0 ? (v.valueCents / total) * 100 : 0,
     }))

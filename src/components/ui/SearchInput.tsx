@@ -9,10 +9,13 @@ const searchClasses =
   'w-full rounded-control bg-fill-subtle pr-3.5 pl-9 text-fg placeholder:text-fg-muted ' +
   'transition-colors duration-150 outline-none hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
 
-type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>
+type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> & {
+  /** `lg` (44px) cuando va al lado de controles de 44 — el segmentado de `/categorias`. */
+  size?: 'md' | 'lg'
+}
 
 /** Campo de búsqueda con lupa — Movimientos hoy, cualquier lista filtrable a futuro. */
-export function SearchInput({ className, ...props }: SearchInputProps) {
+export function SearchInput({ className, size = 'md', ...props }: SearchInputProps) {
   return (
     <div className="relative">
       <Search
@@ -20,7 +23,11 @@ export function SearchInput({ className, ...props }: SearchInputProps) {
         strokeWidth={1.6}
         aria-hidden
       />
-      <input type="search" className={cn(searchClasses, 'h-9 text-[13px]', className)} {...props} />
+      <input
+        type="search"
+        className={cn(searchClasses, size === 'lg' ? 'h-11 text-[14px]' : 'h-9 text-[13px]', className)}
+        {...props}
+      />
     </div>
   )
 }
