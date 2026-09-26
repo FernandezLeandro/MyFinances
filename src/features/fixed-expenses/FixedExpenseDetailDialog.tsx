@@ -23,6 +23,9 @@ interface FixedExpenseDetailDialogProps {
   open: boolean
   onClose: () => void
   fixedExpense: FixedExpense
+  /** Mes (`yyyy-MM-01`) que se está mirando en Fijos. Una bolsa lista sólo las cargas de ese mes;
+   *  un fijo de una vez sigue mostrando su historial completo. */
+  period: string
 }
 
 /** Un período (mes) del historial, con sus cargas agrupadas — sólo tiene más de una fila cuando es
@@ -57,7 +60,7 @@ function groupByPeriod(payments: FixedExpensePayment[]): PeriodGroup[] {
  *  Un fijo de una sola vez tiene a lo sumo un pago por mes — se lista plano, sin agrupar. Una bolsa
  *  puede tener varias cargas en el mismo mes, así que el historial se agrupa por período con un
  *  total por mes y cada carga individual debajo, con su propio botón para quitarla. */
-export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedExpenseDetailDialogProps) {
+export function FixedExpenseDetailDialog({ open, onClose, fixedExpense, period }: FixedExpenseDetailDialogProps) {
   const [formOpen, setFormOpen] = useState(false)
   const { data: payments, isPending } = useFixedExpensePaymentHistory(fixedExpense.id)
   const unmarkPayment = useUnmarkWithLegacyConfirm()
@@ -72,7 +75,12 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
   )
   const removeSaving = useRemoveFixedExpenseSaving()
 
-  const groups = useMemo(() => groupByPeriod(payments ?? []), [payments])
+  // Una bolsa sólo muestra las cargas del mes mirado en Fijos, no las de otros meses (pedido de Lean).
+  const groups = useMemo(
+    () => groupByPeriod((payments ?? []).filter((p) => !fixedExpense.is_recurring || p.period === period)),
+    [payments, fixedExpense.is_recurring, period],
+  )
+  const periodLabel = format(parseISO(period), 'MMMM yyyy', { locale: es })
   const savings = useMemo(
     () => (currentMonthSavings ?? []).filter((s) => s.fixed_expense_id === fixedExpense.id),
     [currentMonthSavings, fixedExpense.id],
@@ -116,7 +124,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
           )}
         </div>
 
-        <p className="eyebrow mb-3">Historial de pagos</p>
+        <p className="eyebrow mb-3">{fixedExpense.is_recurring ? `Cargas de ${periodLabel}` : 'Historial de pagos'}</p>
         {isPending ? (
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
@@ -124,7 +132,10 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense }: FixedE
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <EmptyState glyph="◷" title="Todavía no registraste pagos de este fijo" />
+          <EmptyState
+            glyph="◷"
+            title={fixedExpense.is_recurring ? `Sin cargas en ${periodLabel}` : 'Todavía no registraste pagos de este fijo'}
+          />
         ) : fixedExpense.is_recurring ? (
           <ul className="-mx-panel flex max-h-[50vh] flex-col overflow-y-auto">
             {groups.map((group) => (

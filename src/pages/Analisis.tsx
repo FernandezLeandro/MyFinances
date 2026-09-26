@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { cn } from '@/lib/cn'
 import { useChartColors } from '@/lib/chartColors'
-import { splitTopN } from '@/lib/topN'
+import { splitByMinShare, splitTopN } from '@/lib/topN'
 import { cycleContaining, cycleLabel } from '@/lib/cycle'
 import { useCycleConfig } from '@/lib/useCycle'
 import { useRangeSummary, useSpendByCategory } from '@/features/transactions/api'
@@ -33,6 +33,8 @@ import { TopCategoriesComparison } from '@/features/analytics/TopCategoriesCompa
 /** Sentinel para la porción "Otros" del donut — nunca choca con un id real (son uuid). */
 const OTROS_ID = '__otros__'
 const TOP_CATEGORIES_N = 6
+/** Bajo este peso una categoría va a "Otras" en el donut — a 196px, 3% es un arco de ~10°, todavía tocable. */
+const DONUT_MIN_SHARE = 0.03
 
 /** Una de las cifras chicas del hero (Ingresos / Neto / Por día). `figure` (no `compact`) para que
  *  no se sientan chicas al lado del hero — mismo tamaño que usan los rail de Fijos/Fijo-vs-variable
@@ -219,13 +221,15 @@ export function Analisis() {
   // categorías `rest` queda vacío (ver la regla `n + 1` de `splitTopN`) y todo se muestra igual
   // que antes.
   const { top: topCategories, rest: restCategories, restCents } = useMemo(() => splitTopN(spend ?? [], TOP_CATEGORIES_N), [spend])
-  const donutData = useMemo(
-    () =>
-      restCategories.length > 0
-        ? [...topCategories, { categoryId: OTROS_ID, categoryName: 'Otros', color: chartColors.fgMuted, cents: restCents }]
-        : topCategories,
-    [topCategories, restCategories, restCents, chartColors.fgMuted],
-  )
+  // El donut corta distinto que la leyenda: cada categoría con peso propio lleva su porción, y sólo
+  // las de menos de 3% se juntan en "Otras". Nunca corta antes del top de la leyenda, así las chicas
+  // son siempre un subconjunto de su "Otros" y el clic en "Otras" despliega ahí.
+  const donutData = useMemo(() => {
+    const { top, rest, restCents: smallCents } = splitByMinShare(spend ?? [], DONUT_MIN_SHARE, TOP_CATEGORIES_N)
+    return rest.length > 0
+      ? [...top, { categoryId: OTROS_ID, categoryName: 'Otras', color: chartColors.fgMuted, cents: smallCents }]
+      : top
+  }, [spend, chartColors.fgMuted])
 
   // Mismo corte que el donut — `promedioMensual.rows` ya viene ordenado desc por `nowCents`
   // (ver `summarizeCategoryMonthlyAverages`), así que `splitTopN` corta en el mismo punto que la
@@ -422,7 +426,7 @@ export function Analisis() {
                         >
                           <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
                           <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg-muted">
-                            Otros {restCategories.length} categoría{restCategories.length === 1 ? '' : 's'}
+                            Ver {restCategories.length} categoría{restCategories.length === 1 ? '' : 's'} más
                           </span>
                           <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">
                             {totalCents > 0 ? Math.round((restCents / totalCents) * 100) : 0}%

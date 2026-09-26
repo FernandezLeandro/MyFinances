@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, getDate, parseISO } from 'date-fns'
+import { format, getDate, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Check, Pause, Plus } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
@@ -247,7 +247,8 @@ export function Fijos() {
   const { cycle, current, isCurrent, goToPrev, goToNext, config } = useCycle()
   const [formOpen, setFormOpen] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<FixedExpenseStatus | null>(null)
-  const [detailFixed, setDetailFixed] = useState<FixedExpense | null>(null)
+  // `period`: el mes de la fila que se abrió — el detalle de una bolsa lista sólo las cargas de ese mes.
+  const [detailFixed, setDetailFixed] = useState<{ fe: FixedExpense; period: string } | null>(null)
   const [showPaused, setShowPaused] = useState(false)
 
   // `periods` son los meses que toca el ciclo mirado (eje B: pagos, ahorros y cuotas son mensuales
@@ -622,7 +623,7 @@ export function Fijos() {
                       hidden={balanceHidden}
                       showMonth={cycle.months.length > 1}
                       onPrimaryAction={() => handlePrimaryAction(status)}
-                      onOpenDetail={() => setDetailFixed(status.fe)}
+                      onOpenDetail={() => setDetailFixed({ fe: status.fe, period: status.period })}
                     />
                   ))}
                 </ul>
@@ -647,7 +648,7 @@ export function Fijos() {
                         hidden={balanceHidden}
                         showMonth={cycle.months.length > 1}
                         onPrimaryAction={() => handlePrimaryAction(status)}
-                        onOpenDetail={() => setDetailFixed(status.fe)}
+                        onOpenDetail={() => setDetailFixed({ fe: status.fe, period: status.period })}
                       />
                     ))}
                   </ul>
@@ -718,7 +719,7 @@ export function Fijos() {
                         )}
                         <button
                           type="button"
-                          onClick={() => setDetailFixed(s.fe)}
+                          onClick={() => setDetailFixed({ fe: s.fe, period: s.period })}
                           aria-label={`${accessibleName}: ver detalle`}
                           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                         >
@@ -760,7 +761,7 @@ export function Fijos() {
                       <li key={fe.id} className="flex min-w-0 items-center gap-2.5">
                         <button
                           type="button"
-                          onClick={() => setDetailFixed(fe)}
+                          onClick={() => setDetailFixed({ fe, period: format(startOfMonth(month), 'yyyy-MM-dd') })}
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
                           <span
@@ -797,7 +798,7 @@ export function Fijos() {
         />
       )}
       {detailFixed && (
-        <FixedExpenseDetailDialog open={!!detailFixed} onClose={() => setDetailFixed(null)} fixedExpense={detailFixed} />
+        <FixedExpenseDetailDialog open={!!detailFixed} onClose={() => setDetailFixed(null)} fixedExpense={detailFixed.fe} period={detailFixed.period} />
       )}
       <UnmarkBeforeAccountsDialog
         open={unmarkPayment.confirmOpen}
