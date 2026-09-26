@@ -2,22 +2,6 @@
 
 Registro de pasadas QA manual, una por área. Un solo lugar: qué se probó, qué se encontró, qué quedó pendiente → después foto de toda la app y priorizar.
 
-## Estado por área
-
-| Área | Informe | Última pasada | Código probado | Abiertos (C / A / M / B) |
-|---|---|---|---|---|
-| Cuentas | [cuentas.md](cuentas.md) | rama `accounts`, `0a7662c` | 0 / 0 / 0 / 0 |
-| Gastos fijos | [fijos.md](fijos.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Movimientos | [movimientos.md](movimientos.md)| rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Mis Deudas | — | pendiente (ver transversales) | | |
-| Ahorros | — | pendiente | | |
-| Me Deben | — | pendiente (ver transversales) | | |
-| Hoy | [hoy.md](hoy.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Análisis | [analisis.md](analisis.md) | rama `fix-issues` | 0 / 0 / 0 / 0 |
-| Admin | — | pendiente | | |
-
-C / A / M / B = Crítico / Alto / Medio / Bajo.
-
 ## Cómo se hace una pasada
 
 - **Cuenta de QA** dedicada (no cuenta de prueba habitual ni reales). Credenciales fuera del repo.
@@ -101,14 +85,6 @@ Notas técnicas para próxima verificación en vivo — evita repetir vuelta.
 - **El FAB "Nuevo movimiento" (`MobileTabBar`) es sólo mobile y sin texto visible** — `button:has-text(...)` no lo encuentra; usar `button[aria-label="Nuevo movimiento"]` con viewport angosto (ej. 390px). El botón "Guardar" de `TransactionFormDialog` tampoco tiene `type="submit"` matcheable de forma confiable por selector de atributo; escopear al diálogo abierto y buscar por texto (`dialog[open] >> text=Guardar`).
 - **`PATCH` a `/rest/v1/profiles` (o cualquier tabla) sin filtro da 400 `UPDATE requires a WHERE clause`** — PostgREST exige `?id=eq.<uid>` en la URL aunque RLS ya acote a la fila propia.
 
-## Severidades
-
-| Severidad | Criterio |
-|---|---|
-| **Crítico** | Se pierde o duplica plata sin aviso, o se rompen datos de forma difícil de recuperar. |
-| **Alto** | Número o estado queda mal (pagado sin estarlo, saldo que no cierra), o acción común hace distinto de lo que usuario cree. |
-| **Medio** | Confunde, evitable con cuidado, o sólo en caso poco común o por API. |
-| **Bajo** | Copy, layout, validaciones de borde. |
 
 ## Formato de cada informe
 
