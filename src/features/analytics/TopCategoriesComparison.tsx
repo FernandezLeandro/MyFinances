@@ -1,13 +1,18 @@
 import { Badge } from '@/components/ui/Badge'
 import { Money } from '@/components/ui/Money'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import type { CategoryComparison } from '@/features/analytics/api'
 
 /**
  * Una barra por categoría (no dos, a diferencia de la versión anterior): coloreada como el donut,
  * con una marca vertical en la posición del período anterior — así se ve de un vistazo si la barra
  * "avanzó" o "retrocedió" contra esa marca, en vez de comparar dos barras separadas.
+ *
+ * `iconById` no sale de `CategoryComparison` (la RPC no trae ícono) — lo arma `Analisis` con
+ * `useCategories`, igual que para `CategoryLegendRow` y `PromedioRow`.
  */
-export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }) {
+export function TopCategoriesComparison({ data, iconById }: { data: CategoryComparison[]; iconById: Map<string, string | null | undefined> }) {
   const top = data.slice(0, 6)
   const maxCents = Math.max(...top.flatMap((c) => [c.currentCents, c.previousCents]), 1)
 
@@ -22,7 +27,7 @@ export function TopCategoriesComparison({ data }: { data: CategoryComparison[] }
           <li key={c.categoryId}>
             <div className="flex items-baseline justify-between gap-3">
               <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color ?? 'var(--color-border-strong)' }} />
+                <CategoryChip size={20} {...chipLook(c.color != null ? { color: c.color, icon: iconById.get(c.categoryId) } : undefined)} />
                 <span className="truncate text-[13px] text-fg">{c.categoryName}</span>
               </span>
               <span className="flex shrink-0 items-baseline gap-2">

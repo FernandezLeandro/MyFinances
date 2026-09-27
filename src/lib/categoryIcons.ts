@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Baby,
   Banknote,
   BanknoteArrowDown,
@@ -9,6 +10,7 @@ import {
   CreditCard,
   DollarSign,
   Dumbbell,
+  Ellipsis,
   Film,
   Gamepad2,
   Gift,
@@ -27,6 +29,7 @@ import {
   Shield,
   Shirt,
   ShoppingCart,
+  SlidersHorizontal,
   Smartphone,
   Tag,
   TrendingUp,
@@ -95,6 +98,21 @@ const byKey = new Map<string, CategoryIconDef>(CATEGORY_ICONS.map((i) => [i.key,
 export function categoryIcon(key: string | null | undefined): CategoryIconDef {
   return byKey.get(key ?? '') ?? byKey.get(DEFAULT_CATEGORY_ICON)!
 }
+
+/**
+ * Íconos fijos de la ficha neutra (gris): filas que no son de una categoría — un movimiento sin
+ * categoría, un ajuste de saldo, una transferencia, y el agregado «Ver N más» / «Otros N» de
+ * Análisis. Van aparte de `CATEGORY_ICONS` a propósito: ese set lo valida la base con un `check` y
+ * se ofrece en el editor; éstos no son categorías y nunca se guardan.
+ */
+export const NEUTRAL_CHIP_ICONS = {
+  uncategorized: Tag,
+  adjustment: SlidersHorizontal,
+  transfer: ArrowLeftRight,
+  more: Ellipsis,
+} as const satisfies Record<string, LucideIcon>
+
+export type NeutralChip = keyof typeof NEUTRAL_CHIP_ICONS
 
 /** Minúsculas y sin tildes — para buscar «educacion» y encontrar «Educación». */
 export function foldText(s: string): string {

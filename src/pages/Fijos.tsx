@@ -20,6 +20,8 @@ import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from 
 import { pendingBeforeCents } from '@/lib/projectedBalance'
 import { useCan } from '@/features/access/useCan'
 import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook, type ChipLook } from '@/features/categories/chip'
 import { useCurrentBalance } from '@/features/transactions/api'
 import {
   useFixedExpensePayments,
@@ -55,7 +57,7 @@ import {
 
 function FixedExpenseRow({
   status,
-  categoryColor,
+  chip,
   urgency,
   busy,
   hidden,
@@ -64,7 +66,7 @@ function FixedExpenseRow({
   onOpenDetail,
 }: {
   status: FixedExpenseStatus
-  categoryColor: string | undefined
+  chip: ChipLook
   /** Sólo tiene sentido para un fijo de una sola vez — una bolsa lo ignora (no vence). */
   urgency: FixedExpenseUrgency
   busy: boolean
@@ -117,7 +119,7 @@ function FixedExpenseRow({
         aria-label={`${accessibleName}: ver detalle`}
         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
       >
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: categoryColor }} />
+        <CategoryChip size={28} {...chip} />
         <div className="min-w-0 flex-1">
           <p className={cn('truncate text-[13.5px] font-semibold', done && !overspent ? 'text-fg-muted' : 'text-fg')}>
             {fe.name}
@@ -495,7 +497,7 @@ export function Fijos() {
               {[0, 1, 2].map((i) => (
                 <div key={i} className="flex items-center gap-3 py-2.5">
                   <Skeleton className="size-5 shrink-0" />
-                  <Skeleton className="size-2 shrink-0 rounded-full" />
+                  <Skeleton className="size-7 shrink-0 rounded-[8px]" />
                   <Skeleton className="h-4 flex-1" />
                   <Skeleton className="h-4 w-20" />
                 </div>
@@ -617,7 +619,7 @@ export function Fijos() {
                     <FixedExpenseRow
                       key={fixedExpenseStatusKey(status)}
                       status={status}
-                      categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
+                      chip={chipLook(categoryById.get(status.fe.category_id ?? ''))}
                       urgency="neutral"
                       busy={unmarkPayment.isPending}
                       hidden={balanceHidden}
@@ -642,7 +644,7 @@ export function Fijos() {
                       <FixedExpenseRow
                         key={fixedExpenseStatusKey(status)}
                         status={status}
-                        categoryColor={categoryById.get(status.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)'}
+                        chip={chipLook(categoryById.get(status.fe.category_id ?? ''))}
                         urgency={g.key}
                         busy={unmarkPayment.isPending}
                         hidden={balanceHidden}
@@ -723,11 +725,7 @@ export function Fijos() {
                           aria-label={`${accessibleName}: ver detalle`}
                           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                         >
-                          <span
-                            aria-hidden
-                            className="size-[7px] shrink-0 rounded-full"
-                            style={{ backgroundColor: categoryById.get(s.fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
-                          />
+                          <CategoryChip size={20} {...chipLook(categoryById.get(s.fe.category_id ?? ''))} />
                           <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-secondary">
                             {s.fe.name}
                             {monthLabel && <span className="text-fg-muted"> · {monthLabel}</span>}
@@ -764,11 +762,7 @@ export function Fijos() {
                           onClick={() => setDetailFixed({ fe, period: format(startOfMonth(month), 'yyyy-MM-dd') })}
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
-                          <span
-                            aria-hidden
-                            className="size-[7px] shrink-0 rounded-full opacity-50"
-                            style={{ backgroundColor: categoryById.get(fe.category_id ?? '')?.color ?? 'var(--color-border-strong)' }}
-                          />
+                          <CategoryChip size={20} archived {...chipLook(categoryById.get(fe.category_id ?? ''))} />
                           <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-muted">{fe.name}</span>
                         </button>
                         <Money cents={fe.cents} tone="dim" size="row" hidden={balanceHidden} />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ArrowLeftRight, Plus, SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { useCycleConfig } from '@/lib/useCycle'
@@ -23,6 +23,8 @@ import { TransactionRow } from '@/components/TransactionRow'
 import { TransferRow } from '@/components/TransferRow'
 import { cn } from '@/lib/cn'
 import { UNCATEGORIZED_ID, useCategories, type Category } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useBalanceLocations, type BalanceLocation } from '@/features/accounts/api'
 import { accountNameOf } from '@/features/accounts/aggregate'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
@@ -100,7 +102,7 @@ function MovementTableRow({
         {tx.description || category?.name || 'Sin descripción'}
       </span>
       <span className="flex items-center gap-1.5 truncate text-[12.5px] text-fg-secondary">
-        <span aria-hidden className="size-[7px] shrink-0 rounded-full" style={{ backgroundColor: category?.color ?? 'var(--color-border-strong)' }} />
+        <CategoryChip size={20} {...chipLook(category, { adjustment: tx.is_adjustment })} />
         <span className="truncate">{movementCategoryLabel(tx, category?.name)}</span>
       </span>
       {showAccount && <span className="truncate text-[12.5px] text-fg-muted">{account?.name || '—'}</span>}
@@ -137,9 +139,7 @@ function TransferTableRow({
     >
       <span className="truncate text-[13.5px] font-semibold text-fg">{transfer.description || 'Transferencia'}</span>
       <span className="flex items-center gap-1.5 truncate text-[12.5px] text-fg-secondary">
-        <span aria-hidden className="flex size-[7px] shrink-0 items-center justify-center">
-          <ArrowLeftRight className="size-3 shrink-0 text-fg-muted" strokeWidth={1.8} />
-        </span>
+        <CategoryChip size={20} neutral="transfer" />
         <span className="truncate">Transferencia</span>
       </span>
       <span className="truncate text-[12.5px] text-fg-muted" title={accountsLabel}>
@@ -596,7 +596,7 @@ export function Movimientos() {
               return (
                 <FilterChip
                   key={id}
-                  color={category?.color}
+                  leading={<CategoryChip size={16} {...chipLook(category)} />}
                   removeLabel={`Quitar filtro de categoría: ${label}`}
                   onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
                 >
@@ -633,7 +633,7 @@ export function Movimientos() {
           <ul className="flex flex-col gap-1 px-panel py-5">
             {[0, 1, 2, 3].map((i) => (
               <li key={i} className="flex items-center gap-3 py-2">
-                <Skeleton className="size-2 shrink-0 rounded-full" />
+                <Skeleton className="size-7 shrink-0 rounded-[8px]" />
                 <Skeleton className="h-4 flex-1" />
                 <Skeleton className="h-4 w-24" />
               </li>
