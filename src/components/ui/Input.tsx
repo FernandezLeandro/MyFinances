@@ -37,13 +37,16 @@ export function Field({ label, labelAddon, hint, error, htmlFor, children, class
 }
 
 export const controlBase =
-  'w-full rounded-control bg-fill-subtle px-3.5 text-fg placeholder:text-fg-muted ' +
+  'w-full rounded-control border border-border-strong bg-transparent px-3.5 text-fg placeholder:text-fg-muted ' +
   'transition-colors duration-150 outline-none ' +
-  'hover:bg-fill-subtle focus:bg-fill-subtle disabled:opacity-40'
+  'focus:border-accent focus:ring-4 focus:ring-accent-soft disabled:opacity-40'
 
 /** Campo inválido: fondo y texto rojos suaves con borde `negative` — se lee como error aunque el
- *  mensaje no esté a la vista. El `border` va sólo acá (los controles normales no lo llevan). */
-export const invalidControl = 'border border-negative bg-badge-red-bg text-badge-red-fg hover:bg-badge-red-bg focus:bg-badge-red-bg'
+ *  mensaje no esté a la vista. `!` en cada clase: sin él, compite con el color de borde/fondo/anillo
+ *  de `controlBase` en el mismo `cn()` y `cn()` no dedupea — el ganador quedaría a merced del orden
+ *  en que Tailwind genera el CSS, no del orden en el string. */
+export const invalidControl =
+  'border-negative! bg-badge-red-bg! text-badge-red-fg! focus:border-negative! focus:ring-badge-red-bg!'
 
 type InputSize = 'md' | 'auth'
 
@@ -129,10 +132,9 @@ export function AmountInput({ className, invalid, ref, onChange, ...props }: Amo
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-control bg-fill-subtle pl-4 transition-colors duration-150',
-        'focus-within:bg-fill-subtle',
-        // El borde existe siempre (transparente) para que marcar el error no agrande el campo 2px.
-        invalid ? 'border border-negative bg-badge-red-bg focus-within:bg-badge-red-bg' : 'border border-transparent',
+        'flex h-[58px] items-center gap-2 rounded-[14px] border border-accent bg-transparent pl-[18px] ring-4 ring-accent-soft',
+        'transition-colors duration-150',
+        invalid && 'border-negative! bg-badge-red-bg! ring-badge-red-bg!',
         className,
       )}
     >
@@ -147,7 +149,10 @@ export function AmountInput({ className, invalid, ref, onChange, ...props }: Amo
         autoComplete="off"
         placeholder="0,00"
         aria-invalid={invalid || undefined}
-        className="tnum h-14 w-full bg-transparent pr-4 font-display text-3xl font-semibold text-fg outline-none placeholder:text-border-strong"
+        className={cn(
+          'tnum h-full w-full bg-transparent pr-4 font-display text-3xl font-semibold outline-none placeholder:text-border-strong',
+          invalid ? 'text-badge-red-fg!' : 'text-fg',
+        )}
         onChange={handleChange}
         {...props}
       />

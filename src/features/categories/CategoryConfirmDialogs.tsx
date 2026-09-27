@@ -1,5 +1,7 @@
+import { Trash2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { DialogConfirmStack, DialogItemCard } from '@/components/ui/dialog-parts'
 import type { Category, CategoryUsage } from '@/features/categories/api'
 import { CategoryChip } from './CategoryChip'
 
@@ -81,27 +83,24 @@ export function DeleteCategoryDialog({ open, onClose, category, usage, onConfirm
       size="sm"
       ownsPending
       title="Eliminar categoría"
+      icon={<Trash2 className="size-[19px]" strokeWidth={1.8} aria-hidden />}
+      tone="danger"
       footer={
-        <div className="flex w-full flex-col gap-1">
-          <Button variant="dangerSolid" onClick={onConfirm} loading={pending} className="h-12 w-full">
-            {pending ? 'Eliminando…' : 'Eliminar categoría'}
-          </Button>
-          <Button variant="ghost" onClick={onClose} className="h-11 w-full">
-            Cancelar
-          </Button>
-        </div>
+        <DialogConfirmStack
+          confirmLabel="Eliminar categoría"
+          pendingLabel="Eliminando…"
+          pending={pending}
+          onConfirm={onConfirm}
+          onCancel={onClose}
+        />
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 rounded-panel-sm border border-border p-3.5">
-          <CategoryChip color={category.color} icon={category.icon} size={38} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[14.5px] font-semibold break-words text-fg">{category.name}</p>
-            <p className="text-[12.5px] text-fg-secondary">
-              {category.kind === 'expense' ? 'De gasto' : 'De ingreso'} · archivada
-            </p>
-          </div>
-        </div>
+        <DialogItemCard
+          leading={<CategoryChip color={category.color} icon={category.icon} size={38} />}
+          title={category.name}
+          meta={`${category.kind === 'expense' ? 'De gasto' : 'De ingreso'} · archivada`}
+        />
         <p className="text-[14px] text-fg-secondary">
           {breakdown ? `Sus ${breakdown} quedan como «Sin categoría». ` : ''}No se puede deshacer.
         </p>

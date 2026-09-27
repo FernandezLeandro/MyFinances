@@ -1,6 +1,6 @@
 import type { Ref, SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
-import { controlBase } from '@/components/ui/Input'
+import { controlBase, invalidControl } from '@/components/ui/Input'
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; ref?: Ref<HTMLSelectElement> }
 
@@ -14,7 +14,7 @@ export function Select({ className, invalid, ref, children, ...props }: SelectPr
         className={cn(
           controlBase,
           'h-11 appearance-none pr-10 text-[15px]',
-          invalid && 'ring-1 ring-negative/60',
+          invalid && invalidControl,
           className,
         )}
         {...props}

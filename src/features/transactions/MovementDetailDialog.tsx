@@ -7,9 +7,13 @@ import { Button } from '@/components/ui/Button'
 import { Money } from '@/components/ui/Money'
 import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
+import { cycleContaining, cycleLabel } from '@/lib/cycle'
+import { useCycleConfig } from '@/lib/useCycle'
 import { useAccountBalances, useBalanceLocations } from '@/features/accounts/api'
 import { accountNameOf, transactionDeleteEffect } from '@/features/accounts/aggregate'
 import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useDeleteTransaction, type Transaction } from '@/features/transactions/api'
 
 /**
@@ -18,7 +22,8 @@ import { useDeleteTransaction, type Transaction } from '@/features/transactions/
  * (para corregirlo se hace un reajuste nuevo desde Cuentas), sólo se borra, avisando antes cómo
  * queda la cuenta (`transactionDeleteEffect`, mismo criterio que ya usa `TransferDetailDialog` para
  * una transferencia). Bloque 5 (D2): en Básico, cualquier movimiento suelto que no sea el pago de un
- * fijo ni "Sueldo" abre este mismo detalle en vez del formulario completo.
+ * fijo ni "Sueldo" abre este mismo detalle en vez del formulario completo. Sin «Editar»: en ninguno
+ * de los dos casos el movimiento se puede editar desde acá.
  *
  * Falla adentro del diálogo, que no se cierra (patrón 5b); el éxito cierra y avisa con un toast —
  * mismo patrón que `TransferDetailDialog`.
@@ -27,6 +32,7 @@ export function MovementDetailDialog({ transaction, onClose }: { transaction: Tr
   const { data: locations } = useBalanceLocations()
   const { data: balances } = useAccountBalances()
   const { data: categories } = useCategories(true)
+  const cycleConfig = useCycleConfig()
   const deleteTx = useDeleteTransaction()
   const [busy, setBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -35,6 +41,7 @@ export function MovementDetailDialog({ transaction, onClose }: { transaction: Tr
   const nameOf = (id: string) => accountNameOf(byId, id)
   const effect = transactionDeleteEffect({ transaction, balances, nameOf })
   const category = (categories ?? []).find((c) => c.id === transaction.category_id) ?? null
+  const cycle = cycleContaining(cycleConfig, parseISO(transaction.occurred_on))
 
   async function remove() {
     setBusy(true)
@@ -59,28 +66,59 @@ export function MovementDetailDialog({ transaction, onClose }: { transaction: Tr
       footerBleed
       ownsPending
       footer={
-        <DialogFooterBar>
+        <DialogFooterBar
+          start={
+            <Button variant="ghost" size="dialogFooter" onClick={remove} loading={busy} className="text-negative! hover:text-negative!">
+              {busy ? 'Eliminando…' : saveError ? 'Reintentar' : 'Eliminar'}
+            </Button>
+          }
+        >
           <Button variant="ghost" size="dialogFooter" onClick={onClose} disabled={busy}>
             Cerrar
-          </Button>
-          <Button variant="dangerSolid" size="dialogFooter" onClick={remove} loading={busy}>
-            {busy ? 'Eliminando…' : saveError ? 'Reintentar' : 'Eliminar'}
           </Button>
         </DialogFooterBar>
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="min-w-0">
+        <div className="flex flex-col gap-2.5 rounded-panel-sm bg-surface-sunken p-[18px]">
+          <div className="flex items-center gap-3">
+            <CategoryChip {...chipLook(category ?? undefined, { adjustment: transaction.is_adjustment })} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold text-fg">
+                {transaction.description?.trim() || (transaction.is_adjustment ? 'Ajuste de saldo' : 'Sin descripción')}
+              </p>
+              <p className="text-[12.5px] text-fg-secondary">
+                {transaction.type === 'income' ? 'Ingreso' : 'Gasto'} · cargado a mano
+              </p>
+            </div>
+          </div>
           <Money cents={transaction.cents} size="total" tone={transaction.type === 'income' ? 'accent' : 'fg'} />
-          <p className="mt-2.5 text-[14px] font-medium break-words text-fg">
-            {transaction.description?.trim() || (transaction.is_adjustment ? 'Ajuste de saldo' : 'Sin descripción')}
-          </p>
-          <p className="mt-1 text-[12.5px] break-words text-fg-muted">
-            {format(parseISO(transaction.occurred_on), "d 'de' MMMM 'de' yyyy", { locale: es })}
-            {category ? ` · ${category.name}` : ''}
-            {transaction.account_id ? ` · ${nameOf(transaction.account_id)}` : ''}
-          </p>
         </div>
+        <dl className="flex flex-col">
+          <div className="flex items-center justify-between gap-4 border-b border-divider-list py-3">
+            <dt className="text-[14px] text-fg-secondary">Categoría</dt>
+            <dd className="m-0 flex items-center gap-2 text-[14px] font-semibold text-fg">
+              <CategoryChip {...chipLook(category ?? undefined, { adjustment: transaction.is_adjustment })} size={16} />
+              {transaction.is_adjustment ? 'Ajuste de saldo' : (category?.name ?? 'Sin categoría')}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-b border-divider-list py-3">
+            <dt className="text-[14px] text-fg-secondary">Fecha</dt>
+            <dd className="m-0 text-[14px] font-semibold text-fg">
+              {format(parseISO(transaction.occurred_on), "EEEE d 'de' MMMM", { locale: es })}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-b border-divider-list py-3">
+            <dt className="text-[14px] text-fg-secondary">Cuenta</dt>
+            <dd className="m-0 text-[14px] font-semibold text-fg">
+              {transaction.account_id ? nameOf(transaction.account_id) : 'Sin cuenta'}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <dt className="text-[14px] text-fg-secondary">Ciclo</dt>
+            <dd className="m-0 text-[14px] font-semibold text-fg capitalize">{cycleLabel(cycle)}</dd>
+          </div>
+        </dl>
         <div className="flex flex-col gap-2 text-[13px] leading-[1.55] text-fg-secondary text-pretty">
           <p>{effect.text}</p>
           {effect.warning && <p className="font-semibold text-fg">{effect.warning}</p>}

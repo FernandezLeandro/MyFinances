@@ -16,12 +16,22 @@ interface ChipProps {
    *  — ej. el Gasto/Ingreso de "Nuevo movimiento", donde la elección es la primera decisión del
    *  formulario, no una entre diez chips juntos. */
   size?: 'sm' | 'md' | 'lg'
+  /** Sólo con `size="lg"` y `active`: `ink` (default) es el fondo sólido de siempre; `danger` es el
+   *  rojo suave del Gasto elegido y `accent` el borde de acento de la fecha elegida — ninguno de los
+   *  dos "apaga" el resto de la fila como haría el fondo sólido. */
+  activeTone?: 'ink' | 'danger' | 'accent'
 }
 
 const sizeClass: Record<NonNullable<ChipProps['size']>, string> = {
   sm: 'gap-1.5 rounded-chip py-1 text-[12px] leading-none',
   md: 'gap-1.5 rounded-chip-md px-3 py-2 text-[12.5px] leading-tight',
-  lg: 'gap-2 rounded-control px-4 py-2 text-[14px] leading-none',
+  lg: 'gap-1.5 rounded-pill border px-4 py-2 text-[14px] leading-none',
+}
+
+const lgActiveTone: Record<NonNullable<ChipProps['activeTone']>, string> = {
+  ink: 'border-transparent bg-inverse font-semibold text-on-inverse',
+  danger: 'border-transparent bg-badge-red-bg font-semibold text-badge-red-fg',
+  accent: 'border-accent bg-accent-soft font-semibold text-accent-text',
 }
 
 /**
@@ -29,7 +39,7 @@ const sizeClass: Record<NonNullable<ChipProps['size']>, string> = {
  * pegado al texto, no pintando todo el fondo — así diez chips juntos no convierten la pantalla en
  * un semáforo.
  */
-export function Chip({ children, leading, active = false, onClick, className, ariaLabel, size = 'sm' }: ChipProps) {
+export function Chip({ children, leading, active = false, onClick, className, ariaLabel, size = 'sm', activeTone = 'ink' }: ChipProps) {
   const interactive = typeof onClick === 'function'
   const Tag = interactive ? 'button' : 'span'
 
@@ -46,8 +56,14 @@ export function Chip({ children, leading, active = false, onClick, className, ar
         // el `px-2` de siempre; con ficha, el margen izquierdo lo pone ella, así que el chip sólo
         // agrega el mínimo para no pegarla al borde.
         size === 'sm' && (leading ? 'pl-[3px] pr-2' : 'px-2'),
-        active ? 'bg-inverse font-semibold text-on-inverse' : 'bg-fill-subtle text-fg-secondary',
-        interactive && !active && 'hover:bg-border-strong hover:text-fg',
+        size === 'lg'
+          ? active
+            ? lgActiveTone[activeTone]
+            : 'border-border-strong bg-transparent text-fg'
+          : active
+            ? 'bg-inverse font-semibold text-on-inverse'
+            : 'bg-fill-subtle text-fg-secondary',
+        interactive && !active && (size === 'lg' ? 'hover:bg-fill-subtle' : 'hover:bg-border-strong hover:text-fg'),
         className,
       )}
     >

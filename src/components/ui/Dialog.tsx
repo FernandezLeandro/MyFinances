@@ -1,14 +1,28 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
+import { DialogPortalContext } from '@/components/ui/dialog-portal'
+
+export type DialogTone = 'neutral' | 'danger' | 'accent'
+
+const iconToneClasses: Record<DialogTone, string> = {
+  neutral: 'bg-fill-subtle text-fg-secondary',
+  danger: 'bg-badge-red-bg text-badge-red-fg',
+  accent: 'bg-accent-soft text-accent-text',
+}
 
 interface DialogProps {
   open: boolean
   onClose: () => void
   title: string
+  /** Cuadro de contexto a la izquierda del título — ej. el tacho de la confirmación de borrado, la
+   *  flecha de "Nuevo movimiento". Sin ícono, el título arranca pegado al borde como siempre. */
+  icon?: ReactNode
+  /** Color del cuadro de `icon`. Sin efecto si no hay `icon`. */
+  tone?: DialogTone
   /** Línea chica bajo el título (ej. el tipo fijo de una categoría en su editor). */
   subtitle?: ReactNode
   children: ReactNode
@@ -55,8 +69,22 @@ function unlockBodyScroll() {
  * scrolleando la página de atrás en vez del contenido — el bug reportado en los diálogos largos y en
  * los formularios largos.
  */
-export function Dialog({ open, onClose, title, subtitle, children, footer, footerBleed, size = 'md', ownsPending, className }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  icon,
+  tone = 'neutral',
+  subtitle,
+  children,
+  footer,
+  footerBleed,
+  size = 'md',
+  ownsPending,
+  className,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [portalRoot, setPortalRoot] = useState<HTMLDivElement | null>(null)
   // Id propio y no uno fijo: con un diálogo abierto sobre otro (el sheet de colores del editor de
   // categoría) un id repetido haría que los dos se anuncien con el mismo título.
   const titleId = useId()
@@ -155,41 +183,55 @@ export function Dialog({ open, onClose, title, subtitle, children, footer, foote
       )}
     >
       <div className="relative flex max-h-[85vh] flex-col sm:max-h-[80vh]">
-        <div className="flex shrink-0 items-center justify-between gap-4 px-panel pt-6 pb-2">
-          <div className="min-w-0">
-            <h2 id={titleId} className="font-display text-lg font-semibold">
-              {title}
-            </h2>
-            {subtitle && <div className="mt-0.5 text-[13px] text-fg-secondary">{subtitle}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="-mr-1.5 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
-          >
-            <X className="size-4" strokeWidth={1.5} aria-hidden />
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-panel py-4">{children}</div>
-
-        {footer && (
-          <div
-            className={cn(
-              'shrink-0',
-              footerBleed
-                ? 'flex'
-                : // `flex-col-reverse`: en mobile los botones apilan a todo el ancho con la acción
-                  // primaria (última en el DOM) arriba y Eliminar, cuando existe, siempre al final —
-                  // el orden inverso del que ya tiene sentido en escritorio, donde ese mismo `mr-auto`
-                  // lo manda al extremo izquierdo en vez de al fondo de la pila.
-                  'flex flex-col-reverse gap-2 px-panel pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
+        <DialogPortalContext value={portalRoot}>
+          <div className="flex shrink-0 items-center gap-3.5 px-panel pt-5 pb-3">
+            {icon && (
+              <span
+                aria-hidden
+                className={cn('flex size-11 shrink-0 items-center justify-center rounded-float', iconToneClasses[tone])}
+              >
+                {icon}
+              </span>
             )}
-          >
-            {footer}
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="font-display text-[17px] font-semibold">
+                {title}
+              </h2>
+              {subtitle && <div className="mt-0.5 text-[13px] text-fg-secondary">{subtitle}</div>}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="flex size-10 shrink-0 items-center justify-center rounded-float border border-border-strong text-fg-secondary transition-colors hover:bg-fill-subtle hover:text-fg"
+            >
+              <X className="size-4" strokeWidth={2} aria-hidden />
+            </button>
           </div>
-        )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-panel py-4">{children}</div>
+
+          {footer && (
+            <div
+              className={cn(
+                'shrink-0',
+                footerBleed
+                  ? 'flex'
+                  : // `flex-col-reverse`: en mobile los botones apilan a todo el ancho con la acción
+                    // primaria (última en el DOM) arriba y Eliminar, cuando existe, siempre al final —
+                    // el orden inverso del que ya tiene sentido en escritorio, donde ese mismo `mr-auto`
+                    // lo manda al extremo izquierdo en vez de al fondo de la pila.
+                    'flex flex-col-reverse gap-2 px-panel pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end',
+              )}
+            >
+              {footer}
+            </div>
+          )}
+        </DialogPortalContext>
+
+        {/* Hermano de header/cuerpo/pie, sin overflow propio: adonde `useDialogPortalRoot` manda un
+            popover que no puede vivir recortado por el `overflow-y-auto` del cuerpo. */}
+        <div ref={setPortalRoot} className="pointer-events-none absolute inset-0" />
 
         {isMutating > 0 && !ownsPending && (
           <div

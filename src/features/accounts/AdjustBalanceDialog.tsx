@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { cn } from '@/lib/cn'
 import { Dialog } from '@/components/ui/Dialog'
 import { DialogFooterBar, DialogSaveError, DialogSummaryBlock } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
 import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
 import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
 import { mensajeDeError } from '@/lib/errors'
@@ -77,12 +77,14 @@ export function AdjustBalanceDialog({ onClose, account, derivedCents }: AdjustBa
   }
 
   const primaryLabel = adjust.isPending ? 'Reajustando…' : saveError ? 'Reintentar' : 'Reajustar'
+  const modeGroupId = useId()
 
   return (
     <Dialog
       open
       onClose={onClose}
       title="Reajustar saldo"
+      subtitle={account.name || '(sin nombre)'}
       footerBleed
       ownsPending
       footer={
@@ -103,12 +105,16 @@ export function AdjustBalanceDialog({ onClose, account, derivedCents }: AdjustBa
       }
     >
       <form id="adjust-form" onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-        <DialogSummaryBlock title="Según la app" hint={account.name || '(sin nombre)'} figure={formatMoney(derivedCents)} />
+        <DialogSummaryBlock
+          title="Saldo según la app"
+          hint="Movimientos y transferencias hasta hoy"
+          figure={formatMoney(derivedCents)}
+        />
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <OpeningAmountField
-            label={`¿Cuánto tenés hoy en ${account.name || 'esta cuenta'}?`}
-            hint="El saldo real: lo que ves en tu banco o billetera, o el efectivo que tenés en la mano."
+            size="lg"
+            label="¿Cuánto tenés de verdad?"
             error={form.error ?? undefined}
             value={realInput}
             onChange={(value) => {
@@ -118,35 +124,61 @@ export function AdjustBalanceDialog({ onClose, account, derivedCents }: AdjustBa
             ariaLabel="Saldo real de la cuenta"
           />
           {plan && plan.diffCents !== 0 && !form.error && (
-            <p className="text-[12.5px] text-fg-secondary">
-              Diferencia:{' '}
-              <span className={plan.diffCents > 0 ? 'font-semibold text-accent' : 'font-semibold text-negative'}>
-                {formatMoney(plan.diffCents, { signed: true })}
-              </span>
-            </p>
+            <span
+              className={cn(
+                'self-start rounded-pill px-2.5 py-1 text-[12.5px] font-semibold',
+                plan.diffCents > 0 ? 'bg-accent-soft text-accent-text' : 'bg-badge-red-bg text-badge-red-fg',
+              )}
+            >
+              {formatMoney(plan.diffCents, { signed: true })} de diferencia
+            </span>
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <p className="eyebrow">Qué hacemos con la diferencia</p>
-          <div className="flex flex-wrap gap-2">
-            <Chip size="md" active={mode === 'movement'} onClick={() => setMode('movement')}>
-              Registrar un ajuste
-            </Chip>
-            <Chip size="md" active={mode === 'opening'} onClick={() => setMode('opening')}>
-              Corregir el saldo inicial
-            </Chip>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-[14px] font-semibold text-fg">Qué hacemos con la diferencia</legend>
+          <div className="flex flex-col overflow-hidden rounded-control border border-border">
+            <label
+              className={cn(
+                'flex gap-3 border-b border-border p-3.5',
+                mode === 'movement' && 'bg-editing',
+              )}
+            >
+              <input
+                type="radio"
+                name={modeGroupId}
+                checked={mode === 'movement'}
+                onChange={() => setMode('movement')}
+                className="mt-0.5 size-[18px] shrink-0 accent-accent"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[14px] font-semibold text-fg">Registrar un ajuste</span>
+                <span className="text-[12.5px] leading-snug text-fg-secondary">
+                  {plan?.movement
+                    ? `Queda en Movimientos como "Ajuste de saldo" (${plan.movement.type === 'income' ? 'ingreso' : 'gasto'} de ${formatMoney(plan.movement.cents)}), afuera de Análisis.`
+                    : 'Queda en Movimientos como "Ajuste de saldo", afuera de Análisis.'}
+                </span>
+              </span>
+            </label>
+            <label className={cn('flex gap-3 p-3.5', mode === 'opening' && 'bg-editing')}>
+              <input
+                type="radio"
+                name={modeGroupId}
+                checked={mode === 'opening'}
+                onChange={() => setMode('opening')}
+                className="mt-0.5 size-[18px] shrink-0 accent-accent"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[14px] font-semibold text-fg">Corregir el saldo inicial</span>
+                <span className="text-[12.5px] leading-snug text-fg-secondary">
+                  {plan
+                    ? `El saldo inicial pasa de ${formatMoney(account.openingCents)} a ${formatMoney(plan.newOpeningCents)}. No crea ningún movimiento.`
+                    : 'Corrige el saldo con el que arrancó la cuenta. No crea ningún movimiento.'}
+                </span>
+              </span>
+            </label>
           </div>
-          <p className="text-[12px] leading-normal text-fg-muted text-pretty">
-            {mode === 'movement'
-              ? plan?.movement
-                ? `Queda en Movimientos como "Ajuste de saldo" (${plan.movement.type === 'income' ? 'ingreso' : 'gasto'} de ${formatMoney(plan.movement.cents)}), afuera de Análisis.`
-                : 'Queda en Movimientos como "Ajuste de saldo", afuera de Análisis.'
-              : plan
-                ? `El saldo inicial pasa de ${formatMoney(account.openingCents)} a ${formatMoney(plan.newOpeningCents)}. No crea ningún movimiento.`
-                : 'Corrige el saldo con el que arrancó la cuenta. No crea ningún movimiento.'}
-          </p>
-        </div>
+        </fieldset>
 
         {canMeDeben && lentCents > 0 && (
           <p className="rounded-float bg-badge-amber-bg px-3.5 py-2.5 text-[12px] leading-snug text-badge-amber-fg text-pretty">

@@ -100,6 +100,7 @@ export function IncomeEditDialog({ transaction, onClose }: IncomeEditDialogProps
       <ConfirmDeleteMovementDialog
         open={confirmingDelete}
         busy={deleteTx.isPending}
+        transaction={transaction}
         copy={confirmDeleteMovementCopy({ kind: 'plain', description: transaction.description })}
         onClose={() => setConfirmingDelete(false)}
         onConfirm={() => deleteTx.mutate(transaction.id, { onSuccess: onClose })}

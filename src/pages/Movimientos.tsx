@@ -776,6 +776,7 @@ export function Movimientos() {
       <ConfirmDeleteMovementDialog
         open={!!pendingUnmarkTx}
         busy={unmarkFixedPayment.isPending}
+        transaction={pendingUnmarkTx}
         copy={confirmDeleteMovementCopy({ kind: 'payment', description: pendingUnmarkTx?.description ?? null })}
         onClose={() => setPendingUnmarkTx(null)}
         onConfirm={confirmUnmarkPayment}

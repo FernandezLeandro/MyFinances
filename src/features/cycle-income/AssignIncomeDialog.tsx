@@ -167,6 +167,7 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
       <ConfirmDeleteMovementDialog
         open={!!pendingRemove}
         busy={removeIncome.isPending}
+        transaction={pendingRemove}
         copy={confirmDeleteMovementCopy({ kind: 'plain', description: pendingRemove?.description ?? null })}
         onClose={() => setPendingRemove(null)}
         onConfirm={() => {

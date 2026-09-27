@@ -25,6 +25,11 @@ interface OpeningAmountFieldProps {
   maxTitle?: string
   ariaLabel?: string
   className?: string
+  /** `sm` (default): campo compacto de 170px, con el hint al costado — alta/edición de cuenta,
+   *  aporte de Ahorros. `lg`: campo grande a todo el ancho con el borde+anillo de acento siempre
+   *  puesto y el hint debajo — el «¿Cuánto tenés de verdad?» de Reajustar saldo, la única cifra que
+   *  se mira mientras se escribe. */
+  size?: 'sm' | 'lg'
 }
 
 /**
@@ -48,8 +53,49 @@ export function OpeningAmountField({
   maxTitle,
   ariaLabel,
   className,
+  size = 'sm',
 }: OpeningAmountFieldProps) {
   const id = useId()
+
+  if (size === 'lg') {
+    return (
+      <div className={cn('flex flex-col gap-1.5', className)}>
+        <label htmlFor={id} className="text-[13px] font-medium text-fg-secondary">
+          {label}
+        </label>
+        <div
+          className={cn(
+            'flex h-16 items-center gap-2 rounded-[14px] border border-accent bg-transparent pl-[18px] ring-4 ring-accent-soft',
+            error && 'border-negative! bg-badge-red-bg! ring-badge-red-bg!',
+          )}
+        >
+          <span aria-hidden className={cn('font-display text-2xl', error ? 'text-badge-red-fg' : 'text-fg-muted')}>
+            {symbol}
+          </span>
+          <input
+            id={id}
+            value={value}
+            onChange={(e) => onChange(sanitizeAmountInput(e.target.value, { allowNegative }))}
+            inputMode="decimal"
+            aria-label={ariaLabel ?? label}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
+            className={cn(
+              'tnum min-w-0 flex-1 bg-transparent pr-4 font-display text-[32px] font-semibold outline-none',
+              error ? 'text-badge-red-fg!' : 'text-fg',
+            )}
+          />
+        </div>
+        {error ? (
+          <p id={`${id}-error`} role="alert" className="text-[12.5px] leading-snug font-medium text-badge-red-fg">
+            {error}
+          </p>
+        ) : (
+          hint && <p className="text-[12px] leading-snug text-fg-muted">{hint}</p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
