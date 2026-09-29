@@ -1,18 +1,24 @@
 import { useRef, useState } from 'react'
 import { format, parseISO, startOfMonth } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { Calendar } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
-import { Field, AmountInput, Input } from '@/components/ui/Input'
+import { Field, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
-import { centsToInputText, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
+import { FieldButton } from '@/components/ui/FieldButton'
+import { centsToInputText, formatMoney, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import { useAddFixedExpenseSaving, useMarkFixedExpensePaid, type FixedExpense } from '@/features/fixed-expenses/api'
 import { amountAfterCopy } from '@/features/fixed-expenses/aggregate'
 import { bagPeriodNoun, permiteActualizarPlantilla } from '@/features/fixed-expenses/period'
-import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { AccountSelect, AccountTriggerRow } from '@/features/accounts/AccountSelect'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { useCan } from '@/features/access/useCan'
+import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 
 type Mode = 'pay' | 'save'
 
@@ -33,19 +39,25 @@ interface MarkPaidDialogProps {
    *  salió del saldo real, así que al pagar el movimiento nuevo sale sólo por la diferencia (o no se
    *  genera ninguno si ya está cubierto del todo). Ver `FixedExpenseStatus.savedMovementCents`. */
   alreadySavedMovementCents?: number
+  /** Vencimiento materializado de ESTA instancia (`'yyyy-MM-dd'`, `null` en una bolsa) — ya lo trae
+   *  calculado el `FixedExpenseStatus` de quien abre el diálogo (`summarizeFixedExpenses`); no se
+   *  rederiva acá. Header rediseño v2: "vence el D de mes" en el subtítulo. */
+  dueDate?: string | null
 }
 
 /**
  * El importe pagado puede diferir del de la plantilla (aumentos, ajustes) — este popup lo permite
  * en el momento de marcar como pagado.
  *
+ * Rediseño de modales v2 (Pagar fijo, `PF-Pay`): header a banda con la categoría del fijo (`Dialog`
+ * prop `tint`), importe centrado y un campo-botón de fecha y de cuenta. El toggle Pagar/Guardar de
+ * antes pasa a un texto al pie («Sólo guardar plata para este fijo» / «Pagar este fijo»,
+ * `selectMode` sin cambios) — una bolsa no lo tiene, no aplica guardar "para" ella.
+ *
  * Fijo de una sola vez: prellenado con el importe actual y sin autofocus — el caso dominante es
- * "vino igual, confirmo", el autofocus en mobile levanta el teclado para nada. Bloque 3: además
- * tiene los chips Pagar/Guardar — "Guardar" registra que ya se apartó plata para este fijo.
- * Follow-up: ese guardado puede generar movimiento o no (switch, sólo con `movimientos-manuales` —
- * BASIC, que no tiene esa capacidad, siempre guarda "aparte" sin movimiento). Una bolsa no tiene
- * estos chips: ya se va cargando de a partes como gasto real, guardar "para" ella no aplica
- * (decisión del plan).
+ * "vino igual, confirmo", el autofocus en mobile levanta el teclado para nada. Follow-up: ese
+ * guardado puede generar movimiento o no (switch, sólo con `movimientos-manuales` — BASIC, que no
+ * tiene esa capacidad, siempre guarda "aparte" sin movimiento).
  *
  * Bolsa (`is_recurring`): cada carga es un importe distinto (la nafta de esta semana no cuesta lo
  * mismo que la de la semana pasada), así que arranca vacío y con autofocus — acá sí hay algo para
@@ -62,6 +74,7 @@ export function MarkPaidDialog({
   alreadyPaidCents = 0,
   alreadySavedCents = 0,
   alreadySavedMovementCents = 0,
+  dueDate = null,
 }: MarkPaidDialogProps) {
   const isRecurring = fixedExpense.is_recurring
   const [mode, setMode] = useState<Mode>('pay')
@@ -81,6 +94,13 @@ export function MarkPaidDialog({
   // a propósito. En BASIC (sin `movimientos-manuales`) ni se muestra el switch — ese plan siempre
   // guarda "aparte", nunca genera movimiento (ver el guard más abajo y `handleConfirm`).
   const [generateMovement, setGenerateMovement] = useState(true)
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: categories } = useCategories(true)
+  const category = (categories ?? []).find((c) => c.id === fixedExpense.category_id) ?? null
+  const look = chipLook(category ?? undefined)
+  // Sólo una categoría real tiñe el header — la ficha neutra "sin categoría" es gris de por sí.
+  const tint = 'color' in look ? look.color : undefined
 
   const bagPeriod = bagPeriodNoun(fixedExpense.bag_frequency)
   const cents = parseAmountToCents(input)
@@ -128,6 +148,14 @@ export function MarkPaidDialog({
   // Lo guardado "aparte" (sin movimiento): informativo en el modo Pagar, pero nunca descuenta del
   // movimiento que genera el pago — esa plata todavía no salió de ningún lado.
   const asideSavedCents = alreadySavedCents - alreadySavedMovementCents
+  // BASIC no tiene el switch (siempre `false`, ver el guard del JSX) — en el resto de los planes
+  // manda lo que haya elegido el usuario. Se calcula acá (no sólo adentro de `handleConfirm`) porque
+  // el campo-botón de cuenta también lo necesita para el "queda en $…".
+  const savingWithMovement = canMovimientosManuales && generateMovement
+  // Lo que de verdad se descuenta de la cuenta elegida — para el "queda en $…" del campo-botón de
+  // cuenta. Una bolsa siempre genera movimiento por el importe cargado; guardar "aparte" no debita
+  // nada (`null`).
+  const debitCents = isRecurring ? cents : isSaving ? (savingWithMovement ? cents : null) : payTxAmount
 
   function selectMode(next: Mode) {
     if (next === mode) return
@@ -157,7 +185,6 @@ export function MarkPaidDialog({
     }
 
     if (isSaving) {
-      const savingWithMovement = canMovimientosManuales && generateMovement
       addSaving.mutate(
         {
           fixedExpenseId: fixedExpense.id,
@@ -186,97 +213,160 @@ export function MarkPaidDialog({
     }
   }
 
+  const verb = isRecurring ? 'Registrar' : isSaving ? 'Guardar' : 'Pagar'
+  const primaryLabel = isPending ? 'Guardando…' : cents != null && cents > 0 ? `${verb} ${formatMoney(cents)}` : verb
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title={isRecurring ? 'Registrar carga' : isSaving ? 'Guardar para este fijo' : 'Marcar como pagado'}
+      title={fixedExpense.name}
+      subtitle={
+        isRecurring ? (
+          <>
+            <Money cents={alreadyPaidCents} tone="dim" size="inline" /> de <Money cents={fixedExpense.cents} tone="dim" size="inline" />{' '}
+            {bagPeriod.thisPeriod}
+          </>
+        ) : (
+          `${category?.name ?? 'Sin categoría'}${dueDate ? ` · vence el ${format(parseISO(dueDate), "d 'de' MMM", { locale: es })}` : ''}`
+        )
+      }
+      icon={<CategoryChip {...look} size={40} />}
+      tint={tint}
+      footerBleed
       footer={
-        <>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
-            Cancelar
+        <div className="flex w-full flex-col gap-1 px-panel pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <Button size="dialogFooter" className="sm:h-[52px]! sm:w-full!" onClick={handleConfirm} disabled={isPending || accountMissing}>
+            {primaryLabel}
           </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={isPending || accountMissing}>
-            {isPending ? 'Guardando…' : isRecurring ? 'Registrar' : isSaving ? 'Guardar' : 'Marcar pagado'}
-          </Button>
-        </>
+          {/* Sólo fijos de una sola vez: una bolsa siempre "registra una carga" (paga), no tiene
+              sentido "guardar para" un presupuesto que ya se va gastando de a partes. Reemplaza los
+              chips Pagar/Guardar de antes — mismo `selectMode`, disparado desde acá. */}
+          {!isRecurring && (
+            <button
+              type="button"
+              onClick={() => selectMode(mode === 'pay' ? 'save' : 'pay')}
+              className="h-11 text-[13.5px] font-semibold text-fg-secondary hover:text-fg"
+            >
+              {mode === 'pay' ? 'Sólo guardar plata para este fijo' : 'Pagar este fijo'}
+            </button>
+          )}
+        </div>
       }
     >
       <div className="flex flex-col gap-5">
-        <div>
-          <p className="eyebrow">{fixedExpense.name}</p>
-          {isRecurring ? (
-            <p className="mt-1 text-[13px] text-fg-muted">
-              <Money cents={alreadyPaidCents} tone="dim" /> de <Money cents={fixedExpense.cents} tone="dim" /> {bagPeriod.thisPeriod}
+        <div className="flex flex-col gap-3">
+          <OpeningAmountField
+            size="lg"
+            align="center"
+            allowNegative={false}
+            autoFocus={isRecurring}
+            label={isRecurring ? 'Importe de esta carga' : isSaving ? 'Vas a guardar' : 'Vas a pagar'}
+            ariaLabel={isRecurring ? 'Importe de esta carga' : isSaving ? 'Importe guardado' : 'Importe pagado'}
+            error={error ?? undefined}
+            value={input}
+            onChange={(value) => {
+              setInput(value)
+              setError(null)
+            }}
+          />
+
+          {!isRecurring && mode === 'pay' && asideSavedCents > 0 && (
+            <p className="text-center text-[12px] text-fg-muted">
+              Tenés <Money cents={asideSavedCents} tone="dim" size="inline" /> guardado (aparte, sin movimiento) para este fijo.
             </p>
-          ) : (
-            <Money cents={fixedExpense.cents} tone="dim" size="figure" className="mt-1" />
+          )}
+
+          {!isRecurring && mode === 'pay' && alreadySavedMovementCents > 0 && (
+            <p className="text-center text-[12px] text-fg-muted">
+              {payTxAmount === 0 ? (
+                <>
+                  Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: no hace falta generar
+                  un movimiento nuevo.
+                </>
+              ) : (
+                <>
+                  Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: el pago genera un
+                  movimiento sólo por {payTxAmount != null ? <Money cents={payTxAmount} tone="dim" size="inline" /> : 'lo restante'}.
+                </>
+              )}
+            </p>
+          )}
+
+          {isRecurring && amountCopy && (
+            <p className="text-center text-[12px] text-fg-muted">
+              {amountCopy.kind === 'remaining' && (
+                <>
+                  Después de esta carga, falta <Money cents={amountCopy.cents} tone="dim" size="inline" />.
+                </>
+              )}
+              {amountCopy.kind === 'complete' && `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`}
+              {amountCopy.kind === 'over' && (
+                <>
+                  Te pasás <Money cents={amountCopy.cents} tone="dim" size="inline" /> del presupuesto {bagPeriod.adjective}.
+                </>
+              )}
+            </p>
+          )}
+
+          {isSaving && amountCopy && (
+            <p className="text-center text-[12px] text-fg-muted">
+              {amountCopy.kind === 'remaining' && (
+                <>
+                  Después de esto, te falta guardar <Money cents={amountCopy.cents} tone="dim" size="inline" />.
+                </>
+              )}
+              {amountCopy.kind === 'complete' && 'Con esto lo tenés cubierto.'}
+              {amountCopy.kind === 'over' && (
+                <>
+                  Guardás <Money cents={amountCopy.cents} tone="dim" size="inline" /> de más.
+                </>
+              )}
+            </p>
+          )}
+
+          {differs && (
+            <p className="text-center text-[12px] text-fg-muted">
+              {willUpdateTemplate
+                ? 'El importe del fijo pasa a este valor de acá en adelante.'
+                : 'Estás marcando un mes pasado — el importe del fijo no se toca.'}
+            </p>
           )}
         </div>
 
-        {/* Sólo fijos de una sola vez: una bolsa siempre "registra una carga" (paga), no tiene
-            sentido "guardar para" un presupuesto que ya se va gastando de a partes. */}
-        {!isRecurring && (
-          <div className="flex gap-1.5">
-            <Chip size="lg" active={mode === 'pay'} onClick={() => selectMode('pay')}>
-              Pagar
-            </Chip>
-            <Chip size="lg" active={mode === 'save'} onClick={() => selectMode('save')}>
-              Guardar
-            </Chip>
-          </div>
-        )}
-
-        {!isRecurring && mode === 'pay' && asideSavedCents > 0 && (
-          <p className="text-[12px] text-fg-muted">
-            Tenés <Money cents={asideSavedCents} tone="dim" size="inline" /> guardado (aparte, sin movimiento) para este fijo.
-          </p>
-        )}
-
-        {!isRecurring && mode === 'pay' && alreadySavedMovementCents > 0 && (
-          <p className="text-[12px] text-fg-muted">
-            {payTxAmount === 0 ? (
-              <>
-                Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: no hace falta generar
-                un movimiento nuevo.
-              </>
-            ) : (
-              <>
-                Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: el pago genera un
-                movimiento sólo por {payTxAmount != null ? <Money cents={payTxAmount} tone="dim" size="inline" /> : 'lo restante'}.
-              </>
-            )}
-          </p>
-        )}
-
-        <Field
-          label={isRecurring ? 'Importe de esta carga' : isSaving ? 'Importe guardado' : 'Importe pagado'}
-          error={error ?? undefined}
-        >
-          <AmountInput
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value)
-              setError(null)
-            }}
-            invalid={!!error}
-            autoFocus={isRecurring}
-          />
-        </Field>
-
         {showDateField && (
-          <Field label="Fecha" error={dateError ?? undefined}>
-            <Input
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">Fecha</p>
+            <FieldButton
+              icon={<Calendar className="size-[18px]" strokeWidth={1.8} aria-hidden />}
+              label={format(parseISO(occurredOn), "d 'de' MMM", { locale: es })}
+              value={occurredOn === today ? 'hoy' : undefined}
+              onClick={() => {
+                const el = dateInputRef.current
+                if (el && typeof el.showPicker === 'function') el.showPicker()
+                else el?.focus()
+              }}
+            />
+            <input
+              ref={dateInputRef}
               type="date"
-              value={occurredOn}
+              className="sr-only"
+              tabIndex={-1}
+              aria-label="Fecha"
               max={today}
-              invalid={!!dateError}
+              value={occurredOn}
               onChange={(e) => {
+                if (!e.target.value) return
                 setOccurredOn(e.target.value)
                 setDateError(null)
               }}
             />
-          </Field>
+            {dateError && (
+              <p role="alert" className="text-[12.5px] font-medium text-badge-red-fg">
+                {dateError}
+              </p>
+            )}
+          </div>
         )}
 
         {isRecurring && (
@@ -305,49 +395,27 @@ export function MarkPaidDialog({
         )}
 
         {showAccountField && (
-          <Field label={isSaving ? 'Con qué lo guardé' : 'Con qué lo pagué'}>
-            <AccountSelect required value={accountId} onChange={setAccountId} />
-          </Field>
-        )}
-
-        {isRecurring && amountCopy && (
-          <p className="text-[12px] text-fg-muted">
-            {amountCopy.kind === 'remaining' && (
-              <>
-                Después de esta carga, falta <Money cents={amountCopy.cents} tone="dim" />.
-              </>
-            )}
-            {amountCopy.kind === 'complete' && `Con esta carga completás el presupuesto ${bagPeriod.adjective}.`}
-            {amountCopy.kind === 'over' && (
-              <>
-                Te pasás <Money cents={amountCopy.cents} tone="dim" /> del presupuesto {bagPeriod.adjective}.
-              </>
-            )}
-          </p>
-        )}
-
-        {isSaving && amountCopy && (
-          <p className="text-[12px] text-fg-muted">
-            {amountCopy.kind === 'remaining' && (
-              <>
-                Después de esto, te falta guardar <Money cents={amountCopy.cents} tone="dim" />.
-              </>
-            )}
-            {amountCopy.kind === 'complete' && 'Con esto lo tenés cubierto.'}
-            {amountCopy.kind === 'over' && (
-              <>
-                Guardás <Money cents={amountCopy.cents} tone="dim" /> de más.
-              </>
-            )}
-          </p>
-        )}
-
-        {differs && (
-          <p className="text-[12px] text-fg-muted">
-            {willUpdateTemplate
-              ? 'El importe del fijo pasa a este valor de acá en adelante.'
-              : 'Estás marcando un mes pasado — el importe del fijo no se toca.'}
-          </p>
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">{isSaving ? 'Con qué lo guardé' : 'Con qué lo pagás'}</p>
+            <AccountSelect
+              required
+              value={accountId}
+              onChange={setAccountId}
+              trigger={(account) => (
+                <AccountTriggerRow
+                  icon={account?.icon ?? <span aria-hidden className="size-10 shrink-0 rounded-control bg-fill-subtle" />}
+                  name={account?.name ?? 'Elegí una cuenta'}
+                  placeholder={!account}
+                  secondary={
+                    account && debitCents != null && account.balanceCents !== undefined
+                      ? `queda en ${formatMoney(account.balanceCents - debitCents)}`
+                      : undefined
+                  }
+                />
+              )}
+              triggerClassName="flex h-[54px] w-full items-center gap-2.5 rounded-control border border-border-strong pr-3 pl-2 text-left text-fg transition-colors duration-150 hover:border-fg-faint"
+            />
+          </div>
         )}
       </div>
     </Dialog>

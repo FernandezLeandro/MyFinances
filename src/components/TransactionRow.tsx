@@ -1,5 +1,7 @@
 import { cn } from '@/lib/cn'
 import { Money } from '@/components/ui/Money'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import type { Category } from '@/features/categories/api'
 import type { Transaction } from '@/features/transactions/api'
 import { movementCategoryLabel } from '@/features/transactions/aggregate'
@@ -37,11 +39,7 @@ export function TransactionRow({
           future && 'opacity-60',
         )}
       >
-        <span
-          aria-hidden
-          className="size-2 shrink-0 rounded-full"
-          style={{ backgroundColor: category?.color ?? 'var(--color-border-strong)' }}
-        />
+        <CategoryChip size={28} {...chipLook(category, { adjustment: tx.is_adjustment })} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13.5px] font-semibold text-fg">
             {tx.description || category?.name || 'Sin descripción'}

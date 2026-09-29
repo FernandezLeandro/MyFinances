@@ -2,15 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogActions } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Money } from '@/components/ui/Money'
-import { parseAmountToCents } from '@/lib/money'
-import { useCategories } from '@/features/categories/api'
+import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { cycleContaining, cycleLabel } from '@/lib/cycle'
+import { useCycleConfig } from '@/lib/useCycle'
+import { useCategories, useCategoryUsageCounts } from '@/features/categories/api'
+import { CategoryPicker } from '@/features/categories/CategoryPicker'
 import { useCreateReceivable, useDeleteReceivablePayment, useUnexpenseReceivable } from '@/features/receivables/api'
 import { PersonNameInput } from '@/features/receivables/PersonNameInput'
 import { AccountSelect } from '@/features/accounts/AccountSelect'
@@ -30,6 +34,7 @@ import {
   type TransactionType,
 } from '@/features/transactions/api'
 import { movementFieldLocks, originDeleteAction, originDeleteCopy, type TransactionOrigin } from '@/features/transactions/origin'
+import { DateShortcuts } from '@/features/transactions/DateShortcuts'
 
 /** Cómo se calcula la parte de la otra persona en un gasto compartido. */
 type SplitMode = '50' | 'percent' | 'amount'
@@ -126,8 +131,10 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   // select tiene que poder seguir mostrándola (ver `categoriesForType` más abajo), o guardar sin
   // tocar nada le pisa la categoría en silencio.
   const { data: categories } = useCategories(true)
+  const { data: categoryUsage } = useCategoryUsageCounts()
   const { data: locations } = useBalanceLocations()
   const { data: balances } = useAccountBalances()
+  const cycleConfig = useCycleConfig()
   const defaultAccountId = effectiveDefaultAccountId(locations ?? [])
   const activeAccountCount = (locations ?? []).filter((l) => !l.is_archived).length
   // `required`: todo movimiento nuevo lleva cuenta (el saldo es la suma de las cuentas). `legacy`: un
@@ -199,6 +206,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   const splitMode = watch('splitMode')
   const amount = watch('amount')
   const occurredOn = watch('occurredOn')
+  const cycle = occurredOn ? cycleContaining(cycleConfig, parseISO(occurredOn)) : null
 
   // `didResetRef`: sin esto, `<StrictMode>` (activo en `main.tsx`) vuelve a invocar este efecto una
   // segunda vez en desarrollo apenas monta (mount → efectos → "desmonta" cleanups → remonta →
@@ -424,6 +432,9 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
         open={open}
         onClose={onClose}
         title={isEditing ? 'Editar movimiento' : 'Nuevo movimiento'}
+        icon={type === 'expense' ? <ArrowUpRight className="size-5" strokeWidth={2} aria-hidden /> : <ArrowDownLeft className="size-5" strokeWidth={2} aria-hidden />}
+        tone={type === 'expense' ? 'danger' : 'accent'}
+        subtitle={cycle && `Se suma al ciclo de ${cycleLabel(cycle)}`}
         footer={
           <>
             {isEditing && (
@@ -445,12 +456,15 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
                 Eliminar
               </Button>
             )}
-            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || originLoading}>
-              {isSubmitting ? 'Guardando…' : 'Guardar'}
-            </Button>
+            <DialogActions onCancel={onClose}>
+              <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || originLoading}>
+              {isSubmitting
+                ? 'Guardando…'
+                : parseAmountToCents(amount)
+                  ? `Guardar ${type === 'expense' ? 'gasto' : 'ingreso'} · ${formatMoney(parseAmountToCents(amount)!)}`
+                  : `Guardar ${type === 'expense' ? 'gasto' : 'ingreso'}`}
+              </Button>
+            </DialogActions>
           </>
         }
       >
@@ -475,10 +489,22 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
           )}
 
           <div className="flex gap-2">
-            <Chip size="lg" active={type === 'expense'} onClick={locks.lockType ? undefined : () => selectType('expense')}>
+            <Chip
+              size="lg"
+              activeTone="danger"
+              leading={<ArrowUpRight className="size-4" strokeWidth={2} aria-hidden />}
+              active={type === 'expense'}
+              onClick={locks.lockType ? undefined : () => selectType('expense')}
+            >
               Gasto
             </Chip>
-            <Chip size="lg" active={type === 'income'} onClick={locks.lockType ? undefined : () => selectType('income')}>
+            <Chip
+              size="lg"
+              activeTone="accent"
+              leading={<ArrowDownLeft className="size-4" strokeWidth={2} aria-hidden />}
+              active={type === 'income'}
+              onClick={locks.lockType ? undefined : () => selectType('income')}
+            >
               Ingreso
             </Chip>
           </div>
@@ -487,29 +513,23 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
             <AmountInput invalid={!!errors.amount} disabled={locks.lockAmount} {...register('amount')} />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
-              <Select id="categoryId" {...register('categoryId')}>
-                <option value="">Sin categoría</option>
-                {categoriesForType.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.is_archived && ' (archivada)'}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          <CategoryPicker
+            categories={categoriesForType}
+            usage={categoryUsage}
+            value={watch('categoryId')}
+            onChange={(id) => setValue('categoryId', id, { shouldDirty: true })}
+          />
 
-            <Field label="Fecha" htmlFor="occurredOn" error={errors.occurredOn?.message}>
-              <Input
-                id="occurredOn"
-                type="date"
-                min={MIN_OCCURRED_ON}
-                max={todayISO()}
-                invalid={!!errors.occurredOn}
-                {...register('occurredOn')}
-              />
-            </Field>
+          <div className="flex flex-col gap-2">
+            <span className="eyebrow">Fecha</span>
+            <DateShortcuts
+              value={occurredOn}
+              onChange={(v) => setValue('occurredOn', v, { shouldDirty: true, shouldValidate: true })}
+              today={todayISO()}
+              min={MIN_OCCURRED_ON}
+              max={todayISO()}
+            />
+            {errors.occurredOn && <p className="text-[12px] text-negative">{errors.occurredOn.message}</p>}
           </div>
 
           {accountMode === 'required' && (
@@ -521,6 +541,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
                 // `shouldDirty`: sin esto, el guard de `dirtyFields.accountId` que evita que el prefill
                 // de la predeterminada pise una elección manual no vería esta elección como manual.
                 onChange={(v) => setValue('accountId', v, { shouldDirty: true })}
+                balances={balances}
               />
             </Field>
           )}
@@ -619,6 +640,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
       {transaction && (
         <ConfirmDeleteMovementDialog
           open={confirmingDelete}
+          transaction={transaction ?? null}
           busy={
             deleteTx.isPending ||
             unmarkLegacyPayment.isPending ||

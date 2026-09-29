@@ -25,6 +25,17 @@ interface OpeningAmountFieldProps {
   maxTitle?: string
   ariaLabel?: string
   className?: string
+  /** El cursor arranca en el campo al abrir — la bolsa de Pagar fijo, donde cada carga es un importe
+   *  distinto y hay algo para escribir de una. */
+  autoFocus?: boolean
+  /** `sm` (default): campo compacto de 170px, con el hint al costado — alta/edición de cuenta,
+   *  aporte de Ahorros. `lg`: cifra grande a todo el ancho, subrayada en acento, con el hint debajo
+   *  — el «¿Cuánto tenés de verdad?» de Reajustar saldo (rediseño de modales v2, opción B), la única
+   *  cifra que se mira mientras se escribe. */
+  size?: 'sm' | 'lg'
+  /** Sólo con `size="lg"`. `start` (default): como Reajustar saldo, ocupa todo el ancho. `center`:
+   *  label y cifra centrados, el input mide su propio ancho — Nueva cuenta y Pagar fijo. */
+  align?: 'start' | 'center'
 }
 
 /**
@@ -48,8 +59,63 @@ export function OpeningAmountField({
   maxTitle,
   ariaLabel,
   className,
+  autoFocus,
+  size = 'sm',
+  align = 'start',
 }: OpeningAmountFieldProps) {
   const id = useId()
+
+  if (size === 'lg') {
+    const centered = align === 'center'
+    return (
+      <div className={cn('flex flex-col gap-1.5', centered && 'items-center text-center', className)}>
+        <label htmlFor={id} className="text-[12.5px] font-medium text-fg-secondary">
+          {label}
+        </label>
+        <div
+          className={cn(
+            'flex items-baseline gap-2 border-b-2 pb-2',
+            centered && 'justify-center px-2',
+            error ? 'border-negative' : 'border-accent',
+          )}
+        >
+          <span aria-hidden className={cn('font-display text-[26px] font-medium', error ? 'text-badge-red-fg' : 'text-fg-muted')}>
+            {symbol}
+          </span>
+          <input
+            id={id}
+            value={value}
+            onChange={(e) => onChange(sanitizeAmountInput(e.target.value, { allowNegative }))}
+            inputMode="decimal"
+            autoFocus={autoFocus}
+            // Centrado: el input mide su propio ancho (atributo nativo `size`, en caracteres) en vez
+            // de estirarse — así la cifra queda centrada de verdad y no pegada a la izquierda de una
+            // fila que ocupa todo el ancho del diálogo.
+            size={centered ? Math.max(value.length, 1) : undefined}
+            aria-label={ariaLabel ?? label}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${id}-error` : undefined}
+            className={cn(
+              'tnum min-w-0 max-w-full bg-transparent font-display text-[40px] leading-tight font-semibold tracking-[-0.04em] outline-none',
+              centered ? 'flex-none text-center' : 'flex-1',
+              error ? 'text-badge-red-fg!' : 'text-fg',
+            )}
+          />
+        </div>
+        {error ? (
+          <p
+            id={`${id}-error`}
+            role="alert"
+            className={cn('text-[12.5px] leading-snug font-medium text-badge-red-fg', centered && 'text-center')}
+          >
+            {error}
+          </p>
+        ) : (
+          hint && <p className={cn('text-[12px] leading-snug text-fg-muted', centered && 'text-center')}>{hint}</p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>

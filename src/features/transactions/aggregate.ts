@@ -327,7 +327,10 @@ export function confirmDeleteMovementCopy({
   }
   return {
     title: '¿Eliminar este movimiento?',
-    confirmLabel: 'Eliminar',
-    paragraphs: [name ? `Se borra «${name}». No se puede deshacer.` : 'No se puede deshacer.'],
+    confirmLabel: 'Eliminar movimiento',
+    // Rediseño de modales v2 (confirmación A): sin párrafo — la tarjeta ya nombra el movimiento y
+    // «Se borra X. No se puede deshacer.» sólo lo repetía. Los casos de arriba sí lo llevan: cuentan
+    // una consecuencia que la tarjeta no muestra.
+    paragraphs: [],
   }
 }

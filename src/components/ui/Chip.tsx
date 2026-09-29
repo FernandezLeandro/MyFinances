@@ -3,8 +3,9 @@ import { cn } from '@/lib/cn'
 
 interface ChipProps {
   children: ReactNode
-  /** Color de la categoría (cualquier color CSS). Pinta el punto y, si está activo, el borde. */
-  color?: string
+  /** Al frente del texto — hoy sólo la ficha de categoría (`CategoryChip`, tamaño 16) de los
+   *  filtros de Movimientos. Achica el padding izquierdo de `sm` para que quede pegada. */
+  leading?: ReactNode
   active?: boolean
   onClick?: () => void
   className?: string
@@ -15,19 +16,30 @@ interface ChipProps {
    *  — ej. el Gasto/Ingreso de "Nuevo movimiento", donde la elección es la primera decisión del
    *  formulario, no una entre diez chips juntos. */
   size?: 'sm' | 'md' | 'lg'
+  /** Sólo con `size="lg"` y `active`: `ink` (default) es el fondo sólido de siempre; `danger` es el
+   *  rojo suave del Gasto elegido y `accent` el borde de acento de la fecha elegida — ninguno de los
+   *  dos "apaga" el resto de la fila como haría el fondo sólido. */
+  activeTone?: 'ink' | 'danger' | 'accent'
 }
 
 const sizeClass: Record<NonNullable<ChipProps['size']>, string> = {
-  sm: 'gap-1.5 rounded-chip px-2 py-1 text-[12px] leading-none',
+  sm: 'gap-1.5 rounded-chip py-1 text-[12px] leading-none',
   md: 'gap-1.5 rounded-chip-md px-3 py-2 text-[12.5px] leading-tight',
-  lg: 'gap-2 rounded-control px-4 py-2 text-[14px] leading-none',
+  lg: 'gap-1.5 rounded-pill border px-4 py-2 text-[14px] leading-none',
+}
+
+const lgActiveTone: Record<NonNullable<ChipProps['activeTone']>, string> = {
+  ink: 'border-transparent bg-inverse font-semibold text-on-inverse',
+  danger: 'border-transparent bg-badge-red-bg font-semibold text-badge-red-fg',
+  accent: 'border-accent bg-accent-soft font-semibold text-accent-text',
 }
 
 /**
- * Etiqueta densa de 4px de radio: categorías y filtros. El color de la categoría entra por un punto,
- * no pintando todo el fondo — así diez chips juntos no convierten la pantalla en un semáforo.
+ * Etiqueta densa de 4px de radio: categorías y filtros. `leading` (la ficha de categoría) entra
+ * pegado al texto, no pintando todo el fondo — así diez chips juntos no convierten la pantalla en
+ * un semáforo.
  */
-export function Chip({ children, color, active = false, onClick, className, ariaLabel, size = 'sm' }: ChipProps) {
+export function Chip({ children, leading, active = false, onClick, className, ariaLabel, size = 'sm', activeTone = 'ink' }: ChipProps) {
   const interactive = typeof onClick === 'function'
   const Tag = interactive ? 'button' : 'span'
 
@@ -40,18 +52,22 @@ export function Chip({ children, color, active = false, onClick, className, aria
         'inline-flex items-center whitespace-nowrap',
         'transition-colors duration-150',
         sizeClass[size],
-        active ? 'bg-inverse font-semibold text-on-inverse' : 'bg-fill-subtle text-fg-secondary',
-        interactive && !active && 'hover:bg-border-strong hover:text-fg',
+        // `sm` no trae padding horizontal en `sizeClass` porque cambia con `leading`: sin ficha es
+        // el `px-2` de siempre; con ficha, el margen izquierdo lo pone ella, así que el chip sólo
+        // agrega el mínimo para no pegarla al borde.
+        size === 'sm' && (leading ? 'pl-[3px] pr-2' : 'px-2'),
+        size === 'lg'
+          ? active
+            ? lgActiveTone[activeTone]
+            : 'border-border-strong bg-transparent text-fg'
+          : active
+            ? 'bg-inverse font-semibold text-on-inverse'
+            : 'bg-fill-subtle text-fg-secondary',
+        interactive && !active && (size === 'lg' ? 'hover:bg-fill-subtle' : 'hover:bg-border-strong hover:text-fg'),
         className,
       )}
     >
-      {color && (
-        <span
-          aria-hidden
-          className="size-1.5 shrink-0 rounded-full"
-          style={{ backgroundColor: color }}
-        />
-      )}
+      {leading}
       {children}
     </Tag>
   )
@@ -59,7 +75,7 @@ export function Chip({ children, color, active = false, onClick, className, aria
 
 interface FilterChipProps {
   children: ReactNode
-  color?: string
+  leading?: ReactNode
   onRemove: () => void
   /** Describe QUÉ filtro se quita, no sólo "quitar" — el chip en sí ya no lleva más texto que el
    *  valor del filtro, así que el lector de pantalla necesita este contexto. */
@@ -68,9 +84,9 @@ interface FilterChipProps {
 
 /** `Chip` con una ✕ de quitar al final — los filtros activos de Movimientos. Antes cada chip
  *  repetía a mano el `<span aria-hidden>✕</span>`; acá queda en un solo lugar. */
-export function FilterChip({ children, color, onRemove, removeLabel }: FilterChipProps) {
+export function FilterChip({ children, leading, onRemove, removeLabel }: FilterChipProps) {
   return (
-    <Chip color={color} onClick={onRemove} ariaLabel={removeLabel}>
+    <Chip leading={leading} onClick={onRemove} ariaLabel={removeLabel}>
       {children}{' '}
       <span aria-hidden className="text-fg-muted">
         ✕

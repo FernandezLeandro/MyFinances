@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import type { CycleConfig } from '@/lib/cycle'
-import { periodRange, type MovementPeriod } from './movementPeriod'
+import { periodRange, periodRangeLabel, type MovementPeriod } from './movementPeriod'
 
 // `new Date(2026, 8, 10)` (constructor local) — mismo gotcha de siempre con `new Date(string)`.
 const ANCHOR = format(new Date(2026, 8, 10), 'yyyy-MM-dd')
@@ -41,5 +41,19 @@ describe('periodRange — preset "month" con ciclo configurado', () => {
   it('preset "custom" ignora la config por completo, usa from/to tal cual', () => {
     const custom: MovementPeriod = { preset: 'custom', anchor: ANCHOR, from: '2020-01-01', to: '2020-01-31' }
     expect(periodRange(custom, biweekly)).toEqual({ from: '2020-01-01', to: '2020-01-31' })
+  })
+})
+
+describe('periodRangeLabel — rango compacto del campo-botón de Período', () => {
+  it('mismo mes: no repite el mes', () => {
+    expect(periodRangeLabel('2026-09-01', '2026-09-30')).toBe('1 – 30 sep')
+  })
+
+  it('cruza de mes: cada punta lleva su mes', () => {
+    expect(periodRangeLabel('2026-08-28', '2026-09-05')).toBe('28 ago – 5 sep')
+  })
+
+  it('un solo día (Hoy/Ayer): una sola fecha, sin guion', () => {
+    expect(periodRangeLabel('2026-09-27', '2026-09-27')).toBe('27 sep')
   })
 })

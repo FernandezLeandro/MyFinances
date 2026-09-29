@@ -17,6 +17,9 @@ import { cycleContaining, cycleLabel } from '@/lib/cycle'
 import { useCycleConfig } from '@/lib/useCycle'
 import { useRangeSummary, useSpendByCategory } from '@/features/transactions/api'
 import { movementPeriodFromRange } from '@/features/transactions/movementPeriod'
+import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useCommittedPurchaseTransactionIds } from '@/features/credits/api'
 import {
   useCategoryMonthlySeries,
@@ -70,6 +73,7 @@ function HeroStat({
 function CategoryLegendRow({
   name,
   color,
+  icon,
   cents,
   pct,
   dim,
@@ -77,6 +81,7 @@ function CategoryLegendRow({
 }: {
   name: string
   color: string | null
+  icon: string | null | undefined
   cents: number
   pct: number
   dim: boolean
@@ -89,7 +94,7 @@ function CategoryLegendRow({
         onClick={onClick}
         className="flex w-full items-center gap-3 rounded-chip py-2 text-left transition-opacity hover:opacity-70"
       >
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color ?? 'var(--color-border-strong)' }} />
+        <CategoryChip size={20} {...chipLook(color != null ? { color, icon } : undefined)} />
         <span className={cn('min-w-0 flex-1 truncate text-[13.5px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
         <span className="hidden h-[5px] w-24 shrink-0 overflow-hidden rounded-pill bg-fill-subtle sm:block">
           <span className="block h-full rounded-pill" style={{ width: `${pct * 100}%`, backgroundColor: color ?? 'var(--color-border-strong)' }} />
@@ -107,6 +112,7 @@ function CategoryLegendRow({
 function PromedioRow({
   name,
   color,
+  icon,
   avgCents,
   nowCents,
   deviationPct,
@@ -114,6 +120,7 @@ function PromedioRow({
 }: {
   name: string
   color: string | null
+  icon: string | null | undefined
   avgCents: number
   nowCents: number
   deviationPct: number | null
@@ -126,7 +133,7 @@ function PromedioRow({
     // derecha con `ml-auto` en la primera. Desde `sm` (donde ya entraban) vuelve a ser una sola fila.
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-divider py-2.5 last:border-b-0">
       <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:flex-1">
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color ?? 'var(--color-border-strong)' }} />
+        <CategoryChip size={20} {...chipLook(color != null ? { color, icon } : undefined)} />
         <span className={cn('truncate text-[13px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
       </span>
       <Money cents={avgCents} tone="dim" size="row" className="ml-auto w-20 shrink-0 justify-end sm:ml-0" />
@@ -156,6 +163,10 @@ export function Analisis() {
   const [promedioOtrosExpanded, setPromedioOtrosExpanded] = useState(false)
   const navigate = useNavigate()
   const chartColors = useChartColors()
+  // El ícono no llega en `v_spend_by_category` (sólo `color`) — se busca acá por id en vez de sumarlo
+  // a la RPC, para no llevar una migración a producción sólo por esto.
+  const { data: categories } = useCategories(true)
+  const iconById = useMemo(() => new Map((categories ?? []).map((c) => [c.id, c.icon])), [categories])
 
   useEffect(() => {
     navigate(location.pathname, { replace: true, state: { analisisPeriod: period } })
@@ -409,6 +420,7 @@ export function Analisis() {
                         key={s.categoryId}
                         name={s.categoryName}
                         color={s.color}
+                        icon={iconById.get(s.categoryId)}
                         cents={s.cents}
                         pct={totalCents > 0 ? s.cents / totalCents : 0}
                         dim={i !== 0}
@@ -424,7 +436,7 @@ export function Analisis() {
                           aria-expanded={otrosExpanded}
                           className="flex w-full items-center gap-3 rounded-chip py-2 text-left transition-opacity hover:opacity-70"
                         >
-                          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
+                          <CategoryChip size={20} neutral="more" />
                           <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg-muted">
                             Ver {restCategories.length} categoría{restCategories.length === 1 ? '' : 's'} más
                           </span>
@@ -447,6 +459,7 @@ export function Analisis() {
                                 key={s.categoryId}
                                 name={s.categoryName}
                                 color={s.color}
+                                icon={iconById.get(s.categoryId)}
                                 cents={s.cents}
                                 pct={totalCents > 0 ? s.cents / totalCents : 0}
                                 dim
@@ -500,6 +513,7 @@ export function Analisis() {
                         key={p.categoryId}
                         name={p.categoryName}
                         color={p.color}
+                        icon={iconById.get(p.categoryId)}
                         avgCents={p.avgCents}
                         nowCents={p.nowCents}
                         deviationPct={p.deviationPct}
@@ -515,7 +529,7 @@ export function Analisis() {
                           className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-divider py-2.5 text-left last:border-b-0"
                         >
                           <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto sm:flex-1">
-                            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: chartColors.fgMuted }} />
+                            <CategoryChip size={20} neutral="more" />
                             <span className="truncate text-[13px] text-fg-muted">
                               Otros {promedioRest.length} categoría{promedioRest.length === 1 ? '' : 's'}
                             </span>
@@ -539,6 +553,7 @@ export function Analisis() {
                               key={p.categoryId}
                               name={p.categoryName}
                               color={p.color}
+                              icon={iconById.get(p.categoryId)}
                               avgCents={p.avgCents}
                               nowCents={p.nowCents}
                               deviationPct={p.deviationPct}
@@ -607,7 +622,7 @@ export function Analisis() {
                   <EmptyState glyph="◔" title="Todavía no hay datos" className="py-8" />
                 ) : (
                   <div className="mt-4">
-                    <TopCategoriesComparison data={comparison} />
+                    <TopCategoriesComparison data={comparison} iconById={iconById} />
                   </div>
                 )}
               </Panel>

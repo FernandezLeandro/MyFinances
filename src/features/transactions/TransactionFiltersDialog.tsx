@@ -1,15 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Calendar, Check, Plus, Search } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
+import { Chip, FilterChip } from '@/components/ui/Chip'
 import { Input } from '@/components/ui/Input'
+import { FieldButton } from '@/components/ui/FieldButton'
+import { FloatingPanel, InDialogSheet } from '@/components/ui/FloatingPanel'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { cn } from '@/lib/cn'
+import { useCycleConfig } from '@/lib/useCycle'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { UNCATEGORIZED_ID, type Category } from '@/features/categories/api'
 import { UNASSIGNED_ACCOUNT_ID, type TransactionType } from '@/features/transactions/api'
 import type { BalanceLocation } from '@/features/accounts/api'
+import { accountKindIcon } from '@/features/accounts/accountKind'
 import {
   MOVEMENT_PERIOD_PRESETS,
   MOVEMENT_PERIOD_PRESET_LABELS,
+  periodRange,
+  periodRangeLabel,
   type MovementPeriod,
   type MovementPeriodPreset,
 } from '@/features/transactions/movementPeriod'
@@ -45,6 +57,10 @@ export function TransactionFiltersDialog({
   const [draft, setDraft] = useState(value)
   const [view, setView] = useState<FilterView>('filters')
   const [categorySearch, setCategorySearch] = useState('')
+  const [periodOpen, setPeriodOpen] = useState(false)
+  const periodTriggerRef = useRef<HTMLButtonElement>(null)
+  const isWide = useMediaQuery('(min-width: 640px)')
+  const cycleConfig = useCycleConfig()
 
   // El panel edita un borrador propio y sólo lo publica en "Aplicar" — así elegir varias
   // categorías no dispara una query a Supabase por cada click. Se resincroniza cada vez que abre.
@@ -61,6 +77,8 @@ export function TransactionFiltersDialog({
 
   function selectPreset(preset: MovementPeriodPreset) {
     setDraft((d) => ({ ...d, period: { ...d.period, preset } }))
+    setPeriodOpen(false)
+    periodTriggerRef.current?.focus()
   }
 
   function selectType(type: 'all' | TransactionType) {
@@ -121,14 +139,15 @@ export function TransactionFiltersDialog({
     return visibleCategories.filter((c) => c.kind === kind && (term === '' || c.name.toLowerCase().includes(term)))
   }
 
-  const categorySummaryLabel =
-    draft.categoryIds.length === 0
-      ? 'Todas las categorías'
-      : draft.categoryIds.length === 1
-        ? draft.categoryIds[0] === UNCATEGORIZED_ID
-          ? 'Sin categoría'
-          : (categories.find((c) => c.id === draft.categoryIds[0])?.name ?? '1 seleccionada')
-        : `${draft.categoryIds.length} seleccionadas`
+  // Píldoras de las categorías elegidas (rediseño v2, Filtros «campos») — a diferencia del botón
+  // resumen de antes, cada una se puede sacar con su × sin abrir el buscador.
+  const selectedCategoryChips = draft.categoryIds
+    .map((id) => {
+      if (id === UNCATEGORIZED_ID) return { id, name: 'Sin categoría', look: chipLook(undefined) }
+      const category = categories.find((c) => c.id === id)
+      return category ? { id, name: category.name, look: chipLook(category) } : null
+    })
+    .filter((c): c is { id: string; name: string; look: ReturnType<typeof chipLook> } => c !== null)
 
   const groups: { title?: string; items: Category[] }[] =
     draft.type === 'all'
@@ -139,44 +158,88 @@ export function TransactionFiltersDialog({
       : [{ items: categoriesFor(draft.type) }]
   const noResults = groups.every((g) => g.items.length === 0)
 
+  const { from: periodFrom, to: periodTo } = periodRange(draft.period, cycleConfig)
+  const periodValueLabel =
+    draft.period.preset === 'custom' && (!draft.period.from || !draft.period.to) ? undefined : periodRangeLabel(periodFrom, periodTo)
+  const periodList = (
+    <ul role="listbox" aria-label="Período" className={cn('flex flex-col gap-0.5', isWide && 'overflow-y-auto p-1.5')}>
+      {MOVEMENT_PERIOD_PRESETS.map((preset) => {
+        const isSelected = draft.period.preset === preset
+        const { from, to } = periodRange({ ...draft.period, preset }, cycleConfig)
+        return (
+          <li key={preset} role="option" aria-selected={isSelected}>
+            <button
+              type="button"
+              onClick={() => selectPreset(preset)}
+              className={cn(
+                'flex h-[52px] w-full items-center gap-2.5 rounded-item px-2.5 text-left text-fg',
+                isSelected ? 'bg-surface-sunken' : 'hover:bg-surface-sunken',
+              )}
+            >
+              <span className="flex-1 text-[14px] font-semibold">{MOVEMENT_PERIOD_PRESET_LABELS[preset]}</span>
+              {preset !== 'custom' && <span className="text-[12.5px] text-fg-secondary">{periodRangeLabel(from, to)}</span>}
+              <Check className={cn('size-4 shrink-0', !isSelected && 'invisible')} strokeWidth={2.6} aria-hidden />
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={view === 'categories' ? 'Categorías' : 'Filtros'}
+      onBack={view === 'categories' ? () => setView('filters') : undefined}
       footerBleed
       footer={
-        <div className="flex w-full items-center gap-4 bg-surface-sunken px-panel pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            onClick={view === 'filters' ? clearDraft : clearCategories}
-            className="text-[12.5px] font-semibold text-fg-secondary transition-colors hover:text-fg"
-          >
-            Limpiar
-          </button>
-          {view === 'filters' ? (
-            <Button size="compact" className="ml-auto" onClick={apply} disabled={customInvalid}>
+        view === 'filters' ? (
+          <div className="flex w-full items-center gap-2.5 border-t border-border bg-surface px-panel pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Button variant="outline" size="dialogFooter" onClick={clearDraft}>
+              Limpiar
+            </Button>
+            <Button size="dialogFooter" className="flex-1" onClick={apply} disabled={customInvalid}>
               Aplicar
             </Button>
-          ) : (
+          </div>
+        ) : (
+          <div className="flex w-full items-center gap-4 border-t border-border bg-surface px-panel pt-[14px] pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={clearCategories}
+              className="text-[12.5px] font-semibold text-fg-secondary transition-colors hover:text-fg"
+            >
+              Limpiar
+            </button>
             <Button size="compact" className="ml-auto" onClick={() => setView('filters')}>
-              Listo
+              {draft.categoryIds.length > 0 ? `Listo · ${draft.categoryIds.length}` : 'Listo'}
             </Button>
-          )}
-        </div>
+          </div>
+        )
       }
     >
       {view === 'filters' ? (
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Período</p>
-            <div className="flex flex-wrap gap-1.5">
-              {MOVEMENT_PERIOD_PRESETS.map((preset) => (
-                <Chip key={preset} active={draft.period.preset === preset} onClick={() => selectPreset(preset)}>
-                  {MOVEMENT_PERIOD_PRESET_LABELS[preset]}
-                </Chip>
-              ))}
-            </div>
+            <FieldButton
+              ref={periodTriggerRef}
+              open={periodOpen}
+              onClick={() => setPeriodOpen((v) => !v)}
+              icon={<Calendar className="size-[18px]" strokeWidth={1.8} aria-hidden />}
+              label={MOVEMENT_PERIOD_PRESET_LABELS[draft.period.preset]}
+              value={periodValueLabel}
+            />
+            {isWide ? (
+              <FloatingPanel open={periodOpen} onClose={() => setPeriodOpen(false)} triggerRef={periodTriggerRef}>
+                {periodList}
+              </FloatingPanel>
+            ) : (
+              <InDialogSheet open={periodOpen} onClose={() => setPeriodOpen(false)} triggerRef={periodTriggerRef} title="Período">
+                {periodList}
+              </InDialogSheet>
+            )}
             {draft.period.preset === 'custom' && (
               <div className="mt-1 flex items-center gap-2">
                 <Input
@@ -201,139 +264,157 @@ export function TransactionFiltersDialog({
 
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Tipo</p>
-            <div className="flex flex-wrap gap-2">
-              <Chip size="lg" active={draft.type === 'all'} onClick={() => selectType('all')}>
-                Todos
-              </Chip>
-              <Chip size="lg" active={draft.type === 'income'} onClick={() => selectType('income')}>
-                Ingresos
-              </Chip>
-              <Chip size="lg" active={draft.type === 'expense'} onClick={() => selectType('expense')}>
-                Gastos
-              </Chip>
-            </div>
+            <SegmentedToggle
+              variant="tabs"
+              value={draft.type}
+              onChange={selectType}
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'income', label: 'Ingresos' },
+                { value: 'expense', label: 'Gastos' },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
             <p className="eyebrow">Categorías</p>
-            <button
-              type="button"
-              onClick={openCategories}
-              className="flex h-11 items-center justify-between gap-3 rounded-control bg-fill-subtle px-3.5 text-[15px] text-fg transition-colors duration-150 hover:bg-fill-subtle"
-            >
-              <span className="truncate">{categorySummaryLabel}</span>
-              <svg aria-hidden viewBox="0 0 12 12" className="size-3 shrink-0 text-fg-muted">
-                <path d="M4.5 2.5 8.5 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {selectedCategoryChips.map((c) => (
+                <FilterChip
+                  key={c.id}
+                  leading={<CategoryChip {...c.look} size={16} />}
+                  onRemove={() => toggleCategory(c.id)}
+                  removeLabel={`Quitar filtro de categoría ${c.name}`}
+                >
+                  {c.name}
+                </FilterChip>
+              ))}
+              <button
+                type="button"
+                onClick={openCategories}
+                className="flex h-9 items-center gap-1.5 rounded-pill border border-dashed border-border-strong px-3 text-[13px] font-semibold text-fg-secondary transition-colors hover:text-fg"
+              >
+                <Plus className="size-3.5" strokeWidth={2.2} aria-hidden />
+                Agregar
+              </button>
+            </div>
           </div>
 
           {accounts.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="eyebrow">Cuenta</p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 <Chip
+                  size="lg"
+                  activeTone="ink"
                   active={draft.accountIds.includes(UNASSIGNED_ACCOUNT_ID)}
                   onClick={() => toggleAccount(UNASSIGNED_ACCOUNT_ID)}
                 >
                   Sin cuenta
                 </Chip>
-                {accounts.map((a) => (
-                  <Chip key={a.id} active={draft.accountIds.includes(a.id)} onClick={() => toggleAccount(a.id)}>
-                    {a.name || '(sin nombre)'}
-                  </Chip>
-                ))}
+                {accounts.map((a) => {
+                  const Icon = accountKindIcon(a.kind)
+                  return (
+                    <Chip
+                      key={a.id}
+                      size="lg"
+                      activeTone="ink"
+                      leading={<Icon className="size-3.5" strokeWidth={2} aria-hidden />}
+                      active={draft.accountIds.includes(a.id)}
+                      onClick={() => toggleAccount(a.id)}
+                    >
+                      {a.name || '(sin nombre)'}
+                    </Chip>
+                  )
+                })}
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setView('filters')}
-            className="flex w-fit items-center gap-1 text-[13px] text-fg-muted transition-colors duration-150 hover:text-fg"
-          >
-            <svg aria-hidden viewBox="0 0 12 12" className="size-3">
-              <path d="M7.5 2.5 3.5 6l4 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Volver
-          </button>
+        // Rediseño de modales v2, filtro por categoría «B»: buscador relleno arriba y filas con la ficha
+        // de la categoría y un check redondo, separadas por una línea.
+        <div className="flex flex-col gap-2.5">
+          <label className="flex h-11 items-center gap-2 rounded-control bg-fill-subtle px-3">
+            <Search className="size-4 shrink-0 text-fg-muted" strokeWidth={2} aria-hidden />
+            <input
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              placeholder="Buscar categoría"
+              aria-label="Buscar categoría"
+              className="min-w-0 flex-1 bg-transparent text-[14.5px] font-medium text-fg outline-none placeholder:text-fg-muted"
+            />
+          </label>
 
-          <Input
-            value={categorySearch}
-            onChange={(e) => setCategorySearch(e.target.value)}
-            placeholder="Buscar categoría…"
-            className="h-10 text-[14px]"
-          />
-
-          {/* "Sin categoría" fuera de la lista buscable/agrupada por tipo: no es una categoría real
-              (no tiene `kind`), así que ni la búsqueda ni el agrupado Gastos/Ingresos aplican —
-              siempre visible, arriba de todo. Mismo sentinel que "Sin cuenta" en el filtro de
-              cuentas, pero acá como fila (no chip): la lista de categorías ya es de filas. */}
-          <button
-            type="button"
-            onClick={() => toggleCategory(UNCATEGORIZED_ID)}
-            className={cn(
-              'flex w-full items-center justify-between gap-3 rounded-control px-3.5 py-2.5 text-left text-[14px] transition-colors duration-150',
-              selectedIds.has(UNCATEGORIZED_ID) ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-fill-subtle',
-            )}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: 'var(--color-border-strong)' }} />
-              <span className="truncate">Sin categoría</span>
-            </span>
-            {selectedIds.has(UNCATEGORIZED_ID) && (
-              <svg aria-hidden viewBox="0 0 12 12" className="size-3.5 shrink-0 text-accent">
-                <path d="M2.5 6.5 5 9l4.5-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </button>
-
-          <div className="flex max-h-72 flex-col gap-4 overflow-y-auto">
+          <ul className="flex flex-col">
+            {/* "Sin categoría" fuera de la lista buscable/agrupada por tipo: no es una categoría real
+                (no tiene `kind`), así que ni la búsqueda ni el agrupado Gastos/Ingresos aplican —
+                siempre visible, arriba de todo. Mismo sentinel que "Sin cuenta" en el filtro de
+                cuentas. */}
+            <CategoryRow
+              chip={<CategoryChip {...chipLook(undefined)} size={28} />}
+              name="Sin categoría"
+              checked={selectedIds.has(UNCATEGORIZED_ID)}
+              onToggle={() => toggleCategory(UNCATEGORIZED_ID)}
+            />
             {noResults ? (
-              <p className="px-1 py-2 text-[13px] text-fg-muted">
+              <li className="px-1 py-3 text-[13px] text-fg-muted">
                 {term ? `Sin resultados para "${categorySearch.trim()}".` : 'No hay categorías para este tipo.'}
-              </p>
+              </li>
             ) : (
               groups.map((group, i) => {
                 if (group.items.length === 0) return null
                 return (
-                  <div key={group.title ?? i} className="flex flex-col gap-1">
-                    {group.title && <p className="eyebrow px-1">{group.title}</p>}
-                    <div className="flex flex-col gap-0.5">
-                      {group.items.map((category) => {
-                        const active = selectedIds.has(category.id)
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            onClick={() => toggleCategory(category.id)}
-                            className={cn(
-                              'flex w-full items-center justify-between gap-3 rounded-control px-3.5 py-2.5 text-left text-[14px] transition-colors duration-150',
-                              active ? 'bg-fill-subtle text-fg' : 'text-fg-secondary hover:bg-fill-subtle',
-                            )}
-                          >
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
-                              <span className="truncate">{category.name}</span>
-                            </span>
-                            {active && (
-                              <svg aria-hidden viewBox="0 0 12 12" className="size-3.5 shrink-0 text-accent">
-                                <path d="M2.5 6.5 5 9l4.5-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  <li key={group.title ?? i} className="flex flex-col">
+                    {group.title && <p className="eyebrow px-1 pt-4 pb-1">{group.title}</p>}
+                    <ul className="flex flex-col">
+                      {group.items.map((category) => (
+                        <CategoryRow
+                          key={category.id}
+                          chip={<CategoryChip {...chipLook(category)} size={28} />}
+                          name={category.name}
+                          checked={selectedIds.has(category.id)}
+                          onToggle={() => toggleCategory(category.id)}
+                        />
+                      ))}
+                    </ul>
+                  </li>
                 )
               })
             )}
-          </div>
+          </ul>
         </div>
       )}
     </Dialog>
+  )
+}
+
+
+function CategoryRow({ chip, name, checked, onToggle }: { chip: ReactNode; name: string; checked: boolean; onToggle: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        onClick={onToggle}
+        className={cn(
+          'flex h-[50px] w-full items-center gap-3 border-b border-border px-1 text-left text-[14.5px] text-fg',
+          checked ? 'font-semibold' : 'font-medium',
+        )}
+      >
+        {chip}
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <span
+          aria-hidden
+          className={cn(
+            'grid size-[22px] shrink-0 place-items-center rounded-full',
+            checked ? 'bg-fg text-surface' : 'border-[1.5px] border-border-strong',
+          )}
+        >
+          {checked && <Check className="size-3" strokeWidth={3.5} />}
+        </span>
+      </button>
+    </li>
   )
 }

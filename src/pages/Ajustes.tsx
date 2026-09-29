@@ -19,6 +19,8 @@ import { useBalanceLocations, useStopUsingAccounts } from '@/features/accounts/a
 import { StopUsingAccountsDialog } from '@/features/accounts/AccountConfirmDialogs'
 import { accountKindIcon } from '@/features/accounts/accountKind'
 import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
 import { useCan } from '@/features/access/useCan'
@@ -282,9 +284,9 @@ function CategoriesPanel() {
           active.map((c) => (
             <span
               key={c.id}
-              className="inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken py-1.5 pr-[11px] pl-2.5 text-[12px] text-fg"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken py-1 pr-[11px] pl-1 text-[12px] text-fg"
             >
-              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+              <CategoryChip size={16} {...chipLook(c)} />
               {c.name}
             </span>
           ))

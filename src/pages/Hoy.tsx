@@ -22,6 +22,8 @@ import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { cn } from '@/lib/cn'
 import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import {
   useCurrentBalance,
   useRangeSummary,
@@ -462,7 +464,7 @@ export function Hoy() {
                   <ul className="flex min-w-0 flex-1 flex-col gap-2">
                     {spend.slice(0, 4).map((s) => (
                       <li key={s.categoryId} className="flex items-center gap-2">
-                        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color ?? 'var(--color-border-strong)' }} />
+                        <CategoryChip size={20} {...chipLook(s.color != null ? { color: s.color, icon: categoryById.get(s.categoryId)?.icon } : undefined)} />
                         <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{s.categoryName}</span>
                         <span className="tnum text-[12px] font-semibold text-fg-secondary">
                           {spendTotal > 0 ? Math.round((s.cents / spendTotal) * 100) : 0}%
@@ -573,7 +575,7 @@ export function Hoy() {
             <ul className="mt-4 flex flex-col gap-1">
               {[0, 1, 2].map((i) => (
                 <li key={i} className="flex items-center gap-3 px-panel-tight py-2.5">
-                  <Skeleton className="size-2 shrink-0 rounded-full" />
+                  <Skeleton className="size-7 shrink-0 rounded-[8px]" />
                   <Skeleton className="h-4 flex-1" />
                   <Skeleton className="h-4 w-20" />
                 </li>

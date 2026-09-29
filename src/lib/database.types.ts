@@ -62,6 +62,7 @@ export interface Database {
           name: string
           kind: Kind
           color: string
+          icon: string
           sort_order: number
           is_archived: boolean
           created_at: string
@@ -71,10 +72,11 @@ export interface Database {
           name: string
           kind: Kind
           color: string
+          icon?: string
           sort_order?: number
           is_archived?: boolean
         }
-        Update: Partial<{ name: string; kind: Kind; color: string; sort_order: number; is_archived: boolean }>
+        Update: Partial<{ name: string; kind: Kind; color: string; icon: string; sort_order: number; is_archived: boolean }>
         Relationships: []
       }
       savings_buckets: {
@@ -192,7 +194,7 @@ export interface Database {
           name: string
           kind: Kind
           color: string
-          icon: string | null
+          icon: string
           is_archived: boolean
           created_at: string
         }
@@ -202,10 +204,10 @@ export interface Database {
           name: string
           kind: Kind
           color: string
-          icon?: string | null
+          icon?: string
           is_archived?: boolean
         }
-        Update: Partial<{ name: string; kind: Kind; color: string; icon: string | null; is_archived: boolean }>
+        Update: Partial<{ name: string; kind: Kind; color: string; icon: string; is_archived: boolean }>
         Relationships: []
       }
       transactions: {

@@ -24,6 +24,7 @@ export interface DefaultCategoryInput {
   name: string
   kind: DefaultCategoryKind
   color: string
+  icon: string
   sortOrder: number
 }
 
@@ -40,6 +41,7 @@ export function useCreateDefaultCategory() {
         name: input.name,
         kind: input.kind,
         color: input.color,
+        icon: input.icon,
         sort_order: input.sortOrder,
       })
       if (error) throw error
@@ -78,6 +80,7 @@ export function useUpdateDefaultCategory() {
         .update({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.color !== undefined && { color: input.color }),
+          ...(input.icon !== undefined && { icon: input.icon }),
           ...(input.sortOrder !== undefined && { sort_order: input.sortOrder }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
         })

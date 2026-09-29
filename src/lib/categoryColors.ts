@@ -1,34 +1,90 @@
 /**
- * Paleta para categorías nuevas creadas por el usuario. Deliberadamente sin el azul tinta: ese
- * color queda reservado para el saldo, los CTA y la serie primaria de un gráfico — ofrecerlo acá
- * invitaría a ponerlo en todos lados, y ahí deja de ser acento.
+ * Paleta cerrada de categorías: 8 familias × 4 tonos (vivos, pastel, medios, profundos) más 8
+ * neutros, en el orden en que los muestra el editor (una fila por tono). La base la limita a estos
+ * mismos 40 (`categories_color_palette`, `20260926010001_categorias_icono_y_paleta.sql`) — si se
+ * suma uno acá, hay que sumarlo también ahí.
  *
- * Tonos alineados a `chartCategoryColors.light` (`chartColors.ts`) en vez de los pasteles de la
- * identidad anterior, que se elegían para resaltar sobre un fondo casi negro — sobre el papel cálido
- * `#efeee8` quedaban lavados. El color de cada categoría se guarda tal cual en la base
- * (`categories.color`) y no cambia con el tema: éstos son de saturación media a propósito, para
- * seguir siendo legibles tanto en claro como en oscuro.
+ * Incluye los 14 de la paleta anterior (filas «medios» y «profundos», salvo Marino y Vino), así
+ * ninguna categoría guardada cambió de color. Los que venían de la identidad anterior se llevaron
+ * al más parecido de éstos en esa migración.
  *
- * Catorce en vez de los ocho originales — con una cuenta que ya administra muchas categorías (fijos
- * + movimientos + compras en cuotas), ocho tonos obligaban a repetir color entre categorías sin
- * relación. Orden en rueda de color (rojo → naranja → amarillo-verde → verde → cian → azul →
- * violeta → magenta) para que el selector se recorra como un degradé, no una lista al azar; los
- * ocho originales quedan intactos (mismo hex) para no correr el color de ninguna categoría ya
- * guardada — sólo se intercalaron los seis nuevos en el hueco de rueda que les toca.
+ * Deliberadamente sin el azul tinta del acento: ese color queda reservado para el saldo y los CTA.
  */
-export const CATEGORY_COLORS = [
-  { hex: '#C4402A', name: 'rose' },
-  { hex: '#C2622E', name: 'coral' },
-  { hex: '#B8862A', name: 'amber' },
-  { hex: '#A6874A', name: 'sand' },
-  { hex: '#6B8F2A', name: 'moss' },
-  { hex: '#3B8A38', name: 'fern' },
-  { hex: '#307E59', name: 'jade' },
-  { hex: '#1D8F7E', name: 'teal' },
-  { hex: '#2C8396', name: 'cyan' },
-  { hex: '#2F6FB8', name: 'sky' },
-  { hex: '#6A5BB8', name: 'violet' },
-  { hex: '#8949A2', name: 'plum' },
-  { hex: '#9B3B78', name: 'berry' },
-  { hex: '#B23449', name: 'crimson' },
+export const CATEGORY_PALETTE = [
+  [
+    { hex: '#E53935', name: 'Rojo' },
+    { hex: '#FB8C00', name: 'Naranja' },
+    { hex: '#FDD835', name: 'Amarillo' },
+    { hex: '#7CB342', name: 'Lima' },
+    { hex: '#00ACC1', name: 'Cian' },
+    { hex: '#1E88E5', name: 'Azul' },
+    { hex: '#8E24AA', name: 'Púrpura' },
+    { hex: '#D81B60', name: 'Fucsia' },
+  ],
+  [
+    { hex: '#FF9A9A', name: 'Salmón' },
+    { hex: '#FFC48A', name: 'Durazno' },
+    { hex: '#FFE58A', name: 'Crema' },
+    { hex: '#C5E1A5', name: 'Menta' },
+    { hex: '#9FE3EA', name: 'Agua' },
+    { hex: '#9EC9F5', name: 'Celeste' },
+    { hex: '#D1A8F0', name: 'Lavanda' },
+    { hex: '#F7A8C8', name: 'Rosa' },
+  ],
+  [
+    { hex: '#C4402A', name: 'Teja' },
+    { hex: '#C2622E', name: 'Coral' },
+    { hex: '#B8862A', name: 'Ámbar' },
+    { hex: '#3B8A38', name: 'Helecho' },
+    { hex: '#1D8F7E', name: 'Turquesa' },
+    { hex: '#2F6FB8', name: 'Azul cielo' },
+    { hex: '#6A5BB8', name: 'Violeta' },
+    { hex: '#9B3B78', name: 'Frambuesa' },
+  ],
+  [
+    { hex: '#B23449', name: 'Carmín' },
+    { hex: '#A6874A', name: 'Arena' },
+    { hex: '#6B8F2A', name: 'Musgo' },
+    { hex: '#307E59', name: 'Jade' },
+    { hex: '#2C8396', name: 'Petróleo' },
+    { hex: '#1F3A93', name: 'Marino' },
+    { hex: '#8949A2', name: 'Ciruela' },
+    { hex: '#7A1F3D', name: 'Vino' },
+  ],
+  [
+    { hex: '#000000', name: 'Negro' },
+    { hex: '#3A3A3F', name: 'Grafito' },
+    { hex: '#6B6B72', name: 'Gris' },
+    { hex: '#A0A0A8', name: 'Plata' },
+    { hex: '#D0D0D5', name: 'Niebla' },
+    { hex: '#8A9BAE', name: 'Pizarra' },
+    { hex: '#8D6E63', name: 'Café' },
+    { hex: '#5D4037', name: 'Chocolate' },
+  ],
 ] as const
+
+export const CATEGORY_COLORS = CATEGORY_PALETTE.flat()
+
+export type CategoryColorHex = (typeof CATEGORY_COLORS)[number]['hex']
+
+export const CATEGORY_COLOR_HEXES = CATEGORY_COLORS.map((c) => c.hex) as [CategoryColorHex, ...CategoryColorHex[]]
+
+const INK = '#16171b'
+
+/** Luminancia relativa WCAG de un `#rrggbb`. */
+function luminance(hex: string): number {
+  const n = parseInt(hex.slice(1), 16)
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** Color del ícono sobre una ficha sólida de `hex`: blanco o tinta, el que más contraste. Fijo, no
+ *  depende del tema — la ficha tiene el mismo fondo en claro y en oscuro. `0.0585` es la luminancia
+ *  de la tinta (`#16171b`) más 0.05. */
+export function onColor(hex: string): '#ffffff' | typeof INK {
+  const l = luminance(hex)
+  return 1.05 / (l + 0.05) >= (l + 0.05) / 0.0585 ? '#ffffff' : INK
+}

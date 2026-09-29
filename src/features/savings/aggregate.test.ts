@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeAsset, makeBucket, makeEntry, priceMap } from '@/test/factories'
-import { CATEGORY_COLORS } from '@/lib/categoryColors'
-import { assetSlices, computeGain, netByAsset, summarizePortfolio, valueByAsset } from './aggregate'
+import { SLICE_COLORS, assetSlices, computeGain, netByAsset, summarizePortfolio, valueByAsset } from './aggregate'
 
 describe('netByAsset', () => {
   it('suma depósitos, resta retiros, y respeta escalas distintas en la misma lista', () => {
@@ -132,8 +131,8 @@ describe('assetSlices', () => {
     const slices = assetSlices(nets, assets, priceMap({ ars: 100, usd: 100 }))
 
     expect(slices).toEqual([
-      { assetId: 'ars', name: 'ARS', color: CATEGORY_COLORS[0].hex, cents: 3_000, pct: 75 },
-      { assetId: 'usd', name: 'USD', color: CATEGORY_COLORS[1].hex, cents: 1_000, pct: 25 },
+      { assetId: 'ars', name: 'ARS', color: SLICE_COLORS[0], cents: 3_000, pct: 75 },
+      { assetId: 'usd', name: 'USD', color: SLICE_COLORS[1], cents: 1_000, pct: 25 },
     ])
   })
 

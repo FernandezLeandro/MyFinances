@@ -3,9 +3,9 @@ import type { FormEvent } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { DialogFooterBar, DialogSaveError, DialogSummaryBlock } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
 import { Field, Input } from '@/components/ui/Input'
 import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { centsToInputText, formatMoney, parseAmountToCents } from '@/lib/money'
 import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
@@ -29,17 +29,35 @@ import {
   defaultFundingAccountId,
   firstAccountRestNote,
   firstAccountSplit,
-  fundingBalanceNote,
   fundingError,
   maxFromAccountCents,
   nameForKindChange,
   newAccountEffect,
   type NewAccountSource,
 } from '@/features/accounts/aggregate'
-import { AccountSelect } from '@/features/accounts/AccountSelect'
-import { ACCOUNT_KIND_LABEL, ACCOUNT_KIND_NAME_PLACEHOLDER } from '@/features/accounts/accountKind'
+import { AccountSelect, AccountTriggerRow } from '@/features/accounts/AccountSelect'
+import { ACCOUNT_KIND_LABEL, ACCOUNT_KIND_NAME_PLACEHOLDER, accountKindIcon } from '@/features/accounts/accountKind'
 
 const KINDS: AccountKind[] = ['cash', 'wallet', 'bank']
+// "Billetera virtual" no entra en su tercio del segmentado a 390px (envuelve a dos líneas) — el
+// resto de las etiquetas ya son de una palabra. Rótulo corto sólo en mobile, el de siempre desde
+// `sm`, donde el segmentado mide su propio ancho (`sm:flex-none`) y sobra lugar.
+const KIND_SHORT_LABEL: Record<AccountKind, string> = { cash: 'Efectivo', wallet: 'Billetera', bank: 'Banco' }
+// Rediseño v2: Tipo pasa de fichas grandes a un segmentado con ícono — mismo `SegmentedToggle
+// variant="tabs"` que ya usan Movimientos y `/categorias`.
+const KIND_OPTIONS = KINDS.map((k) => {
+  const Icon = accountKindIcon(k)
+  return {
+    value: k,
+    label: (
+      <span className="flex items-center gap-1.5">
+        <Icon className="size-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
+        <span className="sm:hidden">{KIND_SHORT_LABEL[k]}</span>
+        <span className="hidden sm:inline">{ACCOUNT_KIND_LABEL[k]}</span>
+      </span>
+    ),
+  }
+})
 
 type AccountFormDialogProps = { onClose: () => void } & (
   | { mode: 'create' }
@@ -202,7 +220,7 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
             )
           }
         >
-          <Button variant="ghost" size="dialogFooter" onClick={props.onClose} disabled={pending}>
+          <Button variant="outline" size="dialogFooter" onClick={props.onClose} disabled={pending}>
             Cancelar
           </Button>
           <Button type="submit" form="account-form" size="dialogFooter" disabled={!canSubmit} loading={pending}>
@@ -226,36 +244,11 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
           </p>
         )}
 
-        <div className="flex flex-col gap-2">
-          <p className="eyebrow">Tipo de cuenta</p>
-          <div className="flex flex-wrap gap-2">
-            {KINDS.map((k) => (
-              <Chip key={k} size="md" active={kind === k} onClick={() => changeKind(k)}>
-                {ACCOUNT_KIND_LABEL[k]}
-              </Chip>
-            ))}
-          </div>
-        </div>
-
-        <Field label="Nombre" htmlFor="account-name" error={nameError}>
-          <Input
-            id="account-name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value)
-              setSaveError(null)
-            }}
-            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-            invalid={!!nameError}
-            placeholder={ACCOUNT_KIND_NAME_PLACEHOLDER[kind]}
-            maxLength={60}
-            autoComplete="off"
-          />
-        </Field>
-
         {props.mode === 'create' && (
           <OpeningAmountField
-            label="Apertura"
+            size="lg"
+            align="center"
+            label="¿Cuánto tenés en esta cuenta?"
             hint={
               fromAccountId
                 ? `Sale de ${fromName || 'esa cuenta'}: se registra como una transferencia por este importe.`
@@ -284,6 +277,27 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
           />
         )}
 
+        <div className="flex flex-col gap-2">
+          <p className="eyebrow">Tipo de cuenta</p>
+          <SegmentedToggle variant="tabs" value={kind} options={KIND_OPTIONS} onChange={changeKind} />
+        </div>
+
+        <Field label="Nombre" htmlFor="account-name" error={nameError}>
+          <Input
+            id="account-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setSaveError(null)
+            }}
+            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+            invalid={!!nameError}
+            placeholder={ACCOUNT_KIND_NAME_PLACEHOLDER[kind]}
+            maxLength={60}
+            autoComplete="off"
+          />
+        </Field>
+
         {props.mode === 'create' && (split?.kind === 'rest' || canFund) && (
           <div className="flex flex-col gap-2">
             <p className="eyebrow">
@@ -292,27 +306,27 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
             {split?.kind === 'rest' && openingCents !== null && firstAccountRestNote(openingCents) && (
               <p className="-mt-1 text-[12px] text-fg-muted">{firstAccountRestNote(openingCents)}</p>
             )}
-            <div className="flex flex-wrap gap-2">
-              {split?.kind === 'rest' ? (
-                <>
-                  <Chip size="md" active={source === 'hold'} onClick={() => setSource('hold')}>
-                    Dejarlos en «{UNASSIGNED_ACCOUNT_NAME}»
-                  </Chip>
-                  <Chip size="md" active={source === 'drop'} onClick={() => setSource('drop')}>
-                    No los tengo
-                  </Chip>
-                </>
-              ) : (
-                <>
-                  <Chip size="md" active={source === 'new'} onClick={() => setSource('new')}>
-                    Es plata nueva
-                  </Chip>
-                  <Chip size="md" active={source === 'from'} onClick={() => setSource('from')}>
-                    Sale de otra cuenta
-                  </Chip>
-                </>
-              )}
-            </div>
+            {split?.kind === 'rest' ? (
+              <SegmentedToggle
+                variant="tabs"
+                value={source}
+                onChange={setSource}
+                options={[
+                  { value: 'hold', label: `Dejarlos en «${UNASSIGNED_ACCOUNT_NAME}»` },
+                  { value: 'drop', label: 'No los tengo' },
+                ]}
+              />
+            ) : (
+              <SegmentedToggle
+                variant="tabs"
+                value={source}
+                onChange={setSource}
+                options={[
+                  { value: 'new', label: 'Es plata nueva' },
+                  { value: 'from', label: 'Sale de otra cuenta' },
+                ]}
+              />
+            )}
             {source === 'from' && canFund && (
               <Field label="Sale de" htmlFor="account-from" error={sourceError ?? undefined}>
                 <AccountSelect
@@ -323,13 +337,21 @@ export function AccountFormDialog(props: AccountFormDialogProps) {
                     setFromId(id)
                     setSaveError(null)
                   }}
+                  trigger={(account) => (
+                    <AccountTriggerRow
+                      icon={account?.icon ?? <span aria-hidden className="size-10 shrink-0 rounded-control bg-fill-subtle" />}
+                      name={account?.name ?? 'Elegí una cuenta'}
+                      placeholder={!account}
+                      secondary={
+                        account && account.balanceCents !== undefined && openingCents !== null
+                          ? `queda en ${formatMoney(account.balanceCents - openingCents)}`
+                          : undefined
+                      }
+                    />
+                  )}
+                  triggerClassName="flex h-[54px] w-full items-center gap-2.5 rounded-control border border-border-strong pr-3 pl-2 text-left text-fg transition-colors duration-150 hover:border-fg-faint"
                 />
               </Field>
-            )}
-            {source === 'from' && canFund && fromBalanceCents !== undefined && !sourceError && (
-              <p className="text-[12.5px] text-fg-secondary">
-                {fundingBalanceNote(fromName ?? '', fromBalanceCents, openingCents)}
-              </p>
             )}
           </div>
         )}

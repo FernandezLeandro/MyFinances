@@ -78,6 +78,19 @@ export function periodRange(p: MovementPeriod, config: CycleConfig = DEFAULT_CYC
   }
 }
 
+/** «1 – 30 sep» en vez de «1 sep – 30 sep»: el mes no se repite cuando `from` y `to` caen en el
+ *  mismo mes — el campo-botón de Período (rediseño de modales v2) necesita el rango bien compacto,
+ *  a diferencia de `periodLabel` (que sí repite mes, para el header de Movimientos). Un solo día
+ *  (`from === to`, ej. Hoy/Ayer) da un único «27 sep». */
+export function periodRangeLabel(from: string, to: string): string {
+  const fromDate = parseISO(from)
+  const toDate = parseISO(to)
+  if (from === to) return format(fromDate, 'd MMM', { locale: es })
+  const sameMonth = format(fromDate, 'yyyy-MM') === format(toDate, 'yyyy-MM')
+  const fromLabel = format(fromDate, sameMonth ? 'd' : 'd MMM', { locale: es })
+  return `${fromLabel} – ${format(toDate, 'd MMM', { locale: es })}`
+}
+
 /** Texto para el header cuando el preset no es 'month' (que ya tiene su propio navegador de mes). */
 export function periodLabel(p: MovementPeriod): string {
   const { from, to } = periodRange(p)

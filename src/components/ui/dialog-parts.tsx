@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { Button } from '@/components/ui/Button'
 
 /** Punto de estado de una sección. El rojo es "hay algo que resolver", el acento "suma o hay algo
  *  elegido", el ámbar un aviso blando y el gris el neutro. La línea de contexto que va al lado
@@ -175,8 +176,8 @@ export function DialogBottomBar({
 }
 
 /**
- * Pie de un diálogo con acciones: superficie hundida a sangre, `Cancelar` + la acción principal a la
- * derecha y, opcional, una salida a la izquierda (`Eliminar cuenta`, `Mejor archivar`). Se pasa como
+ * Pie de un diálogo con acciones: a sangre, con una línea arriba (v2: blanco, ya no hundido),
+ * `Cancelar` + la acción principal a la derecha y, opcional, una salida a la izquierda (`Eliminar cuenta`, `Mejor archivar`). Se pasa como
  * `footer` del `Dialog` junto con `footerBleed`.
  *
  * En mobile apila a todo el ancho con la acción principal arriba y la salida de la izquierda al
@@ -184,12 +185,100 @@ export function DialogBottomBar({
  */
 export function DialogFooterBar({ start, children }: { start?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex w-full flex-col-reverse gap-2 border-t border-divider-list bg-surface-sunken px-panel pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:gap-2.5">
+    <div className="flex w-full flex-col-reverse gap-2 border-t border-border bg-surface px-panel pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:gap-2.5">
       {start && <div className="flex justify-center sm:mr-auto sm:justify-start">{start}</div>}
       <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2.5', !start && 'sm:ml-auto')}>
         {children}
       </div>
     </div>
+  )
+}
+
+/**
+ * Tarjeta de resumen de la confirmación «Pila»: lo que se va a borrar, con su ficha, nombre, línea
+ * de contexto (fecha · cuenta) y el monto. En mobile el monto baja debajo del nombre en vez de ir al
+ * lado — a esa altura ya no entran los tres juntos en una fila.
+ */
+export function DialogItemCard({
+  leading,
+  title,
+  meta,
+  amount,
+}: {
+  leading?: ReactNode
+  title: ReactNode
+  meta?: ReactNode
+  amount?: ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-panel-sm border border-border p-3.5">
+      {leading}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14.5px] font-semibold text-fg">{title}</p>
+        {meta && <p className="truncate text-[12.5px] text-fg-secondary">{meta}</p>}
+        {amount && <div className="mt-1.5 sm:hidden">{amount}</div>}
+      </div>
+      {amount && <div className="hidden shrink-0 sm:block">{amount}</div>}
+    </div>
+  )
+}
+
+/**
+ * Pie de la confirmación «Pila»: la acción destructiva sólida a todo el ancho, Cancelar como texto
+ * debajo — siempre apilado así, en cualquier ancho (a diferencia de `DialogFooterBar`, que pasa a
+ * fila en desktop). Se pasa como `footer` del `Dialog`, sin `footerBleed`.
+ */
+export function DialogConfirmStack({
+  confirmLabel,
+  pendingLabel,
+  onConfirm,
+  onCancel,
+  pending,
+}: {
+  confirmLabel: ReactNode
+  pendingLabel?: ReactNode
+  onConfirm: () => void
+  onCancel: () => void
+  pending?: boolean
+}) {
+  return (
+    <div className="flex w-full flex-col gap-1">
+      <Button variant="dangerSolid" onClick={onConfirm} loading={pending} className="h-12 w-full">
+        {pending && pendingLabel ? pendingLabel : confirmLabel}
+      </Button>
+      <Button variant="ghost" onClick={onCancel} disabled={pending} className="h-11 w-full">
+        Cancelar
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * Pie del rediseño de modales v2: Cancelar con borde y la acción principal (`children`) ocupando el
+ * resto de la fila en escritorio; en mobile, a todo el ancho con la principal arriba y Cancelar como
+ * texto debajo (el `flex-col-reverse` del pie común del `Dialog`). Se pasa como `footer`, sin
+ * `footerBleed`.
+ */
+export function DialogActions({
+  onCancel,
+  cancelDisabled,
+  children,
+}: {
+  onCancel: () => void
+  cancelDisabled?: boolean
+  children: ReactNode
+}) {
+  return (
+    <>
+      <Button variant="outline" size="dialogFooter" onClick={onCancel} disabled={cancelDisabled} className="max-sm:hidden">
+        Cancelar
+      </Button>
+      <Button variant="ghost" size="dialogFooter" onClick={onCancel} disabled={cancelDisabled} className="sm:hidden">
+        Cancelar
+      </Button>
+      {/* Columna: el botón se estira a lo ancho aunque su tamaño diga `sm:w-auto`. */}
+      <div className="flex flex-col sm:flex-1">{children}</div>
+    </>
   )
 }
 

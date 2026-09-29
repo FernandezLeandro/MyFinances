@@ -35,7 +35,7 @@ export function useCreateCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { name: string; kind: CategoryKind; color: string }) => {
+    mutationFn: async (input: { name: string; kind: CategoryKind; color: string; icon: string }) => {
       if (!user) throw new Error('No autenticado')
       const { data, error } = await supabase
         .from('categories')
@@ -58,7 +58,7 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...input }: { id: string; name: string; color: string }) => {
+    mutationFn: async ({ id, ...input }: { id: string; name: string; color: string; icon: string }) => {
       const { error } = await supabase.from('categories').update(input).eq('id', id)
       if (error) throw error
     },
