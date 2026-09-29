@@ -176,8 +176,8 @@ export function DialogBottomBar({
 }
 
 /**
- * Pie de un diálogo con acciones: superficie hundida a sangre, `Cancelar` + la acción principal a la
- * derecha y, opcional, una salida a la izquierda (`Eliminar cuenta`, `Mejor archivar`). Se pasa como
+ * Pie de un diálogo con acciones: a sangre, con una línea arriba (v2: blanco, ya no hundido),
+ * `Cancelar` + la acción principal a la derecha y, opcional, una salida a la izquierda (`Eliminar cuenta`, `Mejor archivar`). Se pasa como
  * `footer` del `Dialog` junto con `footerBleed`.
  *
  * En mobile apila a todo el ancho con la acción principal arriba y la salida de la izquierda al
@@ -185,7 +185,7 @@ export function DialogBottomBar({
  */
 export function DialogFooterBar({ start, children }: { start?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex w-full flex-col-reverse gap-2 border-t border-divider-list bg-surface-sunken px-panel pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:gap-2.5">
+    <div className="flex w-full flex-col-reverse gap-2 border-t border-border bg-surface px-panel pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:gap-2.5">
       {start && <div className="flex justify-center sm:mr-auto sm:justify-start">{start}</div>}
       <div className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2.5', !start && 'sm:ml-auto')}>
         {children}
@@ -250,6 +250,35 @@ export function DialogConfirmStack({
         Cancelar
       </Button>
     </div>
+  )
+}
+
+/**
+ * Pie del rediseño de modales v2: Cancelar con borde y la acción principal (`children`) ocupando el
+ * resto de la fila en escritorio; en mobile, a todo el ancho con la principal arriba y Cancelar como
+ * texto debajo (el `flex-col-reverse` del pie común del `Dialog`). Se pasa como `footer`, sin
+ * `footerBleed`.
+ */
+export function DialogActions({
+  onCancel,
+  cancelDisabled,
+  children,
+}: {
+  onCancel: () => void
+  cancelDisabled?: boolean
+  children: ReactNode
+}) {
+  return (
+    <>
+      <Button variant="outline" size="dialogFooter" onClick={onCancel} disabled={cancelDisabled} className="max-sm:hidden">
+        Cancelar
+      </Button>
+      <Button variant="ghost" size="dialogFooter" onClick={onCancel} disabled={cancelDisabled} className="sm:hidden">
+        Cancelar
+      </Button>
+      {/* Columna: el botón se estira a lo ancho aunque su tamaño diga `sm:w-auto`. */}
+      <div className="flex flex-col sm:flex-1">{children}</div>
+    </>
   )
 }
 

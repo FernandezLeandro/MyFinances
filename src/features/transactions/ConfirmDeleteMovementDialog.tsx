@@ -65,11 +65,13 @@ export function ConfirmDeleteMovementDialog({ open, busy, transaction, copy, onC
           meta={meta}
           amount={<Money cents={transaction.cents} size="inline" tone={transaction.type === 'income' ? 'accent' : 'fg'} />}
         />
-        <div className="flex flex-col gap-3 text-[13px] leading-[1.55] text-fg-secondary text-pretty">
-          {copy.paragraphs.map((p) => (
-            <p key={p}>{p}</p>
-          ))}
-        </div>
+        {copy.paragraphs.length > 0 && (
+          <div className="flex flex-col gap-3 text-[13px] leading-[1.55] text-fg-secondary text-pretty">
+            {copy.paragraphs.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+          </div>
+        )}
       </div>
     </Dialog>
   )

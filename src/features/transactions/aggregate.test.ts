@@ -330,15 +330,12 @@ describe('confirmDeleteMovementCopy', () => {
   })
 
   // MO-01: antes de este bloque, un movimiento suelto se borraba al instante sin ningún aviso.
-  it('plain, con nombre: pide confirmar y nombra el movimiento', () => {
+  // Rediseño de modales v2: sin párrafo, la tarjeta de la confirmación ya nombra el movimiento.
+  it('plain: pide confirmar, sin párrafo que repita el nombre', () => {
     const c = confirmDeleteMovementCopy({ kind: 'plain', description: 'Supermercado' })
     expect(c.title).toBe('¿Eliminar este movimiento?')
-    expect(c.confirmLabel).toBe('Eliminar')
-    expect(c.paragraphs[0]).toContain('«Supermercado»')
-  })
-
-  it('plain, sin descripción: copy genérico, sin comillas vacías', () => {
-    expect(confirmDeleteMovementCopy({ kind: 'plain', description: null }).paragraphs[0]).not.toContain('«')
+    expect(c.confirmLabel).toBe('Eliminar movimiento')
+    expect(c.paragraphs).toEqual([])
   })
 })
 

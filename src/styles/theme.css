@@ -153,6 +153,38 @@
   --c-cat-6: #a8d94f;
 }
 
+/* Diálogos en claro (rediseño de modales v2): superficie blanca y neutros fríos en vez del papel
+   cálido. Las fichas de categoría sólidas se leían mal sobre gris cálido; en blanco no. Se redefine
+   la paleta cruda sobre el propio `<dialog>`, así todo lo que tiene adentro (campos, bordes,
+   rellenos, popovers portados a su nodo) hereda sin tocar el markup. En oscuro no cambia nada. */
+:root:not([data-theme='dark']) dialog {
+  --c-surface: #ffffff;
+  --c-fg: #15161a;
+  --c-fg-secondary: #5d6068;
+  --c-fg-muted: #8a8d95;
+  --c-border: #e7e8ec;
+  --c-border-strong: #d9dbe1;
+  --c-divider: #eceef1;
+  --c-divider-list: #eceef1;
+  --c-fill-subtle: #f1f2f4;
+  --c-surface-sunken: #f6f7f9;
+  --c-accent-soft: #e8eafc;
+  --c-badge-red-bg: #fbe7e3;
+  --c-badge-red-fg: #a8351f;
+}
+
+/* Franja de color del header de un diálogo (`Dialog` prop `tint`: Detalle de movimiento, Pagar
+   fijo) — % de mezcla del color de la categoría contra la superficie del diálogo. Vive en variable
+   y no en JS: así cambia sola con el tema, sin recalcular el mix a mano como hacía el mock. */
+dialog {
+  --tint-band-mix: 24%;
+  --tint-border-mix: 60%;
+}
+:root[data-theme='dark'] dialog {
+  --tint-band-mix: 20%;
+  --tint-border-mix: 55%;
+}
+
 @media (width >= 768px) {
   :root {
     --pad-top: 40px;
@@ -370,4 +402,15 @@
   text-transform: uppercase;
   font-weight: 600;
   color: var(--color-fg-muted);
+}
+
+/* Dentro de un diálogo (rediseño de modales v2) el rótulo va en oración, no en versalitas: «IMPORTE»
+   al lado de «Categoría · opcional» eran dos voces distintas en el mismo formulario. Por CSS y no por
+   componente: `Field` también arma los formularios de Auth y Ajustes, que siguen con el eyebrow. */
+dialog .eyebrow {
+  font-size: 13px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-fg);
 }

@@ -789,6 +789,7 @@ export function Fijos() {
           alreadyPaidCents={markingPaid.paidCents}
           alreadySavedCents={markingPaid.savedCents}
           alreadySavedMovementCents={markingPaid.savedMovementCents}
+          dueDate={markingPaid.dueDate}
         />
       )}
       {detailFixed && (

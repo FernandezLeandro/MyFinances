@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react'
 import { useIsMutating } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
 import { DialogPortalContext } from '@/components/ui/dialog-portal'
@@ -14,6 +14,9 @@ const iconToneClasses: Record<DialogTone, string> = {
   accent: 'bg-accent-soft text-accent-text',
 }
 
+const headerButtonClass =
+  'flex size-10 shrink-0 items-center justify-center rounded-float border border-border-strong text-fg-secondary transition-colors hover:bg-fill-subtle hover:text-fg'
+
 interface DialogProps {
   open: boolean
   onClose: () => void
@@ -21,8 +24,15 @@ interface DialogProps {
   /** Cuadro de contexto a la izquierda del título — ej. el tacho de la confirmación de borrado, la
    *  flecha de "Nuevo movimiento". Sin ícono, el título arranca pegado al borde como siempre. */
   icon?: ReactNode
-  /** Color del cuadro de `icon`. Sin efecto si no hay `icon`. */
+  /** Color del cuadro de `icon`. Sin efecto si no hay `icon` o si hay `tint`. */
   tone?: DialogTone
+  /** Header a banda, teñida con este color (hex de una categoría) — Detalle de movimiento, Pagar
+   *  fijo. `icon` pasa a ir suelto (ya es una ficha sólida, ej. `CategoryChip`), sin el cuadro de
+   *  `tone`. El % de mezcla vive en CSS (`--tint-band-mix`/`--tint-border-mix` en theme.css), no se
+   *  calcula en JS, así cambia solo entre claro y oscuro. */
+  tint?: string
+  /** Vista interna (ej. el buscador de categorías de Filtros): un botón «Volver» antes del título. */
+  onBack?: () => void
   /** Línea chica bajo el título (ej. el tipo fijo de una categoría en su editor). */
   subtitle?: ReactNode
   children: ReactNode
@@ -75,6 +85,8 @@ export function Dialog({
   title,
   icon,
   tone = 'neutral',
+  tint,
+  onBack,
   subtitle,
   children,
   footer,
@@ -184,11 +196,32 @@ export function Dialog({
     >
       <div className="relative flex max-h-[85vh] flex-col sm:max-h-[80vh]">
         <DialogPortalContext value={portalRoot}>
-          <div className="flex shrink-0 items-center gap-3.5 px-panel pt-5 pb-3">
+          <div
+            className="flex shrink-0 items-center gap-3.5 px-panel pt-5 pb-3"
+            style={
+              tint
+                ? {
+                    backgroundColor: `color-mix(in srgb, ${tint} var(--tint-band-mix), var(--c-surface))`,
+                    borderBottomStyle: 'solid',
+                    borderBottomWidth: 1,
+                    borderBottomColor: `color-mix(in srgb, ${tint} var(--tint-border-mix), var(--c-surface))`,
+                  }
+                : undefined
+            }
+          >
+            {onBack && (
+              <button type="button" onClick={onBack} aria-label="Volver" className={headerButtonClass}>
+                <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
+              </button>
+            )}
             {icon && (
               <span
                 aria-hidden
-                className={cn('flex size-11 shrink-0 items-center justify-center rounded-float', iconToneClasses[tone])}
+                className={
+                  tint
+                    ? 'flex shrink-0 items-center justify-center'
+                    : cn('flex size-11 shrink-0 items-center justify-center rounded-float', iconToneClasses[tone])
+                }
               >
                 {icon}
               </span>
@@ -203,7 +236,15 @@ export function Dialog({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="flex size-10 shrink-0 items-center justify-center rounded-float border border-border-strong text-fg-secondary transition-colors hover:bg-fill-subtle hover:text-fg"
+              className={headerButtonClass}
+              style={
+                tint
+                  ? {
+                      backgroundColor: 'var(--c-surface)',
+                      borderColor: `color-mix(in srgb, ${tint} var(--tint-border-mix), var(--c-surface))`,
+                    }
+                  : undefined
+              }
             >
               <X className="size-4" strokeWidth={2} aria-hidden />
             </button>

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { format, parseISO, subDays } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogActions } from '@/components/ui/dialog-parts'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input, AmountInput } from '@/components/ui/Input'
@@ -34,7 +34,7 @@ import {
   type TransactionType,
 } from '@/features/transactions/api'
 import { movementFieldLocks, originDeleteAction, originDeleteCopy, type TransactionOrigin } from '@/features/transactions/origin'
-import { dateShortcut } from '@/features/transactions/formHelpers'
+import { DateShortcuts } from '@/features/transactions/DateShortcuts'
 
 /** Cómo se calcula la parte de la otra persona en un gasto compartido. */
 type SplitMode = '50' | 'percent' | 'amount'
@@ -206,12 +206,7 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
   const splitMode = watch('splitMode')
   const amount = watch('amount')
   const occurredOn = watch('occurredOn')
-  const dateInputRef = useRef<HTMLInputElement>(null)
-  const shortcut = occurredOn ? dateShortcut(occurredOn, todayISO()) : 'other'
   const cycle = occurredOn ? cycleContaining(cycleConfig, parseISO(occurredOn)) : null
-  // Combina el `ref` de RHF con el propio: el campo real es `sr-only` (no `display:none`, para que
-  // `showPicker()` siga funcionando) y la pill "Otra fecha" lo abre a través de esta ref.
-  const { ref: occurredOnRhfRef, ...occurredOnField } = register('occurredOn')
 
   // `didResetRef`: sin esto, `<StrictMode>` (activo en `main.tsx`) vuelve a invocar este efecto una
   // segunda vez en desarrollo apenas monta (mount → efectos → "desmonta" cleanups → remonta →
@@ -461,19 +456,15 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
                 Eliminar
               </Button>
             )}
-            <Button variant="outline" size="dialogFooter" onClick={onClose} className="max-sm:hidden">
-              Cancelar
-            </Button>
-            <Button variant="ghost" size="dialogFooter" onClick={onClose} className="sm:hidden">
-              Cancelar
-            </Button>
-            <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || originLoading}>
+            <DialogActions onCancel={onClose}>
+              <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isSubmitting || originLoading}>
               {isSubmitting
                 ? 'Guardando…'
                 : parseAmountToCents(amount)
                   ? `Guardar ${type === 'expense' ? 'gasto' : 'ingreso'} · ${formatMoney(parseAmountToCents(amount)!)}`
                   : `Guardar ${type === 'expense' ? 'gasto' : 'ingreso'}`}
-            </Button>
+              </Button>
+            </DialogActions>
           </>
         }
       >
@@ -530,49 +521,13 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
           />
 
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-medium text-fg-secondary">Fecha</span>
-            <div role="group" aria-label="Fecha" className="flex flex-wrap gap-2">
-              <Chip
-                size="lg"
-                activeTone="accent"
-                active={shortcut === 'today'}
-                onClick={() => setValue('occurredOn', todayISO(), { shouldDirty: true })}
-              >
-                Hoy
-              </Chip>
-              <Chip
-                size="lg"
-                activeTone="accent"
-                active={shortcut === 'yesterday'}
-                onClick={() => setValue('occurredOn', format(subDays(new Date(), 1), 'yyyy-MM-dd'), { shouldDirty: true })}
-              >
-                Ayer
-              </Chip>
-              <Chip
-                size="lg"
-                activeTone="accent"
-                active={shortcut === 'other'}
-                leading={<Calendar className="size-3.5" strokeWidth={1.8} aria-hidden />}
-                onClick={() => {
-                  const el = dateInputRef.current
-                  if (el && typeof el.showPicker === 'function') el.showPicker()
-                  else el?.focus()
-                }}
-              >
-                {shortcut === 'other' && occurredOn ? format(parseISO(occurredOn), 'd MMM', { locale: es }) : 'Otra fecha'}
-              </Chip>
-            </div>
-            <input
-              type="date"
-              className="sr-only"
-              tabIndex={-1}
+            <span className="eyebrow">Fecha</span>
+            <DateShortcuts
+              value={occurredOn}
+              onChange={(v) => setValue('occurredOn', v, { shouldDirty: true, shouldValidate: true })}
+              today={todayISO()}
               min={MIN_OCCURRED_ON}
               max={todayISO()}
-              {...occurredOnField}
-              ref={(el) => {
-                occurredOnRhfRef(el)
-                dateInputRef.current = el
-              }}
             />
             {errors.occurredOn && <p className="text-[12px] text-negative">{errors.occurredOn.message}</p>}
           </div>
