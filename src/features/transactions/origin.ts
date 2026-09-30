@@ -1,5 +1,5 @@
 /**
- * De dónde viene un movimiento — Bloque 2 del arreglo de Movimientos (docs/qa/movimientos.md). Hasta
+ * De dónde viene un movimiento — Bloque 2 del arreglo de Movimientos. Hasta
  * acá, Movimientos no sabía si una fila venía de pagar un fijo, una tarjeta, una cuota, una deuda o
  * un ajuste de saldo: editarla o borrarla ahí nunca avisaba ni sincronizaba el origen (MO-02 a
  * MO-08). `rpc_transaction_origin` (`20260924030001_movimientos_origen.sql`) contesta esa pregunta

@@ -11,7 +11,7 @@ const strong = (text: string) => <strong className="font-semibold text-fg">{text
  * El texto de la ayuda de Cuentas. Vive acá y no en el markup para que la pantalla sea sólo layout,
  * y porque es lo que más se desactualiza: la fuente de verdad de las acciones es
  * `accountMenuEntries()` (aggregate.ts) + `useAccountActions`, y `help-content.test.ts` avisa si el
- * menú suma o cambia una acción sin que se toque esta lista. Copy en voseo rioplatense, del handoff.
+ * menú suma o cambia una acción sin que se toque esta lista. Copy en voseo rioplatense.
  */
 export const ACCOUNTS_HELP = {
   title: 'Cómo usar Cuentas',

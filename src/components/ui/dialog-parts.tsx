@@ -224,9 +224,12 @@ export function DialogItemCard({
 }
 
 /**
- * Pie de la confirmación «Pila»: la acción destructiva sólida a todo el ancho, Cancelar como texto
- * debajo — siempre apilado así, en cualquier ancho (a diferencia de `DialogFooterBar`, que pasa a
- * fila en desktop). Se pasa como `footer` del `Dialog`, sin `footerBleed`.
+ * Pie de la confirmación «Pila»: la acción sólida a todo el ancho, Cancelar como texto debajo —
+ * siempre apilado así, en cualquier ancho (a diferencia de `DialogFooterBar`, que pasa a fila en
+ * desktop). Se pasa como `footer` del `Dialog`, sin `footerBleed`.
+ *
+ * `tone="primary"` para lo que no destruye nada (Archivar); `secondary`, una salida de texto entre la
+ * acción y Cancelar («Mejor archivar»).
  */
 export function DialogConfirmStack({
   confirmLabel,
@@ -234,21 +237,45 @@ export function DialogConfirmStack({
   onConfirm,
   onCancel,
   pending,
+  disabled,
+  tone = 'danger',
+  secondary,
 }: {
   confirmLabel: ReactNode
   pendingLabel?: ReactNode
   onConfirm: () => void
   onCancel: () => void
   pending?: boolean
+  disabled?: boolean
+  tone?: 'danger' | 'primary'
+  secondary?: ReactNode
 }) {
   return (
     <div className="flex w-full flex-col gap-1">
-      <Button variant="dangerSolid" onClick={onConfirm} loading={pending} className="h-12 w-full">
+      <Button
+        variant={tone === 'danger' ? 'dangerSolid' : 'primary'}
+        onClick={onConfirm}
+        loading={pending}
+        disabled={disabled}
+        className="h-12 w-full"
+      >
         {pending && pendingLabel ? pendingLabel : confirmLabel}
       </Button>
+      {secondary}
       <Button variant="ghost" onClick={onCancel} disabled={pending} className="h-11 w-full">
         Cancelar
       </Button>
+    </div>
+  )
+}
+
+/** Lista vacía dentro de un diálogo: una línea punteada, no el `EmptyState` de pantalla — ése pesa
+ *  más que todo lo demás del diálogo. */
+export function DialogEmptyNote({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-control border border-dashed border-border-strong px-3.5 py-3 text-[13px] text-fg-secondary">
+      {icon && <span className="shrink-0 text-fg-muted [&>svg]:size-4">{icon}</span>}
+      <span className="min-w-0">{children}</span>
     </div>
   )
 }

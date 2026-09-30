@@ -112,7 +112,7 @@ describe('mensajeDeError', () => {
     expect(mensajeDeError({ code: 'P0001', message: 'fixed_payment_not_found' })).toBe('Ese pago ya no existe.')
   })
 
-  // HO-15 (docs/qa/hoy.md): una categoría de gasto pasada a "ingreso" hacía desaparecer sus
+  // HO-15 del QA de Hoy: una categoría de gasto pasada a "ingreso" hacía desaparecer sus
   // movimientos ya cargados del desglose por categoría sin avisar — el tipo ahora es inmutable
   // (`trg_category_kind_locked`) y un movimiento/fijo/compra no puede usar una categoría del tipo
   // contrario (`trg_transactions_owned_refs`/`trg_expense_category_kind`,

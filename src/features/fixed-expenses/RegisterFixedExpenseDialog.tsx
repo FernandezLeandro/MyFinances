@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import { format, getDate, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ChevronRight, ListChecks, Search } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
+import { DialogEmptyNote } from '@/components/ui/dialog-parts'
 import { Money } from '@/components/ui/Money'
-import { Badge } from '@/components/ui/Badge'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
+import { cycleLabel } from '@/lib/cycle'
 import { useCycle } from '@/lib/useCycle'
+import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useFixedExpensePayments, useFixedExpenseSavings, useFixedExpenses } from '@/features/fixed-expenses/api'
 import {
   fixedExpenseStatusKey,
@@ -17,6 +21,7 @@ import {
   type FixedExpenseStatus,
 } from '@/features/fixed-expenses/aggregate'
 import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
+import { bagPeriodNoun } from '@/features/fixed-expenses/period'
 
 interface RegisterFixedExpenseDialogProps {
   open: boolean
@@ -38,6 +43,10 @@ const sortOptions = [
  *
  * Sólo lista los pendientes del ciclo en curso: un fijo ya pagado, o una bolsa que ya llegó a su
  * presupuesto, no tiene nada que registrar acá — para deshacer un pago hace falta ir a Fijos.
+ *
+ * Rediseño de modales v2 (R1): cada fila lleva la ficha de su categoría, qué tan urgente es («Venció
+ * el 5» en rojo, «Vence el 10», «Bolsa semanal») y cuánto falta, con un chevron — ya no un badge
+ * aparte. Buscador y orden arriba, como siempre.
  */
 export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpenseDialogProps) {
   const { cycle, config } = useCycle()
@@ -45,6 +54,7 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('dueDate')
   const { data: fixedExpenses, isPending } = useFixedExpenses()
+  const { data: categories } = useCategories(true)
   const { data: payments } = useFixedExpensePayments(cycle.months)
   const { data: savings } = useFixedExpenseSavings(cycle.months)
 
@@ -90,7 +100,18 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Registrar en un fijo">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Registrar en un fijo"
+      subtitle={
+        !isPending && pending.length > 0 ? (
+          <>
+            <span className="capitalize">{cycleLabel(cycle)}</span> · {pending.length} pendiente{pending.length === 1 ? '' : 's'}
+          </>
+        ) : undefined
+      }
+    >
       {isPending ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
@@ -98,56 +119,60 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
           ))}
         </div>
       ) : pending.length === 0 ? (
-        <EmptyState glyph="◷" title="No tenés fijos pendientes este ciclo" />
+        <DialogEmptyNote icon={<ListChecks />}>No tenés fijos pendientes este ciclo</DialogEmptyNote>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <SearchInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar fijo…"
               className="flex-1"
             />
-            <SegmentedToggle value={sortBy} options={sortOptions} onChange={setSortBy} />
+            <SegmentedToggle variant="tabs" value={sortBy} options={sortOptions} onChange={setSortBy} />
           </div>
 
           {/* Alto acotado con scroll propio, no el del `Dialog` entero — así el buscador y el
               orden quedan siempre a la vista aunque la lista de pendientes sea larga. */}
           {visible.length === 0 ? (
-            <EmptyState glyph="◷" title="Ningún fijo coincide con la búsqueda" />
+            <DialogEmptyNote icon={<Search />}>Ningún fijo coincide con la búsqueda</DialogEmptyNote>
           ) : (
-            <ul className="-mx-panel flex max-h-[45vh] flex-col overflow-y-auto">
+            <ul className="flex max-h-[45vh] flex-col overflow-y-auto rounded-panel-sm border border-border">
               {visible.map((status) => {
                 const urgency = status.dueDate ? fixedExpenseUrgency(parseISO(status.dueDate), today) : null
                 // Bloque 4: con `cycle.months.length > 1` (semana a caballo de dos meses) un mismo
                 // fijo puede listarse dos veces — una instancia por mes — así que hace falta
                 // distinguirlas.
                 const monthLabel = cycle.months.length > 1 ? format(parseISO(status.period), 'MMM', { locale: es }) : null
+                const category = (categories ?? []).find((c) => c.id === status.fe.category_id)
+                // Una bolsa no vence, así que no tiene urgencia: dice su frecuencia. L2 del QA: el día
+                // real materializado, no `fe.due_day` crudo.
+                const due = status.dueDate ? getDate(parseISO(status.dueDate)) : null
+                const sub = status.fe.is_recurring
+                  ? `Bolsa ${bagPeriodNoun(status.fe.bag_frequency).adjective}`
+                  : due != null
+                    ? `${urgency === 'red' ? 'Venció' : 'Vence'} el ${due}`
+                    : null
                 return (
-                  <li key={fixedExpenseStatusKey(status)}>
+                  <li key={fixedExpenseStatusKey(status)} className="border-b border-divider-list last:border-b-0">
                     <button
                       type="button"
                       onClick={() => setSelected(status)}
-                      className="flex w-full items-center gap-3 px-panel py-3 text-left transition-colors duration-150 hover:bg-fill-subtle"
+                      className="flex min-h-[62px] w-full items-center gap-3 px-3 py-2 text-left transition-colors duration-150 hover:bg-fill-subtle"
                     >
+                      <CategoryChip {...chipLook(category)} size={36} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-semibold text-fg">
+                        <p className="truncate text-[14.5px] font-semibold text-fg">
                           {status.fe.name}
                           {monthLabel && <span className="font-normal text-fg-muted"> · {monthLabel}</span>}
                         </p>
-                        {status.fe.is_recurring && <p className="text-[12px] text-fg-muted">bolsa</p>}
+                        {sub && <p className={urgency === 'red' ? 'text-[12px] font-semibold text-negative' : 'text-[12px] text-fg-secondary'}>{sub}</p>}
                       </div>
-                      {/* Mismo badge de urgencia que Fijos.tsx — una bolsa no vence, así que no le
-                          corresponde. */}
-                      {urgency && (
-                        <Badge variant={urgency} className="shrink-0 whitespace-nowrap">
-                          {/* L2 del QA: el día real materializado, no `fe.due_day` crudo. */}
-                          {urgency === 'red'
-                            ? `Venció el ${getDate(parseISO(status.dueDate!))}`
-                            : `Vence el ${getDate(parseISO(status.dueDate!))}`}
-                        </Badge>
-                      )}
-                      <Money cents={status.remainingCents} tone="fg" size="row" />
+                      <div className="flex shrink-0 flex-col items-end">
+                        <Money cents={status.remainingCents} tone="fg" size="inline" />
+                        {status.fe.is_recurring && <span className="text-[11.5px] text-fg-muted">quedan</span>}
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 text-fg-muted" aria-hidden />
                     </button>
                   </li>
                 )

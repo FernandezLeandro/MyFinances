@@ -44,7 +44,7 @@ const sizes: Record<ButtonSize, string> = {
   compact: 'h-[38px] px-[15px] text-[13px] gap-1.5',
   md: 'h-11 px-5 text-sm gap-2',
   // Botones apilados a todo el ancho de una tarjeta (Nueva cuenta / Transferir): 38px y 12.5px en el
-  // celular como en el handoff (el toque sigue siendo de 44 por el `after` invisible) y 40 en escritorio.
+  // celular como en el diseño (el toque sigue siendo de 44 por el `after` invisible) y 40 en escritorio.
   block:
     'relative h-[38px] w-full px-4 text-[12.5px] gap-2 max-sm:after:absolute max-sm:after:inset-x-0 max-sm:after:-inset-y-[3px] sm:h-10 sm:text-[13px]',
   // El footer de los 24 diálogos (arquetipos 1-3): 38px en escritorio como pide el mock, pero a

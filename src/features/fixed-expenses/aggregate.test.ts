@@ -486,7 +486,7 @@ describe('summarizeFixedExpenses — con months (bloque 5, semanal a caballo de 
     expect(s.pending[0].remainingCents).toBe(60_000_00)
   })
 
-  // HO-04 del QA de Hoy (docs/qa/hoy.md): el gap de $3.000 entre el título "Proyectado" y el
+  // HO-04 del QA de Hoy: el gap de $3.000 entre el título "Proyectado" y el
   // desglose, en la semana 28/9–4/10, resultó ser un artefacto de la VERIFICACIÓN (`page.clock`
   // puso "hoy" en el 30/9, 6 días después del día real, más allá del ±1 día que tolera
   // `rpc_projected_balance_range` — ver `hoy_del_cliente.sql`), no un bug de

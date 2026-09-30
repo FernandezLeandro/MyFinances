@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Field, AmountInput, Input } from '@/components/ui/Input'
+import { DialogFooterBar } from '@/components/ui/dialog-parts'
+import { Field, Input } from '@/components/ui/Input'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
 import { centsToInputText, parseAmountToCents } from '@/lib/money'
 import { useDeleteTransaction, useUpdateTransaction, type Transaction } from '@/features/transactions/api'
 import { ConfirmDeleteMovementDialog } from '@/features/transactions/ConfirmDeleteMovementDialog'
@@ -59,38 +61,44 @@ export function IncomeEditDialog({ transaction, onClose }: IncomeEditDialogProps
         open
         onClose={onClose}
         title="Editar ingreso"
+        footerBleed
         footer={
-          <>
-            <Button
-              variant="danger"
-              size="dialogFooter"
-              onClick={() => setConfirmingDelete(true)}
-              disabled={deleteTx.isPending}
-              className="sm:mr-auto"
-            >
-              Eliminar
-            </Button>
-            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
+          <DialogFooterBar
+            start={
+              <Button
+                variant="ghost"
+                size="dialogFooter"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={deleteTx.isPending}
+                className="text-negative! hover:text-negative!"
+              >
+                Eliminar
+              </Button>
+            }
+          >
+            <Button variant="outline" size="dialogFooter" onClick={onClose}>
               Cancelar
             </Button>
             <Button size="dialogFooter" onClick={handleSave} disabled={updateTx.isPending}>
               {updateTx.isPending ? 'Guardando…' : 'Guardar'}
             </Button>
-          </>
+          </DialogFooterBar>
         }
       >
         <div className="flex flex-col gap-5">
-          <Field label="Importe" error={amountError ?? undefined}>
-            <AmountInput
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value)
-                setAmountError(null)
-              }}
-              invalid={!!amountError}
-              autoFocus
-            />
-          </Field>
+          <OpeningAmountField
+            size="lg"
+            align="center"
+            allowNegative={false}
+            autoFocus
+            label="Importe"
+            error={amountError ?? undefined}
+            value={input}
+            onChange={(v) => {
+              setInput(v)
+              setAmountError(null)
+            }}
+          />
 
           <Field label="Detalle" hint="Opcional">
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Sueldo, adelanto…" maxLength={80} />

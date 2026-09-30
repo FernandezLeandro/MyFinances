@@ -4,12 +4,13 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Chip } from '@/components/ui/Chip'
-import { Field, Input, AmountInput } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
-import { cn } from '@/lib/cn'
+import { DialogFooterBar } from '@/components/ui/dialog-parts'
+import { Field, Input } from '@/components/ui/Input'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { centsToInputText, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
-import { useCategories } from '@/features/categories/api'
+import { useCategories, useCategoryUsageCounts } from '@/features/categories/api'
+import { CategoryPicker } from '@/features/categories/CategoryPicker'
 import { useCreateFixedExpense, useFixedExpenses, useUpdateFixedExpense, type FixedExpense } from '@/features/fixed-expenses/api'
 import { fixedExpenseNameError } from '@/features/fixed-expenses/aggregate'
 import { FixedExpenseDeleteConfirmDialog } from '@/features/fixed-expenses/FixedExpenseDeleteConfirmDialog'
@@ -59,12 +60,16 @@ interface FixedExpenseFormDialogProps {
   onDeleted?: () => void
 }
 
+/** Alta y edición de un fijo. Rediseño de modales v2: importe primero (centrado, grande), «cómo se
+ *  paga» y frecuencia en segmentados, y la categoría con el mismo desplegable con fichas y buscador
+ *  de Nuevo movimiento — en vez del `<select>` nativo, que no puede mostrar la ficha. */
 export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted }: FixedExpenseFormDialogProps) {
   const isEditing = !!fixedExpense
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   // `true`: incluye archivadas — si el fijo ya tenía una categoría que después se archivó, el select
   // sigue mostrándola (ver `expenseCategories`) en vez de perderla en silencio al guardar.
   const { data: categories } = useCategories(true)
+  const { data: categoryUsage } = useCategoryUsageCounts()
   // FI-19: `true` para comparar también contra los pausados — uno reactivado puede volver a chocar.
   const { data: allFixedExpenses } = useFixedExpenses(true)
   const createFixed = useCreateFixedExpense()
@@ -76,7 +81,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
     watch,
     setValue,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isRecurring: false, bagFrequency: 'monthly' },
@@ -90,6 +95,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
   const isRecurring = watch('isRecurring')
   const bagFrequency = watch('bagFrequency')
   const selectedCategoryId = watch('categoryId')
+  const amount = watch('amount') ?? ''
   const name = watch('name')
   const expenseCategories = (categories ?? []).filter(
     (c) => c.kind === 'expense' && (!c.is_archived || c.id === selectedCategoryId),
@@ -162,54 +168,69 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
         open={open && !confirmingDelete}
         onClose={() => !confirmingDelete && onClose()}
         title={isEditing ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
+        footerBleed
         footer={
-          <>
-            {isEditing && (
-              <Button variant="danger" size="dialogFooter" onClick={() => setConfirmingDelete(true)} className="sm:mr-auto">
-                Eliminar
-              </Button>
-            )}
-            <Button variant="ghost" size="dialogFooter" onClick={onClose}>
+          <DialogFooterBar
+            start={
+              isEditing && (
+                <Button variant="ghost" size="dialogFooter" onClick={() => setConfirmingDelete(true)} className="text-negative! hover:text-negative!">
+                  Eliminar fijo
+                </Button>
+              )
+            }
+          >
+            <Button variant="outline" size="dialogFooter" onClick={onClose}>
               Cancelar
             </Button>
             <Button size="dialogFooter" onClick={handleSubmit(onSubmit)} disabled={isPending || !!duplicateNameError}>
-              {isPending ? 'Guardando…' : 'Guardar'}
+              {isPending ? 'Guardando…' : isEditing ? 'Guardar' : 'Agregar fijo'}
             </Button>
-          </>
+          </DialogFooterBar>
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-          <div className="flex gap-1.5">
-            <Chip active={!isRecurring} onClick={() => setValue('isRecurring', false)}>
-              Una vez al mes
-            </Chip>
-            <Chip active={isRecurring} onClick={() => setValue('isRecurring', true)}>
-              Recurrente
-            </Chip>
+          <OpeningAmountField
+            size="lg"
+            align="center"
+            allowNegative={false}
+            label={isRecurring ? `Presupuesto ${bagPeriodNoun(bagFrequency).adjective}` : 'Importe por mes'}
+            ariaLabel="Importe"
+            error={errors.amount?.message}
+            value={amount}
+            onChange={(v) => setValue('amount', v, { shouldValidate: isSubmitted })}
+          />
+
+          <div className="flex flex-col gap-2">
+            <span className="eyebrow">¿Cómo se paga?</span>
+            <SegmentedToggle
+              variant="tabs"
+              value={isRecurring ? 'bag' : 'once'}
+              onChange={(v) => setValue('isRecurring', v === 'bag')}
+              options={[
+                { value: 'once', label: 'Una vez al mes' },
+                { value: 'bag', label: 'Recurrente' },
+              ]}
+            />
+            <p className="text-[12.5px] text-fg-secondary">
+              {isRecurring ? 'Una bolsa: lo vas cargando de a poco (nafta, mercadería…).' : 'Se paga una vez por mes, con fecha de vencimiento.'}
+            </p>
           </div>
 
           {isRecurring && (
-            <Field label="Frecuencia del presupuesto">
-              <div className="flex gap-1.5">
-                <Chip active={bagFrequency === 'monthly'} onClick={() => setValue('bagFrequency', 'monthly')}>
-                  Mensual
-                </Chip>
-                <Chip active={bagFrequency === 'biweekly'} onClick={() => setValue('bagFrequency', 'biweekly')}>
-                  Quincenal
-                </Chip>
-                <Chip active={bagFrequency === 'weekly'} onClick={() => setValue('bagFrequency', 'weekly')}>
-                  Semanal
-                </Chip>
-              </div>
-            </Field>
+            <div className="flex flex-col gap-2">
+              <span className="eyebrow">Cada cuánto</span>
+              <SegmentedToggle
+                variant="tabs"
+                value={bagFrequency}
+                onChange={(v) => setValue('bagFrequency', v)}
+                options={[
+                  { value: 'monthly', label: 'Mensual' },
+                  { value: 'biweekly', label: 'Quincenal' },
+                  { value: 'weekly', label: 'Semanal' },
+                ]}
+              />
+            </div>
           )}
-
-          <Field
-            label={isRecurring ? `Presupuesto ${bagPeriodNoun(bagFrequency).adjective}` : 'Importe'}
-            error={errors.amount?.message}
-          >
-            <AmountInput invalid={!!errors.amount} {...register('amount')} />
-          </Field>
 
           <Field label="Nombre" htmlFor="name" error={nameError}>
             <Input
@@ -221,22 +242,21 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
             />
           </Field>
 
-          <div className={cn('grid gap-4', !isRecurring && 'grid-cols-2')}>
-            <Field label="Categoría" htmlFor="categoryId" hint="Opcional">
-              <Select id="categoryId" {...register('categoryId')}>
-                <option value="">Sin categoría</option>
-                {expenseCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.is_archived && ' (archivada)'}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
+          {/* Debajo de 420px la categoría y el día no entran lado a lado sin que el desplegable quede
+              de 150px — se apilan. */}
+          <div className="flex flex-col gap-5 min-[420px]:flex-row min-[420px]:items-start min-[420px]:gap-3">
+            <div className="min-w-0 flex-1">
+              <CategoryPicker
+                variant="dropdown"
+                categories={expenseCategories}
+                usage={categoryUsage}
+                value={selectedCategoryId ?? ''}
+                onChange={(id) => setValue('categoryId', id)}
+              />
+            </div>
             {!isRecurring && (
-              <Field label="Día de vencimiento" htmlFor="dueDay" hint="1 a 31" error={errors.dueDay?.message}>
-                <Input id="dueDay" type="number" min={1} max={31} {...register('dueDay')} />
+              <Field label="Vence el día" htmlFor="dueDay" error={errors.dueDay?.message} className="min-[420px]:w-28 min-[420px]:shrink-0">
+                <Input id="dueDay" type="number" min={1} max={31} className="h-[54px] text-center font-display font-semibold" {...register('dueDay')} />
               </Field>
             )}
           </div>
@@ -244,13 +264,17 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, onDeleted 
           {/* Activo/Pausado sólo tiene sentido al editar un fijo existente — uno nuevo siempre
               arranca activo (ver el default de `reset` más arriba). */}
           {isEditing && (
-            <div className="flex gap-1.5">
-              <Chip active={isActive} onClick={() => setValue('isActive', true)}>
-                Activo
-              </Chip>
-              <Chip active={!isActive} onClick={() => setValue('isActive', false)}>
-                Pausado
-              </Chip>
+            <div className="flex flex-col gap-2">
+              <span className="eyebrow">Estado</span>
+              <SegmentedToggle
+                variant="tabs"
+                value={isActive ? 'active' : 'paused'}
+                onChange={(v) => setValue('isActive', v === 'active')}
+                options={[
+                  { value: 'active', label: 'Activo' },
+                  { value: 'paused', label: 'Pausado' },
+                ]}
+              />
             </div>
           )}
         </form>

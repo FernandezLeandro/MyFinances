@@ -64,7 +64,7 @@ export function useReorderDefaultCategories() {
   })
 }
 
-// Sin `kind` en el input (HO-15, docs/qa/hoy.md): igual que en la cuenta, el tipo se elige al crear
+// Sin `kind` en el input (HO-15 del QA de Hoy): igual que en la cuenta, el tipo se elige al crear
 // y no se cambia más — la base lo bloquea igual (`trg_category_kind_locked`), pero el cliente ni
 // siquiera lo ofrece.
 export function useUpdateDefaultCategory() {

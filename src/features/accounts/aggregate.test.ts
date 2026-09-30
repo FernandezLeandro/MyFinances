@@ -908,6 +908,9 @@ describe('transferDeleteEffect', () => {
     const effect = transferDeleteEffect({ transfer, balances, nameOf })
     expect(effect.text).toBe(`Si la eliminás, Banco pasa a ${formatMoney(80_000_00)} y Efectivo a ${formatMoney(20_000_00)}.`)
     expect(effect.warning).toBeNull()
+    // Las cifras por fila del detalle salen de acá, no de una segunda fórmula en el componente.
+    expect(effect.fromAfterCents).toBe(80_000_00)
+    expect(effect.toAfterCents).toBe(20_000_00)
   })
 
   // El borrado no tiene tope en la base: si el destino ya gastó esa plata, queda en negativo. Antes
@@ -934,6 +937,8 @@ describe('transferDeleteEffect', () => {
     const effect = transferDeleteEffect({ transfer, balances: undefined, nameOf })
     expect(effect.text).toBe(`Si la eliminás, vuelven ${formatMoney(50_000_00)} a Banco y salen de Efectivo.`)
     expect(effect.warning).toBeNull()
+    expect(effect.fromAfterCents).toBeNull()
+    expect(effect.toAfterCents).toBeNull()
   })
 
   it('una punta sin saldo conocido cae en el texto sin cifras', () => {
