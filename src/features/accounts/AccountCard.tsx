@@ -71,7 +71,7 @@ export function AccountCard({ account, balanceCents, isBalancePending, isDefault
               // arrastraría el `size` md (`h-11 px-5`) y, como `cn()` no dedupea, la tarjeta clara
               // terminaba con un botón más alto y más ancho que el de la oscura.
               'relative inline-flex items-center justify-center rounded-control border font-semibold whitespace-nowrap transition-colors duration-150',
-              // Celular: 32px como en el handoff; el toque sigue siendo de 44 por el `after` invisible.
+              // Celular: 32px como en el diseño; el toque sigue siendo de 44 por el `after` invisible.
               'h-8 px-3 text-[12px] max-sm:after:absolute max-sm:after:-inset-1.5 sm:h-[38px] sm:flex-1 sm:px-3.5 sm:text-[12.5px]',
               isDefault
                 ? 'border-inverse-divider text-on-inverse hover:bg-inverse-divider'

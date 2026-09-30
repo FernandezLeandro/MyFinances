@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Archive, Check, Lock } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
+import { DialogFooterBar } from '@/components/ui/dialog-parts'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { CATEGORY_COLORS, CATEGORY_PALETTE, onColor } from '@/lib/categoryColors'
 import { CATEGORY_ICONS, DEFAULT_CATEGORY_ICON, categoryIcon, firstRow, searchIcons, type CategoryIconDef } from '@/lib/categoryIcons'
@@ -84,7 +85,7 @@ const moreClass =
 
 /**
  * Editor de categoría — alta y edición en el mismo modal (Editor 2 v2 del rediseño de
- * `/categorias`, `design.local/categorias/README.md`). Lo usan `/categorias` y el catálogo de admin.
+ * `/categorias`). Lo usan `/categorias` y el catálogo de admin.
  *
  * El tipo no se elige acá (HO-15): viene de la pestaña desde la que se creó y queda fijo — el
  * candado del encabezado lo dice. Color e ícono salen de sets cerrados (40 y 35) que la base
@@ -134,52 +135,34 @@ export function CategoryEditorDialog({
       {isNew ? 'Crear categoría' : 'Guardar'}
     </Button>
   )
-  // Botones de texto propios y no `Button` con `className`: `dialogFooter` trae `w-full` en mobile y
-  // `cn()` no dedupea, así que un `w-auto` encima no tiene ganador fijo.
-  const textAction = 'flex h-11 items-center gap-2 rounded-control px-2.5 text-sm font-semibold transition-colors hover:bg-fill-subtle'
+  // Pie v2 (`DialogFooterBar`): Archivar/Eliminar a la izquierda, Cancelar/Reactivar y la acción a la
+  // derecha. En mobile el pie apila solo: acción arriba, Cancelar/Reactivar y, al fondo, Archivar.
   const sideAction = archived ? (
     onDelete && (
-      <button type="button" onClick={onDelete} className={cn(textAction, 'text-negative')}>
+      <Button variant="ghost" size="dialogFooter" onClick={onDelete} className="text-negative! hover:text-negative!">
         Eliminar
-      </button>
+      </Button>
     )
   ) : (
     onArchive && (
-      <button type="button" onClick={onArchive} className={cn(textAction, 'text-fg-secondary hover:text-fg')}>
+      <Button variant="ghost" size="dialogFooter" onClick={onArchive} className="text-fg-secondary! hover:text-fg!">
         <Archive className="size-4" aria-hidden />
         Archivar
-      </button>
+      </Button>
     )
   )
   const dismissLabel = archived && onReactivate ? 'Reactivar' : 'Cancelar'
   const dismissAction = archived && onReactivate ? onReactivate : onClose
-  const dismiss = isDesktop ? (
-    <Button variant="outline" size="dialogFooter" onClick={dismissAction}>
-      {dismissLabel}
-    </Button>
-  ) : (
-    <button type="button" onClick={dismissAction} className={cn(textAction, archived && onReactivate ? 'text-fg' : 'text-fg-secondary hover:text-fg')}>
-      {dismissLabel}
-    </button>
-  )
-
-  // Desktop: [Archivar/Eliminar …… Cancelar/Reactivar · Guardar]. Mobile: el pie de `Dialog` apila
-  // al revés (`flex-col-reverse`), así que Guardar va último para quedar arriba a todo el ancho y
-  // la fila secundaria (Archivar a la izquierda, Cancelar a la derecha) queda debajo.
-  const footer = isDesktop ? (
-    <>
-      {sideAction && <div className="mr-auto">{sideAction}</div>}
-      {dismiss}
+  const footer = (
+    <DialogFooterBar start={sideAction || undefined}>
+      <Button variant="outline" size="dialogFooter" onClick={dismissAction} className="max-sm:hidden">
+        {dismissLabel}
+      </Button>
+      <Button variant="ghost" size="dialogFooter" onClick={dismissAction} className="sm:hidden">
+        {dismissLabel}
+      </Button>
       {saveButton}
-    </>
-  ) : (
-    <>
-      <div className="-mx-2.5 flex items-center justify-between">
-        {sideAction ?? <span />}
-        {dismiss}
-      </div>
-      {saveButton}
-    </>
+    </DialogFooterBar>
   )
 
   const iconRow = firstRow<CategoryIconDef>(CATEGORY_ICONS, categoryIcon(icon), 5)
@@ -192,6 +175,7 @@ export function CategoryEditorDialog({
         onClose={onClose}
         size="lg"
         ownsPending
+        footerBleed
         title={isNew ? 'Nueva categoría' : archived ? 'Categoría archivada' : 'Editar categoría'}
         subtitle={
           <span className="flex items-center gap-1.5">

@@ -26,8 +26,7 @@ type EditorTarget = { kind: CategoryKind; category?: Category } | null
 const TAB_LABELS: Record<CategoryTab, string> = { expense: 'Gasto', income: 'Ingreso', archived: 'Archivadas' }
 
 /**
- * Pantalla de categorías de la cuenta (`/categorias`), rediseño «Pantalla C» (2026-09-26,
- * `design.local/categorias/README.md`): un solo panel con pestañas Gasto · Ingreso · Archivadas
+ * Pantalla de categorías de la cuenta (`/categorias`), rediseño «Pantalla C» (2026-09-26): un solo panel con pestañas Gasto · Ingreso · Archivadas
  * (con la cantidad de categorías de cada una, no de movimientos) y un buscador. Toda la fila abre el
  * editor modal (`CategoryEditorDialog`), que es donde se archiva y, desde Archivadas, se elimina.
  *

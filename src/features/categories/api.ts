@@ -51,7 +51,7 @@ export function useCreateCategory() {
   })
 }
 
-// Sin `kind` en el input (HO-15, docs/qa/hoy.md): el tipo se elige al crear y no se cambia más — la
+// Sin `kind` en el input (HO-15 del QA de Hoy): el tipo se elige al crear y no se cambia más — la
 // base lo bloquea igual (`trg_category_kind_locked`), pero el cliente ni siquiera lo ofrece.
 export function useUpdateCategory() {
   const { user } = useAuth()

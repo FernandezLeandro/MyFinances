@@ -1,14 +1,18 @@
 import { useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { X } from 'lucide-react'
+import { Coins, X } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
-import { Field, AmountInput, Input } from '@/components/ui/Input'
+import { Field, Input } from '@/components/ui/Input'
 import { Money } from '@/components/ui/Money'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { OpeningAmountField } from '@/components/ui/OpeningAmountField'
+import { DialogEmptyNote } from '@/components/ui/dialog-parts'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { parseAmountToCents } from '@/lib/money'
+import { formatMoney, parseAmountToCents } from '@/lib/money'
+import { useCategories } from '@/features/categories/api'
+import { CategoryChip } from '@/features/categories/CategoryChip'
+import { chipLook } from '@/features/categories/chip'
 import { useCreateTransaction, useDeleteTransaction, useTransactions, type Transaction } from '@/features/transactions/api'
 import { ConfirmDeleteMovementDialog } from '@/features/transactions/ConfirmDeleteMovementDialog'
 import { confirmDeleteMovementCopy } from '@/features/transactions/aggregate'
@@ -37,6 +41,9 @@ interface AssignIncomeDialogProps {
  * que usa la tarjeta de `FijosCicloCard`) — así las dos pantallas siempre muestran el mismo número.
  * Una fila que no nació en este diálogo (con categoría, o de pagar un fijo) se lista sin X, con
  * «cargado desde Movimientos»: se edita o se borra desde ahí, no acá.
+ *
+ * Rediseño de modales v2 (S1): el formulario arriba — importe centrado y un botón «Agregar $X» a todo
+ * el ancho — y la lista del ciclo debajo, con la ficha de cada ingreso.
  */
 export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLabel }: AssignIncomeDialogProps) {
   const [input, setInput] = useState('')
@@ -44,6 +51,7 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
   const [error, setError] = useState<string | null>(null)
   const { data: allIncomeType, isPending } = useTransactions({ from: cycleFrom, to: cycleTo, type: 'income' })
   const incomes = (allIncomeType ?? []).filter(isCycleIncome)
+  const { data: categories } = useCategories(true)
   const addIncome = useCreateTransaction()
   const removeIncome = useDeleteTransaction()
   // MO-01 del QA de Movimientos: la ✕ borraba al instante, sin confirmar ni deshacer — mismo
@@ -90,23 +98,26 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
       <Dialog open={open} onClose={onClose} title={`Asignar sueldo — ${cycleLabel}`}>
         <div className="flex flex-col gap-5">
           {totalCents > 0 && (
-            <div>
-              <p className="eyebrow">Ingresos del ciclo</p>
-              <Money cents={totalCents} tone="fg" size="figure" className="mt-1" />
+            <div className="flex items-center gap-3 rounded-float bg-surface-sunken px-4 py-3">
+              <span className="min-w-0 flex-1 text-[13px] text-fg-secondary">Ya asignaste en {cycleLabel}</span>
+              <Money cents={totalCents} tone="fg" size="inline" />
             </div>
           )}
 
-          <Field label="Importe" error={error ?? undefined}>
-            <AmountInput
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value)
-                setError(null)
-              }}
-              invalid={!!error}
-              autoFocus
-            />
-          </Field>
+          <OpeningAmountField
+            size="lg"
+            align="center"
+            allowNegative={false}
+            autoFocus
+            label="¿Cuánto entra?"
+            ariaLabel="Importe"
+            error={error ?? undefined}
+            value={input}
+            onChange={(v) => {
+              setInput(v)
+              setError(null)
+            }}
+          />
 
           <Field label="Detalle" hint="Opcional">
             <Input
@@ -117,12 +128,12 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
             />
           </Field>
 
-          <Button onClick={handleAdd} disabled={addIncome.isPending} className="self-start">
-            {addIncome.isPending ? 'Guardando…' : 'Agregar'}
+          <Button onClick={handleAdd} disabled={addIncome.isPending} className="h-[54px] w-full">
+            {addIncome.isPending ? 'Guardando…' : cents != null && cents > 0 ? `Agregar ${formatMoney(cents)}` : 'Agregar'}
           </Button>
 
-          <div>
-            <p className="eyebrow mb-3">Ingresos de este ciclo</p>
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">Ingresos de este ciclo</p>
             {isPending ? (
               <div className="flex flex-col gap-2">
                 {[0, 1].map((i) => (
@@ -130,31 +141,35 @@ export function AssignIncomeDialog({ open, onClose, cycleFrom, cycleTo, cycleLab
                 ))}
               </div>
             ) : incomes.length === 0 ? (
-              <EmptyState glyph="◷" title="Todavía no asignaste nada este ciclo" />
+              <DialogEmptyNote icon={<Coins />}>Todavía no asignaste nada este ciclo</DialogEmptyNote>
             ) : (
-              <ul className="-mx-panel flex max-h-[35vh] flex-col overflow-y-auto">
+              <ul className="flex flex-col rounded-panel-sm border border-border">
                 {incomes.map((income) => {
                   const removable = isRemovableFromDialog(income)
+                  const category = (categories ?? []).find((c) => c.id === income.category_id)
                   return (
-                    <li key={income.id} className="flex items-center gap-3 px-panel py-2">
-                      <p className="min-w-0 flex-1 truncate text-[12.5px] text-fg-muted">
-                        {format(parseISO(income.occurred_on), "d 'de' MMMM", { locale: es })}
-                        {income.description ? ` · ${income.description}` : ''}
-                        {!removable && ' · cargado desde Movimientos'}
-                      </p>
-                      <Money cents={income.cents} tone="dim" size="inline" />
+                    <li key={income.id} className="flex items-center gap-3 border-b border-divider-list py-2 pr-2 pl-3 last:border-b-0">
+                      <CategoryChip {...chipLook(category)} size={28} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-semibold text-fg">{income.description || 'Ingreso'}</p>
+                        <p className="truncate text-[12px] text-fg-secondary">
+                          {format(parseISO(income.occurred_on), "d 'de' MMMM", { locale: es })}
+                          {!removable && ' · cargado desde Movimientos'}
+                        </p>
+                      </div>
+                      <Money cents={income.cents} tone="fg" size="inline" />
                       {removable ? (
                         <button
                           type="button"
                           onClick={() => setPendingRemove(income)}
                           disabled={removeIncome.isPending}
                           aria-label="Quitar esta asignación"
-                          className="grid size-6 shrink-0 place-items-center rounded-chip text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
+                          className="grid size-8 shrink-0 place-items-center rounded-control text-fg-muted transition-colors duration-150 hover:bg-fill-subtle hover:text-negative disabled:opacity-40"
                         >
-                          <X className="size-3" strokeWidth={1.5} aria-hidden />
+                          <X className="size-3.5" strokeWidth={1.75} aria-hidden />
                         </button>
                       ) : (
-                        <span className="size-6 shrink-0" aria-hidden />
+                        <span className="size-8 shrink-0" aria-hidden />
                       )}
                     </li>
                   )

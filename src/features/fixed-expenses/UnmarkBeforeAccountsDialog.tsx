@@ -1,6 +1,6 @@
+import { TriangleAlert } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
-import { DialogFooterBar } from '@/components/ui/dialog-parts'
-import { Button } from '@/components/ui/Button'
+import { DialogConfirmStack } from '@/components/ui/dialog-parts'
 import { useCan } from '@/features/access/useCan'
 import { preAccountsPaymentCopy } from './aggregate'
 
@@ -33,20 +33,12 @@ export function UnmarkBeforeAccountsDialog({ open, busy, onClose, onConfirm, act
       onClose={onClose}
       title={copy.title}
       size="sm"
-      footerBleed
       ownsPending
-      footer={
-        <DialogFooterBar>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose} disabled={busy}>
-            Cancelar
-          </Button>
-          <Button variant="dangerSolid" size="dialogFooter" onClick={onConfirm} loading={busy}>
-            {copy.confirmLabel}
-          </Button>
-        </DialogFooterBar>
-      }
+      icon={<TriangleAlert className="size-[19px]" strokeWidth={1.8} aria-hidden />}
+      tone="warn"
+      footer={<DialogConfirmStack confirmLabel={copy.confirmLabel} pending={busy} onConfirm={onConfirm} onCancel={onClose} />}
     >
-      <div className="flex flex-col gap-3 text-[13px] leading-[1.55] text-fg-secondary text-pretty">
+      <div className="flex flex-col gap-3 text-[14px] leading-[1.55] text-fg-secondary text-pretty">
         {copy.paragraphs.map((p) => (
           <p key={p}>{p}</p>
         ))}

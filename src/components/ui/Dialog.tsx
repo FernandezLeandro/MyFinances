@@ -6,12 +6,13 @@ import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
 import { DialogPortalContext } from '@/components/ui/dialog-portal'
 
-export type DialogTone = 'neutral' | 'danger' | 'accent'
+export type DialogTone = 'neutral' | 'danger' | 'accent' | 'warn'
 
 const iconToneClasses: Record<DialogTone, string> = {
   neutral: 'bg-fill-subtle text-fg-secondary',
   danger: 'bg-badge-red-bg text-badge-red-fg',
   accent: 'bg-accent-soft text-accent-text',
+  warn: 'bg-badge-amber-bg text-badge-amber-fg',
 }
 
 const headerButtonClass =

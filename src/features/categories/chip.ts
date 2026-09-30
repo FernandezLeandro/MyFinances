@@ -1,7 +1,7 @@
 import type { NeutralChip } from '@/lib/categoryIcons'
 
 /** Lo que necesita `CategoryChip` para pintarse — el color/ícono de una categoría real, o una de
- *  las cuatro fichas neutras grises (P3/P4 del handoff de "categorías en el resto de la app"). */
+ *  las cuatro fichas neutras grises (P3/P4 del diseño de "categorías en el resto de la app"). */
 export type ChipLook = { color: string; icon: string | null | undefined } | { neutral: NeutralChip }
 
 /**

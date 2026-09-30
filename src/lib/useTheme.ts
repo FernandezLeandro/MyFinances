@@ -10,7 +10,7 @@ const usePersistedDark = createPersistedFlag('theme')
 /**
  * Preferencia de tema (claro/oscuro), persistida en localStorage bajo `theme:dark`.
  *
- * Default `false` (claro): la dirección elegida del handoff es "Bento claro" (3a), con el oscuro
+ * Default `false` (claro): la dirección elegida del diseño es "Bento claro" (3a), con el oscuro
  * (4a) como variante. `index.html` tiene un script inline que lee esta misma key antes del primer
  * paint para evitar el flash de claro→oscuro en una sesión que ya eligió oscuro.
  */

@@ -1,6 +1,5 @@
-import { Trash2 } from 'lucide-react'
+import { Archive, Trash2 } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
-import { Button } from '@/components/ui/Button'
 import { DialogConfirmStack, DialogItemCard } from '@/components/ui/dialog-parts'
 import type { Category, CategoryUsage } from '@/features/categories/api'
 import { CategoryChip } from './CategoryChip'
@@ -32,28 +31,36 @@ interface ArchiveCategoryDialogProps {
 export function ArchiveCategoryDialog({ open, onClose, category, usage, onConfirm, pending }: ArchiveCategoryDialogProps) {
   const breakdown = usageBreakdown(usage)
 
+  // Confirmación «Pila» con la acción primaria, no roja: archivar no borra nada.
   return (
     <Dialog
       open={open}
       onClose={onClose}
+      size="sm"
+      ownsPending
       title="Archivar categoría"
+      icon={<Archive className="size-[19px]" strokeWidth={1.8} aria-hidden />}
       footer={
-        <>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button size="dialogFooter" onClick={onConfirm} disabled={pending}>
-            {pending ? 'Archivando…' : 'Archivar'}
-          </Button>
-        </>
+        <DialogConfirmStack
+          tone="primary"
+          confirmLabel="Archivar categoría"
+          pendingLabel="Archivando…"
+          pending={pending}
+          onConfirm={onConfirm}
+          onCancel={onClose}
+        />
       }
     >
-      <p className="text-[14px] text-fg-secondary">
-        ¿Archivar <span className="text-fg">{category.name}</span>?
-        {breakdown
-          ? ` Tiene ${breakdown}: siguen igual, con su categoría. Deja de ofrecerse al cargar algo nuevo y la podés reactivar desde Archivadas.`
-          : ' Deja de ofrecerse al cargar algo nuevo y la podés reactivar desde Archivadas.'}
-      </p>
+      <div className="flex flex-col gap-4">
+        <DialogItemCard
+          leading={<CategoryChip color={category.color} icon={category.icon} size={38} />}
+          title={category.name}
+          meta={[category.kind === 'expense' ? 'De gasto' : 'De ingreso', breakdown].filter(Boolean).join(' · ')}
+        />
+        <p className="text-[14px] text-fg-secondary">
+          {breakdown ? 'Lo ya cargado sigue igual, con su categoría. ' : ''}Deja de ofrecerse al cargar algo nuevo; la reactivás desde Archivadas.
+        </p>
+      </div>
     </Dialog>
   )
 }

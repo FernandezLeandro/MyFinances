@@ -63,7 +63,7 @@ const sizes: Record<Size, { root: string; symbol: string; fraction: string }> = 
     symbol: 'text-[0.4em] mt-[0.32em] mr-[0.12em] text-fg-muted',
     fraction: 'text-[0.44em] mt-[0.36em] ml-[0.05em]',
   },
-  // Cuentas (handoff): el `$` va del tamaño de la cifra y sólo los centavos se apagan, los dos sobre
+  // Cuentas (diseño): el `$` va del tamaño de la cifra y sólo los centavos se apagan, los dos sobre
   // la misma línea de base — a diferencia de `figure`, que levanta el símbolo y los centavos.
   // `accountTotal` es la cifra del total en el celular (34px); en escritorio manda `total`.
   accountTotal: {

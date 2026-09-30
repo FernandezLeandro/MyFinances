@@ -185,3 +185,14 @@ Settings → Branches.
   remoto) o se corre a mano desde dashboard, anotándolo en el PR.
 - **Cada función nueva declara explícitamente a qué plan pertenece** en `src/features/access/plan.ts`
   (ver [Planes](#planes)) — no queda implícito en qué ruta la muestra.
+- **Diálogos: se arman con las piezas de `src/components/ui/dialog-parts.tsx`, no a mano.** Tres
+  arquetipos: confirmación «Pila» (`DialogItemCard` + `DialogConfirmStack`), «recibo» de sólo lectura
+  (`Dialog` con `icon`/`tint`, importe centrado, tarjeta `<dl>`, `DialogFooterBar`) y formulario con
+  el importe primero (`OpeningAmountField size="lg" align="center"`). Una lista vacía adentro de un
+  diálogo es `DialogEmptyNote`, no `EmptyState` (ése es de pantalla y pesa más que el diálogo).
+- **Un popover propio dentro de un diálogo** (desplegable de categoría o de cuenta) usa
+  `FloatingPanel`/`InDialogSheet`, que se portan a `useDialogPortalRoot()`: un portal a
+  `document.body` queda tapado por el propio `<dialog>`, que vive en el «top layer» del navegador.
+- **Dos utilidades de Tailwind de la misma familia en un mismo `cn()`** (`border-…`, `ring-…`,
+  `text-…`) compiten por el orden en que Tailwind genera el CSS, no por el del string: para pisar una
+  se usa el sufijo `!` (`border-negative!`), no otra variable.

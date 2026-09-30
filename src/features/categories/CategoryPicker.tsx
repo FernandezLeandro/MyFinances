@@ -16,6 +16,12 @@ interface CategoryPickerProps {
   /** `''` es "Sin categoría". */
   value: string
   onChange: (id: string) => void
+  /** `grid` (default): lista de 2 columnas en escritorio y desplegable en mobile — Nuevo movimiento.
+   *  `dropdown`: sólo el desplegable, en todos los anchos — formularios donde la categoría es un campo
+   *  más (Fijos), no el centro de la pantalla. */
+  variant?: 'grid' | 'dropdown'
+  /** Rótulo del campo. Por default «Categoría · opcional». */
+  label?: ReactNode
 }
 
 /**
@@ -25,7 +31,7 @@ interface CategoryPickerProps {
  * Las dos presentaciones comparten la misma lista (`ListPanel`, más abajo) — sólo cambia cómo se
  * abre.
  */
-export function CategoryPicker({ categories, usage, value, onChange }: CategoryPickerProps) {
+export function CategoryPicker({ categories, usage, value, onChange, variant = 'grid', label }: CategoryPickerProps) {
   const [query, setQuery] = useState('')
   const [desktopOpen, setDesktopOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -53,7 +59,7 @@ export function CategoryPicker({ categories, usage, value, onChange }: CategoryP
     <>
       {/* Escritorio: lista de 2 columnas con las 7 más usadas + «Buscar entre todas» (v2: fichas
           sobre filas blancas con borde — sobre el gris cálido de antes se leían mal) */}
-      <div ref={desktopSectionRef} className="relative hidden flex-col gap-2 sm:flex">
+      <div ref={desktopSectionRef} className={cn('relative hidden flex-col gap-2', variant === 'grid' && 'sm:flex')}>
         <span className="text-[13px] font-semibold text-fg">
           Categoría <span className="font-medium text-fg-muted">· opcional · las más usadas</span>
         </span>
@@ -98,9 +104,13 @@ export function CategoryPicker({ categories, usage, value, onChange }: CategoryP
       </div>
 
       {/* Mobile: desplegable propio */}
-      <div className="relative flex flex-col gap-2 sm:hidden">
+      <div className={cn('relative flex flex-col gap-2', variant === 'grid' && 'sm:hidden')}>
         <span className="text-[13px] font-semibold text-fg">
-          Categoría <span className="font-medium text-fg-muted">· opcional</span>
+          {label ?? (
+            <>
+              Categoría <span className="font-medium text-fg-muted">· opcional</span>
+            </>
+          )}
         </span>
         <button
           ref={mobileTriggerRef}

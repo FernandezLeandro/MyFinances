@@ -642,6 +642,10 @@ export interface TransferDeleteEffect {
   text: string
   /** Sólo si el destino queda en negativo: esa plata ya se usó desde ahí. */
   warning: string | null
+  /** Cómo quedan origen y destino si se elimina — para mostrarlos por fila en el detalle. `null`
+   *  mientras no hay saldos cargados. */
+  fromAfterCents: number | null
+  toAfterCents: number | null
 }
 
 /** Qué pasa al eliminar una transferencia: la plata vuelve al origen y sale del destino. Borrar no
@@ -660,7 +664,12 @@ export function transferDeleteEffect(input: {
   const toBefore = balances?.get(transfer.to_account_id)
 
   if (fromBefore === undefined || toBefore === undefined) {
-    return { text: `Si la eliminás, vuelven ${formatMoney(transfer.cents)} a ${fromName} y salen de ${toName}.`, warning: null }
+    return {
+      text: `Si la eliminás, vuelven ${formatMoney(transfer.cents)} a ${fromName} y salen de ${toName}.`,
+      warning: null,
+      fromAfterCents: null,
+      toAfterCents: null,
+    }
   }
 
   const fromAfter = fromBefore + transfer.cents
@@ -668,6 +677,8 @@ export function transferDeleteEffect(input: {
   return {
     text: `Si la eliminás, ${fromName} pasa a ${formatMoney(fromAfter)} y ${toName} a ${formatMoney(toAfter)}.`,
     warning: toAfter < 0 ? `${toName} queda en negativo: esa plata ya se usó desde ahí.` : null,
+    fromAfterCents: fromAfter,
+    toAfterCents: toAfter,
   }
 }
 

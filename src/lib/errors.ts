@@ -74,12 +74,12 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /cannot_demote_self/.test(message)) return 'No podés sacarte el admin a vos mismo.'
   if (code === 'P0001' && /cannot_delete_self/.test(message)) return 'No podés eliminar tu propia cuenta desde acá.'
   if (code === 'P0001' && /account_not_found/.test(message)) return 'Esa cuenta ya no existe.'
-  // Bloque 0 del arreglo de Movimientos (docs/qa/movimientos.md, MO-17/MO-18):
+  // Bloque 0 del arreglo de Movimientos (MO-17/MO-18):
   // `trg_transactions_owned_refs` (`20260924020001_movimientos_referencias_propias.sql`) — sólo se
   // llega acá por API directa, la UI nunca ofrece una categoría o un pago que no sean propios.
   if (code === 'P0001' && /category_not_found/.test(message)) return 'Esa categoría ya no existe.'
   if (code === 'P0001' && /fixed_payment_not_found/.test(message)) return 'Ese pago ya no existe.'
-  // HO-15 (docs/qa/hoy.md): el tipo de una categoría se elige al crearla y no se cambia más
+  // HO-15 del QA de Hoy: el tipo de una categoría se elige al crearla y no se cambia más
   // (`trg_category_kind_locked`/`trg_transactions_owned_refs`, `20260925010001_categorias_tipo_fijo.sql`)
   // — sin esto, un gasto pasado a "ingreso" desaparecía del desglose por categoría sin avisar. La UI
   // nunca ofrece cambiar el tipo ni una categoría del tipo contrario, así que esto sólo se ve por API

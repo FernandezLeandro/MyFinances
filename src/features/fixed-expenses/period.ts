@@ -120,3 +120,10 @@ export function dueDayTemplateLabel(dueDay: number): string {
 export function cycleMonthsBounds(months: string[]): { start: Date; end: Date } {
   return { start: startOfMonth(parseISO(months[0])), end: endOfMonth(parseISO(months[months.length - 1])) }
 }
+
+/** La línea «cuándo» de un fijo para subtítulos y tarjetas de diálogo: «vence el 10» para uno de una
+ *  sola vez, «presupuesto semanal/quincenal/mensual» para una bolsa (no tiene vencimiento). */
+export function fixedExpenseScheduleLabel(fe: Pick<FixedExpense, 'is_recurring' | 'due_day' | 'bag_frequency'>): string {
+  if (fe.is_recurring) return `presupuesto ${bagPeriodNoun(fe.bag_frequency).adjective}`
+  return fe.due_day == null ? 'sin vencimiento' : `vence el ${fe.due_day}`
+}

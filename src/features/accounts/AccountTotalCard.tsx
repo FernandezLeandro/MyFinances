@@ -21,7 +21,7 @@ interface AccountTotalCardProps {
  *
  * La cifra: en escritorio ocupa una columna de 340px, donde el `total` de 46px fijos sólo entra hasta
  * 7 dígitos (`totalFigureSize`); más largo baja a `figure`, que se achica sola. En el celular la
- * cifra es la de 34px del handoff (`accountTotal`) con el mismo corte por largo.
+ * cifra es la de 34px del diseño (`accountTotal`) con el mismo corte por largo.
  */
 export function AccountTotalCard({
   totalCents,
@@ -71,7 +71,7 @@ export function AccountTotalCard({
         </ul>
       )}
 
-      {/* `outline` no define peso (sólo `primary` es semibold); el handoff pide 600 en los dos botones. */}
+      {/* `outline` no define peso (sólo `primary` es semibold); el diseño pide 600 en los dos botones. */}
       <div className="mt-[18px] flex flex-col gap-2 sm:mt-6 lg:mt-auto lg:pt-7">
         <Button size="block" onClick={onCreate} icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}>
           Nueva cuenta

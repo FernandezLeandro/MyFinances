@@ -6,6 +6,7 @@ import {
   eligibleFixedExpenses,
   fijoCaeEnCiclo,
   fijoCaeEnCicloMultiMes,
+  fixedExpenseScheduleLabel,
   permiteActualizarPlantilla,
 } from './period'
 import type { FixedExpense } from './api'
@@ -136,5 +137,21 @@ describe('cycleMonthsBounds', () => {
     const { start, end } = cycleMonthsBounds(['2026-09-01', '2026-10-01'])
     expect(start).toEqual(new Date(2026, 8, 1))
     expect(end).toEqual(new Date(2026, 9, 31, 23, 59, 59, 999))
+  })
+})
+
+describe('fixedExpenseScheduleLabel', () => {
+  it('un fijo de una sola vez dice su día de vencimiento', () => {
+    expect(fixedExpenseScheduleLabel(fe({ due_day: 10 }))).toBe('vence el 10')
+  })
+
+  it('una bolsa dice su frecuencia, no un vencimiento que no tiene', () => {
+    expect(fixedExpenseScheduleLabel(fe({ is_recurring: true, due_day: null, bag_frequency: 'weekly' }))).toBe('presupuesto semanal')
+    expect(fixedExpenseScheduleLabel(fe({ is_recurring: true, due_day: null, bag_frequency: 'biweekly' }))).toBe('presupuesto quincenal')
+    expect(fixedExpenseScheduleLabel(fe({ is_recurring: true, due_day: null, bag_frequency: 'monthly' }))).toBe('presupuesto mensual')
+  })
+
+  it('sin día de vencimiento no inventa uno', () => {
+    expect(fixedExpenseScheduleLabel(fe({ due_day: null }))).toBe('sin vencimiento')
   })
 })
