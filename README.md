@@ -25,7 +25,7 @@ Cada punto dice entre paréntesis desde qué plan está disponible — ver [Plan
 - **Fijos** (todos planes): gastos fijos una vez al mes, o "bolsas" con frecuencia propia
   (mensual/quincenal/semanal). Pagar, guardar de a poco para uno, pausar, editar.
 - **Movimientos** (todos planes, carga manual desde Test): filtros por tipo/categoría/cuenta/
-  búsqueda, resumen del período, exportar a CSV, gasto compartido con otra persona (Premium).
+  búsqueda, resumen del período, exportar a CSV.
 - **Análisis** (Test y Premium): gasto del período con variación vs. anterior, distribución por
   categoría, fijo vs. variable, promedios mensuales.
 - **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado previo.
@@ -61,7 +61,6 @@ o administración). Fuente de verdad de qué habilita cada plan es `src/features
 | Análisis | | ✓ | ✓ |
 | Mis Deudas, Me Deben, Ahorros | | | ✓ |
 | Cuentas y transferencias | | ✓ | ✓ |
-| Gasto compartido | | | ✓ |
 | Ajustes completos (dólar, activos) | | | ✓ |
 
 
