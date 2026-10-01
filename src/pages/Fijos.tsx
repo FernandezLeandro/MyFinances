@@ -36,6 +36,7 @@ import { cycleMonthsBounds, eligibleFixedExpenses } from '@/features/fixed-expen
 import {
   compareFixedExpenses,
   cycleTotalCents,
+  fixedExpenseAtPeriod,
   fixedExpenseStatusKey,
   fixedExpenseUrgency,
   summarizeFixedExpenses,
@@ -759,7 +760,10 @@ export function Fijos() {
                       <li key={fe.id} className="flex min-w-0 items-center gap-2.5">
                         <button
                           type="button"
-                          onClick={() => setDetailFixed({ fe, period: format(startOfMonth(month), 'yyyy-MM-dd') })}
+                          onClick={() => {
+                            const period = format(startOfMonth(month), 'yyyy-MM-dd')
+                            setDetailFixed({ fe: fixedExpenseAtPeriod(fe, period), period })
+                          }}
                           className="flex min-w-0 flex-1 items-center gap-2 text-left"
                         >
                           <CategoryChip size={20} archived {...chipLook(categoryById.get(fe.category_id ?? ''))} />

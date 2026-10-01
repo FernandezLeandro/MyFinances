@@ -197,6 +197,7 @@ export function makeFixedExpense(p: Partial<FixedExpense> & Pick<FixedExpense, '
     user_id: 'user-1',
     name: 'Fijo de test',
     cents: 10_000_00,
+    periodAmounts: {},
     category_id: null,
     due_day: 10,
     is_active: true,
