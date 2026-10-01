@@ -11,9 +11,20 @@ import type { Database } from '@/lib/database.types'
 type FixedExpenseRowRaw = Database['public']['Tables']['fixed_expenses']['Row']
 type PaymentRowRaw = Database['public']['Tables']['fixed_expense_payments']['Row']
 type SavingRowRaw = Database['public']['Tables']['fixed_expense_savings']['Row']
+type PeriodAmountRowRaw = Database['public']['Tables']['fixed_expense_period_amounts']['Row']
+
+/** `fixed_expenses` con el embed de sus importes propios por mes (`useFixedExpenses`). */
+type FixedExpenseRowWithAmounts = FixedExpenseRowRaw & {
+  fixed_expense_period_amounts?: Pick<PeriodAmountRowRaw, 'period' | 'amount'>[]
+}
 
 export interface FixedExpense extends Omit<FixedExpenseRowRaw, 'amount'> {
+  /** Importe vigente "de acá en adelante" (`fixed_expenses.amount`). Para el de un mes concreto usar
+   *  `fixedExpenseAtPeriod` (`aggregate.ts`). */
   cents: number
+  /** Importe propio de los meses que lo tienen (`yyyy-MM-01` → centavos): editar el importe «desde el
+   *  mes X» congela los anteriores acá. Un mes sin entrada usa `cents`. */
+  periodAmounts: Record<string, number>
 }
 
 export interface FixedExpensePayment extends Omit<PaymentRowRaw, 'amount_paid'> {
@@ -27,9 +38,11 @@ export interface FixedExpenseSaving extends Omit<SavingRowRaw, 'amount'> {
   amountCents: number
 }
 
-function toFixedExpense(row: FixedExpenseRowRaw): FixedExpense {
-  const { amount, ...rest } = row
-  return { ...rest, cents: centsFromNumeric(amount) }
+function toFixedExpense(row: FixedExpenseRowWithAmounts): FixedExpense {
+  const { amount, fixed_expense_period_amounts, ...rest } = row
+  const periodAmounts: Record<string, number> = {}
+  for (const pa of fixed_expense_period_amounts ?? []) periodAmounts[pa.period] = centsFromNumeric(pa.amount)
+  return { ...rest, cents: centsFromNumeric(amount), periodAmounts }
 }
 
 function toPayment(row: PaymentRowRaw): FixedExpensePayment {
@@ -49,11 +62,17 @@ export function useFixedExpenses(includeInactive = false) {
     queryKey: ['fixed-expenses', user?.id, includeInactive],
     enabled: !!user,
     queryFn: async () => {
-      let query = supabase.from('fixed_expenses').select('*').order('is_recurring', { ascending: false }).order('due_day')
+      let query = supabase
+        .from('fixed_expenses')
+        .select('*, fixed_expense_period_amounts(period, amount)')
+        .order('is_recurring', { ascending: false })
+        .order('due_day')
       if (!includeInactive) query = query.eq('is_active', true)
       const { data, error } = await query
       if (error) throw error
-      return data.map(toFixedExpense)
+      // `database.types.ts` no declara relaciones (`Relationships: []`), así que el tipo del embed
+      // no se infiere — se asienta a mano.
+      return (data as unknown as FixedExpenseRowWithAmounts[]).map(toFixedExpense)
     },
   })
 }
@@ -181,6 +200,10 @@ export interface FixedExpenseInput {
   /** Sólo bolsas: cada cuánto resetea el presupuesto — independiente del ciclo de caja de la
    *  cuenta (`profiles.cycle_kind`, ver `src/lib/cycle.ts`). Ignorado si `!isRecurring`. */
   bagFrequency: 'monthly' | 'biweekly' | 'weekly'
+  /** Sólo al editar y sólo si el importe cambió: mes (`yyyy-MM-01`) desde el que rige `cents`. Los
+   *  anteriores conservan el que tenían (`rpc_set_fixed_expense_amount`). Sin esto, `cents` se ignora
+   *  al editar — el importe de la plantilla no se toca. */
+  amountFrom?: string
 }
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, userId?: string) {
@@ -238,7 +261,6 @@ export function useUpdateFixedExpense() {
         .from('fixed_expenses')
         .update({
           name: input.name,
-          amount: centsToNumeric(input.cents),
           category_id: input.categoryId,
           due_day: input.dueDay,
           is_active: input.isActive,
@@ -247,6 +269,16 @@ export function useUpdateFixedExpense() {
         })
         .eq('id', id)
       if (error) throw error
+      // El importe va aparte: «desde este mes», no para todos. Un update directo de `amount`
+      // reescribía también los meses ya cerrados.
+      if (input.amountFrom) {
+        const { error: amountError } = await supabase.rpc('rpc_set_fixed_expense_amount', {
+          p_fixed_expense_id: id,
+          p_amount: centsToNumeric(input.cents),
+          p_from: input.amountFrom,
+        })
+        if (amountError) throw amountError
+      }
     },
     onSuccess: () => invalidateAll(queryClient, user?.id),
   })

@@ -17,6 +17,7 @@ function fe(overrides: Partial<FixedExpense>): FixedExpense {
     user_id: 'u',
     name: 'Test',
     cents: 1000,
+    periodAmounts: {},
     category_id: null,
     due_day: 10,
     is_active: true,

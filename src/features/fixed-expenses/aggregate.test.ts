@@ -5,6 +5,7 @@ import {
   amountAfterCopy,
   compareFixedExpenses,
   cycleTotalCents,
+  fixedExpenseAtPeriod,
   fixedExpenseNameError,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
@@ -198,6 +199,57 @@ describe('summarizeFixedExpenses — bolsa (is_recurring)', () => {
     const septiembre = new Date(2026, 8, 1)
     const s = summarizeFixedExpenses([fe], [], septiembre, HOY_EN_AGOSTO)
     expect(s.pendingTotalCents).toBe(60_000_00)
+  })
+})
+
+// Bug real: el importe de un fijo era uno solo para todos los meses. Con un gasto de julio por encima
+// del presupuesto, subir el presupuesto en agosto reescribía también julio: desaparecía el «te pasaste»
+// y el total del mes. Ahora editar «desde agosto» congela julio en `periodAmounts`.
+describe('summarizeFixedExpenses — importe propio por mes (periodAmounts)', () => {
+  const julio = new Date(2026, 6, 1)
+  const pagoDeJulio = (id: string, amountPaidCents: number) =>
+    makeFixedExpensePayment({ fixed_expense_id: id, amountPaidCents, period: '2026-07-01' })
+
+  it('bolsa de un mes cerrado: el exceso y el total salen del presupuesto de ESE mes, no del vigente', () => {
+    const fe = makeFixedExpense({ id: 'nafta', cents: 80_000_00, is_recurring: true, periodAmounts: { '2026-07-01': 60_000_00 } })
+    const s = summarizeFixedExpenses([fe], [pagoDeJulio('nafta', 68_000_00)], julio, HOY_EN_AGOSTO)
+    expect(s.done[0].overspentCents).toBe(8_000_00)
+    expect(s.done[0].fe.cents).toBe(60_000_00)
+    expect(cycleTotalCents(s.done[0])).toBe(68_000_00)
+  })
+
+  it('sin override en ese mes usa el importe de la plantilla', () => {
+    const fe = makeFixedExpense({ id: 'nafta', cents: 80_000_00, is_recurring: true, periodAmounts: { '2026-06-01': 60_000_00 } })
+    const s = summarizeFixedExpenses([fe], [pagoDeJulio('nafta', 68_000_00)], julio, HOY_EN_AGOSTO)
+    expect(s.done[0].overspentCents).toBe(0)
+    expect(s.done[0].fe.cents).toBe(80_000_00)
+  })
+
+  it('mes en curso con override: lo que falta sale del override', () => {
+    const fe = makeFixedExpense({ id: 'nafta', cents: 60_000_00, is_recurring: true, periodAmounts: { '2026-08-01': 90_000_00 } })
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO)
+    expect(s.pending[0].remainingCents).toBe(90_000_00)
+    expect(s.pendingTotalCents).toBe(90_000_00)
+  })
+
+  it('fijo de una vez atrasado de un mes anterior: vale el importe que tenía ese mes', () => {
+    const fe = makeFixedExpense({ id: 'alquiler', cents: 50_000_00, periodAmounts: { '2026-07-01': 40_000_00 } })
+    const s = summarizeFixedExpenses([fe], [], julio, HOY_EN_AGOSTO)
+    expect(s.pending[0].remainingCents).toBe(40_000_00)
+    expect(s.pendingTotalCents).toBe(40_000_00)
+  })
+})
+
+describe('fixedExpenseAtPeriod', () => {
+  it('con override del mes devuelve el fijo con ese importe, sin tocar el original', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 80_000_00, periodAmounts: { '2026-07-01': 60_000_00 } })
+    expect(fixedExpenseAtPeriod(fe, '2026-07-01').cents).toBe(60_000_00)
+    expect(fe.cents).toBe(80_000_00)
+  })
+
+  it('sin override devuelve el mismo objeto', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 80_000_00 })
+    expect(fixedExpenseAtPeriod(fe, '2026-07-01')).toBe(fe)
   })
 })
 

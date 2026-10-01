@@ -326,6 +326,19 @@ export interface Database {
         Update: Partial<{ transaction_id: string | null; note: string | null }>
         Relationships: []
       }
+      /** Importe propio de un mes concreto de un fijo (`20260930010001_fijos_importe_por_mes.sql`): el
+       *  mes sin fila usa `fixed_expenses.amount`. Sólo se escribe por `rpc_set_fixed_expense_amount`. */
+      fixed_expense_period_amounts: {
+        Row: {
+          fixed_expense_id: string
+          user_id: string
+          period: string
+          amount: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       fixed_expense_savings: {
         Row: {
           id: string
@@ -714,6 +727,10 @@ export interface Database {
           p_occurred_on?: string | null
           p_today?: string | null
         }
+        Returns: undefined
+      }
+      rpc_set_fixed_expense_amount: {
+        Args: { p_fixed_expense_id: string; p_amount: number | string; p_from: string }
         Returns: undefined
       }
       rpc_remove_fixed_expense_saving: {

@@ -257,6 +257,7 @@ export function FixedExpenseDetailDialog({ open, onClose, fixedExpense, period }
           open={formOpen}
           onClose={() => setFormOpen(false)}
           fixedExpense={fixedExpense}
+          period={period}
           onDeleted={onClose}
         />
       )}

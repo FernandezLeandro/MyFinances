@@ -51,8 +51,19 @@ export interface FixedExpenseStatus {
   savedMovementCents: number
 }
 
+/**
+ * El fijo tal como vale en `period` (día 1 del mes, `'yyyy-MM-dd'`): `cents` es el importe de ese mes —
+ * su override si lo tiene, si no el de la plantilla. Editar el importe «desde el mes X» deja los meses
+ * anteriores congelados en `periodAmounts` (`rpc_set_fixed_expense_amount`); sin esto, subir el
+ * presupuesto de octubre cambiaba también el exceso y el total de septiembre.
+ */
+export function fixedExpenseAtPeriod(fe: FixedExpense, period: string): FixedExpense {
+  const cents = fe.periodAmounts[period]
+  return cents == null || cents === fe.cents ? fe : { ...fe, cents }
+}
+
 function statusFor(
-  fe: FixedExpense,
+  template: FixedExpense,
   payments: FixedExpensePayment[],
   savings: FixedExpenseSaving[],
   period: string,
@@ -60,6 +71,7 @@ function statusFor(
   dueDate: string | null,
   weekStartsOn: number,
 ): FixedExpenseStatus {
+  const fe = fixedExpenseAtPeriod(template, period)
   // FI-04: filtrar también por `period` — con una semana que cruza de mes llegan los pagos de los dos
   // meses, y un pago de septiembre no puede marcar pagado octubre (ni «quitar» borrar el de otro mes).
   const fePayments = payments
