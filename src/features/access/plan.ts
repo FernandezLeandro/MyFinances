@@ -17,7 +17,6 @@ export type Capability =
   | 'me-deben'
   | 'ajustes-completo'
   | 'cuentas'
-  | 'compartido'
   // Bloque 4 del plan "BASIC centrado en fijos": el registro manual de un movimiento cualquiera —
   // no la app entera. BASIC sigue viendo /movimientos (ya lo tenía por `movimientos`), pero sólo
   // puede llegar a un movimiento pagando un fijo (ver `RegisterFixedExpenseDialog`, el selector que
@@ -34,7 +33,6 @@ const ALL_CAPABILITIES: readonly Capability[] = [
   'me-deben',
   'ajustes-completo',
   'cuentas',
-  'compartido',
   'movimientos-manuales',
 ]
 
