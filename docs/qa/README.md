@@ -1,137 +1,188 @@
 # QA de MyFinances
 
-Guía de cómo se hace una pasada QA manual y qué aprendimos automatizándola. Los informes por área (Cuentas, Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron del repo — quedó lo que sigue sirviendo: el método, las lecciones de Playwright y las listas de abajo («Sin probar todavía», «Pendientes transversales»).
+Cómo se hace una pasada de QA manual, y lo que aprendimos automatizándola con Playwright: sirve para
+cualquier verificación en vivo, no sólo para una pasada completa. Los informes por área (Cuentas,
+Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron del repo.
 
 ## Cómo se hace una pasada
 
-- **Cuenta de QA** dedicada (no cuenta de prueba habitual ni reales). Credenciales fuera del repo.
-- **Dev server local contra base de producción** (no hay staging), con Playwright desde carpeta temporal, nunca instalado en repo.
-- **Cada caso verificado en pantalla y en base:** Fijos, Hoy, Movimientos contra filas y saldo real, leídos con sesión de cuenta QA o SQL sólo lectura.
-- **Layout 320 a 1920 px,** claro y oscuro, montos 7+ cifras. Cada ancho: medir scroll horizontal y que ningún texto salga de su tarjeta.
-- **Planes:** probar en Premium; bajar cuenta QA a Básico o Test sólo para lo que cambia por plan. Al terminar, volver a Premium.
-- **Pasada sólo informa: no arregla.** Arreglos en plan aparte, tras priorizar. Pasada siguiente re-verifica y actualiza estado en mismo archivo.
-- **Verificar arreglo sí toca cuenta QA** (crear fijo/movimiento de prueba, pagar, editar, borrar): objetivo = reproducir bug arreglado en vivo. Usar datos de prueba nuevos y descartables, no los de pasada anterior (ver «Automatizar con Playwright») — y dejar cuenta exactamente igual (mismo saldo, movimientos, plan).
-- **Antes de planear arreglos de un informe, re-chequear cada hallazgo contra rama actual.** Arreglos de otras áreas tocan código compartido y pueden cerrar hallazgos de ésta sin anotarlo — en QA de Hoy, arreglo de Fijos (FI-06) ya había cerrado mayor parte de HO-04, FI-20 ya arregló etiqueta de HO-09, MO-01 (Movimientos) ya cubría mitad de HO-11. Dar por resuelto sólo lo que lectura de código respalda; última palabra = verificación en vivo — FI-06 parecía cerrar HO-04 del todo, pero verificación con `page.clock` lejos de fecha real mostró gap de $3.000; costó otra pasada confirmar que era de la prueba, no de la app (ver la lección de `page.clock` abajo). También al revés: arreglo de esta área puede cerrar hallazgo de otra — arreglo de HO-15 (Hoy, categoría con `kind` inmutable) cerró también AN-02 (Análisis), mismo disparador (pasar categoría de Gasto a Ingreso con movimientos cargados). Buscar el mismo disparador en las demás áreas antes de cerrar un hallazgo como "sólo de esta área".
+- **Cuenta de QA dedicada** (ni la cuenta de prueba habitual ni cuentas reales). Credenciales fuera del repo.
+- **Dev server local contra la base de producción** (no hay staging), con Playwright instalado en una
+  carpeta temporal, nunca en el repo.
+- **Cada caso se verifica en pantalla y en base:** lo que muestran Fijos, Hoy o Movimientos contra las
+  filas y el saldo real, leídos con la sesión de la cuenta de QA o con SQL de sólo lectura.
+- **Layout de 320 a 1920 px** (320/360/375/390/414/430/500/…/1920), claro y oscuro, montos de 7+ cifras.
+  En cada ancho, medir `document.documentElement.scrollWidth - innerWidth` **y** comparar el rect de
+  cada hoja del DOM contra el padding-box de su tarjeta: eso detecta lo que se escapa de su caja sin
+  generar scroll. Si la cuenta tiene montos chicos, inyectar los largos por DOM antes de medir (los
+  `<span>` de `<Money>` son `[símbolo, entero, fracción]`). El `-ml-1` del `$` del saldo hero da un
+  falso positivo constante de 4px: ignorarlo.
+- **Planes:** probar en Premium; bajar a Básico o Test sólo lo que cambia por plan, y al terminar volver
+  a Premium. Fijos es idéntico en los tres planes; por plan cambian la navegación, Movimientos (carga
+  manual y qué pasa al tocar el movimiento de un fijo) y la tarjeta de Hoy.
+- **La pasada sólo informa, no arregla.** Los arreglos van en un plan aparte, tras priorizar.
+- **Verificar un arreglo sí toca la cuenta de QA:** el objetivo es reproducir en vivo el bug arreglado,
+  con datos nuevos y descartables, y dejar la cuenta exactamente igual (saldo, movimientos, plan).
+  Cerrar con un diff contra la línea base (conteo de filas + sumas), no con «borré lo que armé».
+- **Antes de planear arreglos, re-chequear cada hallazgo contra la rama actual.** Arreglos de otras
+  áreas tocan código compartido y cierran hallazgos sin anotarlo; también al revés — antes de cerrar un
+  hallazgo como «sólo de esta área», buscar el mismo disparador en las demás. La lectura de código
+  orienta; la última palabra es la verificación en vivo.
 
-## Automatizar con Playwright: lo aprendido
+## Playwright: lo aprendido
 
-Notas técnicas para próxima verificación en vivo — evita repetir vuelta.
+### Entorno y sesión
 
-- **Cambiar plan de cuenta QA por SQL, con OK de Lean:**
-  `npx supabase db query "update public.profiles set plan = '<basic|test|premium>' where id = '<uid>'" --linked`
-  (columna sola, reversible, sin migración). Volver a Premium con misma llamada al terminar.
-- **Pantalla Fijos idéntica en los tres planes** (alta, pago, edición, pausa, borrado) — por plan cambia nav (Mis Deudas/Análisis/Ahorros/Me Deben), Movimientos (carga manual, y qué pasa al tocar movimiento de un fijo) y tarjeta de Hoy. No cambiar plan para CRUD básico de Fijos, sólo para lo que esas tres pantallas documentan.
-- **Confirmar qué migración falta antes de `db push`:** `npx supabase migration list --linked` lista cada migración local con su fecha `remote` (vacía si no aplicada) — más preciso que `ls supabase/migrations` y adivinar.
-- **Selectores que rompen en esta app:**
-  - Varios campos de importe (`AmountInput` dentro de un `Field`) no tienen `htmlFor`/`id` conectado
-    al `<label>` — `getByLabel('Importe')` no los encuentra. Si el input está registrado con
-    react-hook-form, tiene `name` (usar `input[name="amount"]`); si es controlado a mano (como en
-    `MarkPaidDialog`), no tiene ni eso — usar `input[placeholder="0,00"]` escopeado al diálogo
-    abierto.
-  - Toda pantalla con lista (Movimientos, probablemente otras) renderiza DOS DOM a la vez: una
-    `<ul>` para mobile (`lg:hidden`) y otra para escritorio (`hidden lg:block`). `getByText(x).first()`
-    agarra la fila mobile (oculta) y el click falla con «element is not visible» — usar `.last()` (la
-    de escritorio va después en el DOM) o escopear al contenedor visible.
-  - `getByRole(role, { name })` sin `exact: true` matchea por substring: `name: 'Ingreso'` también
-    matchea el botón «Ingresos» del filtro de Movimientos si queda detrás de un modal. Para verificar
-    que un chip quedó bloqueado (sin `onClick`, así que ya no es `role=button`), escopear a
-    `page.locator('dialog[open]')` y usar `exact: true` — si no, un botón de fondo con un nombre
-    parecido da un falso positivo de «sigue siendo clickeable».
-  - Mismo diálogo puede tener dos botones con mismo texto visible (ej. `MarkPaidDialog` en modo
-    «Guardar»: el chip de modo y el botón de confirmar dicen los dos «Guardar») — usar `.first()`
-    (el chip, arriba en el DOM) y `.last()` (confirmar, en el footer) para desambiguar.
-  - `<dialog>` cerrado sigue montado en DOM (app no lo desmonta, confía en
-    `dialog:not([open]) { display:none }` del navegador) — Playwright ya lo excluye de `getByRole`
-    porque no es accesible estando oculto, así que no hace falta filtrarlo a mano.
-- **En mobile la fila visible de una lista es la PRIMERA, no la última.** Con viewport chico (`lg:hidden` / `hidden lg:block`), el `.last()` de arriba cae en la tabla de escritorio, oculta, y el click da timeout («waiting for getByText»). Elegir `.first()` o `.last()` según el ancho.
-- **Botones cuyo nombre cambia con el estado** (ej. «Transferir $ 1.000,00», «Agregar $ 350.000,00»): `getByRole('button', { name: 'Transferir', exact: true })` no los encuentra una vez que hay importe — usar regex (`/^Transferir\s+\$/`).
-- **Confirmación sobre otro diálogo:** con el editor abierto y la confirmación encima, `getByRole(..., { name: /^Eliminar/ }).first()` puede agarrar el botón del diálogo de atrás (tapado). Usar el nombre completo de la acción de la confirmación («Eliminar movimiento»).
-- **Esperar ~700ms antes de sacar una captura de un diálogo recién abierto.** `Dialog` entra con `animate-sheet-in` y una captura anterior se ve medio transparente; los swatches e íconos llevan `transition-colors` (150ms) y justo después del click muestran el color de antes. Es la animación, no un bug de estado.
-- **En mobile, `ul li` sin escopear engancha el menú del shell.** Escopear a `main ul li`.
-- **Deshacer un pago de fijo hecho durante una prueba con la RPC oficial** (`rpc_unmark_fixed_expense_payment`), no con un `DELETE` directo a `fixed_expense_payments`: es lo que la UI llama de verdad y lo único garantizado equivalente a tocar el botón.
-- **El refetch por foco entre dos pestañas no siempre se verifica en Playwright headless:** con dos `Page`s del mismo contexto, `document.visibilityState` de la de atrás puede quedar `'visible'` aun con `bringToFront()`. Si no se ve el refetch, no asumir que la app no reacciona — `refetchOnWindowFocus` es el default de `QueryClient`; respaldar con lectura de código.
-- **Dev server en background:** con `npm run dev -- --port <N> --strictPort &` más `run_in_background: true`, tarea puede reportar «exited with code 0» enseguida (termina wrapper del shell, no Vite) — confirmar vivo con `netstat -ano | grep :<N>` o `curl`, no confiar en estado de tarea. Matar al final con `taskkill //PID <pid> //F` (PID de `netstat`, no de tarea background).
-- **`mutation.mutateAsync()` con `await` en handler sin `try/catch` dejaba promesa rechazada sin manejar en consola** cuando base frenaba escritura — toast de error sale igual (`MutationCache.onError` global en `main.tsx`), pero error de consola queda. Patrón del repo para evitarlo: `mutation.mutate(id, { onSuccess })`, sin `await` ni `mutateAsync`. Corregido en `MarkPaidDialog` y `TransactionFormDialog` (`onDelete`/`confirmDelete`); puede quedar en otros diálogos.
-- **Borrar fijo NO borra sus movimientos.** `fixed_expense_payments` va en cascada, pero `transactions.fixed_expense_payment_id` es `on delete set null`: movimiento del pago queda huérfano y sigue restando saldo. Al limpiar fixtures pagados/cargados, borrar también esos movimientos desde Movimientos (sin vínculo, se borran directo) — o quitar pago antes de borrar fijo. Confirmar al final con
-  `select count(*) from transactions where user_id = '<uid>' and description like 'QA <prefijo>%'`.
-- **Contar filas: SQL sólo lectura, no texto en pantalla.** `Money` parte importe en varios `<span>` (`$`, `30.000`, `,00`) y cada ancestro también matchea `getByText('$30.000,00')` — conteo da 2 con un solo pago. Para «¿se duplicó?» usar `npx supabase db query "select …" --linked` sobre cuenta QA; `getByText(...).count() > 0` sí sirve para «¿aparece este aviso?».
-- **Cerrar detalle de fijo con botón «Cerrar»**, no `Escape`: en Playwright `Escape` no cerró y `<dialog open>` siguió tapando clicks («intercepts pointer events»).
-- **Doble toque:** `locator.dblclick()` manda dos `click` seguidos, alcanza para reproducir FI-01/FI-11.
-- **Dato de base, no basura:** cuenta QA tiene movimiento «dblclick test» de $1.500 del 2026-09-22, vinculado a pago — de pasada original de FI-01. No borrar al limpiar.
-- **Fijo nuevo puede nacer invisible.** Si `due_day` default del form (10) ya pasó respecto a `starts_on` (hoy), fijo nuevo queda fuera de Fijos ESTE mes (FI-07) — ni en lista principal ni en «Pausados», sin botón para editar/borrar. Para test que paga/edita fijo el mismo día que lo crea, pasar `input#dueDay` explícito. Si ya quedó uno así (script crasheó a mitad), no hace falta SQL: «Mes siguiente» lo muestra, ahí se borra.
-- **`getByLabel('Mes siguiente')` da 4 matches** (dos `CycleNav`, cada una con duplicación mobile/desktop) — ni `.first()` ni `.last()` garantizan el visible. Filtrar con `.all()` + `isVisible()` y clickear primer visible.
-- **Verificar total agregado (FI-13, FI-07) sin fabricar todo:** si cuenta QA ya tiene datos reales de pasada anterior que exponían bug (ej. «QA Servicio», pagado con un importe y plantilla luego empujada a otro por pago futuro), usarlos de base — calcular total esperado aparte con consulta sólo lectura que espeje fórmula nueva, comparar con pantalla. Verificación más fuerte que fixture a mano: usa escenario que encontró el bug.
-- **Botón «Pausados» del header hace dos cosas:** pide fijos inactivos (`useFixedExpenses(showPaused)`, default sólo activos) Y despliega panel chico de «pausados» — comparten estado `showPaused`, no hay «Ver» aparte.
-- **`Editar` anidado dentro del detalle sólo cierra form, no detalle.** Guardar desde «Editar» en `FixedExpenseDetailDialog` deja detalle abierto tapando clicks («intercepts pointer events») — cerrarlo aparte con «Cerrar».
-- **Probar base directo con sesión de cuenta, sin instalar `@supabase/supabase-js`:** token ya en `localStorage` (`Object.keys(localStorage).find(k => k.includes('auth-token'))`, con `.access_token`). Desde `page.evaluate`, `fetch` a `${SUPABASE_URL}/rest/v1/rpc/<nombre>` (o `/rest/v1/<tabla>` para `insert`/`delete` directo) con `apikey`/`Authorization: Bearer <token>` alcanza — mismo método que «API directa, con la sesión de la cuenta» del formato de informes.
-- **Navegar ciclo semanal/quincenal:** botones de `CycleNav` se llaman «Mes anterior»/«Mes siguiente» en cualquier ciclo (deuda de accesibilidad conocida, ver `CycleNav.tsx`) — no existe «Semana siguiente».
-- **Cambiar ciclo de cuenta QA sin SQL:** Ajustes → Ciclo → «Semanal» y día de arranque. Día guardado en ISO (1 = lunes … 7 = domingo), no 0 = domingo. Selector de día sólo con «Semanal»: para dejar `cycle_week_starts_on` en 1, elegir «Semanal» → «Lun» → «Mensual».
-- **Leer base sin `supabase db query`:** en modo auto, clasificador puede frenar lecturas de producción por CLI. `fetch` desde `page.evaluate` con sesión (ver arriba) sí anda y respeta RLS. Pasar email, contraseña y `anon key` por variables de entorno, no en archivo.
-- **Limpiar con API directa cuando UI no llega:** fixture pausado y sin pagos (sin plata real) se borra con `DELETE` autenticado a `/rest/v1/<tabla>?name=eq.…` en vez de navegar UI — más rápido, siempre que no haya movimientos vinculados (ahí conviene UI, ver punto de movimientos huérfanos).
-- **Simular hora puntual (medianoche, horario límite) con `page.clock`** (Playwright) en vez de esperar reloj real o cambiar hora del sistema: `page.clock.install({ time: new Date(2026, 8, 30,
-  23, 58) })` y luego `page.clock.pauseAt(...)`/`fastForward(...)` para cruzar borde — sirve para cualquier bug "a tal hora pasa esto" en cualquier área, no sólo Fijos.
-- **`page.clock` sólo dentro de ±1 día de fecha real, si pantalla compara contra RPC que recibe `p_today`.** Varias funciones (`rpc_projected_balance_range`, `rpc_mark_fixed_expense_paid`, `rpc_add_fixed_expense_saving`) acotan `p_today` a ±1 día de `current_date` del servidor (defensa a propósito contra reloj de dispositivo mal configurado, ver `hoy_del_cliente.sql`). `page.clock` a más de 1 día hace que cliente y servidor calculen "hoy" distinto — con bolsa semanal/quincenal puede escopear semanas distintas y dar gap que **no es bug de app, es la prueba mirando dos "hoy" diferentes** (pasó en QA de Hoy, HO-04: page.clock a 6 días del real dio gap de $3.000, enteramente de la verificación). Para simular varios días, verificar contra RPC llamada con mismo `p_today` (así "esperado" incluye clamp), no contra cálculo del cliente solo.
-- **Bajo RLS, `update` sin policy no falla: afecta 0 filas sin avisar.** Trigger o RPC no `security definer` corre con permiso de quien llama; si escribe tabla con RLS sin policy para esa operación (pasó con `fixed_expense_savings`, el guardado de un fijo), no hay error de permiso: síntoma es otro (ahí, `linked_movement_amount_invalid` porque trigger leyó `not found`). Flujo que escribe en dos tablas: verificar ambas por SQL o API, no sólo respuesta. Al blindar tabla sacando policies de escritura, grepear qué otras funciones o triggers (no sólo RPC "oficiales") escriben ahí: migración de FI-14 tuvo que convertir también `rpc_delete_account` y trigger de sincronización.
-- **Esperar señal real, no timeout fijo, cuando diálogo depende de query async** (ej. origen que habilita/deshabilita campos). `waitForTimeout` corto puede leer estado antes de que query resuelva → falso bug. Usar `page.waitForFunction(...)` contra algo concreto (ej. botón Guardar deja de estar disabled). Así se descartó falso positivo en MO-05/MO-07.
-- **`dialog.innerText()` no lee valores de `<input>`.** Para verificar campo pre-cargado, `.inputValue()` sobre input puntual, no texto del diálogo — dio falso "vino vacío" en diálogo de edición de Movimientos.
-- **`getByRole(role, {name}).isVisible()` no alcanza para probar breakpoint responsive** cuando dos elementos comparten nombre accesible (ej. botón header vs. FAB mobile, ambos "Nuevo movimiento") y uno queda podado del árbol de accesibilidad por `display:none` en ancestro — Playwright sólo consulta el que está en árbol en cada ancho, así `count()`/
-  `isVisible()` puede dar resultado engañosamente estable. Inspeccionar DOM directo con `page.evaluate` (`getBoundingClientRect()` + `getComputedStyle().display` del elemento y su padre).
-- **FK `on delete set null` puede dejar filas huérfanas al limpiar fixtures**, no sólo en Fijos (ver punto de `fixed_expense_payment_id`): en Me Deben, borrar `receivable` no borra transacción vinculada porque `expense_transaction_id` también es `set null`. No asumir que borrar padre alcanza — cerrar siempre con diff completo contra línea base (conteo filas + sumas), no sólo "borré lo que armé".
-- **`npx supabase db push --linked` puede quedar bloqueado por clasificador de modo auto** aun con OK explícito de Lean (pasó dos veces seguidas, motivos distintos). Alternativa legítima para migración puntual e idempotente: `npx supabase db query -f <archivo> --linked` (no bloqueada) — pero archivo queda sin registrar en `supabase migration list --linked` hasta próximo `db push --linked` normal; anotarlo en informe.
-- **Login real por UI, no fabricar `localStorage` a mano.** Formato interno de sesión de supabase-js puede no coincidir con lo armado — más simple llenar `#email`/`#password`, click «Entrar», y luego sacar token de `localStorage` (`sb-<project-ref>-auth-token`, `.access_token`) para resto de llamadas API (ver QA de Hoy, 2026-09-24).
-- **`useCountUp` (conteo animado del saldo hero) puede devolver valor a mitad de camino** si se lee DOM apenas carga — aunque código diga que no anima en primer render, en Vite dev con `StrictMode` efecto puede correr dos veces. Para valor EXACTO, leer fila no animada del desglose (`SummaryPanel`), no cifra grande del hero.
-- **Signo negativo de `splitMoney` es `−` (U+2212, MINUS SIGN), no guion ASCII `-`.** Regex para parsear `aria-label="−$50.000,00"` debe aceptar ambos, o falla en silencio (no matchea, número sale mal).
-- **React Query reintenta 3 veces con backoff (~1s+2s+4s ≈ 7s) antes de `isError`.** Probando error de red con `page.route(url, route => route.abort())`, esperar ese tiempo antes de mirar UI — a 1-2s todavía se ve carga, no error.
-- **`createPersistedFlag` (tema, ojo de saldo) guarda `'1'`/`'0'` en `localStorage`, no `'true'`/`'false'`.** String equivocado desde script no tira error: flag queda en default, parece «no pasó nada» en vez de fallo obvio.
-- **`page.clock.install({ time: ... })` debe instalarse ANTES de navegar** a página cuyo primer render depende de "hoy" (`useCycle`, `bag_cycle_from`/`bag_cycle_to`) — instalado después, ese render no se refresca solo.
-- **Cambiar `cycle_kind`/`cycle_week_starts_on` de cuenta QA por REST directo** (`PATCH` a `/rest/v1/profiles` con token de sesión) sin SQL — esas dos columnas sí están en grant de `authenticated` (a diferencia de `plan`/`role`, que necesitan `db query` con OK de Lean).
-- **Guardado con movimiento (`rpc_add_fixed_expense_saving` con `generateMovement: true`) deja movimiento vinculado que no siempre aparece en primera lectura de `fixed_expense_savings.transaction_id`** hecha ANTES de borrar fijo de prueba. Verificar limpieza con consulta APARTE, tras borrar, por descripción (`ilike 'Guardado · <nombre>%'`) — no confiar sólo en mapeo previo.
-- **Escopear toda lectura DOM a `document.querySelector('dialog[open]')`** cuando se abre diálogo sobre pantalla con datos parecidos atrás (ej. Movimientos detrás de "Asignar sueldo") — `document.querySelectorAll('li')` sin escopear puede engancharse con fila del fondo, y parece bug real (texto que no correspondía) cuando es problema del selector.
-- **`route.abort()` de Playwright no siempre lleva a React Query a `isError`.** En un caso puntual (`credit_purchase_payments`, un `.select()` vía GET) la red seguía fallando pero el `failureCount` interno de la query no pasaba de 1 — reintentaba indefinidamente sin agotar los 3 reintentos, aun esperando 30 s (confirmado inspeccionando `queryClient.getQueryCache()` desde `page.evaluate`). En RPC vía POST (`v_range_summary`, `v_spend_by_category`) sí llegó a `isError` a los ~7 s, como es esperable. `route.fulfill({status:500, ...})` en vez de `abort()` es más confiable para forzar el agotamiento de reintentos — úsalo primero si el objetivo es ver `isError`, no simular un corte de red real.
-- **Un `page.goto()` a la MISMA url puede reusar la entrada de `history.state`** en vez de arrancar de cero — importa para cualquier pantalla que persista estado ahí: un test que dejó ese estado en otro lado (otro preset, otro mes) contamina al siguiente test que hace `goto` a la misma ruta. Pasar por otra pantalla en el medio (`goto('/hoy')` y después `goto('/analisis')`) fuerza una entrada nueva, sin estado.
-- **El FAB "Nuevo movimiento" (`MobileTabBar`) es sólo mobile y sin texto visible** — `button:has-text(...)` no lo encuentra; usar `button[aria-label="Nuevo movimiento"]` con viewport angosto (ej. 390px). El botón "Guardar" de `TransactionFormDialog` tampoco tiene `type="submit"` matcheable de forma confiable por selector de atributo; escopear al diálogo abierto y buscar por texto (`dialog[open] >> text=Guardar`).
-- **`PATCH` a `/rest/v1/profiles` (o cualquier tabla) sin filtro da 400 `UPDATE requires a WHERE clause`** — PostgREST exige `?id=eq.<uid>` en la URL aunque RLS ya acote a la fila propia.
+- **Dev server en background:** con `npm run dev -- --port <N> --strictPort` y `run_in_background`, la
+  tarea puede decir «exited with code 0» enseguida (termina el wrapper, no Vite). Confirmar con
+  `netstat -ano | grep :<N>` o `curl`, y matar al final con `taskkill //PID <pid> //F` (el PID de
+  `netstat`, no el de la tarea).
+- **Login real por la UI**, no fabricar `localStorage` a mano: llenar `#email`/`#password`, click
+  «Entrar», y sacar el token de `localStorage` (`sb-<project-ref>-auth-token`, `.access_token`).
+- **Pasar email, contraseña y `anon key` por variables de entorno**, no escritos en un archivo.
+- **Cambiar el plan de la cuenta de QA** (sólo con OK de Leandro):
+  `npx supabase db query "update public.profiles set plan = '<basic|test|premium>' where id = '<uid>'" --linked`.
+- **Cambiar el ciclo sin SQL:** `PATCH` a `/rest/v1/profiles?id=eq.<uid>` con el token (`cycle_kind` y
+  `cycle_week_starts_on` sí están en el grant de `authenticated`), o por Ajustes → Ciclo. El día va en
+  ISO (1 = lunes … 7 = domingo); el selector de día sólo aparece con «Semanal».
+- **`createPersistedFlag` (tema, ojo del saldo) guarda `'1'`/`'0'`**, no `'true'`/`'false'`: con el
+  string equivocado no hay error, el flag queda en su default.
 
+### Selectores y DOM duplicado
+
+- **Las listas renderizan dos DOM:** una `<ul>` mobile (`lg:hidden`) y otra de escritorio
+  (`hidden lg:block`). En desktop la visible es `.last()`; en mobile, `.first()`. O escopear al
+  contenedor visible.
+- **`getByLabel('Mes siguiente')` da 4 matches** (dos `CycleNav` × mobile/desktop): filtrar con
+  `.all()` + `isVisible()`. En ciclo semanal o quincenal los botones igual se llaman «Mes
+  anterior»/«Mes siguiente».
+- **En mobile, `ul li` sin escopear engancha el menú del shell:** usar `main ul li`.
+- **Varios `AmountInput` no tienen el `<label>` conectado:** `getByLabel('Importe')` no los encuentra.
+  Con react-hook-form, `input[name="amount"]`; si es controlado a mano (ej. `MarkPaidDialog`),
+  `input[placeholder="0,00"]` dentro del diálogo abierto.
+- **`getByRole(role, { name })` matchea por substring:** `'Ingreso'` también agarra «Ingresos». Usar
+  `exact: true` y escopear a `dialog[open]`.
+- **Botones cuyo nombre incluye el importe** («Transferir $ 1.000,00»): usar regex (`/^Transferir\s+\$/`).
+- **El FAB «Nuevo movimiento» es sólo mobile y sin texto:** `button[aria-label="Nuevo movimiento"]`
+  con un viewport angosto.
+- **Para probar un breakpoint no alcanza `isVisible()`** si dos elementos comparten nombre accesible
+  (botón del header vs. FAB): Playwright consulta el que está en el árbol de accesibilidad en ese
+  ancho. Mirar el DOM con `page.evaluate` (`getBoundingClientRect()` + `getComputedStyle().display`).
+- **Contar con SQL o API, no con texto en pantalla:** `Money` parte el importe en varios `<span>` y cada
+  ancestro también matchea `getByText('$30.000,00')`. `count() > 0` sí sirve para «¿aparece?».
+- **El signo negativo de `splitMoney` es `−` (U+2212)**, no `-`: un regex que sólo acepta `-` falla en silencio.
+- **`useCountUp` (saldo hero) puede leerse a mitad de la animación** (en dev con `StrictMode`): para el
+  valor exacto, leer la fila del desglose (`SummaryPanel`).
+
+### Diálogos
+
+- **Escopear toda lectura a `dialog[open]`** cuando hay datos parecidos atrás: un `li` del fondo parece
+  un bug real. Un `<dialog>` cerrado sigue montado, pero Playwright ya lo excluye de `getByRole`.
+- **Confirmación encima de otro diálogo:** usar el nombre completo de la acción («Eliminar
+  movimiento»); `/^Eliminar/` puede agarrar el botón de atrás. Con dos botones del mismo texto en un
+  diálogo (chip «Guardar» y confirmar «Guardar» en `MarkPaidDialog`), `.first()` es el chip y `.last()`
+  el de confirmar.
+- **Cerrar con el botón «Cerrar», no con `Escape`:** `Escape` no cerró y el `<dialog open>` siguió
+  tapando clicks. Guardar desde «Editar» dentro de `FixedExpenseDetailDialog` cierra el form pero no
+  el detalle: cerrarlo aparte.
+- **Esperar ~700ms antes de una captura:** `Dialog` entra con `animate-sheet-in`, y los colores llevan
+  `transition-colors`.
+- **`innerText()` no lee valores de `<input>`:** usar `.inputValue()`.
+- **Esperar una señal real, no un timeout fijo**, si el diálogo depende de una query
+  (`page.waitForFunction` hasta que «Guardar» deje de estar deshabilitado).
+
+### Reloj
+
+- **`page.clock.install({ time })` antes de navegar** a una pantalla cuyo primer render depende de «hoy».
+  Sirve para cualquier bug «a tal hora pasa esto» (medianoche, 21h en Argentina = 0h UTC).
+- **Sólo a ±1 día de la fecha real** si la pantalla se compara con una RPC que recibe `p_today`
+  (`rpc_projected_balance_range`, `rpc_mark_fixed_expense_paid`, `rpc_add_fixed_expense_saving`
+  limitan `p_today` a ±1 día del servidor). Más lejos, cliente y servidor calculan «hoy» distinto y
+  aparece una diferencia que no es de la app. Si hay que simular varios días, comparar contra la RPC
+  llamada con el mismo `p_today`.
+
+### Red y React Query
+
+- **React Query reintenta 3 veces (~7s) antes de `isError`:** esperar eso antes de mirar la UI.
+- **Para forzar `isError`, `route.fulfill({ status: 500 })`** y no `route.abort()`: con `abort` una query
+  vía GET quedó reintentando sin fin.
+- **El refetch por foco entre dos pestañas no siempre se ve en headless** (`visibilityState` puede
+  seguir `'visible'`). `refetchOnWindowFocus` es el default: respaldarlo con lectura de código.
+- **Un `page.goto()` a la misma URL puede reusar `history.state`:** pasar por otra pantalla en el medio
+  para empezar sin estado.
+
+### Base: leer, escribir y limpiar
+
+- **API directa con la sesión de la cuenta, sin instalar supabase-js:** desde `page.evaluate`, `fetch`
+  a `${SUPABASE_URL}/rest/v1/rpc/<nombre>` o `/rest/v1/<tabla>` con `apikey` y
+  `Authorization: Bearer <token>`. Respeta RLS, y anda aunque el modo auto bloquee `supabase db query`.
+- **`PATCH`/`DELETE` sin filtro da 400** (`UPDATE requires a WHERE clause`): PostgREST exige `?id=eq.<uid>`.
+- **Deshacer un pago de fijo con `rpc_unmark_fixed_expense_payment`**, no con un `DELETE` directo: es lo
+  que llama la UI.
+- **Borrar el padre no borra el movimiento vinculado** (FKs `on delete set null`, como en Fijos o Me
+  Deben): el movimiento queda huérfano y sigue restando saldo. Quitar el pago antes, o borrar el
+  movimiento después, y confirmar por SQL o API buscando por descripción.
+- **Un guardado con movimiento puede no aparecer en una primera lectura** de
+  `fixed_expense_savings.transaction_id`: verificar la limpieza con una consulta aparte después de
+  borrar (`ilike 'Guardado · <nombre>%'`).
+- **Un fijo nuevo puede nacer invisible** si el `due_day` por defecto (10) ya pasó: no aparece este mes
+  ni en «Pausados». Pasar `input#dueDay` explícito; si ya quedó uno así, «Mes siguiente» lo muestra.
+- **«Pausados» hace dos cosas:** pide los fijos inactivos y despliega el panel (mismo estado `showPaused`).
+- **Doble toque:** `locator.dblclick()` alcanza para reproducir un doble envío.
 
 ## Formato de un informe (si se vuelve a escribir uno)
 
 - **IDs por área:** `CU-` Cuentas, `FI-` Fijos, `DE-` Mis Deudas, `AH-` Ahorros, `MD-` Me Deben,
-  `MO-` Movimientos, `HO-` Hoy, `AN-` Análisis, `AD-` Admin. ID no se reusa.
-- **Encabezado:** fecha, rama y commit, planes y ciclos probados.
-- **Resumen**, más tabla de hallazgos (ID, severidad, estado, título).
+  `MO-` Movimientos, `HO-` Hoy, `AN-` Análisis, `AD-` Admin. Un ID no se reusa.
+- **Encabezado:** fecha, rama y commit, planes y ciclos probados. Después, resumen y tabla de hallazgos
+  (ID, severidad, estado, título).
 - **Cada hallazgo:** pasos, esperado, obtenido, evidencia y, si se sabe, por qué pasa (`archivo:línea`).
-- **Estados:** Abierto, Resuelto (con cómo se verificó), No reproducido, Verificado seguro (vector probado, no explotable), Por lectura de código (visto en código, no reproducido en vivo), o Parcial (hallazgo con varios puntos, sólo algunos arreglados — detalle dice cuáles siguen abiertos y por qué).
-- **Columna «Afecta»** (opcional, cuando hallazgo cruza pantallas): si disparador es de esta área pero daño se ve en otra (ej. borrar desde Movimientos deja tarjeta de Mis Deudas «pagada»), hallazgo lleva ID de esta área y «Afecta» lista pantallas donde se nota. Si pasa entero en otra pantalla y sólo se vio de reojo, va a «Pendientes transversales», no acá.
+- **Estados:** Abierto, Resuelto (con cómo se verificó), No reproducido, Verificado seguro (vector
+  probado, no explotable), Por lectura de código, o Parcial (qué puntos siguen abiertos y por qué).
+- **Columna «Afecta»** (opcional): si el disparador es de esta área pero el daño se ve en otra, el
+  hallazgo lleva el ID de esta área y «Afecta» lista dónde se nota. Si pasa entero en otra pantalla y
+  sólo se vio de reojo, va a «Pendientes transversales».
 - **Lo verificado correcto**, para no repetirlo, y **lo que quedó afuera.**
 
 ## Reglas: el repo es público
 
-- **Nada que identifique cuenta:** ni emails, ni `uuid`, ni códigos de invitación, ni contraseñas. Decir «la cuenta de QA» o «la cuenta de prueba», también al contar uso de segunda cuenta para probar aislamiento entre cuentas.
-- **Antes de cerrar informe, correr este chequeo** desde raíz del repo, en Git Bash. Debe salir vacío:
-
-  ```sh
-  git grep -nIE --untracked '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|eyJ[A-Za-z0-9_-]{20,}|[A-Z]{3,}-[A-Z0-9]{6}\b' -- . ':!package-lock.json' ':!supabase/migrations/20260806210001_cleanup_test_assets.sql' ':!supabase/migrations/20260807020001_promote_e2e_admin.sql' | grep -v '@example\.com'
-  ```
-
-  Busca emails, `uuid`, JWT y códigos de invitación en todo el repo, incluido lo nuevo sin commitear. Revisa repo entero, no sólo `docs/qa`, porque script de verificación o comentario también pueden filtrar dato. Las dos migraciones excluidas son historia ya aplicada. Motivo: un email real se coló en un informe de QA aunque la regla ya existía — sin chequeo concreto, regla sola no alcanza.
-- **Hallazgo de seguridad explotable** contra otras cuentas: detalle en un informe privado, nunca en el repo; acá, como mucho, una línea genérica («una RPC acepta X») hasta arreglarse.
-- Montos y nombres de prueba («Expensas», $180.000) sí van: inventados.
-- Capturas no se suben. Si hace falta, se describe con palabras.
+- **Nada que identifique una cuenta:** ni emails, ni `uuid`, ni códigos de invitación, ni contraseñas.
+  Decir «la cuenta de QA» o «la cuenta de prueba».
+- **Antes de cerrar un informe, `sh scripts/check-leaks.sh`** (Git Bash, desde el repo) tiene que salir
+  vacío. Revisa el repo entero, no sólo `docs/qa`: un script o un comentario también pueden filtrar un
+  dato. Motivo: un email real se coló en un informe aunque la regla ya existía.
+- **Un hallazgo de seguridad explotable** contra otras cuentas va a un informe privado, nunca al repo;
+  acá, como mucho, una línea genérica hasta que se arregle.
+- Montos y nombres de prueba («Expensas», $180.000) sí van: son inventados. Las capturas no se suben.
 
 ## Sin probar todavía
 
-Huecos de cobertura que quedaron al cerrar las pasadas por área — no son hallazgos, son cosas que nadie verificó en vivo.
+Huecos de cobertura que quedaron al cerrar las pasadas por área — no son hallazgos, son cosas que
+nadie verificó en vivo
 
-- **Movimientos:** tope de 1.000 filas del período y CSV en vivo (separador, columnas, nombre); categorías archivadas o eliminadas y su efecto en filtros y filas viejas; doble click o dos pestañas sobre Guardar y Eliminar; `is_adjustment`/`is_credit_card_payment` seteados a mano por API. `rpc_admin_delete_user` en cascada nunca se ejecuta en una pasada, por decisión.
-- **Fijos:** navegador en otro huso (ej. UTC+9); el borde real de una bolsa quincenal/semanal (domingo, o día 15, después de las 21h); cambiar la categoría de un fijo con pagos, y pasar de bolsa a «una vez al mes» con cargas del mes (queda «pagado» con cualquier carga y las filas viejas no frenan un segundo pago).
-- **Análisis:** el efecto numérico de un error de red en cuotas comprometidas (hace falta tarjeta + compra en cuotas + pago); una quincena de 16 días real viendo el sufijo «por día»; una semana que cruza el límite de año.
+- **Movimientos:** tope de 1.000 filas del período y CSV en vivo (separador, columnas, nombre);
+  categorías archivadas o eliminadas y su efecto en filtros y filas viejas; doble click o dos pestañas
+  sobre Guardar y Eliminar; `is_adjustment`/`is_credit_card_payment` seteados a mano por API.
+  `rpc_admin_delete_user` en cascada nunca se ejecuta en una pasada, por decisión.
+- **Fijos:** navegador en otro huso (ej. UTC+9); el borde real de una bolsa quincenal/semanal (domingo,
+  o día 15, después de las 21h); cambiar la categoría de un fijo con pagos, y pasar de bolsa a «una
+  vez al mes» con cargas del mes (queda «pagado» con cualquier carga y las filas viejas no frenan un
+  segundo pago).
+- **Análisis:** el efecto numérico de un error de red en cuotas comprometidas (hace falta tarjeta +
+  compra en cuotas + pago); una quincena de 16 días real viendo el sufijo «por día»; una semana que
+  cruza el límite de año.
 - **Ciclos quincenal y semanal** en vivo en Movimientos, con otro inicio de semana.
-- **Quitar un pago anterior a las cuentas:** el diálogo de aviso necesita un pago hecho antes de crear cuentas; probarlo en la cuenta de prueba desharía uno real.
+- **Quitar un pago anterior a las cuentas:** el diálogo de aviso necesita un pago hecho antes de crear
+  cuentas; probarlo en la cuenta de prueba desharía uno real.
 
 ## Pendientes transversales
 
-Cosas vistas de reojo desde otra área, sin probar a fondo. Se mueven a una pasada de su área cuando se haga.
+Cosas vistas de reojo desde otra área, sin probar a fondo. Se mueven a una pasada de su área cuando
+se haga.
 
-- **Mis Deudas:** desglose de fijos no descuenta guardados con movimiento, puede no cerrar con número grande (`MisDeudas.tsx:258`). No visto porque cuenta QA no tiene deudas.
-- **Base:** RPC de pago aceptan fecha futura (UI la bloquea con `max`).
-- **Base:** RPC que crean movimientos sin fecha explícita (`rpc_add_fixed_expense_saving`, `rpc_mark_credit_card_paid` y varias más) usan `current_date` (UTC) en vez de fecha local — sólo se nota pasadas 21h Argentina. Visto por lectura de código en QA de Movimientos.
+- **Mis Deudas:** el desglose de fijos no descuenta los guardados con movimiento; puede no cerrar con
+  un número grande (`MisDeudas.tsx:258`). No visto porque la cuenta de QA no tiene deudas.
+- **Base:** las RPC de pago aceptan fecha futura (la UI la bloquea con `max`).
+- **Base:** las RPC que crean movimientos sin fecha explícita (`rpc_add_fixed_expense_saving`,
+  `rpc_mark_credit_card_paid` y varias más) usan `current_date` (UTC) en vez de la fecha local — sólo
+  se nota pasadas las 21h de Argentina. Visto por lectura de código en el QA de Movimientos.

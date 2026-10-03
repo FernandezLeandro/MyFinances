@@ -29,7 +29,7 @@ export function IncomeEditDialog({ transaction, onClose }: IncomeEditDialogProps
   const updateTx = useUpdateTransaction()
   const deleteTx = useDeleteTransaction()
   // HO-13 del QA de Hoy: mismo candado que `AssignIncomeDialog` (FI-01/FI-11) — y `.mutate()` en vez
-  // de `await mutateAsync()` (lección del README de QA: sin `try/catch`, un `mutateAsync` esperado
+  // de `await mutateAsync()` (convención del README: sin `try/catch`, un `mutateAsync` esperado
   // deja una promesa rechazada sin manejar en la consola si la base frena la escritura).
   const submittingRef = useRef(false)
 

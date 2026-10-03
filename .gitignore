@@ -23,8 +23,8 @@ dist-ssr
 # Instrucciones de Claude Code (reglas de trabajo y credenciales de la cuenta de prueba): sólo
 # locales, nunca al repo, que es público. El `*.local` de arriba no cubre a CLAUDE.local.md — el
 # archivo termina en `.md`.
-CLAUDE.md
 CLAUDE.local.md
+.claude/rules/
 
 # Coverage de Vitest
 coverage/
@@ -42,3 +42,8 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Skills de agentes instaladas con `npx skills add` — locales de cada máquina, no van al repo
+.agents/
+.claude/skills/
+skills-lock.json
