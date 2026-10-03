@@ -44,3 +44,11 @@ export function dateShortcut(occurredOn: string, todayISO: string): DateShortcut
   if (occurredOn === yesterdayISO) return 'yesterday'
   return 'other'
 }
+
+/** Texto de un campo de selección múltiple del diálogo Filtros (Categorías, Cuenta): `allLabel` sin
+ *  nada elegido (no filtra), el nombre si hay uno solo, y la cantidad desde dos ("3 cuentas"). */
+export function selectionLabel(names: string[], allLabel: string, pluralNoun: string): string {
+  if (names.length === 0) return allLabel
+  if (names.length === 1) return names[0]
+  return `${names.length} ${pluralNoun}`
+}

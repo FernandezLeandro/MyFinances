@@ -70,7 +70,9 @@ export function buttonClasses({
 }: { variant?: ButtonVariant; size?: ButtonSize; className?: string; loading?: boolean } = {}) {
   return cn(
     'inline-flex items-center justify-center rounded-control whitespace-nowrap',
-    'transition-colors duration-150',
+    // Al apretar, se hunde apenas (0.97, nunca desde 0): confirma el toque sin hacerse esperar. Un
+    // botón apagado no se hunde — no hizo nada.
+    'transition-[color,background-color,border-color,opacity,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] disabled:active:scale-100',
     variants[variant].base,
     // Apagado: gris y `not-allowed`. Guardando: mismo color, más tenue y `progress`.
     loading ? 'disabled:cursor-progress disabled:opacity-75' : cn('disabled:cursor-not-allowed', variants[variant].disabled),

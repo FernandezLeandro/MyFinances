@@ -120,7 +120,7 @@ export function Categorias() {
             }))}
           />
           <div className="sm:w-[300px]">
-            <SearchInput size="lg" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar categoría" aria-label="Buscar categoría" />
+            <SearchInput size="lg" value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery('')} placeholder="Buscar categoría" aria-label="Buscar categoría" />
           </div>
         </div>
 
