@@ -42,6 +42,7 @@ import {
   fixedExpenseAtPeriod,
   fixedExpenseStatusKey,
   fixedExpenseUrgency,
+  sortByLastPaid,
   summarizeFixedExpenses,
   type FixedExpenseStatus,
   type FixedExpenseUrgency,
@@ -90,6 +91,9 @@ function PresencePanel({ children, delay = 0 }: { children: ReactNode; delay?: n
 
 /** `Money` que cuenta hasta su valor nuevo (mismo `useCountUp` que el saldo de Hoy) — sólo anima
  *  cuando el valor cambia, no al montar. */
+/** Cuántos pagados se ven en el rail antes de «Ver los N restantes». */
+const PAID_PREVIEW = 5
+
 function CountUpMoney({ cents, ...props }: ComponentProps<typeof Money>) {
   return <Money cents={useCountUp(cents)} {...props} />
 }
@@ -177,9 +181,12 @@ function FixedExpenseRow({
 
             {fe.is_recurring && (
               <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
-                <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} size="wide" />
+                {/* `shrink!`: a 320px con un importe de 7+ cifras, el ancho fijo de `wide` metía la barra
+                    (y el «Completo») por debajo del monto de la derecha. */}
+                <MiniProgress pct={pct} tone={overspent ? 'negative' : done ? 'accent' : 'muted'} size="wide" className="shrink!" />
                 {overspent ? null : done ? (
-                  <span className="text-[12px] whitespace-nowrap text-fg-muted">Completo</span>
+                  // Bajo 360px no entra junto a la barra y un importe largo: la barra llena ya lo dice.
+                  <span className="text-[12px] whitespace-nowrap text-fg-muted max-[359px]:hidden">Completo</span>
                 ) : (
                   // En mobile esto sobra: el "Resta $X" de la derecha ya dice lo que importa, y sumar
                   // pagado+total acá era demasiada cifra para 390px (ver feedback de Lean).
@@ -195,7 +202,7 @@ function FixedExpenseRow({
                 una barra en $0 en cada fijo de la lista. */}
             {savedPct > 0 && (
               <div className="mt-1 flex items-center gap-2 lg:mt-1.5">
-                <MiniProgress pct={savedPct} tone="muted" size="wide" />
+                <MiniProgress pct={savedPct} tone="muted" size="wide" className="shrink!" />
                 <span className="hidden text-[12px] whitespace-nowrap text-fg-muted lg:inline">
                   <Money cents={savedCents} tone="dim" hidden={hidden} /> guardado de <Money cents={fe.cents} tone="dim" hidden={hidden} />
                 </span>
@@ -293,6 +300,7 @@ export function Fijos() {
   // `period`: el mes de la fila que se abrió — el detalle de una bolsa lista sólo las cargas de ese mes.
   const [detailFixed, setDetailFixed] = useState<{ fe: FixedExpense; period: string } | null>(null)
   const [showPaused, setShowPaused] = useState(false)
+  const [showAllPaid, setShowAllPaid] = useState(false)
 
   // `periods` son los meses que toca el ciclo mirado (eje B: pagos, ahorros y cuotas son mensuales
   // siempre — ver `src/lib/cycle.ts`). Mensual/quincenal nunca tocan más de uno; semanal (bloque 5)
@@ -412,7 +420,11 @@ export function Fijos() {
     [allStatuses],
   )
   const oneTimePending = useMemo(() => pending.filter((s) => !s.fe.is_recurring), [pending])
-  const doneStatuses = useMemo(() => allStatuses.filter((s) => s.done), [allStatuses])
+  const doneStatuses = useMemo(() => sortByLastPaid(allStatuses.filter((s) => s.done)), [allStatuses])
+  // El rail muestra sólo los últimos pagados; el resto se despliega a pedido (con 20+ fijos la lista
+  // entera era más alta que toda la columna principal).
+  const visibleDone = showAllPaid ? doneStatuses : doneStatuses.slice(0, PAID_PREVIEW)
+  const hiddenDoneCount = doneStatuses.length - PAID_PREVIEW
 
   const totalCount = allStatuses.length
   const doneCount = doneStatuses.length
@@ -463,7 +475,9 @@ export function Fijos() {
   const proximoDay = proximo ? (proximo.dueDate ? getDate(parseISO(proximo.dueDate)) : (proximo.fe.due_day ?? '—')) : undefined
   const proximoHint = proximo ? (proximoUrgency === 'red' ? `Venció el ${proximoDay}` : `Vence el ${proximoDay}`) : undefined
 
-  const nothingPending = bolsaStatuses.length === 0 && oneTimePending.length === 0
+  // `pending`, no «sin recurrentes ni fijos únicos pendientes»: los recurrentes completos siguen en su
+  // panel (se puede seguir cargando), y antes eso escondía «Todo pagado» aunque no faltara nada.
+  const nothingPending = pending.length === 0
 
   function openNew() {
     setFormOpen(true)
@@ -626,6 +640,35 @@ export function Fijos() {
             </Panel>
 
             <AnimatePresence initial={false}>
+              {nothingPending && (
+                // Arriba de todo: es la noticia del ciclo, y los recurrentes completos siguen abajo.
+                // `delay`: espera a que el último grupo termine de colapsar, para no ver las dos
+                // tarjetas moviéndose a la vez. Con `totalCount === 0` (nada elegible este ciclo) no
+                // hay nada que celebrar: queda el aviso plano.
+                <PresencePanel key="nothing" delay={0.15}>
+                  {totalCount > 0 ? (
+                    <div className="flex items-center gap-3 px-panel py-5">
+                      <m.span
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'spring', duration: 0.45, bounce: 0.3, delay: 0.15 }}
+                        className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-on-accent"
+                      >
+                        <Check className="size-4" strokeWidth={2.2} aria-hidden />
+                      </m.span>
+                      <div className="min-w-0">
+                        <p className="font-display text-[14.5px] font-semibold text-fg">Todo pagado</p>
+                        <p className="mt-0.5 text-[12px] text-fg-muted">
+                          {doneCount} de {totalCount} fijos
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="px-panel py-5 text-[13px] text-fg-muted">No tenés nada por pagar {cycleThisLabel(cycle.kind)}.</p>
+                  )}
+                </PresencePanel>
+              )}
+
               {bolsaStatuses.length > 0 && (
                 <PresencePanel key="bolsas">
                   {/* El total vuelve a estar pegado al título (antes vivía solo, empujado al borde
@@ -634,7 +677,7 @@ export function Fijos() {
                       `w-24` que el `Money` de abajo) en vez de repetirse fila por fila. */}
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-divider px-panel pt-5 pb-2">
                     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                      <h2 className="font-display text-[14.5px] font-semibold text-fg">Bolsas</h2>
+                      <h2 className="font-display text-[14.5px] font-semibold text-fg">Recurrentes</h2>
                       <span className="hidden text-[11.5px] text-fg-muted md:inline">se cargan durante el período</span>
                     </div>
                     {/* `hidden` entero por debajo de 768px, no sólo el texto: ahí no hay una columna de
@@ -692,34 +735,6 @@ export function Fijos() {
                   </PresencePanel>
                 )
               })}
-
-              {nothingPending && (
-                // `delay`: espera a que el último grupo termine de colapsar, para no ver las dos
-                // tarjetas a la vez. Con `totalCount === 0` (nada elegible este ciclo) no hay nada que
-                // celebrar: queda el aviso plano.
-                <PresencePanel key="nothing" delay={0.15}>
-                  {totalCount > 0 ? (
-                    <div className="flex items-center gap-3 px-panel py-5">
-                      <m.span
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: 'spring', duration: 0.45, bounce: 0.3, delay: 0.15 }}
-                        className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-on-accent"
-                      >
-                        <Check className="size-4" strokeWidth={2.2} aria-hidden />
-                      </m.span>
-                      <div className="min-w-0">
-                        <p className="font-display text-[14.5px] font-semibold text-fg">Todo pagado</p>
-                        <p className="mt-0.5 text-[12px] text-fg-muted">
-                          {doneCount} de {totalCount} fijos
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="px-panel py-5 text-[13px] text-fg-muted">No tenés nada por pagar {cycleThisLabel(cycle.kind)}.</p>
-                  )}
-                </PresencePanel>
-              )}
             </AnimatePresence>
           </div>
 
@@ -752,9 +767,9 @@ export function Fijos() {
                     <p className="eyebrow">Pagados {cycleThisLabel(cycle.kind)}</p>
                     <Money cents={paidCentsTotal} size="row" hidden={balanceHidden} />
                   </div>
-                  <ul className="flex min-w-0 flex-col px-panel pb-5">
+                  <ul className={cn('flex min-w-0 flex-col px-panel', hiddenDoneCount > 0 ? 'pb-1' : 'pb-5')}>
                     <AnimatePresence initial={false}>
-                      {doneStatuses.map((s) => {
+                      {visibleDone.map((s) => {
                         // Bloque 4: con `cycle.months.length > 1` un mismo fijo puede tener una
                         // instancia pagada (mes cerrado) y otra pendiente (mes en curso) a la vez — el
                         // mes acá desambigua cuál de las dos es esta fila.
@@ -787,11 +802,15 @@ export function Fijos() {
                                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                               >
                                 <CategoryChip size={20} {...chipLook(categoryById.get(s.fe.category_id ?? ''))} />
-                                <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg-secondary">
-                                  {s.fe.name}
-                                  {monthLabel && <span className="text-fg-muted"> · {monthLabel}</span>}
+                                {/* `flex-wrap`: a 320px con un importe largo, la pastilla al lado dejaba
+                                    el nombre en «Co…» — así baja a su propio renglón cuando no entra. */}
+                                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                                  <span className="min-w-0 truncate text-[12.5px] text-fg-secondary">
+                                    {s.fe.name}
+                                    {monthLabel && <span className="text-fg-muted"> · {monthLabel}</span>}
+                                  </span>
+                                  {s.fe.is_recurring && <Badge variant="neutral">Recurrente</Badge>}
                                 </span>
-                                {s.fe.is_recurring && <span className="text-[11px] text-fg-faint">bolsa</span>}
                               </button>
                               <Money cents={s.paidCents} tone="dim" size="row" hidden={balanceHidden} />
                             </div>
@@ -800,6 +819,18 @@ export function Fijos() {
                       })}
                     </AnimatePresence>
                   </ul>
+                  {hiddenDoneCount > 0 && (
+                    <div className="px-panel pb-5">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllPaid((v) => !v)}
+                        aria-expanded={showAllPaid}
+                        className="py-1.5 text-[12.5px] font-semibold text-accent transition-opacity duration-150 hover:opacity-70"
+                      >
+                        {showAllPaid ? 'Ver menos' : hiddenDoneCount === 1 ? 'Ver 1 más' : `Ver los ${hiddenDoneCount} restantes`}
+                      </button>
+                    </div>
+                  )}
                 </PresencePanel>
               )}
             </AnimatePresence>

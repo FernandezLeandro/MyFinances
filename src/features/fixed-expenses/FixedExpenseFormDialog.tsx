@@ -226,7 +226,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, period, on
               ]}
             />
             <p className="text-[12.5px] text-fg-secondary">
-              {isRecurring ? 'Una bolsa: lo vas cargando de a poco (nafta, mercadería…).' : 'Se paga una vez por mes, con fecha de vencimiento.'}
+              {isRecurring ? 'Un presupuesto que vas cargando de a poco (nafta, mercadería…).' : 'Se paga una vez por mes, con fecha de vencimiento.'}
             </p>
           </div>
 

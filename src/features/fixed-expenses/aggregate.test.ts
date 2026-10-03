@@ -9,6 +9,7 @@ import {
   fixedExpenseNameError,
   fixedExpenseUrgency,
   preAccountsPaymentCopy,
+  sortByLastPaid,
   summarizeFixedExpenses,
   upcomingSavedCents,
 } from './aggregate'
@@ -662,6 +663,23 @@ describe('compareFixedExpenses', () => {
     const sorted = [alquiler, internet, nafta, comida].sort(compareFixedExpenses)
 
     expect(sorted.map((fe) => fe.id)).toEqual(['comida', 'nafta', 'internet', 'alquiler'])
+  })
+})
+
+describe('sortByLastPaid', () => {
+  it('pone primero lo último pagado y desempata con compareFixedExpenses', () => {
+    const status = (id: string, due_day: number, paid_at: string) => ({
+      fe: makeFixedExpense({ id, due_day }),
+      payments: [makeFixedExpensePayment({ fixed_expense_id: id, amountPaidCents: 1_00, paid_at })],
+    })
+    const viejo = status('viejo', 1, '2026-08-02T10:00:00Z')
+    const nuevo = status('nuevo', 20, '2026-08-15T10:00:00Z')
+    const empate10 = status('empate10', 10, '2026-08-05T10:00:00Z')
+    const empate3 = status('empate3', 3, '2026-08-05T10:00:00Z')
+
+    const sorted = sortByLastPaid([viejo, empate10, nuevo, empate3])
+
+    expect(sorted.map((s) => s.fe.id)).toEqual(['nuevo', 'empate3', 'empate10', 'viejo'])
   })
 })
 
