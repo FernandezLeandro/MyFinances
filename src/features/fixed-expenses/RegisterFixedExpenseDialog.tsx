@@ -149,7 +149,7 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
                 // real materializado, no `fe.due_day` crudo.
                 const due = status.dueDate ? getDate(parseISO(status.dueDate)) : null
                 const sub = status.fe.is_recurring
-                  ? `Bolsa ${bagPeriodNoun(status.fe.bag_frequency).adjective}`
+                  ? `Recurrente ${bagPeriodNoun(status.fe.bag_frequency).adjective}`
                   : due != null
                     ? `${urgency === 'red' ? 'Venció' : 'Vence'} el ${due}`
                     : null

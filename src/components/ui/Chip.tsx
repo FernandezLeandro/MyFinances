@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 interface ChipProps {
   children: ReactNode
-  /** Al frente del texto — hoy sólo la ficha de categoría (`CategoryChip`, tamaño 16) de los
-   *  filtros de Movimientos. Achica el padding izquierdo de `sm` para que quede pegada. */
+  /** Al frente del texto — un ícono (la fecha y el Gasto/Ingreso de Nuevo movimiento). Con `sm`
+   *  achica el padding izquierdo para que quede pegado. */
   leading?: ReactNode
   active?: boolean
   onClick?: () => void
@@ -82,15 +83,23 @@ interface FilterChipProps {
   removeLabel: string
 }
 
-/** `Chip` con una ✕ de quitar al final — los filtros activos de Movimientos. Antes cada chip
- *  repetía a mano el `<span aria-hidden>✕</span>`; acá queda en un solo lugar. */
+/** Píldora de un filtro activo de Movimientos, con una ✕ para quitarlo (rediseño de Movimientos):
+ *  redonda, con borde y la ficha o el ícono del filtro adelante. Toda la píldora es el botón. */
 export function FilterChip({ children, leading, onRemove, removeLabel }: FilterChipProps) {
   return (
-    <Chip leading={leading} onClick={onRemove} ariaLabel={removeLabel}>
-      {children}{' '}
-      <span aria-hidden className="text-fg-muted">
-        ✕
-      </span>
-    </Chip>
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={removeLabel}
+      className={cn(
+        'inline-flex h-8 max-w-full items-center gap-1.5 rounded-pill border border-border-strong bg-surface pr-2 text-[13px] font-semibold whitespace-nowrap text-fg',
+        'transition-colors duration-150 hover:bg-fill-subtle',
+        leading ? 'pl-1.5' : 'pl-3',
+      )}
+    >
+      {leading}
+      <span className="truncate">{children}</span>
+      <X className="size-3.5 shrink-0 text-fg-muted" strokeWidth={2.4} aria-hidden />
+    </button>
   )
 }

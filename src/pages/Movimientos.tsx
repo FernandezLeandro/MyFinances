@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, SlidersHorizontal } from 'lucide-react'
+import { AnimatePresence, m } from 'motion/react'
+import { Calendar, Plus, SlidersHorizontal } from 'lucide-react'
+import { EASE_OUT_QUINT } from '@/lib/motion'
 import { Panel } from '@/components/ui/Panel'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { useCycleConfig } from '@/lib/useCycle'
@@ -27,14 +30,13 @@ import { CategoryChip } from '@/features/categories/CategoryChip'
 import { chipLook } from '@/features/categories/chip'
 import { useBalanceLocations, type BalanceLocation } from '@/features/accounts/api'
 import { accountNameOf } from '@/features/accounts/aggregate'
+import { accountKindIcon } from '@/features/accounts/accountKind'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { useAccountTransfers, type AccountTransfer } from '@/features/accounts/transfers-api'
 import { TransferDetailDialog } from '@/features/accounts/TransferDetailDialog'
 import { TRANSACTIONS_ROW_LIMIT, UNASSIGNED_ACCOUNT_ID, useTransactions, type Transaction } from '@/features/transactions/api'
 import {
   confirmDeleteMovementCopy,
-  dailySpendBars,
-  dailySpendPeakLabel,
   dayNetTotals,
   mergeMovementList,
   movementCategoryLabel,
@@ -68,6 +70,10 @@ const TYPE_OPTIONS = [
   { value: 'expense', label: 'Gastos' },
   { value: 'income', label: 'Ingresos' },
 ] as const
+
+// Entrada/salida de una píldora de filtro (fundido + 0.95, nunca desde 0) y el reacomodo de las
+// demás. `scale` y no un `transform` a mano: tiene que componerse con la proyección de `layout`.
+const PILL_TRANSITION = { duration: 0.15, ease: EASE_OUT_QUINT, layout: { duration: 0.2, ease: EASE_OUT_QUINT } }
 
 /** Fila de la tabla ancha de escritorio — Descripción · Categoría · Cuenta · Monto en columnas
  *  fijas. En mobile se usa `TransactionRow` (el mismo compacto de Hoy): a 390px de ancho una
@@ -282,6 +288,42 @@ export function Movimientos() {
     }
   }
 
+  const filterPills: { key: string; label: string; leading?: ReactNode; removeLabel: string; onRemove: () => void }[] = []
+  if (filters.period.preset !== 'month') {
+    const label =
+      filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]
+    filterPills.push({
+      key: 'period',
+      label,
+      leading: <Calendar className="size-4 text-fg-muted" strokeWidth={1.8} aria-hidden />,
+      removeLabel: `Quitar filtro de período: ${label}`,
+      onRemove: () => setFilters((f) => ({ ...f, period: defaultMovementPeriod() })),
+    })
+  }
+  for (const id of filters.categoryIds) {
+    const category = categoryById.get(id)
+    const label = id === UNCATEGORIZED_ID ? 'Sin categoría' : (category?.name ?? 'Categoría')
+    filterPills.push({
+      key: `cat:${id}`,
+      label,
+      leading: <CategoryChip size={20} {...chipLook(category)} />,
+      removeLabel: `Quitar filtro de categoría: ${label}`,
+      onRemove: () => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) })),
+    })
+  }
+  for (const id of filters.accountIds) {
+    const account = accountById.get(id)
+    const label = id === UNASSIGNED_ACCOUNT_ID ? 'Sin cuenta' : account?.name || '(sin nombre)'
+    const Icon = account ? accountKindIcon(account.kind) : null
+    filterPills.push({
+      key: `acc:${id}`,
+      label,
+      leading: Icon && <Icon className="size-4 text-fg-muted" strokeWidth={1.8} aria-hidden />,
+      removeLabel: `Quitar filtro de cuenta: ${label}`,
+      onRemove: () => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) })),
+    })
+  }
+
   const totalCount = items.length
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   // Clampeada en el render, no sólo en el `useEffect` de abajo — si la lista se achica sola (ej. se
@@ -338,13 +380,6 @@ export function Movimientos() {
     () => summarizeTransactions(periodTransactions ?? [], from, to, new Date()),
     [periodTransactions, from, to],
   )
-  const bars = useMemo(() => dailySpendBars(periodTransactions ?? [], from, to), [periodTransactions, from, to])
-  const peakBar = bars.reduce((max, b) => (b.cents > max.cents ? b : max), { date: '', day: 0, cents: 0 })
-  const maxBarCents = peakBar.cents
-  // Con un ciclo semanal (bloque 5 del plan) el rango puede cruzar el borde del mes — ahí "pico el
-  // 5" es ambiguo (¿de qué mes?) y el label agrega el mes. Casi siempre `true` (mensual/quincenal
-  // nunca cruzan, y la mayoría de las semanas tampoco).
-  const barsSameMonth = bars.length === 0 || bars.every((b) => b.date.slice(0, 7) === bars[0].date.slice(0, 7))
 
   function openNew() {
     setEditingTx(null)
@@ -456,7 +491,8 @@ export function Movimientos() {
         className="lg:hidden"
       />
 
-      {/* Resumen del período: neto, ingresos/gastos/promedio diario y gasto por día. Es del mes
+      {/* Resumen del período: neto, ingresos, gastos y promedio diario (el gráfico de gasto por día
+          se sacó en el rediseño de Movimientos: no aportaba). Es del mes
           entero — no se mueve con tipo/categoría/cuenta/búsqueda, sólo con el período (ver
           `periodTransactions` más arriba); por ahora, al menos. Las comparativas vs. el período
           anterior quedan apagadas acá a propósito: viven en Análisis. */}
@@ -474,8 +510,8 @@ export function Movimientos() {
 
         <div className="hidden h-14 w-px shrink-0 bg-divider lg:block" />
 
-        {/* Fila mobile 1: Ingresos + Gastos lado a lado. `lg:contents` los devuelve a ser hermanos
-            sueltos de la fila principal en escritorio, igual que antes. */}
+        {/* Mobile: Ingresos + Gastos lado a lado y Promedio diario debajo. `lg:contents` los devuelve
+            a ser hermanos sueltos de la fila principal en escritorio. */}
         <div className="grid grid-cols-2 gap-4 lg:contents">
           <div>
             <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Ingresos</p>
@@ -491,132 +527,87 @@ export function Movimientos() {
               {summary.expenseCount} movimiento{summary.expenseCount === 1 ? '' : 's'}
             </p>
           </div>
-        </div>
-
-        {/* Fila mobile 2: Promedio diario + gráfico, uno al lado del otro (mismo truco de
-            `lg:contents` para volver a la fila principal en escritorio). */}
-        <div className="flex items-start gap-4 lg:contents">
-          <div className="flex-none">
+          <div>
             <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
               Promedio diario
             </p>
             <Money cents={summary.dailyAverageExpenseCents} tone="fg" size="compact" className="mt-1" />
-            <p className="mt-0.5 text-[11.5px] whitespace-nowrap text-fg-muted">
+            <p className="mt-0.5 text-[11.5px] text-fg-muted">
               de gasto, {summary.daysElapsed} día{summary.daysElapsed === 1 ? '' : 's'}
             </p>
           </div>
-
-          {/* Sólo con datos que llenen un mes calendario: con un rango de un día o una semana, 30
-              barras finitas no cuentan nada. 30px de alto (antes 54): a la altura de las otras
-              columnas alineadas por el centro, una barra más baja se nota menos si esta columna
-              queda más alta que el resto por el renglón de "pico el N". */}
-          {filters.period.preset === 'month' && bars.length > 1 && (
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <p className="text-[10.5px] font-semibold tracking-[0.09em] whitespace-nowrap text-fg-muted uppercase">
-                  Gasto por día
-                </p>
-                {maxBarCents > 0 && (
-                  <span className="text-[11.5px] whitespace-nowrap text-fg-muted">
-                    pico el {dailySpendPeakLabel(peakBar, barsSameMonth)} · <Money cents={peakBar.cents} tone="dim" size="inline" />
-                  </span>
-                )}
-              </div>
-              <div className="mt-2.5 flex h-[30px] items-end gap-[3px]">
-                {bars.map((b) => (
-                  <span
-                    key={b.date}
-                    className={cn('flex-1 rounded-[2px]', b.cents > 0 ? 'bg-negative' : 'bg-fill-subtle')}
-                    style={{ height: b.cents > 0 && maxBarCents > 0 ? `${Math.max((b.cents / maxBarCents) * 100, 10)}%` : '4px' }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </Panel>
 
-      <div className="flex flex-col gap-2.5">
-        {/* Buscador en su propia fila, a lo ancho — el resto (segmentado, Filtros, Limpiar,
-            conteo) va debajo en mobile pero se suma a la misma línea en escritorio: `lg:contents`
-            saca ese wrapper de la jugada y sus hijos pasan a ser hermanos directos del buscador. */}
-        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+      <div className="flex flex-col gap-3">
+        {/* Barra de 44px, el mismo combo que `/categorias`. Mobile: el buscador en su fila y abajo
+            el segmentado + Filtros; desde `lg` todo en una fila (`lg:contents` saca el wrapper de la
+            jugada). */}
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-2.5">
           <SearchInput
+            size="lg"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Buscar por descripción…"
-            className="w-full lg:w-auto lg:min-w-[280px]"
+            onClear={() => setSearchInput('')}
+            placeholder="Buscar movimientos"
+            aria-label="Buscar movimientos"
+            className="lg:w-[320px]"
           />
-          <div className="flex flex-wrap items-center gap-2 lg:contents">
-            {/* `flex-1` en mobile: junto con Filtros, ocupa el mismo ancho que el buscador de
-                arriba — en escritorio vuelve a su tamaño natural, al lado del resto. */}
+          <div className="flex items-center gap-2 lg:contents">
             <SegmentedToggle
-              variant="pill"
+              variant="tabs"
+              fill
               value={filters.type}
               onChange={(type) => setFilters((f) => ({ ...f, type }))}
               options={TYPE_OPTIONS}
               className="flex-1 lg:flex-none"
             />
-            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
-              <SlidersHorizontal className="size-3.5" strokeWidth={1.4} aria-hidden />
-              Filtros
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setFiltersOpen(true)}
+              aria-label={activeCount > 0 ? `Filtros, ${activeCount} activos` : undefined}
+              icon={<SlidersHorizontal className="size-4" strokeWidth={1.8} aria-hidden />}
+              className="shrink-0"
+            >
+              {/* A 320px el segmentado no entra al lado del botón con texto: queda sólo el ícono (y el
+                  nombre accesible sigue siendo «Filtros»). */}
+              <span className="max-[359px]:sr-only">Filtros</span>
               {activeCount > 0 && <CountBubble count={activeCount} />}
             </Button>
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearAll}>
-                Limpiar todo
-              </Button>
-            )}
-            {!isPending && !isTransfersPending && <span className="text-[12.5px] text-fg-muted lg:ml-auto">{countLabel}</span>}
           </div>
+          {!isPending && !isTransfersPending && (
+            <span className="hidden text-[12.5px] text-fg-muted lg:ml-auto lg:block">{countLabel}</span>
+          )}
         </div>
 
-        {activeCount > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {filters.period.preset !== 'month' && (
-              <FilterChip
-                removeLabel={`Quitar filtro de período: ${MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}`}
-                onRemove={() => setFilters((f) => ({ ...f, period: defaultMovementPeriod() }))}
-              >
-                {filters.period.preset === 'custom' ? periodLabel(filters.period) : MOVEMENT_PERIOD_PRESET_LABELS[filters.period.preset]}
-              </FilterChip>
-            )}
-            {filters.type !== 'all' && (
-              <FilterChip
-                removeLabel={`Quitar filtro de tipo: ${filters.type === 'income' ? 'Ingresos' : 'Gastos'}`}
-                onRemove={() => setFilters((f) => ({ ...f, type: 'all' }))}
-              >
-                {filters.type === 'income' ? 'Ingresos' : 'Gastos'}
-              </FilterChip>
-            )}
-            {filters.categoryIds.map((id) => {
-              const isUncategorized = id === UNCATEGORIZED_ID
-              const category = categoryById.get(id)
-              const label = isUncategorized ? 'Sin categoría' : (category?.name ?? 'Categoría')
-              return (
-                <FilterChip
-                  key={id}
-                  leading={<CategoryChip size={16} {...chipLook(category)} />}
-                  removeLabel={`Quitar filtro de categoría: ${label}`}
-                  onRemove={() => setFilters((f) => ({ ...f, categoryIds: f.categoryIds.filter((c) => c !== id) }))}
+        {/* Filtros aplicados: una píldora por filtro, cada una se saca con su ✕. Sin píldora de Tipo:
+            ya se ve en el segmentado. Entran y salen con un fundido corto y las demás se reacomodan
+            deslizándose (`popLayout` saca del flujo a la que se va), para que no salten. */}
+        {filterPills.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {filterPills.map((pill) => (
+                <m.div
+                  key={pill.key}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={PILL_TRANSITION}
+                  className="max-w-full"
                 >
-                  {label}
-                </FilterChip>
-              )
-            })}
-            {filters.accountIds.map((id) => {
-              const isUnassigned = id === UNASSIGNED_ACCOUNT_ID
-              const label = isUnassigned ? 'Sin cuenta' : accountById.get(id)?.name || '(sin nombre)'
-              return (
-                <FilterChip
-                  key={id || 'unassigned'}
-                  removeLabel={`Quitar filtro de cuenta: ${label}`}
-                  onRemove={() => setFilters((f) => ({ ...f, accountIds: f.accountIds.filter((a) => a !== id) }))}
-                >
-                  {label}
-                </FilterChip>
-              )
-            })}
+                  <FilterChip leading={pill.leading} removeLabel={pill.removeLabel} onRemove={pill.onRemove}>
+                    {pill.label}
+                  </FilterChip>
+                </m.div>
+              ))}
+              <m.div key="clear" layout transition={PILL_TRANSITION}>
+                <Button variant="ghost" size="sm" onClick={clearAll}>
+                  Limpiar todo
+                </Button>
+              </m.div>
+            </AnimatePresence>
           </div>
         )}
       </div>
@@ -740,14 +731,6 @@ export function Movimientos() {
               onPageSizeChange={(size) => setPageSize(size as PageSize)}
             />
           )}
-
-          <div className="flex items-center justify-between gap-3 border-t border-divider px-panel py-3 text-[12px] text-fg-muted">
-            <span>{countLabel} del período</span>
-            <span className="tnum">
-              Gastos <Money cents={summary.totalExpenseCents} tone="dim" size="inline" /> · Ingresos{' '}
-              <Money cents={summary.totalIncomeCents} tone="dim" size="inline" />
-            </span>
-          </div>
         </Panel>
       )}
 

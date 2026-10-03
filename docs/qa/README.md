@@ -87,6 +87,10 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   el detalle: cerrarlo aparte.
 - **Esperar ~700ms antes de una captura:** `Dialog` entra con `animate-sheet-in`, y los colores llevan
   `transition-colors`.
+  En Fijos, pagar/deshacer anima filas y paneles (~220ms), el «Falta pagar» cuenta hasta el valor nuevo
+  (0,7s) y la barra corre (0,5s): esperar ~1s tras la mutación, o muestrear con `requestAnimationFrame`.
+  Cargar la pantalla y navegar de ciclo no animan nada (`initial={false}` + `key={cycle.from}`): si algo
+  se anima ahí, falta un `AnimatePresence initial={false}` alrededor.
 - **`innerText()` no lee valores de `<input>`:** usar `.inputValue()`.
 - **Esperar una señal real, no un timeout fijo**, si el diálogo depende de una query
   (`page.waitForFunction` hasta que «Guardar» deje de estar deshabilitado).
@@ -108,6 +112,17 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   vía GET quedó reintentando sin fin.
 - **El refetch por foco entre dos pestañas no siempre se ve en headless** (`visibilityState` puede
   seguir `'visible'`). `refetchOnWindowFocus` es el default: respaldarlo con lectura de código.
+- **Para probar un estado que la cuenta no tiene (p.ej. «Otros» de Análisis, que pide 7+ categorías)**,
+  agrandar la respuesta con `page.route` + `route.fetch()` + `route.fulfill({ response, json })` en vez
+  de cargar datos en producción.
+- **Simular «cargué un movimiento» sin escribir en producción:** activar el `page.route` (fila falsa
+  en `rest/v1/transactions`, totales en `rpc/v_range_summary`) después de la primera carga y forzar
+  el refetch con `window.dispatchEvent(new Event('visibilitychange'))` — refetchea todo lo de la
+  pantalla sin remontarla. En Hoy, la fila nueva entra con fundido (~200ms) y las barras corren
+  (0,5s); recargar con la misma fila falsa no anima nada.
+- **Análisis usa `keepPreviousData`:** al cambiar de período no vuelve a skeletons; el contenido viejo
+  queda con `aria-busy="true"` y `opacity-60` hasta que llega el nuevo, y después barras (0,5s), donut
+  (0,5s) y el total del hero (0,7s) transicionan. Esperar ~1s antes de leer cifras.
 - **Un `page.goto()` a la misma URL puede reusar `history.state`:** pasar por otra pantalla en el medio
   para empezar sin estado.
 
@@ -127,7 +142,8 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   borrar (`ilike 'Guardado · <nombre>%'`).
 - **Un fijo nuevo puede nacer invisible** si el `due_day` por defecto (10) ya pasó: no aparece este mes
   ni en «Pausados». Pasar `input#dueDay` explícito; si ya quedó uno así, «Mes siguiente» lo muestra.
-- **«Pausados» hace dos cosas:** pide los fijos inactivos y despliega el panel (mismo estado `showPaused`).
+- **Los pausados se ven desde el panel «N fijos pausados · Ver» del rail** (ya no hay botón «Pausados» en
+  el header): aparece sólo si hay alguno, y está al fondo de la pantalla en mobile.
 - **Doble toque:** `locator.dblclick()` alcanza para reproducir un doble envío.
 
 ## Formato de un informe (si se vuelve a escribir uno)

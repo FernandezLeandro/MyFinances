@@ -1,4 +1,4 @@
-import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { Plus } from 'lucide-react'
 import { useCycle } from '@/lib/useCycle'
@@ -272,6 +272,16 @@ export function Hoy() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` es estable dentro del render
   }, [monthTransactions.data, movementsCount])
 
+  // Ids ya vistos desde que se montó Hoy: sólo un movimiento que no estaba (recién cargado) entra
+  // animado. Se completa después del commit y en render sólo se lee — con `null` (primera carga)
+  // no anima nada, y las filas que aparecen por agrandar la ventana ya estaban en `data`.
+  const seenIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (!monthTransactions.data) return
+    seenIds.current ??= new Set()
+    for (const tx of monthTransactions.data) seenIds.current.add(tx.id)
+  }, [monthTransactions.data])
+
   // `monthTransactions` ya viene ordenado del más nuevo al más viejo, así que los primeros son
   // exactamente "los últimos".
   const visibleTransactions = useMemo(
@@ -459,7 +469,7 @@ export function Hoy() {
               ) : (
                 <div className="mt-3.5 flex items-center gap-4">
                   <Suspense fallback={<Skeleton className="size-[86px] shrink-0 rounded-full" />}>
-                    <CategoryDonut data={spend} size={86} />
+                    <CategoryDonut data={spend} size={86} animated={false} />
                   </Suspense>
                   <ul className="flex min-w-0 flex-1 flex-col gap-2">
                     {spend.slice(0, 4).map((s) => (
@@ -595,6 +605,7 @@ export function Hoy() {
                         account={showAccounts ? accountById.get(tx.account_id ?? '') : undefined}
                         hidden={balanceHidden}
                         future={isFutureOccurredOn(tx.occurred_on, today)}
+                        animateIn={seenIds.current != null && !seenIds.current.has(tx.id)}
                       />
                     ))}
                   </ul>

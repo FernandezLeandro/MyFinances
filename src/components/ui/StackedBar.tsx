@@ -28,7 +28,8 @@ export function StackedBar({
   return (
     <div className={cn('flex overflow-hidden rounded-pill', thin ? 'h-2 bg-fill-subtle' : 'h-3 bg-divider', className)}>
       {segments.map((s, i) => (
-        <span key={i} className="h-full" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
+        // Mismo transition que `MiniProgress`: al cargar un movimiento el segmento corre, no salta.
+        <span key={i} className="h-full transition-[width] duration-500 ease-out-quint" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
       ))}
     </div>
   )

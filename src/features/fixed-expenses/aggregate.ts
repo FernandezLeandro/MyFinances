@@ -178,6 +178,16 @@ export function compareFixedExpenses(a: FixedExpense, b: FixedExpense): number {
   return (a.due_day ?? 32) - (b.due_day ?? 32)
 }
 
+/** Lo último que se pagó primero — el rail de «Pagados» muestra sólo los más recientes. Se fija en
+ *  `payments[0]` porque `summarizeFixedExpenses` ya deja los pagos ordenados desc por `paid_at`. */
+export function sortByLastPaid<T extends Pick<FixedExpenseStatus, 'fe' | 'payments'>>(statuses: readonly T[]): T[] {
+  return [...statuses].sort((a, b) => {
+    const pa = a.payments[0]?.paid_at ?? ''
+    const pb = b.payments[0]?.paid_at ?? ''
+    return pb.localeCompare(pa) || compareFixedExpenses(a.fe, b.fe)
+  })
+}
+
 /**
  * Bloque 3 (FI-13): cuánto aporta CADA fijo a "Total del mes/quincena/semana" — antes ese total
  * sumaba siempre el importe ACTUAL de la plantilla (`fe.cents`), aunque el mes se hubiera pagado con

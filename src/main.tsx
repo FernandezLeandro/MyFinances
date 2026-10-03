@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { LazyMotion, MotionConfig } from 'motion/react'
 import { mensajeDeError } from '@/lib/errors'
 import { showToast } from '@/lib/toast'
 import './index.css'
@@ -27,10 +28,20 @@ const queryClient = new QueryClient({
   }),
 })
 
+// Animaciones de `motion`: `reducedMotion="user"` deja los fundidos y saca desplazamientos y escalas
+// con «reducir movimiento» del sistema (el freno global de `theme.css` sólo alcanza al CSS).
+// `LazyMotion` baja las funciones de animación en un chunk aparte — los componentes usan `m.*`, no
+// `motion.*`, que las traería todas en el bundle inicial.
+const loadMotionFeatures = () => import('@/lib/motionFeatures').then((r) => r.default)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <MotionConfig reducedMotion="user">
+        <LazyMotion features={loadMotionFeatures}>
+          <App />
+        </LazyMotion>
+      </MotionConfig>
     </QueryClientProvider>
   </StrictMode>,
 )

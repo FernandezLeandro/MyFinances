@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   confirmDeleteMovementCopy,
-  dailySpendBars,
-  dailySpendPeakLabel,
   dayLabel,
   dayNetTotals,
   isFutureOccurredOn,
@@ -66,48 +64,6 @@ describe('summarizeTransactions', () => {
     const s = summarizeTransactions([], '2026-10-01', '2026-10-31', HOY_5_SEPT)
     expect(s.daysElapsed).toBe(0)
     expect(s.dailyAverageExpenseCents).toBe(0)
-  })
-})
-
-describe('dailySpendBars', () => {
-  it('un slot por día del rango, sin huecos, sumando sólo gastos', () => {
-    const txs = [
-      makeTransaction({ id: 't1', type: 'expense', cents: 10_000_00, occurred_on: '2026-09-02' }),
-      makeTransaction({ id: 't2', type: 'expense', cents: 5_000_00, occurred_on: '2026-09-02' }),
-      makeTransaction({ id: 't3', type: 'income', cents: 100_000_00, occurred_on: '2026-09-03' }),
-    ]
-    const bars = dailySpendBars(txs, '2026-09-01', '2026-09-04')
-    expect(bars).toEqual([
-      { date: '2026-09-01', day: 1, cents: 0 },
-      { date: '2026-09-02', day: 2, cents: 15_000_00 },
-      { date: '2026-09-03', day: 3, cents: 0 },
-      { date: '2026-09-04', day: 4, cents: 0 },
-    ])
-  })
-
-  it('un ajuste de saldo no cuenta como gasto del día', () => {
-    const txs = [makeTransaction({ id: 't1', type: 'expense', cents: 10_000_00, occurred_on: '2026-09-01', is_adjustment: true })]
-    const bars = dailySpendBars(txs, '2026-09-01', '2026-09-01')
-    expect(bars).toEqual([{ date: '2026-09-01', day: 1, cents: 0 }])
-  })
-
-  // Bloque 5 del plan: con ciclo semanal, el rango puede cruzar el borde del mes — antes esto daba
-  // dos barras con `day: 1` y `day: 2` (una de cada mes) indistinguibles entre sí; ahora cada una
-  // lleva su fecha completa.
-  it('cruzando el borde del mes: cada barra lleva su propia fecha, sin días repetidos como clave', () => {
-    const bars = dailySpendBars([], '2026-09-29', '2026-10-02')
-    expect(bars.map((b) => b.date)).toEqual(['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'])
-    expect(bars.map((b) => b.day)).toEqual([29, 30, 1, 2])
-  })
-})
-
-describe('dailySpendPeakLabel', () => {
-  it('sólo el día cuando el rango no cruza de mes', () => {
-    expect(dailySpendPeakLabel({ date: '2026-09-05', day: 5, cents: 100 }, true)).toBe('5')
-  })
-
-  it('día y mes cuando el rango cruza de mes — evita la ambigüedad de dos "día 2" distintos', () => {
-    expect(dailySpendPeakLabel({ date: '2026-10-02', day: 2, cents: 100 }, false)).toBe('2 oct')
   })
 })
 

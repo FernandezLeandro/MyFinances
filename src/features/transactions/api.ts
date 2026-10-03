@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { centsFromNumeric, centsToNumeric } from '@/lib/money'
@@ -144,15 +144,22 @@ export function useMonthlySummary(period: string) {
   })
 }
 
+/** `keepPrevious`: al cambiar el rango, seguir mostrando el resultado anterior mientras llega el
+ *  nuevo (Análisis, para transicionar entre períodos). Hoy no lo pide. */
+interface KeepPreviousOpts {
+  keepPrevious?: boolean
+}
+
 /** Igual que `useMonthlySummary`, sobre un rango arbitrario en vez de un mes — la variante que
  *  consume `useCycle()` cuando el ciclo no es mensual. Ver `v_range_summary` en
  *  `20260911030001_cycle_range_functions.sql`. */
-export function useRangeSummary(from: string, to: string) {
+export function useRangeSummary(from: string, to: string, opts?: KeepPreviousOpts) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['range-summary', user?.id, from, to],
     enabled: !!user,
+    placeholderData: opts?.keepPrevious ? keepPreviousData : undefined,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('v_range_summary', { p_from: from, p_to: to })
       if (error) throw error
@@ -166,12 +173,13 @@ export function useRangeSummary(from: string, to: string) {
   })
 }
 
-export function useSpendByCategory(from: string, to: string) {
+export function useSpendByCategory(from: string, to: string, opts?: KeepPreviousOpts) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['spend-by-category', user?.id, from, to],
     enabled: !!user,
+    placeholderData: opts?.keepPrevious ? keepPreviousData : undefined,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('v_spend_by_category', { p_from: from, p_to: to })
       if (error) throw error

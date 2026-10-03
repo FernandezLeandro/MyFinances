@@ -1,5 +1,6 @@
 import { cn } from '@/lib/cn'
 import { splitMoney, type Currency } from '@/lib/money'
+import { useCountUp } from '@/lib/useCountUp'
 
 export type MoneyTone =
   | 'accent'
@@ -144,4 +145,10 @@ export function Money({
       </span>
     </span>
   )
+}
+
+/** `Money` que cuenta hasta su valor nuevo (mismo `useCountUp` que el saldo de Hoy) — sólo anima
+ *  cuando el valor cambia, no al montar. */
+export function CountUpMoney({ cents, ...props }: MoneyProps) {
+  return <Money cents={useCountUp(cents)} {...props} />
 }

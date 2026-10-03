@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Category, CategoryUsage } from '@/features/categories/api'
-import { dateShortcut, filterCategories, topCategories } from './formHelpers'
+import { dateShortcut, filterCategories, selectionLabel, topCategories } from './formHelpers'
 
 function cat(id: string, name: string): Category {
   return {
@@ -73,5 +73,19 @@ describe('dateShortcut', () => {
 
   it('ayer cruzando de mes', () => {
     expect(dateShortcut('2026-08-31', '2026-09-01')).toBe('yesterday')
+  })
+})
+
+describe('selectionLabel', () => {
+  it('sin nada elegido dice que no filtra', () => {
+    expect(selectionLabel([], 'Todas las cuentas', 'cuentas')).toBe('Todas las cuentas')
+  })
+
+  it('con una sola muestra su nombre', () => {
+    expect(selectionLabel(['Galicia'], 'Todas las cuentas', 'cuentas')).toBe('Galicia')
+  })
+
+  it('desde dos muestra la cantidad', () => {
+    expect(selectionLabel(['Hogar', 'Súper', 'Salud'], 'Todas las categorías', 'categorías')).toBe('3 categorías')
   })
 })

@@ -24,7 +24,10 @@ export function IconSquare({ children, active = false, onClick, disabled, classN
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'grid size-5 shrink-0 place-items-center rounded-[5px] transition-colors duration-150 disabled:opacity-50',
+        // `after`: área táctil de 36×44 sin agrandar el cuadrado — el borde horizontal no pasa de 8px
+        // porque en Ahorros el vecino queda a `gap-2`. El hundido al apretar (0.9, no 0.97: el control
+        // es de 20px y un 3% no se vería) confirma el toque; un botón apagado no se hunde.
+        'relative grid size-5 shrink-0 place-items-center rounded-[5px] transition-[color,background-color,opacity,transform] duration-150 ease-out-quint after:absolute after:-inset-x-2 after:-inset-y-3 active:scale-90 disabled:opacity-50 disabled:active:scale-100',
         active ? 'bg-accent text-on-accent' : 'bg-fill-subtle text-fg-muted hover:bg-border-strong hover:text-fg',
         className,
       )}
