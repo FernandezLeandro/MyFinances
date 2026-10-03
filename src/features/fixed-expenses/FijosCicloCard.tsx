@@ -3,7 +3,7 @@ import { Plus, Wallet } from 'lucide-react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { EyeToggle } from '@/components/ui/EyeToggle'
-import { Money } from '@/components/ui/Money'
+import { CountUpMoney, Money } from '@/components/ui/Money'
 import { Stat, StatRow } from '@/components/ui/Stat'
 import { StackedBar } from '@/components/ui/StackedBar'
 
@@ -91,7 +91,8 @@ export function FijosCicloCard({
         <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">
           {hasIncome ? 'Disponible' : hasSaved ? 'Total del ciclo' : 'Falta pagar'}
         </p>
-        <Money
+        {/* Cuenta hasta el valor nuevo al registrar un fijo, igual que el saldo del hero de Premium. */}
+        <CountUpMoney
           cents={hasIncome ? available : hasSaved ? totalCents : pendingCents}
           size="hero"
           tone={hasIncome ? (available < 0 ? 'negative' : 'fg') : hasSaved ? 'fg' : pendingCents > 0 ? 'negative' : 'fg'}

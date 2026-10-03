@@ -115,6 +115,11 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
 - **Para probar un estado que la cuenta no tiene (p.ej. «Otros» de Análisis, que pide 7+ categorías)**,
   agrandar la respuesta con `page.route` + `route.fetch()` + `route.fulfill({ response, json })` en vez
   de cargar datos en producción.
+- **Simular «cargué un movimiento» sin escribir en producción:** activar el `page.route` (fila falsa
+  en `rest/v1/transactions`, totales en `rpc/v_range_summary`) después de la primera carga y forzar
+  el refetch con `window.dispatchEvent(new Event('visibilitychange'))` — refetchea todo lo de la
+  pantalla sin remontarla. En Hoy, la fila nueva entra con fundido (~200ms) y las barras corren
+  (0,5s); recargar con la misma fila falsa no anima nada.
 - **Análisis usa `keepPreviousData`:** al cambiar de período no vuelve a skeletons; el contenido viejo
   queda con `aria-busy="true"` y `opacity-60` hasta que llega el nuevo, y después barras (0,5s), donut
   (0,5s) y el total del hero (0,7s) transicionan. Esperar ~1s antes de leer cifras.

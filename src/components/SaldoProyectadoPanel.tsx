@@ -113,8 +113,8 @@ export function SaldoProyectadoPanel({
       extra={
         bar && !isPending && !isError ? (
           <div className="mt-3 flex h-1.5 overflow-hidden rounded-pill bg-inverse-divider">
-            <div className="h-full bg-negative-on-inverse" style={{ width: `${committedPct}%` }} />
-            <div className="h-full bg-accent-text" style={{ width: `${100 - committedPct}%` }} />
+            <div className="h-full bg-negative-on-inverse transition-[width] duration-500 ease-out-quint" style={{ width: `${committedPct}%` }} />
+            <div className="h-full bg-accent-text transition-[width] duration-500 ease-out-quint" style={{ width: `${100 - committedPct}%` }} />
           </div>
         ) : undefined
       }
