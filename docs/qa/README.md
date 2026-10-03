@@ -87,6 +87,10 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   el detalle: cerrarlo aparte.
 - **Esperar ~700ms antes de una captura:** `Dialog` entra con `animate-sheet-in`, y los colores llevan
   `transition-colors`.
+  En Fijos, pagar/deshacer anima filas y paneles (~220ms), el «Falta pagar» cuenta hasta el valor nuevo
+  (0,7s) y la barra corre (0,5s): esperar ~1s tras la mutación, o muestrear con `requestAnimationFrame`.
+  Cargar la pantalla y navegar de ciclo no animan nada (`initial={false}` + `key={cycle.from}`): si algo
+  se anima ahí, falta un `AnimatePresence initial={false}` alrededor.
 - **`innerText()` no lee valores de `<input>`:** usar `.inputValue()`.
 - **Esperar una señal real, no un timeout fijo**, si el diálogo depende de una query
   (`page.waitForFunction` hasta que «Guardar» deje de estar deshabilitado).
@@ -127,7 +131,8 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   borrar (`ilike 'Guardado · <nombre>%'`).
 - **Un fijo nuevo puede nacer invisible** si el `due_day` por defecto (10) ya pasó: no aparece este mes
   ni en «Pausados». Pasar `input#dueDay` explícito; si ya quedó uno así, «Mes siguiente» lo muestra.
-- **«Pausados» hace dos cosas:** pide los fijos inactivos y despliega el panel (mismo estado `showPaused`).
+- **Los pausados se ven desde el panel «N fijos pausados · Ver» del rail** (ya no hay botón «Pausados» en
+  el header): aparece sólo si hay alguno, y está al fondo de la pantalla en mobile.
 - **Doble toque:** `locator.dblclick()` alcanza para reproducir un doble envío.
 
 ## Formato de un informe (si se vuelve a escribir uno)

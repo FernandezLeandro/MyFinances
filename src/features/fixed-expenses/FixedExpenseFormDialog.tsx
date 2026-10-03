@@ -217,6 +217,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, period, on
             <span className="eyebrow">¿Cómo se paga?</span>
             <SegmentedToggle
               variant="tabs"
+              fill
               value={isRecurring ? 'bag' : 'once'}
               onChange={(v) => setValue('isRecurring', v === 'bag')}
               options={[
@@ -234,6 +235,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, period, on
               <span className="eyebrow">Cada cuánto</span>
               <SegmentedToggle
                 variant="tabs"
+                fill
                 value={bagFrequency}
                 onChange={(v) => setValue('bagFrequency', v)}
                 options={[
@@ -268,8 +270,8 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, period, on
               />
             </div>
             {!isRecurring && (
-              <Field label="Vence el día" htmlFor="dueDay" error={errors.dueDay?.message} className="min-[420px]:w-28 min-[420px]:shrink-0">
-                <Input id="dueDay" type="number" min={1} max={31} className="h-[54px] text-center font-display font-semibold" {...register('dueDay')} />
+              <Field label="Vence el día" htmlFor="dueDay" error={errors.dueDay?.message} className="min-[420px]:w-20 min-[420px]:shrink-0">
+                <Input id="dueDay" type="number" min={1} max={31} className="h-[50px] text-center font-display font-semibold" {...register('dueDay')} />
               </Field>
             )}
           </div>
@@ -281,6 +283,7 @@ export function FixedExpenseFormDialog({ open, onClose, fixedExpense, period, on
               <span className="eyebrow">Estado</span>
               <SegmentedToggle
                 variant="tabs"
+                fill
                 value={isActive ? 'active' : 'paused'}
                 onChange={(v) => setValue('isActive', v === 'active')}
                 options={[

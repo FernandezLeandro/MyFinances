@@ -53,6 +53,10 @@ const thumbClass: Partial<Record<SegmentedToggleVariant, string>> = {
   tabs: 'rounded-[10px] bg-surface shadow-[0_1px_3px_rgba(0,0,0,.12)]',
 }
 
+// Relleno y separación de la pista por variante (px, los mismos que `trackClass`) — con `fill` el fondo
+// de la activa se posiciona con esto, sin medir el DOM.
+const trackMetrics = { pill: { pad: 3, gap: 2 }, tabs: { pad: 4, gap: 2 } } as const
+
 // Movimiento en pantalla que el usuario puede disparar dos veces seguidas: resorte sin rebote, que
 // retoma desde donde esté si lo interrumpen. Corto a propósito — se usa decenas de veces por día.
 const thumbTransition = { type: 'spring', duration: 0.25, bounce: 0 } as const
@@ -69,9 +73,28 @@ export function SegmentedToggle<T extends string>({
   // Movimientos y el Tipo de Filtros) se pasarían el fondo de uno al otro.
   const thumbId = useId()
   const thumb = thumbClass[variant]
+  // Con `fill` las columnas son iguales: el fondo se desliza con `translateX` por CSS en vez de
+  // `layoutId`. La proyección de `layoutId` mide el DOM antes y después del render, y en un diálogo que
+  // agrega o saca bloques en el mismo cambio (Fijos: «¿Cómo se paga?») el fondo salía volando en
+  // diagonal desde una posición medida de más.
+  const cssThumb = fill && thumb && variant !== 'control' ? trackMetrics[variant] : null
+  const activeIndex = Math.max(0, options.findIndex((o) => o.value === value))
 
   return (
-    <div className={cn(fill ? 'grid auto-cols-[1fr] grid-flow-col' : 'flex', trackClass[variant], className)}>
+    <div className={cn(fill ? 'grid auto-cols-[1fr] grid-flow-col' : 'flex', cssThumb && 'relative', trackClass[variant], className)}>
+      {cssThumb && thumb && (
+        <span
+          aria-hidden
+          className={cn('absolute transition-transform duration-[250ms] ease-out-quint', thumb)}
+          style={{
+            top: cssThumb.pad,
+            bottom: cssThumb.pad,
+            left: cssThumb.pad,
+            width: `calc((100% - ${2 * cssThumb.pad + (options.length - 1) * cssThumb.gap}px) / ${options.length})`,
+            transform: `translateX(calc(${activeIndex} * (100% + ${cssThumb.gap}px)))`,
+          }}
+        />
+      )}
       {options.map((opt) => {
         const active = value === opt.value
         return (
@@ -92,7 +115,7 @@ export function SegmentedToggle<T extends string>({
               active ? optionClass[variant].active : optionClass[variant].inactive,
             )}
           >
-            {thumb && active && (
+            {thumb && !cssThumb && active && (
               <m.span
                 layoutId={thumbId}
                 transition={thumbTransition}

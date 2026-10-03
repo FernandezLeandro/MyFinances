@@ -46,7 +46,11 @@ export function MiniProgress({
         className,
       )}
     >
-      <div className={cn('h-full rounded-full', toneClasses[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
+      {/* Sólo el relleno anima (no la caja): un cambio de avance corre la barra en vez de saltarla. */}
+      <div
+        className={cn('h-full rounded-full transition-[width] duration-500 ease-out-quint', toneClasses[tone])}
+        style={{ width: `${Math.min(pct, 100)}%` }}
+      />
     </div>
   )
 }
