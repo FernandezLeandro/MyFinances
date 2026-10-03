@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
@@ -6,6 +6,9 @@ import { centsFromNumeric } from '@/lib/money'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { UNCATEGORIZED_ID } from '@/features/categories/api'
 import type { CategorySpendRow, ClassifiableTransaction } from '@/features/analytics/aggregate'
+
+// Todos los hooks de acá usan `keepPreviousData`: al cambiar de período en Análisis el contenido
+// queda montado (atenuado) en vez de volver a skeletons, y barras y donut transicionan al valor nuevo.
 
 export interface CategoryComparison {
   categoryId: string
@@ -44,6 +47,7 @@ export function useTopCategoriesComparison(from: string, to: string, prevFrom: s
   return useQuery({
     queryKey: ['top-categories-comparison', user?.id, from, to, prevFrom, prevTo],
     enabled: !!user,
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<CategoryComparison[]> => {
       const [current, previous] = await Promise.all([
         fetchSpendByCategory(from, to),
@@ -96,6 +100,7 @@ export function usePreviousPeriodTotal(prevFrom: string, prevTo: string) {
   return useQuery({
     queryKey: ['previous-period-total', user?.id, prevFrom, prevTo],
     enabled: !!user,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const rows = await fetchSpendByCategory(prevFrom, prevTo)
       return toCategorySpendRows(rows).reduce((sum, r) => sum + r.cents, 0)
@@ -117,6 +122,7 @@ export function useCategoryMonthlySeries(anchor: string) {
   return useQuery({
     queryKey: ['category-monthly-series', user?.id, anchorMonth],
     enabled: !!user,
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<CategorySpendRow[][]> => {
       const results = await Promise.all(
         months.map((m) => fetchSpendByCategory(m, format(endOfMonth(parseISO(m)), 'yyyy-MM-dd'))),
@@ -141,6 +147,7 @@ export function useExpenseRowsForClassification(from: string, to: string) {
   return useQuery({
     queryKey: ['transactions', user?.id, 'classification', from, to],
     enabled: !!user,
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<ClassifiableTransaction[]> => {
       const rows = await fetchAllPages(async (offset, limit) => {
         const { data, error } = await supabase

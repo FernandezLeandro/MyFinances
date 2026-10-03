@@ -38,12 +38,12 @@ export function TopCategoriesComparison({ data, iconById }: { data: CategoryComp
               </span>
             </div>
             <div className="relative mt-1.5 h-2 overflow-hidden rounded-pill bg-fill-subtle">
-              <div className="h-full rounded-pill" style={{ width: `${pct}%`, backgroundColor: c.color ?? 'var(--color-border-strong)' }} />
+              <div className="h-full rounded-pill transition-[width] duration-500 ease-out-quint" style={{ width: `${pct}%`, backgroundColor: c.color ?? 'var(--color-border-strong)' }} />
               {/* AN-11 del QA de Análisis: con `prevPct` exactamente en 100% (el período anterior es
                   el máximo absoluto), `left: 100%` deja la marca de 2px entera fuera del contenedor
                   — con `overflow-hidden` de arriba, 0px visibles. `calc` la retrocede lo justo para
                   que quede pegada al borde derecho en vez de desaparecer. */}
-              <div className="absolute inset-y-0 w-[2px] bg-fg-muted" style={{ left: `min(${prevPct}%, calc(100% - 2px))` }} />
+              <div className="absolute inset-y-0 w-[2px] bg-fg-muted transition-[left] duration-500 ease-out-quint" style={{ left: `min(${prevPct}%, calc(100% - 2px))` }} />
             </div>
           </li>
         )

@@ -95,6 +95,11 @@ export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerO
             outerRadius="99%"
             paddingAngle={data.length > 1 ? 3 : 0}
             stroke="none"
+            // El default de Recharts (espera 400ms + barre 1500ms) se sentía lento en cada carga.
+            // 500ms, mismo tiempo que las barras de al lado; reduced motion lo apaga solo ('auto').
+            animationBegin={0}
+            animationDuration={500}
+            animationEasing="ease-out"
             onClick={onSelect ? (entry) => onSelect((entry as unknown as DonutSlice).categoryId) : undefined}
             style={onSelect ? { cursor: 'pointer' } : undefined}
           >

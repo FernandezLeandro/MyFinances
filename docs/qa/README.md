@@ -112,6 +112,12 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
   vía GET quedó reintentando sin fin.
 - **El refetch por foco entre dos pestañas no siempre se ve en headless** (`visibilityState` puede
   seguir `'visible'`). `refetchOnWindowFocus` es el default: respaldarlo con lectura de código.
+- **Para probar un estado que la cuenta no tiene (p.ej. «Otros» de Análisis, que pide 7+ categorías)**,
+  agrandar la respuesta con `page.route` + `route.fetch()` + `route.fulfill({ response, json })` en vez
+  de cargar datos en producción.
+- **Análisis usa `keepPreviousData`:** al cambiar de período no vuelve a skeletons; el contenido viejo
+  queda con `aria-busy="true"` y `opacity-60` hasta que llega el nuevo, y después barras (0,5s), donut
+  (0,5s) y el total del hero (0,7s) transicionan. Esperar ~1s antes de leer cifras.
 - **Un `page.goto()` a la misma URL puede reusar `history.state`:** pasar por otra pantalla en el medio
   para empezar sin estado.
 

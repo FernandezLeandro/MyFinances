@@ -3,14 +3,16 @@ import { useLocation, useNavigate } from 'react-router'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronRight } from 'lucide-react'
+import { AnimatePresence, m } from 'motion/react'
 import { Panel } from '@/components/ui/Panel'
 import { Badge } from '@/components/ui/Badge'
-import { Money, type MoneyTone } from '@/components/ui/Money'
+import { CountUpMoney, Money, type MoneyTone } from '@/components/ui/Money'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { cn } from '@/lib/cn'
+import { EASE_OUT_QUINT } from '@/lib/motion'
 import { useChartColors } from '@/lib/chartColors'
 import { splitByMinShare, splitTopN } from '@/lib/topN'
 import { cycleContaining, cycleLabel } from '@/lib/cycle'
@@ -38,6 +40,14 @@ const OTROS_ID = '__otros__'
 const TOP_CATEGORIES_N = 6
 /** Bajo este peso una categoría va a "Otras" en el donut — a 196px, 3% es un arco de ~10°, todavía tocable. */
 const DONUT_MIN_SHARE = 0.03
+
+/** Las filas detrás de «Otros» entran y salen colapsando — mismo preset que los pausados de Fijos. */
+const COLLAPSE = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: 'auto' },
+  exit: { opacity: 0, height: 0 },
+  transition: { duration: 0.2, ease: EASE_OUT_QUINT },
+} as const
 
 /** Una de las cifras chicas del hero (Ingresos / Neto / Por día). `figure` (no `compact`) para que
  *  no se sientan chicas al lado del hero — mismo tamaño que usan los rail de Fijos/Fijo-vs-variable
@@ -97,7 +107,7 @@ function CategoryLegendRow({
         <CategoryChip size={20} {...chipLook(color != null ? { color, icon } : undefined)} />
         <span className={cn('min-w-0 flex-1 truncate text-[13.5px]', dim ? 'text-fg-muted' : 'text-fg')}>{name}</span>
         <span className="hidden h-[5px] w-24 shrink-0 overflow-hidden rounded-pill bg-fill-subtle sm:block">
-          <span className="block h-full rounded-pill" style={{ width: `${pct * 100}%`, backgroundColor: color ?? 'var(--color-border-strong)' }} />
+          <span className="block h-full rounded-pill transition-[width] duration-500 ease-out-quint" style={{ width: `${pct * 100}%`, backgroundColor: color ?? 'var(--color-border-strong)' }} />
         </span>
         <span className="tnum w-9 shrink-0 text-right text-[12px] text-fg-muted">{Math.round(pct * 100)}%</span>
         <Money cents={cents} tone={dim ? 'dim' : 'fg'} size="row" className="w-24 shrink-0 justify-end" />
@@ -184,7 +194,7 @@ export function Analisis() {
   const prevRange = useMemo(() => comparisonRange(period, range, cycleConfig), [period, range, cycleConfig])
   const cycle = useMemo(() => cycleContaining(cycleConfig, parseISO(period.anchor)), [cycleConfig, period.anchor])
 
-  const spendQuery = useSpendByCategory(range.from, range.to)
+  const spendQuery = useSpendByCategory(range.from, range.to, { keepPrevious: true })
   const prevTotalQuery = usePreviousPeriodTotal(prevRange.from, prevRange.to)
   const comparisonQuery = useTopCategoriesComparison(range.from, range.to, prevRange.from, prevRange.to)
   const classificationQuery = useExpenseRowsForClassification(range.from, range.to)
@@ -194,7 +204,7 @@ export function Analisis() {
   // calendario) para "Ingresos" — con un ciclo quincenal/semanal, o una semana que cruza un límite
   // de mes, mostraba uno o dos meses completos en vez del rango elegido. `v_range_summary` (ya
   // usado por Hoy) filtra por rango exacto y excluye ajustes, igual que este total necesita.
-  const rangeSummaryQuery = useRangeSummary(range.from, range.to)
+  const rangeSummaryQuery = useRangeSummary(range.from, range.to, { keepPrevious: true })
 
   const { data: spend } = spendQuery
   const { data: comparison } = comparisonQuery
@@ -294,6 +304,15 @@ export function Analisis() {
   // "$X más que en agosto ($0,00)" como si ese mes no se hubiera gastado nada. Ahora las tres fuentes
   // del hero entran al mismo estado de error de pantalla completa que ya tenía `spendQuery`.
   const isError = spendQuery.isError || rangeSummaryQuery.isError || prevTotalQuery.isError
+  // Con `keepPreviousData` el período anterior sigue en pantalla mientras llega el nuevo: se atenúa
+  // para que no se lea como el dato del período elegido.
+  const isRefreshing =
+    spendQuery.isPlaceholderData ||
+    rangeSummaryQuery.isPlaceholderData ||
+    prevTotalQuery.isPlaceholderData ||
+    comparisonQuery.isPlaceholderData ||
+    classificationQuery.isPlaceholderData ||
+    monthlySeriesQuery.isPlaceholderData
 
   return (
     <div className="flex flex-col gap-4">
@@ -354,12 +373,15 @@ export function Analisis() {
           <EmptyState glyph="◔" title="No hay gastos en este período" hint="Probá con un rango más amplio." />
         </Panel>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div
+          aria-busy={isRefreshing}
+          className={cn('flex flex-col gap-4 transition-opacity duration-200 ease-out-quint', isRefreshing && 'opacity-60')}
+        >
           <Panel className="flex flex-col gap-6 p-panel-tight lg:flex-row lg:items-center lg:gap-9 lg:p-6">
             <div className="flex-none text-center lg:text-left">
               <p className="eyebrow">Gastaste en {heroPeriodLabel}</p>
               <div className="mt-1 flex items-baseline justify-center gap-3 lg:justify-start">
-                <Money cents={totalCents} size="hero" />
+                <CountUpMoney cents={totalCents} size="hero" />
                 {changePct != null && (
                   <Badge variant={changePct > 0 ? 'red' : 'soft'} className="tnum">
                     {changePct > 0 ? '+' : '−'}
@@ -452,22 +474,24 @@ export function Analisis() {
                             />
                           </span>
                         </button>
-                        {otrosExpanded && (
-                          <ul className="flex flex-col gap-1 pl-5">
-                            {restCategories.map((s) => (
-                              <CategoryLegendRow
-                                key={s.categoryId}
-                                name={s.categoryName}
-                                color={s.color}
-                                icon={iconById.get(s.categoryId)}
-                                cents={s.cents}
-                                pct={totalCents > 0 ? s.cents / totalCents : 0}
-                                dim
-                                onClick={() => goToCategory(s.categoryId)}
-                              />
-                            ))}
-                          </ul>
-                        )}
+                        <AnimatePresence initial={false}>
+                          {otrosExpanded && (
+                            <m.ul {...COLLAPSE} className="flex flex-col gap-1 overflow-hidden pl-5">
+                              {restCategories.map((s) => (
+                                <CategoryLegendRow
+                                  key={s.categoryId}
+                                  name={s.categoryName}
+                                  color={s.color}
+                                  icon={iconById.get(s.categoryId)}
+                                  cents={s.cents}
+                                  pct={totalCents > 0 ? s.cents / totalCents : 0}
+                                  dim
+                                  onClick={() => goToCategory(s.categoryId)}
+                                />
+                              ))}
+                            </m.ul>
+                          )}
+                        </AnimatePresence>
                       </li>
                     )}
                   </ul>
@@ -547,19 +571,24 @@ export function Analisis() {
                             />
                           </span>
                         </button>
-                        {promedioOtrosExpanded &&
-                          promedioRest.map((p) => (
-                            <PromedioRow
-                              key={p.categoryId}
-                              name={p.categoryName}
-                              color={p.color}
-                              icon={iconById.get(p.categoryId)}
-                              avgCents={p.avgCents}
-                              nowCents={p.nowCents}
-                              deviationPct={p.deviationPct}
-                              dim
-                            />
-                          ))}
+                        <AnimatePresence initial={false}>
+                          {promedioOtrosExpanded && (
+                            <m.div {...COLLAPSE} className="overflow-hidden">
+                              {promedioRest.map((p) => (
+                                <PromedioRow
+                                  key={p.categoryId}
+                                  name={p.categoryName}
+                                  color={p.color}
+                                  icon={iconById.get(p.categoryId)}
+                                  avgCents={p.avgCents}
+                                  nowCents={p.nowCents}
+                                  deviationPct={p.deviationPct}
+                                  dim
+                                />
+                              ))}
+                            </m.div>
+                          )}
+                        </AnimatePresence>
                       </>
                     )}
                   </div>
@@ -581,8 +610,14 @@ export function Analisis() {
                 ) : (
                   <>
                     <div className="mt-4 flex h-3 overflow-hidden rounded-control bg-fill-subtle">
-                      <div className="h-full bg-inverse" style={{ width: `${fijoVsVariable.committedPct}%` }} />
-                      <div className="h-full bg-accent" style={{ width: `${fijoVsVariable.variablePct}%` }} />
+                      <div
+                        className="h-full bg-inverse transition-[width] duration-500 ease-out-quint"
+                        style={{ width: `${fijoVsVariable.committedPct}%` }}
+                      />
+                      <div
+                        className="h-full bg-accent transition-[width] duration-500 ease-out-quint"
+                        style={{ width: `${fijoVsVariable.variablePct}%` }}
+                      />
                     </div>
                     <div className="mt-4 flex flex-col gap-4">
                       <div className="flex items-start gap-2.5">

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { format, getDate, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Check, Plus } from 'lucide-react'
@@ -6,7 +6,7 @@ import { AnimatePresence, m } from 'motion/react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Money, type MoneyTone } from '@/components/ui/Money'
+import { CountUpMoney, Money, type MoneyTone } from '@/components/ui/Money'
 import { CycleNav } from '@/components/ui/CycleNav'
 import { IconSquare } from '@/components/ui/IconSquare'
 import { MiniProgress } from '@/components/ui/MiniProgress'
@@ -17,7 +17,6 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
-import { useCountUp } from '@/lib/useCountUp'
 import { EASE_OUT_QUINT } from '@/lib/motion'
 import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from '@/lib/cycle'
 import { pendingBeforeCents } from '@/lib/projectedBalance'
@@ -89,14 +88,8 @@ function PresencePanel({ children, delay = 0 }: { children: ReactNode; delay?: n
   )
 }
 
-/** `Money` que cuenta hasta su valor nuevo (mismo `useCountUp` que el saldo de Hoy) — sólo anima
- *  cuando el valor cambia, no al montar. */
 /** Cuántos pagados se ven en el rail antes de «Ver los N restantes». */
 const PAID_PREVIEW = 5
-
-function CountUpMoney({ cents, ...props }: ComponentProps<typeof Money>) {
-  return <Money cents={useCountUp(cents)} {...props} />
-}
 
 function FixedExpenseRow({
   status,
