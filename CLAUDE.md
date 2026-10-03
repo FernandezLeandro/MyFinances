@@ -8,6 +8,33 @@ Otros docs, leer sólo cuando hagan falta: `README.md` (funciones, stack, conven
 
 Reglas por área en `.claude/rules/`, se cargan solas al tocar esos archivos: `ui.md` (shell, diálogos, estilos) y `supabase.md` (migraciones, RLS, producción).
 
+## Estructura
+
+```
+src/
+  main.tsx               entrada, QueryClient (MutationCache.onError global)
+  App.tsx                rutas
+  app/                   shell: AppLayout, AdminLayout, AuthLayout, TopBar, MobileTabBar, nav, mainShell.ts
+  pages/                 una por pantalla (Hoy, Fijos, Movimientos, Cuentas, Analisis, MisDeudas,
+                         MeDeben, Ahorros, Categorias, Ajustes) + admin/ y auth/
+  features/<dominio>/    por dominio: api.ts (queries/RPC y hooks), aggregate.ts/period.ts (lógica
+                         pura + tests), diálogos y componentes propios. Dominios: access (planes),
+                         accounts, transactions, fixed-expenses, cycle-income (sueldo), credits (Mis
+                         Deudas), receivables (Me Deben), savings, assets, analytics, categories,
+                         default-categories, invites, admin-users, profile, auth, fx (cotizaciones)
+  components/ui/         piezas compartidas: Dialog + dialog-parts, Money, FloatingPanel, Button, etc.
+  components/help/       piezas de las pantallas de ayuda
+  components/            filas y paneles compartidos entre pantallas (TransactionRow, SaldoProyectadoPanel…)
+  lib/                   utilidades puras + tests (money, cycle, dates, csv…), supabase.ts,
+                         database.types.ts (a mano), hooks genéricos (useCycle, useToday, useTheme…)
+  styles/theme.css       tokens del sistema Bento
+  test/factories.ts      fixtures tipadas
+supabase/migrations/     esquema versionado (única fuente; se aplica a producción)
+scripts/check-leaks.sh   chequeo anti-filtración
+docs/                    supabase-auth.md, qa/README.md, icono.md
+.github/workflows/ci.yml lint → test → build
+```
+
 ## Objetivo del producto
 
 - **Sencilla de usar.** Ante la duda entre más completo o más simple: menos pantallas, campos y decisiones. Si una solución se complica, informar alternativas y consultar.
