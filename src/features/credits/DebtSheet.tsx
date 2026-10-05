@@ -14,7 +14,7 @@ import { cn } from '@/lib/cn'
 import { EASE_OUT_QUINT, ROW_PRESENCE } from '@/lib/motion'
 import { centsToInputText, formatMoney, MAX_AMOUNT_CENTS, parseAmountToCents } from '@/lib/money'
 import { useCan } from '@/features/access/useCan'
-import { AccountSelect, AccountTriggerRow } from '@/features/accounts/AccountSelect'
+import { AccountField } from '@/features/accounts/AccountField'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 import { useCategories, type Category } from '@/features/categories/api'
@@ -311,7 +311,7 @@ export function DebtSheet({ open, onClose, debt, cards, fallbackPeriod }: DebtSh
               )}
 
               {showAccount && (
-                <AccountField label="Con qué lo pagás" accountId={accountId} onChange={setAccountId} debitCents={pendingCents} />
+                <AccountField label="Con qué lo pagás" accountId={accountId} onChange={setAccountId} deltaCents={-pendingCents} />
               )}
             </div>
           )}
@@ -480,7 +480,7 @@ function SaveEditor({
       )}
 
       {withMovement && showAccountPicker && (
-        <AccountField label="Con qué lo guardo" accountId={accountId} onChange={onAccountChange} debitCents={cents} />
+        <AccountField label="Con qué lo guardo" accountId={accountId} onChange={onAccountChange} deltaCents={cents == null ? null : -cents} />
       )}
 
       <Button onClick={save} disabled={addSaving.isPending || accountMissing} className="h-11 w-full">
@@ -508,43 +508,6 @@ function SaveEditor({
           ))}
         </ul>
       )}
-    </div>
-  )
-}
-
-/** Cuenta de la que sale la plata, con el «queda en $…» — mismo campo que `MarkPaidDialog` de Fijos. */
-function AccountField({
-  label,
-  accountId,
-  onChange,
-  debitCents,
-}: {
-  label: string
-  accountId: string
-  onChange: (id: string) => void
-  debitCents: number | null
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="eyebrow">{label}</p>
-      <AccountSelect
-        required
-        value={accountId}
-        onChange={onChange}
-        trigger={(account) => (
-          <AccountTriggerRow
-            icon={account?.icon ?? <span aria-hidden className="size-10 shrink-0 rounded-control bg-fill-subtle" />}
-            name={account?.name ?? 'Elegí una cuenta'}
-            placeholder={!account}
-            secondary={
-              account && debitCents != null && account.balanceCents !== undefined
-                ? `queda en ${formatMoney(account.balanceCents - debitCents)}`
-                : undefined
-            }
-          />
-        )}
-        triggerClassName="flex h-[54px] w-full items-center gap-2.5 rounded-control border border-border-strong pr-3 pl-2 text-left text-fg transition-colors duration-150 hover:border-fg-faint"
-      />
     </div>
   )
 }

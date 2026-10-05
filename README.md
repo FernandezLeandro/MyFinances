@@ -30,7 +30,7 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
 - **Análisis** (Test y Premium): gasto del período con variación vs. el anterior, distribución por
   categoría, fijo vs. variable, promedios mensuales.
 - **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado por compra (con o sin movimiento); al pagar se genera sólo lo que falta.
-- **Me Deben** (Premium): plata prestada a otras personas, con abonos parciales.
+- **Me Deben** (Premium): plata prestada a otras personas, en una o varias cuotas, con abonos parciales y navegación por mes. Prestar y cobrar pueden generar el movimiento (opcional) en la categoría Préstamos.
 - **Ahorros** (Premium): ítems multi-activo (pesos, dólares, cripto, acciones), con metas opcionales.
 - **Cuentas** (Test y Premium): efectivo, billeteras virtuales y bancos. El saldo de la app es la suma
   de las cuentas activas: archivar una la saca del saldo hasta que se reactiva. Transferencias entre

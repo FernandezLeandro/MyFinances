@@ -582,6 +582,7 @@ export interface Database {
           already_expensed: boolean
           note: string | null
           expense_transaction_id: string | null
+          installments: number
           updated_at: string
           created_at: string
         }
@@ -597,6 +598,7 @@ export interface Database {
           already_expensed?: boolean
           note?: string | null
           expense_transaction_id?: string | null
+          installments?: number
           updated_at?: string
         }
         Update: Partial<{
@@ -606,6 +608,7 @@ export interface Database {
           already_expensed: boolean
           note: string | null
           expense_transaction_id: string | null
+          installments: number
           updated_at: string
         }>
         Relationships: []
@@ -888,6 +891,7 @@ export interface Database {
           p_expense_occurred_on?: string | null
           p_expense_description?: string | null
           p_account_id?: string | null
+          p_installments?: number
         }
         Returns: string
       }
@@ -899,6 +903,10 @@ export interface Database {
           p_account_id?: string | null
         }
         Returns: undefined
+      }
+      loan_category_id: {
+        Args: { p_kind: 'expense' | 'income' }
+        Returns: string
       }
       rpc_unexpense_receivable: {
         Args: { p_receivable_id: string }
