@@ -284,9 +284,10 @@ export function TransactionFormDialog({ open, onClose, transaction }: Transactio
     }
 
     switch (originDeleteAction(origin ?? { kind: 'plain' })) {
-      case 'deleteFixedSaving':
-        // Un mes ya pagado lo frena el trigger `transactions_block_delete_paid_saving`, con su
-        // propio toast (`errors.ts`).
+      case 'deleteSaving':
+        // Un guardado de fijo o de deuda: el `on delete cascade` de `transaction_id` se lleva el
+        // guardado. Un período ya pagado lo frena el trigger `transactions_block_delete_paid_saving`,
+        // con su propio toast (`errors.ts`).
         deleteTx.mutate(transaction.id, { onSuccess: onClose })
         return
       case 'unmarkCardPayment': {

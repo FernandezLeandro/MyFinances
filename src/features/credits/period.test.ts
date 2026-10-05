@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { caeEnPeriodo, numeroDeCuota, ultimoPeriodo } from './period'
+import { caeEnPeriodo, numeroDeCuota, parseDueDay, ultimoPeriodo } from './period'
 
 describe('numeroDeCuota', () => {
   it('el mismo período que la primera cuota → cuota 1', () => {
@@ -59,5 +59,24 @@ describe('ultimoPeriodo', () => {
 
   it('cruce de año: 4 cuotas desde noviembre 2026 → febrero 2027', () => {
     expect(ultimoPeriodo('2026-11-01', 4)).toBe('2027-02-01')
+  })
+})
+
+describe('parseDueDay', () => {
+  it('vacío → null (sin vencimiento)', () => {
+    expect(parseDueDay('')).toBeNull()
+    expect(parseDueDay('  ')).toBeNull()
+  })
+
+  it('1 a 31 → el número', () => {
+    expect(parseDueDay('1')).toBe(1)
+    expect(parseDueDay(' 31 ')).toBe(31)
+  })
+
+  it('fuera de rango o no entero → undefined (inválido)', () => {
+    expect(parseDueDay('0')).toBeUndefined()
+    expect(parseDueDay('32')).toBeUndefined()
+    expect(parseDueDay('2.5')).toBeUndefined()
+    expect(parseDueDay('diez')).toBeUndefined()
   })
 })

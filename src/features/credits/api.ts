@@ -18,11 +18,13 @@ function toCreditPurchase(row: CreditPurchaseRowRaw): CreditPurchase {
   return { ...rest, installmentAmountCents: centsFromNumeric(installment_amount) }
 }
 
-type CreditCardSavingRowRaw = Database['public']['Tables']['credit_card_savings']['Row']
-export interface CreditCardSaving extends Omit<CreditCardSavingRowRaw, 'amount'> {
+/** Un aporte guardado para la cuota de una compra en un período. `transaction_id` no nulo = generó
+ *  un gasto (esa plata ya salió del saldo, y el pago descuenta sólo lo restante). */
+type CreditSavingRowRaw = Database['public']['Tables']['credit_savings']['Row']
+export interface CreditSaving extends Omit<CreditSavingRowRaw, 'amount'> {
   amountCents: number
 }
-function toCreditCardSaving(row: CreditCardSavingRowRaw): CreditCardSaving {
+function toCreditSaving(row: CreditSavingRowRaw): CreditSaving {
   const { amount, ...rest } = row
   return { ...rest, amountCents: centsFromNumeric(amount) }
 }
@@ -132,19 +134,19 @@ export function useCreditInstallmentsRange(from: string, to: string) {
   })
 }
 
-/** Lo guardado de cada tarjeta en uno o más períodos — un monto por tarjeta y mes, no un historial.
+/** Los guardados de todas las compras en uno o más períodos — varios aportes por compra se acumulan.
  *  Casi siempre un solo período; con un ciclo semanal a caballo de dos meses (bloque 5 del plan) se
  *  piden los dos que toca `cycle.months`. */
-export function useCreditCardSavings(periods: string[]) {
+export function useCreditSavings(periods: string[]) {
   const { user } = useAuth()
 
   return useQuery({
     queryKey: ['credit-savings', user?.id, periods],
     enabled: !!user && periods.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('credit_card_savings').select('*').in('period', periods)
+      const { data, error } = await supabase.from('credit_savings').select('*').in('period', periods).order('saved_at')
       if (error) throw error
-      return data.map(toCreditCardSaving)
+      return data.map(toCreditSaving)
     },
   })
 }
@@ -220,11 +222,12 @@ export function useCreditPurchasePayments(periods: string[]) {
   })
 }
 
-/** IDs de transacción de compras sueltas ya pagadas, sin acotar a un período — Análisis los usa para
- *  saber qué gastos son en realidad cuotas comprometidas: una compra sin tarjeta no lleva
- *  `is_credit_card_payment` (ver el comentario de `rpc_mark_credit_purchase_paid`: esa columna es
- *  sólo el label "· Tarjeta" de Movimientos, no un clasificador general de "esto ya estaba
- *  decidido"), así que sin este set esas cuotas se contarían como gasto variable por error. */
+/** IDs de transacción de compras sueltas ya pagadas (y de los guardados con movimiento), sin acotar a
+ *  un período — Análisis los usa para saber qué gastos son en realidad cuotas comprometidas: una
+ *  compra sin tarjeta no lleva `is_credit_card_payment` (ver el comentario de
+ *  `rpc_mark_credit_purchase_paid`: esa columna es sólo el label "· Tarjeta" de Movimientos, no un
+ *  clasificador general de "esto ya estaba decidido"), así que sin este set esas cuotas se contarían
+ *  como gasto variable por error. */
 export function useCommittedPurchaseTransactionIds() {
   const { user } = useAuth()
 
@@ -232,9 +235,13 @@ export function useCommittedPurchaseTransactionIds() {
     queryKey: ['credit-purchase-payment-tx-ids', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from('credit_purchase_payments').select('transaction_id')
-      if (error) throw error
-      return new Set(data.map((r) => r.transaction_id).filter((id): id is string => id != null))
+      const [payments, savings] = await Promise.all([
+        supabase.from('credit_purchase_payments').select('transaction_id'),
+        supabase.from('credit_savings').select('transaction_id'),
+      ])
+      if (payments.error) throw payments.error
+      if (savings.error) throw savings.error
+      return new Set([...payments.data, ...savings.data].map((r) => r.transaction_id).filter((id): id is string => id != null))
     },
   })
 }
@@ -296,7 +303,8 @@ function invalidarCreditosYPlata(queryClient: ReturnType<typeof useQueryClient>,
 
 export interface CreditCardInput {
   name: string
-  dueDay: number
+  /** `null` = sin vencimiento: sus cuotas cuentan a fin de mes. */
+  dueDay: number | null
 }
 
 export function useCreateCreditCard() {
@@ -346,13 +354,14 @@ export function useDeleteCreditCard() {
 }
 
 export interface PurchaseInput {
-  /** `null` = compra sin tarjeta; ahí `dueDay` pasa a ser obligatorio (ver `PurchaseFormDialog`). */
+  /** `null` = compra sin tarjeta. */
   cardId: string | null
   description: string
   installmentCents: number
   installments: number
   firstPeriod: string
   categoryId: string | null
+  /** Sólo compras sin tarjeta (la tarjeta trae el suyo). Opcional: sin día, la cuota cuenta a fin de mes. */
   dueDay: number | null
 }
 
@@ -415,27 +424,62 @@ export function useDeletePurchase() {
   })
 }
 
-/** Upsert: un monto por tarjeta y período, se pisa — no se acumula un historial de aportes. */
-export function useSetCreditCardSaving() {
+/** Un aporte más para la cuota de una compra — se acumula, no pisa. Con `generateMovement`, la base
+ *  genera el gasto en la misma transacción (con la categoría de la compra), y el pago después genera
+ *  sólo lo restante. Ver `rpc_add_credit_saving`. */
+export function useAddCreditSaving() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ cardId, period, cents }: { cardId: string; period: string; cents: number }) => {
-      if (!user) throw new Error('No autenticado')
-      const { error } = await supabase.from('credit_card_savings').upsert(
-        { user_id: user.id, card_id: cardId, period, amount: centsToNumeric(cents), updated_at: new Date().toISOString() },
-        { onConflict: 'card_id,period' },
-      )
+    mutationFn: async ({
+      purchaseId,
+      period,
+      cents,
+      generateMovement,
+      accountId,
+    }: {
+      purchaseId: string
+      period: string
+      cents: number
+      generateMovement: boolean
+      /** Con qué se guardó — sólo aplica si `generateMovement`. */
+      accountId?: string | null
+    }) => {
+      const { error } = await supabase.rpc('rpc_add_credit_saving', {
+        p_purchase_id: purchaseId,
+        p_period: period,
+        p_amount: centsToNumeric(cents),
+        p_generate_movement: generateMovement,
+        p_account_id: generateMovement ? (accountId ?? null) : null,
+        p_today: localTodayISO(),
+      })
       if (error) throw error
     },
-    onSuccess: () => invalidarCreditos(queryClient, user?.id),
+    onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo registrar el guardado. Probá de nuevo.' },
+  })
+}
+
+/** Si el guardado generó un movimiento, también lo borra. La base lo frena si el período ya está pagado. */
+export function useRemoveCreditSaving() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (savingId: string) => {
+      const { error } = await supabase.rpc('rpc_remove_credit_saving', { p_saving_id: savingId })
+      if (error) throw error
+    },
+    onSuccess: () => invalidarCreditosYPlata(queryClient, user?.id),
+    meta: { errorMessage: 'No se pudo quitar el guardado. Probá de nuevo.' },
   })
 }
 
 /** Sin importe ni categoría manuales: el RPC arma un movimiento POR CATEGORÍA presente ese mes,
- *  agrupando las cuotas que la comparten (ver la migración) — no hay un solo total ni una sola
- *  categoría que este mutation pueda sobreescribir. */
+ *  agrupando las cuotas que la comparten, por lo que le falta a cada una (cuota − todo lo guardado,
+ *  con o sin movimiento; una compra ya cubierta queda afuera). `paymentGroups` en `aggregate.ts` muestra lo
+ *  mismo antes de confirmar. */
 export function useMarkCreditCardPaid() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -469,8 +513,8 @@ export function useUnmarkCreditCardPaid() {
   })
 }
 
-/** Sin importe manual: el RPC toma el monto de la cuota de este período (`v_credit_installments`),
- *  igual que las tarjetas. */
+/** Sin importe manual: el RPC toma la cuota de este período menos todo lo guardado, igual que las
+ *  tarjetas (con todo cubierto no genera movimiento). */
 export function useMarkCreditPurchasePaid() {
   const { user } = useAuth()
   const queryClient = useQueryClient()

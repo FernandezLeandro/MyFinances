@@ -44,11 +44,11 @@ export interface FixedExpenseStatus {
    *  Siempre `0` en una bolsa: guardar sólo aplica a un fijo "una vez al mes" (ver el guard más abajo
    *  y la discusión del plan — una bolsa ya se va cargando de a partes como gasto real). */
   savedCents: number
-  /** Follow-up: subconjunto de `savedCents` que además generó un movimiento (`transaction_id` no
-   *  nulo) — esa plata ya salió del saldo real, así que `remainingCents` la descuenta (a diferencia
-   *  de un guardado "aparte", que no afecta el saldo hasta que se paga). Siempre `0` en una bolsa,
-   *  igual que `savedCents`. */
-  savedMovementCents: number
+  /** Subconjunto de `savedCents` que el pago descuenta, así que `remainingCents` también: lo guardado
+   *  con movimiento, y lo guardado aparte por quien pudo elegir generarlo (`covers_payment`). Lo
+   *  guardado aparte en BASIC (sin esa opción) no descuenta: el pago tiene que generar el gasto
+   *  completo. Siempre `0` en una bolsa, igual que `savedCents`. */
+  coveredCents: number
 }
 
 /**
@@ -83,20 +83,22 @@ function statusFor(
     const done = fePayments.length > 0
     const feSavings = savings.filter((s) => s.fixed_expense_id === fe.id && s.period === period)
     const savedCents = feSavings.reduce((acc, s) => acc + s.amountCents, 0)
-    // Follow-up: sólo lo guardado CON movimiento ya salió del saldo real, así que sólo eso descuenta
-    // lo que falta pagar — un guardado "aparte" (siempre el caso en BASIC) no lo toca.
-    const savedMovementCents = feSavings.filter((s) => s.transaction_id != null).reduce((acc, s) => acc + s.amountCents, 0)
+    // Espejo de `v_covered` en `rpc_mark_fixed_expense_paid`: descuenta lo guardado con movimiento y lo
+    // guardado aparte con `covers_payment` — el aparte de BASIC no lo toca.
+    const coveredCents = feSavings
+      .filter((s) => s.transaction_id != null || s.covers_payment)
+      .reduce((acc, s) => acc + s.amountCents, 0)
     return {
       fe,
       period,
       payments: fePayments,
       paidCents,
-      remainingCents: done ? 0 : Math.max(fe.cents - savedMovementCents, 0),
+      remainingCents: done ? 0 : Math.max(fe.cents - coveredCents, 0),
       done,
       overspentCents: 0,
       dueDate,
       savedCents,
-      savedMovementCents,
+      coveredCents,
     }
   }
 
@@ -135,7 +137,7 @@ function statusFor(
     overspentCents,
     dueDate: null,
     savedCents: 0,
-    savedMovementCents: 0,
+    coveredCents: 0,
   }
 }
 
@@ -338,12 +340,12 @@ export function summarizeFixedExpenses(
   // `statusFor`), así que incluirla acá no cambiaría nada — el filtro es sólo para que quede
   // explícito qué cuenta.
   const pendingOneTime = pending.filter((s) => !s.fe.is_recurring)
-  // `savedTotalCents` es sólo el guardado "aparte" (SIN movimiento): lo guardado CON movimiento ya
-  // salió del saldo real y ya está descontado de `remainingCents` (ver `statusFor`) — contarlo acá
-  // de nuevo lo mostraría dos veces (en "Fijos por pagar", ya neto, y otra vez en "Guardado para
-  // fijos", como si todavía estuviera esperando).
+  // `savedTotalCents` es sólo el guardado que el pago NO descuenta (el aparte de BASIC): lo cubierto
+  // (`coveredCents`) ya está descontado de `remainingCents` (ver `statusFor`) — contarlo acá de nuevo
+  // lo mostraría dos veces (en "Fijos por pagar", ya neto, y otra vez en "Guardado para fijos", como
+  // si todavía estuviera esperando).
   const savedTotalCents = pendingOneTime.reduce(
-    (acc, s) => acc + Math.min(s.savedCents - s.savedMovementCents, s.remainingCents),
+    (acc, s) => acc + Math.min(s.savedCents - s.coveredCents, s.remainingCents),
     0,
   )
   const missingToSaveCents = Math.max(pendingOneTime.reduce((acc, s) => acc + s.remainingCents, 0) - savedTotalCents, 0)

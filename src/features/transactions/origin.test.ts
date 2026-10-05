@@ -18,6 +18,13 @@ describe('parseTransactionOrigin', () => {
     expect(parseTransactionOrigin({ kind: 'fixed_saving' })).toEqual({ kind: 'fixed_saving' })
   })
 
+  it('credit_saving: trae la compra para la nota y la confirmación', () => {
+    expect(parseTransactionOrigin({ kind: 'credit_saving', purchaseDescription: 'Puma' })).toEqual({
+      kind: 'credit_saving',
+      purchaseDescription: 'Puma',
+    })
+  })
+
   it('card_payment: trae id, nombre, período, cantidad y total', () => {
     expect(
       parseTransactionOrigin({
@@ -78,6 +85,12 @@ describe('movementFieldLocks', () => {
     expect(movementFieldLocks({ kind: 'fixed_saving' })).toMatchObject({ lockAmount: false, lockType: true })
   })
 
+  it('credit_saving: igual que el guardado de un fijo, y la nota nombra la compra', () => {
+    const locks = movementFieldLocks({ kind: 'credit_saving', purchaseDescription: 'Puma' })
+    expect(locks).toMatchObject({ lockAmount: false, lockType: true })
+    expect(locks.note).toContain('Puma')
+  })
+
   it('el resto de los orígenes vinculados bloquea importe Y tipo — MO-03/MO-07/MO-08', () => {
     const linked: Array<Parameters<typeof movementFieldLocks>[0]> = [
       { kind: 'card_payment', cardId: 'card-1', cardName: 'Visa', period: '2026-09-01', movementCount: 1, totalCents: 1000 },
@@ -112,7 +125,8 @@ describe('movementFieldLocks', () => {
 describe('originDeleteAction', () => {
   it('cada origen dispara la acción de deshacer de su pantalla', () => {
     expect(originDeleteAction({ kind: 'fixed_payment' })).toBe('unmarkFixedPayment')
-    expect(originDeleteAction({ kind: 'fixed_saving' })).toBe('deleteFixedSaving')
+    expect(originDeleteAction({ kind: 'fixed_saving' })).toBe('deleteSaving')
+    expect(originDeleteAction({ kind: 'credit_saving', purchaseDescription: '' })).toBe('deleteSaving')
     expect(
       originDeleteAction({ kind: 'card_payment', cardId: '', cardName: '', period: '', movementCount: 0, totalCents: 0 }),
     ).toBe('unmarkCardPayment')
@@ -157,5 +171,11 @@ describe('originDeleteCopy', () => {
     expect(originDeleteCopy({ kind: 'fixed_payment' }, 'Expensas').title).toBe('¿Quitar este pago?')
     expect(originDeleteCopy({ kind: 'fixed_saving' }, 'Guardado').title).toBe('¿Eliminar este guardado?')
     expect(originDeleteCopy({ kind: 'plain' }, 'Supermercado').title).toBe('¿Eliminar este movimiento?')
+  })
+
+  it('credit_saving: avisa que la compra pierde ese guardado', () => {
+    const copy = originDeleteCopy({ kind: 'credit_saving', purchaseDescription: 'Puma' }, 'Guardado · Puma (1/3)')
+    expect(copy.title).toBe('¿Eliminar este guardado?')
+    expect(copy.paragraphs.join(' ')).toContain('Puma')
   })
 })

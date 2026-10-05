@@ -10,6 +10,8 @@ interface IconSquareProps {
   className?: string
   'aria-label'?: string
   'aria-pressed'?: boolean
+  /** Cuando el cuadrado despliega algo en su fila (el editor de guardado de Mis Deudas). */
+  'aria-expanded'?: boolean
 }
 
 /**

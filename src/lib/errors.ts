@@ -102,10 +102,16 @@ export function mensajeDeError(error: unknown): string {
   // Bloque 1 del QA de Fijos (FI-02/FI-03): triggers `transactions_sync_linked_fixed_expense` y
   // `transactions_block_delete_paid_saving` (`20260923070001_fijos_movimiento_vinculado.sql`).
   if (code === 'P0001' && /linked_movement_type_locked/.test(message))
-    return 'Este movimiento viene de un fijo: no se puede cambiar entre Gasto e Ingreso.'
+    return 'Este movimiento viene de un fijo o una deuda: no se puede cambiar entre Gasto e Ingreso.'
   if (code === 'P0001' && /linked_movement_amount_invalid/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /fixed_expense_saving_period_paid/.test(message))
     return 'Este guardado es de un mes ya pagado: primero quitá el pago del fijo.'
+  // Guardado por compra de Mis Deudas (`20261004010001_deudas_guardado_por_compra.sql`): mismo freno
+  // que el de Fijos, desde `rpc_add_credit_saving`/`rpc_remove_credit_saving` o los triggers.
+  if (code === 'P0001' && /credit_saving_period_paid/.test(message))
+    return 'Ese mes ya está pagado: primero deshacé el pago en Mis Deudas.'
+  if (code === 'P0001' && /credit_saving_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
+  if (code === 'P0001' && /credit_purchase_period_empty/.test(message)) return 'Esa compra no tiene cuota este mes.'
   // Bloques 3 y 4 del arreglo de Movimientos (MO-02 a MO-08): triggers `transactions_block_delete_
   // linked`/`transactions_lock_linked` (`20260924040001_movimientos_vinculados.sql`) — sólo se
   // llegan a ver por API directa, la UI ya usa la RPC de deshacer o bloquea el campo antes.

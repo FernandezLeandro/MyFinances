@@ -38,7 +38,7 @@ import { useBalanceLocations } from '@/features/accounts/api'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
-  useCreditCardSavings,
+  useCreditSavings,
   useCreditCards,
   useCreditInstallmentsRange,
   useCreditPurchasePayments,
@@ -133,7 +133,7 @@ export function Hoy() {
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycleFrom, cycleTo)
-  const { data: savings } = useCreditCardSavings(monthsOfCycle)
+  const { data: savings } = useCreditSavings(monthsOfCycle)
   const { data: cardPayments } = useCreditCardPayments(monthsOfCycle)
   const { data: purchasePayments } = useCreditPurchasePayments(monthsOfCycle)
 
@@ -643,7 +643,9 @@ export function Hoy() {
                     <span className="text-[11.5px] text-fg-muted">
                       {c.items.length} cuota{c.items.length === 1 ? '' : 's'}
                     </span>
-                    <Money cents={c.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                    {/* Lo que falta pagar (neto de todo lo guardado) — así las
+                        filas suman el total de arriba, igual que «Deudas por pagar» del proyectado. */}
+                    <Money cents={c.pendingCents} tone="fg" size="row" hidden={balanceHidden} />
                   </li>
                 ))}
                 {unpaidStandalone.map((s) => (
@@ -651,7 +653,7 @@ export function Hoy() {
                     <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-fg">
                       {s.purchase.description}
                     </span>
-                    <Money cents={s.totalCents} tone="fg" size="row" hidden={balanceHidden} />
+                    <Money cents={s.pendingCents} tone="fg" size="row" hidden={balanceHidden} />
                   </li>
                 ))}
               </ul>

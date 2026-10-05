@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
 import { useCycle } from '@/lib/useCycle'
-import { EASE_OUT_QUINT } from '@/lib/motion'
+import { EASE_OUT_QUINT, ROW_PRESENCE } from '@/lib/motion'
 import { cycleOfLabel, cycleShortLabel, cycleThisLabel, projectionWindow } from '@/lib/cycle'
 import { pendingBeforeCents } from '@/lib/projectedBalance'
 import { useCan } from '@/features/access/useCan'
@@ -52,22 +52,12 @@ import { MarkPaidDialog } from '@/features/fixed-expenses/MarkPaidDialog'
 import { summarizeMisDeudas } from '@/features/credits/aggregate'
 import {
   useCreditCardPayments,
-  useCreditCardSavings,
+  useCreditSavings,
   useCreditCards,
   useCreditInstallmentsRange,
   useCreditPurchasePayments,
   useStandalonePurchases,
 } from '@/features/credits/api'
-
-// Pagar un fijo mueve la fila de su grupo al rail de «Pagados»: sin esto desaparece y reaparece de
-// golpe. `height` (no `scale`) porque la fila tiene que ceder su lugar a las de abajo; `initial={false}`
-// en cada `AnimatePresence` evita que se anime la carga de la pantalla o el cambio de ciclo.
-const ROW_PRESENCE = {
-  initial: { opacity: 0, height: 0 },
-  animate: { opacity: 1, height: 'auto' },
-  exit: { opacity: 0, height: 0 },
-  transition: { duration: 0.22, ease: EASE_OUT_QUINT },
-} as const
 
 // Igual para un panel entero, más `marginTop: -16` que cancela el `gap-4` de la columna mientras
 // colapsa — sin eso el hueco de 16px desaparece de golpe al final de la salida.
@@ -349,7 +339,7 @@ export function Fijos() {
   const { data: cards } = useCreditCards()
   const { data: standalonePurchases } = useStandalonePurchases()
   const { data: installments } = useCreditInstallmentsRange(cycle.from, cycle.to)
-  const { data: savings } = useCreditCardSavings(periods)
+  const { data: savings } = useCreditSavings(periods)
   const { data: cardPayments } = useCreditCardPayments(periods)
   const { data: purchasePayments } = useCreditPurchasePayments(periods)
 
@@ -889,7 +879,7 @@ export function Fijos() {
           period={markingPaid.period}
           alreadyPaidCents={markingPaid.paidCents}
           alreadySavedCents={markingPaid.savedCents}
-          alreadySavedMovementCents={markingPaid.savedMovementCents}
+          alreadyCoveredCents={markingPaid.coveredCents}
           dueDate={markingPaid.dueDate}
         />
       )}

@@ -93,7 +93,7 @@ export function RegisterFixedExpenseDialog({ open, onClose }: RegisterFixedExpen
         period={selected.period}
         alreadyPaidCents={selected.paidCents}
         alreadySavedCents={selected.savedCents}
-        alreadySavedMovementCents={selected.savedMovementCents}
+        alreadyCoveredCents={selected.coveredCents}
         dueDate={selected.dueDate}
       />
     )
