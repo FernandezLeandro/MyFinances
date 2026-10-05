@@ -1,14 +1,10 @@
-import { useState } from 'react'
-import { format } from 'date-fns'
 import { Dialog } from '@/components/ui/Dialog'
-import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
+import { DialogConfirmStack } from '@/components/ui/dialog-parts'
 import { Money } from '@/components/ui/Money'
-import { useCategories } from '@/features/categories/api'
+import { formatMoney } from '@/lib/money'
 import { useExpenseReceivable } from '@/features/receivables/api'
 import type { ReceivableSummary } from '@/features/receivables/aggregate'
-import { AccountSelect } from '@/features/accounts/AccountSelect'
+import { AccountField } from '@/features/accounts/AccountField'
 import { useDefaultAccountId } from '@/features/accounts/useDefaultAccountId'
 import { useAccountPicker } from '@/features/accounts/useAccountPicker'
 
@@ -19,87 +15,39 @@ interface ExpenseReceivableDialogProps {
 }
 
 /**
- * "Descontala ahora" sobre una deuda que se había cargado como "sigue en mi saldo": pide categoría
- * y fecha del gasto y llama a `useExpenseReceivable`, que via `rpc_expense_receivable` crea el gasto
- * por lo pendiente y prende `already_expensed`. Compartido por `ReceivableDetailDialog` (el detalle
- * de una deuda) y la lista de Me Deben — mismos dos puntos de entrada que ya comparten
- * `RegistrarAbonoDialog`.
+ * "Registrar el gasto ahora" sobre una deuda cargada sin movimiento: `rpc_expense_receivable` crea
+ * el gasto por lo pendiente, en «Préstamos» y con fecha de hoy, y prende `already_expensed`. Sólo
+ * pide la cuenta (si la app la pide).
  */
 export function ExpenseReceivableDialog({ open, onClose, summary }: ExpenseReceivableDialogProps) {
   const { receivable, pendingCents } = summary
-  const { data: categories } = useCategories()
-  const expenseCategories = (categories ?? []).filter((c) => c.kind === 'expense')
-
-  const [categoryId, setCategoryId] = useState('')
-  const [occurredOn, setOccurredOn] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const expenseReceivable = useExpenseReceivable()
   const [accountId, setAccountId] = useDefaultAccountId()
   const picker = useAccountPicker()
-
-  async function handleConfirm() {
-    await expenseReceivable.mutateAsync({
-      receivableId: receivable.id,
-      categoryId: categoryId || null,
-      occurredOn,
-      accountId: accountId || null,
-    })
-    onClose()
-  }
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="Descontar de tu saldo"
+      title="Registrar el gasto"
       footer={
-        <>
-          <Button variant="ghost" size="dialogFooter" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button size="dialogFooter" onClick={handleConfirm} disabled={expenseReceivable.isPending || (picker.show && !accountId)}>
-            {expenseReceivable.isPending ? 'Guardando…' : 'Descontar'}
-          </Button>
-        </>
+        <DialogConfirmStack
+          tone="primary"
+          confirmLabel={`Registrar ${formatMoney(pendingCents)}`}
+          pendingLabel="Guardando…"
+          pending={expenseReceivable.isPending}
+          disabled={picker.show && !accountId}
+          onConfirm={() => expenseReceivable.mutate({ receivableId: receivable.id, accountId: accountId || null }, { onSuccess: onClose })}
+          onCancel={onClose}
+        />
       }
     >
       <div className="flex flex-col gap-5">
-        <div>
-          <p className="eyebrow">{receivable.name}</p>
-          <p className="mt-1 text-[13px] text-fg-muted">
-            Se carga un gasto por <Money cents={pendingCents} tone="dim" /> — lo que todavía te debe.
-          </p>
-        </div>
-
-        <Field label="Categoría" htmlFor="expenseCategoryId" hint="Opcional">
-          <Select id="expenseCategoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            <option value="">Elegir…</option>
-            {expenseCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Fecha" htmlFor="expenseOccurredOn">
-          <Input
-            id="expenseOccurredOn"
-            type="date"
-            value={occurredOn}
-            onChange={(e) => setOccurredOn(e.target.value)}
-          />
-        </Field>
-
-        {picker.show && (
-          <Field label="Con qué lo pagué">
-            <AccountSelect required value={accountId} onChange={setAccountId} />
-          </Field>
-        )}
-
-        <p className="text-[12px] text-fg-muted">
-          Esa plata deja de contar en tu saldo — cuando te la devuelvan se va a registrar como un
-          ingreso.
+        <p className="text-[13px] text-fg-secondary">
+          Se carga un gasto en Préstamos por <Money cents={pendingCents} tone="fg" size="inline" />, lo que todavía te debe{' '}
+          {receivable.name}. Cuando te lo devuelva, el cobro arranca registrando el ingreso.
         </p>
+        {picker.show && <AccountField label="Con qué se lo diste" accountId={accountId} onChange={setAccountId} deltaCents={-pendingCents} />}
       </div>
     </Dialog>
   )

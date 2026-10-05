@@ -71,16 +71,12 @@ export function useReceivablePayments() {
 
 export interface ReceivableInput {
   name: string
+  /** El TOTAL prestado — la cuota se deriva en `aggregate.ts` (`cuotaCents`). */
   cents: number
-  /** `'yyyy-MM-dd'`, día 1, o `null` para "no sé cuándo". */
+  /** Mes de la primera cuota, `'yyyy-MM-dd'` día 1, o `null` para "no sé cuándo" (sólo con 1 cuota). */
   expectedPeriod: string | null
-  alreadyExpensed: boolean
+  installments: number
   note: string | null
-  /** Si viene, `rpc_create_receivable` crea además un gasto por este monto en el mismo paso — ver
-   *  el comentario de la migración `deudas_flujo_movimientos` para los dos usos (descontar del
-   *  saldo vs. gasto compartido) y por qué los montos difieren entre uno y otro. `accountId` es con
-   *  qué se pagó ESE gasto — se ignora si `expense` no viene. */
-  expense?: { cents: number; categoryId: string | null; occurredOn: string; description: string | null; accountId?: string | null } | null
 }
 
 /** Editar/borrar una deuda no toca `transactions` ni el saldo por sí sola — sólo el ALTA puede
@@ -103,27 +99,25 @@ function invalidarDeudasYPlata(queryClient: ReturnType<typeof useQueryClient>, u
   queryClient.invalidateQueries({ queryKey: ['account-balances', userId] })
 }
 
-/** Alta de deuda, vía RPC porque puede tener que crear el gasto asociado atómicamente (ver
- *  `ReceivableInput.expense`) — dos escrituras sueltas desde el cliente podrían cortarse a la
- *  mitad (PWA) y dejar un gasto huérfano. Invalida también el saldo: a diferencia de antes, un alta
- *  con `expense` sí lo mueve. */
+/** Alta de deuda, vía RPC porque puede tener que crear el gasto asociado atómicamente — dos
+ *  escrituras sueltas desde el cliente podrían cortarse a la mitad (PWA) y dejar un gasto huérfano.
+ *  `expense` = registrar el gasto por el total, en la categoría «Préstamos» (la resuelve el RPC) y
+ *  con fecha de hoy; `accountId` es con qué se pagó. */
 export function useCreateReceivable() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: ReceivableInput) => {
+    mutationFn: async ({ expense, ...input }: ReceivableInput & { expense: { accountId: string | null } | null }) => {
       const { data, error } = await supabase.rpc('rpc_create_receivable', {
         p_name: input.name,
         p_amount: centsToNumeric(input.cents),
         p_expected_period: input.expectedPeriod,
         p_note: input.note,
-        p_already_expensed: input.alreadyExpensed,
-        p_expense_amount: input.expense ? centsToNumeric(input.expense.cents) : null,
-        p_expense_category_id: input.expense?.categoryId ?? null,
-        p_expense_occurred_on: input.expense?.occurredOn ?? null,
-        p_expense_description: input.expense?.description ?? null,
-        p_account_id: input.expense?.accountId ?? null,
+        p_already_expensed: expense != null,
+        p_expense_amount: expense ? centsToNumeric(input.cents) : null,
+        p_account_id: expense?.accountId ?? null,
+        p_installments: input.installments,
       })
       if (error) throw error
       return data
@@ -139,18 +133,21 @@ export function useUpdateReceivable() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<ReceivableInput> & { id: string }) => {
+      // Sin `already_expensed`: si la deuda generó un gasto o no se decide al prestar (o con
+      // "Registrar el gasto ahora" / "Deshacer" del detalle, que pasan por RPC) — tocarlo con un
+      // update suelto dejaría un gasto huérfano o contado dos veces.
       const patch: {
         name?: string
         amount?: string
         expected_period?: string | null
-        already_expensed?: boolean
+        installments?: number
         note?: string | null
         updated_at: string
       } = { updated_at: new Date().toISOString() }
       if (input.name !== undefined) patch.name = input.name
       if (input.cents !== undefined) patch.amount = centsToNumeric(input.cents)
       if (input.expectedPeriod !== undefined) patch.expected_period = input.expectedPeriod
-      if (input.alreadyExpensed !== undefined) patch.already_expensed = input.alreadyExpensed
+      if (input.installments !== undefined) patch.installments = input.installments
       if (input.note !== undefined) patch.note = input.note
       const { error } = await supabase.from('receivables').update(patch).eq('id', id)
       if (error) throw error
@@ -185,17 +182,15 @@ export function useRegisterReceivablePayment() {
       receivableId,
       cents,
       occurredOn,
-      categoryId,
       createIncome,
       accountId,
     }: {
       receivableId: string
       cents: number
       occurredOn?: string
-      categoryId?: string | null
-      /** `null`/`undefined` deja que el RPC derive de `already_expensed` (comportamiento de
-       *  siempre); `true`/`false` explícito pisa esa derivación — ver el toggle de
-       *  `RegistrarAbonoDialog`. */
+      /** `null`/`undefined` deja que el RPC derive de `already_expensed`; `true`/`false` explícito
+       *  pisa esa derivación — ver el checkbox de la vista "Cobrar" de `ReceivableSheet`. El ingreso
+       *  cae en «Préstamos» (lo resuelve el RPC). */
       createIncome?: boolean | null
       /** Dónde ENTRÓ la plata cobrada — sólo tiene efecto si el abono termina generando un ingreso. */
       accountId?: string | null
@@ -204,7 +199,6 @@ export function useRegisterReceivablePayment() {
         p_receivable_id: receivableId,
         p_amount: centsToNumeric(cents),
         p_occurred_on: occurredOn ?? null,
-        p_category_id: categoryId ?? null,
         p_create_income: createIncome ?? null,
         p_account_id: accountId ?? null,
       })
@@ -215,34 +209,23 @@ export function useRegisterReceivablePayment() {
   })
 }
 
-/** "Descontala ahora" sobre una deuda que se había cargado como "sigue en mi saldo": genera el
- *  gasto que faltaba por lo pendiente y prende `already_expensed`. Ver `rpc_expense_receivable`. */
+/** "Registrar el gasto ahora" sobre una deuda cargada sin movimiento: genera el gasto que faltaba
+ *  por lo pendiente (en «Préstamos», con fecha de hoy) y prende `already_expensed`. Ver
+ *  `rpc_expense_receivable`. */
 export function useExpenseReceivable() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
-      receivableId,
-      categoryId,
-      occurredOn,
-      accountId,
-    }: {
-      receivableId: string
-      categoryId?: string | null
-      occurredOn?: string
-      accountId?: string | null
-    }) => {
+    mutationFn: async ({ receivableId, accountId }: { receivableId: string; accountId?: string | null }) => {
       const { error } = await supabase.rpc('rpc_expense_receivable', {
         p_receivable_id: receivableId,
-        p_category_id: categoryId ?? null,
-        p_occurred_on: occurredOn ?? null,
         p_account_id: accountId ?? null,
       })
       if (error) throw error
     },
     onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
-    meta: { errorMessage: 'No se pudo descontar la deuda de tu saldo. Probá de nuevo.' },
+    meta: { errorMessage: 'No se pudo registrar el gasto. Probá de nuevo.' },
   })
 }
 
@@ -257,7 +240,7 @@ export function useUnexpenseReceivable() {
       if (error) throw error
     },
     onSuccess: () => invalidarDeudasYPlata(queryClient, user?.id),
-    meta: { errorMessage: 'No se pudo deshacer el descuento. Probá de nuevo.' },
+    meta: { errorMessage: 'No se pudo deshacer el gasto. Probá de nuevo.' },
   })
 }
 

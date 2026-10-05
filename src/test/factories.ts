@@ -176,6 +176,7 @@ export function makeReceivable(p: Partial<Receivable> & Pick<Receivable, 'amount
     already_expensed: false,
     note: null,
     expense_transaction_id: null,
+    installments: 1,
     updated_at: FIXED_DATE,
     created_at: FIXED_DATE,
     ...p,
