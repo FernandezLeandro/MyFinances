@@ -349,6 +349,8 @@ export interface Database {
           saved_at: string
           note: string | null
           transaction_id: string | null
+          // Guardado aparte que igual descuenta del pago (`20261005010001_pago_descuenta_todo_lo_guardado.sql`).
+          covers_payment: boolean
         }
         Insert: {
           id?: string
@@ -358,6 +360,7 @@ export interface Database {
           amount: number | string
           note?: string | null
           transaction_id?: string | null
+          covers_payment?: boolean
         }
         Update: Partial<{ note: string | null; transaction_id: string | null }>
         Relationships: []
@@ -367,16 +370,17 @@ export interface Database {
           id: string
           user_id: string
           name: string
-          due_day: number
+          // `null` = sin vencimiento (cuenta a fin de mes, `20261004010001_deudas_guardado_por_compra.sql`).
+          due_day: number | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
           name: string
-          due_day: number
+          due_day?: number | null
         }
-        Update: Partial<{ name: string; due_day: number }>
+        Update: Partial<{ name: string; due_day: number | null }>
         Relationships: []
       }
       credit_purchases: {
@@ -416,24 +420,21 @@ export interface Database {
         }>
         Relationships: []
       }
-      credit_card_savings: {
+      // Guardado por compra y mes, con movimiento opcional (`transaction_id`) — sólo `select` directo,
+      // se escribe por `rpc_add_credit_saving`/`rpc_remove_credit_saving`
+      // (`20261004010001_deudas_guardado_por_compra.sql`).
+      credit_savings: {
         Row: {
           id: string
           user_id: string
-          card_id: string
+          purchase_id: string
           period: string
           amount: string
-          updated_at: string
+          transaction_id: string | null
+          saved_at: string
         }
-        Insert: {
-          id?: string
-          user_id: string
-          card_id: string
-          period: string
-          amount: number | string
-          updated_at?: string
-        }
-        Update: Partial<{ amount: number | string; updated_at: string }>
+        Insert: never
+        Update: never
         Relationships: []
       }
       credit_card_payments: {
@@ -726,6 +727,7 @@ export interface Database {
           p_account_id?: string | null
           p_occurred_on?: string | null
           p_today?: string | null
+          p_covers_payment?: boolean
         }
         Returns: undefined
       }
@@ -841,6 +843,22 @@ export interface Database {
       }
       rpc_unmark_credit_purchase_paid: {
         Args: { p_purchase_id: string; p_period: string }
+        Returns: undefined
+      }
+      rpc_add_credit_saving: {
+        Args: {
+          p_purchase_id: string
+          p_period: string
+          p_amount: number | string
+          p_generate_movement?: boolean
+          p_account_id?: string | null
+          p_occurred_on?: string | null
+          p_today?: string | null
+        }
+        Returns: undefined
+      }
+      rpc_remove_credit_saving: {
+        Args: { p_saving_id: string }
         Returns: undefined
       }
       rpc_register_receivable_payment: {

@@ -12,6 +12,7 @@ import { confirmDeleteMovementCopy, type ConfirmDeleteMovementCopy } from './agg
 export type TransactionOrigin =
   | { kind: 'fixed_payment' }
   | { kind: 'fixed_saving' }
+  | { kind: 'credit_saving'; purchaseDescription: string }
   | { kind: 'card_payment'; cardId: string; cardName: string; period: string; movementCount: number; totalCents: number }
   | { kind: 'installment'; purchaseId: string; purchaseDescription: string; period: string }
   | { kind: 'receivable_expensed'; receivableId: string; personName: string }
@@ -45,6 +46,8 @@ export function parseTransactionOrigin(raw: unknown): TransactionOrigin {
       return { kind: 'fixed_payment' }
     case 'fixed_saving':
       return { kind: 'fixed_saving' }
+    case 'credit_saving':
+      return { kind: 'credit_saving', purchaseDescription: str(raw.purchaseDescription) }
     case 'card_payment':
       return {
         kind: 'card_payment',
@@ -85,9 +88,9 @@ export interface MovementFieldLocks {
 
 /**
  * Qué se puede tocar del formulario según el origen, y qué nota mostrar. `fixed_payment`/
- * `fixed_saving` dejan el importe editable a propósito: un trigger en la base
+ * `fixed_saving`/`credit_saving` dejan el importe editable a propósito: un trigger en la base
  * (`trg_transactions_sync_linked_fixed_expense`) sincroniza el pago/guardado — es el Bloque 1 del QA
- * de Fijos. Los demás orígenes (Bloque 4 del arreglo de Movimientos, MO-03/MO-07/MO-08) sí bloquean
+ * de Fijos, extendido a Mis Deudas en `20261004010001_deudas_guardado_por_compra.sql`. Los demás orígenes (Bloque 4 del arreglo de Movimientos, MO-03/MO-07/MO-08) sí bloquean
  * el importe: no hay ningún trigger que reparta un cambio de importe entre "tu parte" y la deuda, o
  * entre una categoría y otra de un pago de tarjeta — cambiarlo desde acá sólo podía descuadrar el
  * origen en silencio.
@@ -107,6 +110,12 @@ export function movementFieldLocks(origin: TransactionOrigin): MovementFieldLock
         lockType: true,
         note:
           'Este movimiento es un guardado para un fijo: cambiar el importe actualiza el guardado. Si lo eliminás, esa plata deja de estar apartada. El tipo (Gasto/Ingreso) no se puede cambiar.',
+      }
+    case 'credit_saving':
+      return {
+        lockAmount: false,
+        lockType: true,
+        note: `Este movimiento es un guardado para «${origin.purchaseDescription}» en Mis Deudas: cambiar el importe actualiza el guardado. Si lo eliminás, esa plata deja de estar guardada. El tipo (Gasto/Ingreso) no se puede cambiar.`,
       }
     case 'card_payment':
       return {
@@ -150,7 +159,7 @@ export function movementFieldLocks(origin: TransactionOrigin): MovementFieldLock
 
 export type OriginDeleteAction =
   | 'unmarkFixedPayment'
-  | 'deleteFixedSaving'
+  | 'deleteSaving'
   | 'unmarkCardPayment'
   | 'unmarkInstallment'
   | 'unexpenseReceivable'
@@ -165,7 +174,8 @@ export function originDeleteAction(origin: TransactionOrigin): OriginDeleteActio
     case 'fixed_payment':
       return 'unmarkFixedPayment'
     case 'fixed_saving':
-      return 'deleteFixedSaving'
+    case 'credit_saving':
+      return 'deleteSaving'
     case 'card_payment':
       return 'unmarkCardPayment'
     case 'installment':
@@ -193,6 +203,12 @@ export function originDeleteCopy(origin: TransactionOrigin, description: string 
       return confirmDeleteMovementCopy({ kind: 'payment', description })
     case 'fixed_saving':
       return confirmDeleteMovementCopy({ kind: 'saving', description })
+    case 'credit_saving':
+      return {
+        title: '¿Eliminar este guardado?',
+        confirmLabel: 'Eliminar guardado',
+        paragraphs: [`«${origin.purchaseDescription}» deja de tener esta plata guardada en Mis Deudas.`],
+      }
     case 'card_payment': {
       const plural = origin.movementCount === 1 ? '' : 's'
       return {

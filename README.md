@@ -29,7 +29,7 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
   búsqueda, resumen del período, exportar a CSV.
 - **Análisis** (Test y Premium): gasto del período con variación vs. el anterior, distribución por
   categoría, fijo vs. variable, promedios mensuales.
-- **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado previo.
+- **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado por compra (con o sin movimiento); al pagar se genera sólo lo que falta.
 - **Me Deben** (Premium): plata prestada a otras personas, con abonos parciales.
 - **Ahorros** (Premium): ítems multi-activo (pesos, dólares, cripto, acciones), con metas opcionales.
 - **Cuentas** (Test y Premium): efectivo, billeteras virtuales y bancos. El saldo de la app es la suma

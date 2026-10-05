@@ -625,7 +625,7 @@ describe('summarizeFixedExpenses — guardado CON movimiento (follow-up del bloq
     const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
     const saving = makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00, transaction_id: 'tx1' })
     const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, [saving])
-    expect(s.pending[0].savedMovementCents).toBe(20_000_00)
+    expect(s.pending[0].coveredCents).toBe(20_000_00)
     expect(s.pending[0].remainingCents).toBe(30_000_00)
     expect(s.pendingTotalCents).toBe(30_000_00)
   })
@@ -638,7 +638,7 @@ describe('summarizeFixedExpenses — guardado CON movimiento (follow-up del bloq
     expect(s.pendingTotalCents).toBe(0)
   })
 
-  it('savedTotalCents/missingToSaveCents sólo cuentan el guardado SIN movimiento — el que ya salió del saldo no se muestra dos veces', () => {
+  it('savedTotalCents/missingToSaveCents sólo cuentan el guardado que el pago no descuenta — lo cubierto no se muestra dos veces', () => {
     const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
     const savings = [
       makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00, transaction_id: 'tx1' }),
@@ -648,6 +648,23 @@ describe('summarizeFixedExpenses — guardado CON movimiento (follow-up del bloq
     // remainingCents = 50.000 - 20.000 (con movimiento) = 30.000; savedTotalCents sólo cuenta el
     // guardado aparte (10.000), no el que ya está reflejado en remainingCents.
     expect(s.pending[0].remainingCents).toBe(30_000_00)
+    expect(s.savedTotalCents).toBe(10_000_00)
+    expect(s.missingToSaveCents).toBe(20_000_00)
+  })
+
+  // Pedido de Leandro: pagar descuenta todo lo guardado, tenga movimiento o no — salvo en BASIC, que
+  // no puede elegir y guarda todo aparte (si descontara, un fijo guardado entero se pagaría sin
+  // generar el gasto). Espejo de `v_covered` en `rpc_mark_fixed_expense_paid`.
+  it('guardado aparte con covers_payment descuenta igual que uno con movimiento; el de BASIC no', () => {
+    const fe = makeFixedExpense({ id: 'f1', cents: 50_000_00 })
+    const savings = [
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 20_000_00, covers_payment: true }),
+      makeFixedExpenseSaving({ fixed_expense_id: 'f1', amountCents: 10_000_00 }), // BASIC
+    ]
+    const s = summarizeFixedExpenses([fe], [], AGOSTO, HOY_EN_AGOSTO, undefined, undefined, 1, savings)
+    expect(s.pending[0].coveredCents).toBe(20_000_00)
+    expect(s.pending[0].remainingCents).toBe(30_000_00)
+    expect(s.pendingTotalCents).toBe(30_000_00)
     expect(s.savedTotalCents).toBe(10_000_00)
     expect(s.missingToSaveCents).toBe(20_000_00)
   })

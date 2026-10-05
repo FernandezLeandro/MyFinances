@@ -10,10 +10,10 @@ import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
 import type {
   CreditCard,
   CreditCardPayment,
-  CreditCardSaving,
   CreditInstallmentRange,
   CreditPurchase,
   CreditPurchasePayment,
+  CreditSaving,
 } from '@/features/credits/api'
 import type { BalanceLocation } from '@/features/accounts/api'
 import type { AccountTransfer } from '@/features/accounts/transfers-api'
@@ -95,12 +95,15 @@ export function makeInstallment(
   }
 }
 
-export function makeSaving(p: Partial<CreditCardSaving> & Pick<CreditCardSaving, 'card_id' | 'amountCents'>): CreditCardSaving {
+/** Guardado de una cuota: por default "aparte" (sin movimiento) — pasar `transaction_id` para uno
+ *  que generó un gasto. */
+export function makeSaving(p: Partial<CreditSaving> & Pick<CreditSaving, 'purchase_id' | 'amountCents'>): CreditSaving {
   return {
     id: `saving-${Math.random().toString(36).slice(2)}`,
     user_id: 'user-1',
     period: '2026-08-01',
-    updated_at: FIXED_DATE,
+    transaction_id: null,
+    saved_at: FIXED_DATE,
     ...p,
   }
 }
@@ -242,6 +245,8 @@ export function makeFixedExpenseSaving(
     // movimiento) — pasar `transaction_id` explícito sólo hace falta para probar el caso con
     // movimiento (follow-up de `[[basic-fijos-plan]]`).
     transaction_id: null,
+    // `false` por default: el guardado aparte de BASIC, que no descuenta del pago.
+    covers_payment: false,
     ...p,
   }
 }

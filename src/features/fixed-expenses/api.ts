@@ -432,6 +432,7 @@ export function useAddFixedExpenseSaving() {
       cents,
       note,
       generateMovement = false,
+      coversPayment = false,
       accountId,
       occurredOn,
     }: {
@@ -443,6 +444,10 @@ export function useAddFixedExpenseSaving() {
        *  ver el guard en `MarkPaidDialog`. Con `true`, esta plata sale del saldo real ahora, y
        *  `rpc_mark_fixed_expense_paid` la descuenta del movimiento que genera el pago. */
       generateMovement?: boolean
+      /** Si un guardado aparte (sin movimiento) igual descuenta del pago — `true` cuando quien guarda
+       *  pudo elegir generar el movimiento (`movimientos-manuales`). En BASIC va `false`: todo se guarda
+       *  aparte y, si descontara, un fijo guardado entero se pagaría sin generar ningún gasto. */
+      coversPayment?: boolean
       /** Con qué se guardó — sólo aplica si `generateMovement`. */
       accountId?: string | null
       /** Fecha real del movimiento generado — sólo importa si `generateMovement`. `undefined`/`null`
@@ -455,6 +460,7 @@ export function useAddFixedExpenseSaving() {
         p_period: period,
         p_amount: centsToNumeric(cents),
         p_generate_movement: generateMovement,
+        p_covers_payment: coversPayment,
         p_note: note ?? null,
         p_account_id: accountId ?? null,
         p_occurred_on: occurredOn ?? null,

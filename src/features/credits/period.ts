@@ -28,3 +28,13 @@ export function caeEnPeriodo(primeraCuota: string, cuotas: number, periodo: stri
 export function ultimoPeriodo(primeraCuota: string, cuotas: number): string {
   return format(addMonths(startOfMonth(parseISO(primeraCuota)), cuotas - 1), 'yyyy-MM-dd')
 }
+
+/** Día de vencimiento opcional de un formulario (tarjeta o compra sin tarjeta): `''` → `null` (sin
+ *  vencimiento: la cuota cuenta a fin de mes), `'1'`…`'31'` → el número, cualquier otra cosa →
+ *  `undefined` (inválido). */
+export function parseDueDay(value: string): number | null | undefined {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const n = Number(trimmed)
+  return Number.isInteger(n) && n >= 1 && n <= 31 ? n : undefined
+}

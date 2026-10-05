@@ -35,10 +35,10 @@ interface MarkPaidDialogProps {
    *  movimiento) — sin capar contra el importe del fijo (mismo criterio que
    *  `FixedExpenseStatus.savedCents`). Una bolsa no guarda, así que este prop no aplica ahí. */
   alreadySavedCents?: number
-  /** Follow-up: subconjunto de `alreadySavedCents` que además generó un movimiento — esa plata ya
-   *  salió del saldo real, así que al pagar el movimiento nuevo sale sólo por la diferencia (o no se
-   *  genera ninguno si ya está cubierto del todo). Ver `FixedExpenseStatus.savedMovementCents`. */
-  alreadySavedMovementCents?: number
+  /** Subconjunto de `alreadySavedCents` que el pago descuenta (con movimiento, o aparte por quien pudo
+   *  elegir): al pagar, el movimiento nuevo sale sólo por la diferencia (o no se genera ninguno si ya
+   *  está cubierto del todo). Ver `FixedExpenseStatus.coveredCents`. */
+  alreadyCoveredCents?: number
   /** Vencimiento materializado de ESTA instancia (`'yyyy-MM-dd'`, `null` en una bolsa) — ya lo trae
    *  calculado el `FixedExpenseStatus` de quien abre el diálogo (`summarizeFixedExpenses`); no se
    *  rederiva acá. Header rediseño v2: "vence el D de mes" en el subtítulo. */
@@ -73,7 +73,7 @@ export function MarkPaidDialog({
   period,
   alreadyPaidCents = 0,
   alreadySavedCents = 0,
-  alreadySavedMovementCents = 0,
+  alreadyCoveredCents = 0,
   dueDate = null,
 }: MarkPaidDialogProps) {
   const isRecurring = fixedExpense.is_recurring
@@ -126,7 +126,7 @@ export function MarkPaidDialog({
   // haya en la base al momento de pagar (ver `rpc_mark_fixed_expense_paid`). Se calcula acá arriba
   // (antes se calculaba más abajo, sólo para el copy) porque `showAccountField` también lo necesita
   // — FI-24.
-  const payTxAmount = !isRecurring && !isSaving && cents != null ? Math.max(cents - alreadySavedMovementCents, 0) : null
+  const payTxAmount = !isRecurring && !isSaving && cents != null ? Math.max(cents - alreadyCoveredCents, 0) : null
   // El pago siempre puede llevar cuenta — salvo que ya esté TODO cubierto por guardados con
   // movimiento (FI-24 del QA de Fijos: `payTxAmount === 0` no genera ningún movimiento nuevo, así que
   // pedir "Con qué lo pagué" no tiene con qué completarse). El guardado sólo pide cuenta si además
@@ -145,9 +145,9 @@ export function MarkPaidDialog({
   // pasaron: pagar el de septiembre el 30/8 es válido y sigue siendo el pago de septiembre.
   const effectivePeriod = isRecurring && occurredOn ? format(startOfMonth(parseISO(occurredOn)), 'yyyy-MM-dd') : period
 
-  // Lo guardado "aparte" (sin movimiento): informativo en el modo Pagar, pero nunca descuenta del
-  // movimiento que genera el pago — esa plata todavía no salió de ningún lado.
-  const asideSavedCents = alreadySavedCents - alreadySavedMovementCents
+  // Lo guardado que el pago NO descuenta (el aparte de BASIC, o de antes de que el aparte descontara):
+  // informativo en el modo Pagar — el pago genera el importe completo.
+  const asideSavedCents = alreadySavedCents - alreadyCoveredCents
   // BASIC no tiene el switch (siempre `false`, ver el guard del JSX) — en el resto de los planes
   // manda lo que haya elegido el usuario. Se calcula acá (no sólo adentro de `handleConfirm`) porque
   // el campo-botón de cuenta también lo necesita para el "queda en $…".
@@ -193,6 +193,9 @@ export function MarkPaidDialog({
           // BASIC no tiene el switch (siempre `false` acá, ver el guard del JSX) — en el resto de los
           // planes manda lo que haya elegido el usuario.
           generateMovement: savingWithMovement,
+          // Quien pudo elegir descuenta del pago todo lo guardado, con o sin movimiento; BASIC no
+          // (guarda todo aparte: si descontara, el pago no generaría el gasto).
+          coversPayment: canMovimientosManuales,
           accountId: savingWithMovement ? accountId || null : null,
           occurredOn: savingWithMovement ? occurredOn : null,
         },
@@ -273,21 +276,21 @@ export function MarkPaidDialog({
 
           {!isRecurring && mode === 'pay' && asideSavedCents > 0 && (
             <p className="text-center text-[12px] text-fg-muted">
-              Tenés <Money cents={asideSavedCents} tone="dim" size="inline" /> guardado (aparte, sin movimiento) para este fijo.
+              Tenés <Money cents={asideSavedCents} tone="dim" size="inline" /> guardado aparte para este fijo.
             </p>
           )}
 
-          {!isRecurring && mode === 'pay' && alreadySavedMovementCents > 0 && (
+          {!isRecurring && mode === 'pay' && alreadyCoveredCents > 0 && (
             <p className="text-center text-[12px] text-fg-muted">
               {payTxAmount === 0 ? (
                 <>
-                  Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: no hace falta generar
-                  un movimiento nuevo.
+                  Ya guardaste <Money cents={alreadyCoveredCents} tone="dim" size="inline" />: no hace falta generar un movimiento
+                  nuevo.
                 </>
               ) : (
                 <>
-                  Ya guardaste <Money cents={alreadySavedMovementCents} tone="dim" size="inline" /> con movimiento: el pago genera un
-                  movimiento sólo por {payTxAmount != null ? <Money cents={payTxAmount} tone="dim" size="inline" /> : 'lo restante'}.
+                  Ya guardaste <Money cents={alreadyCoveredCents} tone="dim" size="inline" />: el pago genera un movimiento sólo
+                  por {payTxAmount != null ? <Money cents={payTxAmount} tone="dim" size="inline" /> : 'lo restante'}.
                 </>
               )}
             </p>

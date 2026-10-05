@@ -131,6 +131,11 @@ Fijos, Hoy, Movimientos, Análisis) se cerraron con todo resuelto y se borraron 
 - **API directa con la sesión de la cuenta, sin instalar supabase-js:** desde `page.evaluate`, `fetch`
   a `${SUPABASE_URL}/rest/v1/rpc/<nombre>` o `/rest/v1/<tabla>` con `apikey` y
   `Authorization: Bearer <token>`. Respeta RLS, y anda aunque el modo auto bloquee `supabase db query`.
+- **Más corto, con el dev server:** `page.evaluate(async () => { const { supabase } = await
+  import('/src/lib/supabase.ts'); … })` usa el cliente de la propia app, ya logueado (Vite sirve el
+  módulo). No hace falta copiar URL ni `anon key`.
+- **El MCP de Playwright guarda capturas y logs en `.playwright-mcp/` dentro del repo** (no está en
+  `.gitignore` y no deja guardar fuera): borrar la carpeta al terminar.
 - **`PATCH`/`DELETE` sin filtro da 400** (`UPDATE requires a WHERE clause`): PostgREST exige `?id=eq.<uid>`.
 - **Deshacer un pago de fijo con `rpc_unmark_fixed_expense_payment`**, no con un `DELETE` directo: es lo
   que llama la UI.
