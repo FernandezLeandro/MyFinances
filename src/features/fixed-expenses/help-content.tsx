@@ -69,3 +69,33 @@ export const FIXED_HELP = {
     },
   ] satisfies HelpFaqItem[],
 }
+
+/**
+ * La misma ayuda para Básico (`movimientos-manuales` apagado). Cambia «Sólo guardar plata»: en Básico
+ * se guarda aparte (`coversPayment: false`, ver `useAddFixedExpenseSaving`), así que NO se descuenta al
+ * pagar — el pago sale por el importe entero. Decir lo contrario, como el texto completo, le miente.
+ * Además puede pagar sin entrar a Fijos: el + de la isla abre el selector de fijos.
+ */
+export const FIXED_HELP_BASIC = {
+  ...FIXED_HELP,
+
+  actions: FIXED_HELP.actions.map((action) =>
+    action.id === 'save'
+      ? {
+          ...action,
+          effect: { label: 'No es un gasto', tone: 'neutral' as const },
+          description:
+            'Anotás cuánto ya juntaste para un fijo de una vez. No sale de ningún lado y, al pagar, pagás el importe entero.',
+        }
+      : action,
+  ) satisfies HelpAction[],
+
+  faq: [
+    FIXED_HELP.faq[0],
+    {
+      question: '¿Puedo pagar sin entrar a Fijos?',
+      answer: 'Sí: el + de abajo te deja elegir el fijo y pagarlo desde cualquier pantalla.',
+    },
+    FIXED_HELP.faq[2],
+  ] satisfies HelpFaqItem[],
+}

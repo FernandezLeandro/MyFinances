@@ -60,32 +60,33 @@ export function MovementsHelpDiagram() {
         <div className="flex items-center gap-2">
           <HelpMarker n={4} />
           <div className="inline-flex h-8 items-center gap-1.5 rounded-pill border border-border-strong bg-surface pr-2 pl-1.5 text-[13px] font-semibold">
-            <CategoryChip size={20} color="#d97757" icon="shopping-cart" />
-            Supermercado
+            <CategoryChip size={20} color="#d97757" icon="house" />
+            Hogar
             <X className="size-3.5 text-fg-muted" strokeWidth={2.4} />
           </div>
         </div>
       </div>
 
-      {/* ⑤ Un día con su neto y dos filas. */}
+      {/* ⑤ Un día con su neto y dos filas (las del filtro de ④: así la maqueta es coherente y vale
+          para todos los planes, sin transferencias que Básico no tiene). */}
       <div className="overflow-hidden rounded-panel-sm bg-surface-sunken">
         <div className="flex items-center gap-2 bg-divider-list px-4 py-2.5">
           <HelpMarker n={5} />
           <GroupHeader
             className="flex-1"
             label="Martes 6 de octubre"
-            total={<Money cents={-8500000} tone="negative" signed />}
+            total={<Money cents={-126550000} tone="negative" signed />}
           />
         </div>
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <CategoryChip size={28} color="#d97757" icon="shopping-cart" />
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">Supermercado</span>
-          <Money cents={-8500000} tone="negative" size="row" signed />
+          <CategoryChip size={28} color="#d97757" icon="house" />
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">Alquiler</span>
+          <Money cents={-118000000} tone="negative" size="row" signed />
         </div>
         <div className="flex items-center gap-3 border-t border-divider-list px-4 py-2.5">
-          <CategoryChip size={28} neutral="transfer" />
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">Transferencia</span>
-          <Money cents={5000000} tone="dim" size="row" />
+          <CategoryChip size={28} color="#d97757" icon="house" />
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">Expensas</span>
+          <Money cents={-8550000} tone="negative" size="row" signed />
         </div>
       </div>
     </div>

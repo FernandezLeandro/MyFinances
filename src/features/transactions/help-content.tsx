@@ -61,3 +61,54 @@ export const MOVEMENTS_HELP = {
     },
   ] satisfies HelpFaqItem[],
 }
+
+/**
+ * La misma ayuda para Básico (`movimientos-manuales` apagado): ese plan no carga ni edita movimientos,
+ * los suyos salen de pagar un fijo o de «Sueldo» en Hoy, y no tiene Cuentas (ni transferencias, ni
+ * columna ni filtro de cuenta). Lo que no se pisa acá vale igual para los dos.
+ */
+export const MOVEMENTS_HELP_BASIC = {
+  ...MOVEMENTS_HELP,
+  intro:
+    'Movimientos es el historial de lo que pagaste y cobraste, día por día. Sus movimientos salen de pagar tus fijos y de «Sueldo», en Hoy.',
+
+  legend: [
+    MOVEMENTS_HELP.legend[0],
+    MOVEMENTS_HELP.legend[1],
+    { lead: 'Buscar y filtrar.', body: 'Por texto, tipo, categoría o período.' },
+    MOVEMENTS_HELP.legend[3],
+    { lead: 'Cada día.', body: 'Con su neto. Tocá una fila para ver el detalle o deshacerla.' },
+  ] satisfies HelpLegendItem[],
+
+  kindsSubtitle: 'No todo lo que ves en la lista entra en el resumen.',
+
+  kinds: [
+    {
+      id: 'payment',
+      name: 'Pago de un fijo',
+      effect: { label: 'Suma al resumen', tone: 'accent' },
+      description: 'Sale de pagar un fijo. Tocalo para quitar el pago: el fijo vuelve a quedar pendiente.',
+    },
+    {
+      id: 'income',
+      name: 'Sueldo',
+      effect: { label: 'Suma al resumen', tone: 'accent' },
+      description: 'Lo cargás desde Hoy. Tocalo para corregir el importe o eliminarlo.',
+    },
+    {
+      id: 'adjustment',
+      name: 'Ajuste de saldo',
+      effect: { label: 'No suma', tone: 'neutral' },
+      description: 'Queda de antes de bajar de plan. No se edita: se ve el detalle o se elimina.',
+    },
+  ] satisfies HelpAction[],
+
+  faq: [
+    MOVEMENTS_HELP.faq[0],
+    MOVEMENTS_HELP.faq[1],
+    {
+      question: '¿Cómo cargo un gasto?',
+      answer: 'Pagando un fijo: desde Fijos o con el + de abajo. Cada pago queda acá como movimiento.',
+    },
+  ] satisfies HelpFaqItem[],
+}
