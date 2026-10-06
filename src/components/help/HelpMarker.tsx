@@ -1,3 +1,5 @@
+import { useContext } from 'react'
+import { MarkerContext } from '@/components/help/marker-context'
 import { cn } from '@/lib/cn'
 
 type MarkerTone = 'onLight' | 'onInverse' | 'legend'
@@ -10,13 +12,23 @@ const tones: Record<MarkerTone, string> = {
   legend: 'mt-0.5 size-5 bg-accent-soft text-[11px] text-accent-text',
 }
 
+// Resaltado al pasar el mouse por su ítem de la leyenda: crece un poco y suma un aro. Con reduced
+// motion queda sólo el aro (sin escala).
+const highlight: Record<MarkerTone, string> = {
+  onLight: 'scale-[1.2] ring-2 ring-accent/40 motion-reduce:scale-100',
+  onInverse: 'scale-[1.2] ring-2 ring-on-inverse/40 motion-reduce:scale-100',
+  legend: '',
+}
+
 /** El círculo numerado que une un punto de la maqueta con su explicación en la leyenda. */
 export function HelpMarker({ n, tone = 'onLight' }: { n: number; tone?: MarkerTone }) {
+  const { active } = useContext(MarkerContext)
   return (
     <span
       className={cn(
-        'grid shrink-0 place-items-center rounded-pill leading-none font-semibold',
+        'grid shrink-0 place-items-center rounded-pill leading-none font-semibold transition-[scale,box-shadow] duration-150 ease-out-quint',
         tones[tone],
+        active === n && highlight[tone],
       )}
     >
       {n}

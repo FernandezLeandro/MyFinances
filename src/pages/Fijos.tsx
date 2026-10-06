@@ -1,10 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { format, getDate, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Check, Plus } from 'lucide-react'
+import { Link } from 'react-router'
+import { Check, CircleHelp, Plus } from 'lucide-react'
 import { AnimatePresence, m } from 'motion/react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/button-styles'
 import { Badge } from '@/components/ui/Badge'
 import { CountUpMoney, Money, type MoneyTone } from '@/components/ui/Money'
 import { CycleNav } from '@/components/ui/CycleNav'
@@ -503,14 +505,26 @@ export function Fijos() {
         {/* Visible en las dos resoluciones: el FAB de la isla abre "nuevo movimiento", no crea un fijo.
             Los pausados se ven desde su panel del rail («N fijos pausados · Ver»), que aparece sólo
             cuando hay alguno — un botón fijo acá ocupaba media fila en mobile para algo raro. */}
-        <Button
-          size="compact"
-          icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
-          onClick={openNew}
-          className="w-full lg:w-auto"
-        >
-          Nuevo fijo
-        </Button>
+        <div className="flex gap-2">
+          {/* Un `Link` de verdad (push: el back vuelve acá), como el de Cuentas y Movimientos. En el
+              celular, sólo el ícono. */}
+          <Link
+            to="/fijos/ayuda"
+            aria-label="Ayuda"
+            className={buttonClasses({ variant: 'outline', size: 'compact', className: 'shrink-0 font-semibold max-sm:w-[38px] max-sm:px-0' })}
+          >
+            <CircleHelp className="size-4 text-accent" strokeWidth={1.8} aria-hidden />
+            <span className="max-sm:hidden">Ayuda</span>
+          </Link>
+          <Button
+            size="compact"
+            icon={<Plus className="size-3.5" strokeWidth={2} aria-hidden />}
+            onClick={openNew}
+            className="flex-1 lg:flex-none"
+          >
+            Nuevo fijo
+          </Button>
+        </div>
       </header>
 
       {isError ? (
