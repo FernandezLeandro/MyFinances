@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { AnimatePresence, m } from 'motion/react'
-import { Calendar, Plus, SlidersHorizontal } from 'lucide-react'
+import { Calendar, CircleHelp, Plus, SlidersHorizontal } from 'lucide-react'
 import { EASE_OUT_QUINT } from '@/lib/motion'
 import { Panel } from '@/components/ui/Panel'
 import { CycleNav } from '@/components/ui/CycleNav'
@@ -12,6 +12,7 @@ import { useCycleConfig } from '@/lib/useCycle'
 import { cycleContaining } from '@/lib/cycle'
 import { AccordionHeader } from '@/components/ui/AccordionHeader'
 import { Button } from '@/components/ui/Button'
+import { buttonClasses } from '@/components/ui/button-styles'
 import { FilterChip } from '@/components/ui/Chip'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { CountBubble } from '@/components/ui/CountBubble'
@@ -454,6 +455,15 @@ export function Movimientos() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* Un `Link` de verdad (push: el back vuelve acá), como el de Cuentas. En el celular, sólo el ícono. */}
+          <Link
+            to="/movimientos/ayuda"
+            aria-label="Ayuda"
+            className={buttonClasses({ variant: 'outline', size: 'compact', className: 'shrink-0 font-semibold max-sm:w-[38px] max-sm:px-0' })}
+          >
+            <CircleHelp className="size-4 text-accent" strokeWidth={1.8} aria-hidden />
+            <span className="max-sm:hidden">Ayuda</span>
+          </Link>
           <Button
             variant="outline"
             size="compact"

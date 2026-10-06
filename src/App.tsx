@@ -15,6 +15,8 @@ import { MeDeben } from '@/pages/MeDeben'
 import { Categorias } from '@/pages/Categorias'
 import { Cuentas } from '@/pages/Cuentas'
 import { CuentasAyuda } from '@/pages/CuentasAyuda'
+import { MovimientosAyuda } from '@/pages/MovimientosAyuda'
+import { FijosAyuda } from '@/pages/FijosAyuda'
 import { Ajustes } from '@/pages/Ajustes'
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -69,7 +71,9 @@ export default function App() {
             <Route index element={<Navigate to="/hoy" replace />} />
             <Route path="hoy" element={<Hoy />} />
             <Route path="movimientos" element={<RequireCapability cap="movimientos"><Movimientos /></RequireCapability>} />
+            <Route path="movimientos/ayuda" element={<RequireCapability cap="movimientos"><MovimientosAyuda /></RequireCapability>} />
             <Route path="fijos" element={<RequireCapability cap="fijos"><Fijos /></RequireCapability>} />
+            <Route path="fijos/ayuda" element={<RequireCapability cap="fijos"><FijosAyuda /></RequireCapability>} />
             <Route path="mis-deudas" element={<RequireCapability cap="mis-deudas"><MisDeudas /></RequireCapability>} />
             <Route path="me-deben" element={<RequireCapability cap="me-deben"><MeDeben /></RequireCapability>} />
             <Route path="analisis" element={<RequireCapability cap="analisis"><Analisis /></RequireCapability>} />
