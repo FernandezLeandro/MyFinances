@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseDollarQuotes, resolveQuotes } from './quotes'
+import { parseDollarQuotes } from './quotes'
 
 const ROWS = [
   { moneda: 'USD', casa: 'oficial', compra: 1355, venta: 1405, fechaActualizacion: '2026-10-07T15:00:00.000Z' },
@@ -34,25 +34,5 @@ describe('parseDollarQuotes', () => {
   it('una respuesta que no es una lista da un mapa vacío', () => {
     expect(parseDollarQuotes({ error: 'x' }).size).toBe(0)
     expect(parseDollarQuotes(undefined).size).toBe(0)
-  })
-})
-
-describe('resolveQuotes', () => {
-  const manual = { rateCents: 148500, updatedAt: '2026-10-01T10:00:00.000Z' }
-
-  it('usa la API cuando trajo el tipo y el respaldo manual para los que faltan', () => {
-    const resolved = resolveQuotes(parseDollarQuotes(ROWS), manual)
-    expect(resolved.get('blue')?.origin).toBe('api')
-    expect(resolved.get('bolsa')).toEqual({ buyCents: 148500, sellCents: 148500, updatedAt: manual.updatedAt, origin: 'manual' })
-  })
-
-  it('si la API falló, todo cae al respaldo manual', () => {
-    const resolved = resolveQuotes(undefined, manual)
-    expect(resolved.size).toBe(5)
-    expect([...resolved.values()].every((q) => q.origin === 'manual')).toBe(true)
-  })
-
-  it('sin API ni respaldo no hay cotización de ningún tipo', () => {
-    expect(resolveQuotes(undefined, null).size).toBe(0)
   })
 })

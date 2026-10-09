@@ -8,8 +8,11 @@ import {
   filterInvestments,
   investedBySlot,
   positionsByAsset,
+  sharesByAsset,
   summarize,
+  topWithOthers,
   UNCATEGORIZED,
+  usdRateCents,
 } from './aggregate'
 import { slotsFor } from './period'
 
@@ -169,7 +172,7 @@ describe('byCategory', () => {
       makeInvestment({ asset_id: 'ars', amount: '5000.00', quantity: '5000.00', category_id: 'c2' }),
       makeInvestment({ asset_id: 'ars', amount: '200.00', quantity: '200.00', category_id: 'borrada' }),
     ]
-    const slices = byCategory(invs, cats, assets, prices, quotes)
+    const slices = byCategory(invs, cats, assets, prices, quoteMap({ oficial: [140000, 141000] }))
     expect(slices.map((s) => [s.name, s.investedCents])).toEqual([
       ['Jubilación', 500_000],
       ['Ahorros', 100_000],
@@ -187,6 +190,116 @@ describe('investedBySlot', () => {
       makeInvestment({ asset_id: 'ars', amount: '25.00', quantity: '25.00', occurred_on: '2026-02-28' }),
     ]
     const slots = slotsFor('year', new Date(2026, 5, 1), null)
-    expect(investedBySlot(invs, slots).slice(0, 3)).toEqual([10_000, 7_500, 0])
+    expect(investedBySlot(invs, slots, assets, quotes).slice(0, 3)).toEqual([10_000, 7_500, 0])
+  })
+})
+
+// --- En dólares: cada inversión con SU dólar ----------------------------------------------------------
+describe('en USD (cada inversión con su dólar)', () => {
+  // Regresión: «En dólares» y el modo USD dividían todo por UN dólar global (el «Dólar en uso» del
+  // perfil), así que un total en USD cambiaba al tocar Ajustes y no coincidía con la ganancia, que sí
+  // usa el dólar de cada inversión.
+  const quotesOf = quoteMap({ oficial: [140000, 141000], blue: [153500, 155500], bolsa: [150000, 152000], cripto: [149000, 150000] })
+  const ars = makeInvestment({ asset_id: 'ars', amount: '14000.00', quantity: '14000.00' })
+  const blue = makeInvestment({ asset_id: 'usd', amount: '155000.00', quantity: '100.00', fx_source: 'blue', buy_price: '1550' })
+  const mep = makeInvestment({ asset_id: 'usd', amount: '151000.00', quantity: '100.00', fx_source: 'bolsa', buy_price: '1510' })
+
+  it('usdRateCents: ARS usa el oficial, USD el elegido al guardar, mercado el del activo', () => {
+    expect(usdRateCents(ars, ARS, quotesOf)).toBe(140000)
+    expect(usdRateCents(blue, USD, quotesOf)).toBe(153500)
+    expect(usdRateCents(mep, USD, quotesOf)).toBe(150000)
+    const btc = makeInvestment({ asset_id: 'btc', amount: '1.00', quantity: '0.00000001', buy_price: '1' })
+    expect(usdRateCents(btc, BTC, quotesOf)).toBe(149000)
+    expect(usdRateCents(ars, undefined, quotesOf)).toBeNull()
+    expect(usdRateCents(ars, ARS, quotes)).toBeNull() // sin oficial en el mapa
+  })
+
+  it('un dólar comprado a blue y otro a MEP valen cada uno US$ 100,00, y el costo se pasa con su propio dólar', () => {
+    const s = summarize([blue, mep], assets, prices, quotesOf, 'USD')
+    expect(s.valueCents).toBe(20_000)
+    // 155.000 / 1.535 + 151.000 / 1.500 = 100,98 + 100,67 → ganancia = 200 − 201,65.
+    expect(s.investedCents).toBe(Math.round((15_500_000 * 100) / 153_500) + Math.round((15_100_000 * 100) / 150_000))
+    expect(s.gainCents).toBe(s.valueCents! - s.investedCents!)
+  })
+
+  it('ARS en USD no gana ni pierde: costo y valor salen con el mismo dólar', () => {
+    const s = summarize([ars], assets, prices, quotesOf, 'USD')
+    expect(s.valueCents).toBe(1_000) // 14.000 pesos al oficial de 1.400 = US$ 10
+    expect(s.gainCents).toBe(0)
+  })
+
+  it('sin cotización de alguna inversión, todo el total en USD queda null (y en ARS no cambia nada)', () => {
+    const s = summarize([ars, blue], assets, prices, quotes, 'USD') // `quotes` no tiene oficial
+    expect(s).toMatchObject({ investedCents: null, valueCents: null, gainCents: null })
+    expect(summarize([ars, blue], assets, prices, quotes).valueCents).toBe(1_400_000 + 15_350_000)
+  })
+
+  it('cada posición y porción lleva su peso en USD aunque se muestre en ARS', () => {
+    const [usd] = positionsByAsset([blue], assets, prices, quotesOf)
+    expect(usd.valueCents).toBe(15_350_000) // pesos
+    expect(usd.weightUsdCents).toBe(10_000) // dólares
+  })
+
+  it('byCategory ordena por peso en USD, no por pesos', () => {
+    const cats = [
+      { id: 'c1', name: 'Pesos', color: '#1D8F7E' },
+      { id: 'c2', name: 'Dólares', color: '#6A5BB8' },
+    ]
+    // 20.000.000 pesos (US$ 1.428,57 al oficial) vs US$ 100 → pesos gana por tamaño, y en USD también.
+    const big = { ...ars, amount: '20000000.00', quantity: '20000000.00', category_id: 'c1' }
+    const small = { ...blue, category_id: 'c2' }
+    expect(byCategory([small, big], cats, assets, prices, quotesOf, 'USD').map((s) => s.name)).toEqual(['Pesos', 'Dólares'])
+    // 1.000 pesos (US$ 0,71) vs US$ 100: en pesos la primera «pierde» por poco, en USD mucho más.
+    const tiny = { ...ars, amount: '1000.00', quantity: '1000.00', category_id: 'c1' }
+    const slices = byCategory([tiny, small], cats, assets, prices, quotesOf)
+    expect(slices.map((s) => s.name)).toEqual(['Dólares', 'Pesos'])
+    expect(slices[0].weightUsdCents).toBe(10_000)
+  })
+
+  it('investedBySlot en USD pasa cada inversión con su dólar', () => {
+    const inv = { ...blue, occurred_on: '2026-01-31' }
+    const slots = slotsFor('year', new Date(2026, 5, 1), null)
+    expect(investedBySlot([inv], slots, assets, quotesOf, 'USD')[0]).toBe(Math.round((15_500_000 * 100) / 153_500))
+  })
+})
+
+describe('topWithOthers', () => {
+  const share = (id: number, weight: number) => ({
+    id: `s${id}`,
+    name: `S${id}`,
+    color: null,
+    weightUsdCents: weight,
+    investedCents: weight,
+    valueCents: weight,
+    gainCents: 0,
+  })
+  const seven = [70, 60, 50, 40, 30, 20, 10].map((w, i) => share(i, w))
+
+  it('con hasta 6 porciones no toca nada (un «Otros» de una sola sería ruido)', () => {
+    expect(topWithOthers(seven.slice(0, 6))).toHaveLength(6)
+    expect(topWithOthers(seven.slice(0, 6)).map((s) => s.name)).not.toContain('Otros')
+  })
+
+  it('con 7 deja las 5 mayores y junta las 2 chicas en «Otros»', () => {
+    const out = topWithOthers(seven)
+    expect(out.map((s) => s.name)).toEqual(['S0', 'S1', 'S2', 'S3', 'S4', 'Otros'])
+    expect(out[5]).toMatchObject({ weightUsdCents: 30, investedCents: 30, valueCents: 30, gainCents: 0, color: null })
+  })
+
+  it('si a una de las que se juntan le falta valor, «Otros» queda sin valor', () => {
+    const out = topWithOthers([...seven.slice(0, 6), { ...share(6, 5), valueCents: null }])
+    expect(out[5].valueCents).toBeNull()
+    expect(out[5].weightUsdCents).toBe(25)
+  })
+})
+
+describe('sharesByAsset', () => {
+  it('una porción por posición, de mayor a menor peso en USD', () => {
+    const quotesOf = quoteMap({ oficial: [140000, 141000], blue: [153500, 155500] })
+    const ars = makeInvestment({ asset_id: 'ars', amount: '1000.00', quantity: '1000.00' })
+    const usd = makeInvestment({ asset_id: 'usd', amount: '155000.00', quantity: '100.00', fx_source: 'blue', buy_price: '1550' })
+    const shares = sharesByAsset(positionsByAsset([ars, usd], assets, prices, quotesOf))
+    expect(shares.map((s) => s.name)).toEqual(['USD', 'ARS'])
+    expect(shares[0].weightUsdCents).toBe(10_000)
   })
 })

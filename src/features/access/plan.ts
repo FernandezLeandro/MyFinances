@@ -15,7 +15,6 @@ export type Capability =
   | 'inversiones'
   | 'mis-deudas'
   | 'me-deben'
-  | 'ajustes-completo'
   | 'cuentas'
   // Bloque 4 del plan "BASIC centrado en fijos": el registro manual de un movimiento cualquiera —
   // no la app entera. BASIC sigue viendo /movimientos (ya lo tenía por `movimientos`), pero sólo
@@ -31,7 +30,6 @@ const ALL_CAPABILITIES: readonly Capability[] = [
   'inversiones',
   'mis-deudas',
   'me-deben',
-  'ajustes-completo',
   'cuentas',
   'movimientos-manuales',
 ]

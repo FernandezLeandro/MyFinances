@@ -43,7 +43,7 @@ docs/                    supabase-auth.md, qa/README.md, icono.md
 
 ## Planes y rol
 
-- **Plan** (`profiles.plan`), única fuente de verdad `PLAN_CAPS` en `src/features/access/plan.ts`. **Básico**: Hoy, Fijos, Movimientos sólo lectura; `+` paga fijo, «Sueldo» asigna ingreso del ciclo, en Hoy tarjeta de fijos reemplaza saldo. **Test** (default invitación nueva): + carga manual, Análisis, Cuentas. **Premium**: + Mis Deudas, Me Deben, Inversiones, Ajustes completos.
+- **Plan** (`profiles.plan`), única fuente de verdad `PLAN_CAPS` en `src/features/access/plan.ts`. **Básico**: Hoy, Fijos, Movimientos sólo lectura; `+` paga fijo, «Sueldo» asigna ingreso del ciclo, en Hoy tarjeta de fijos reemplaza saldo. **Test** (default invitación nueva): + carga manual, Análisis, Cuentas. **Premium**: + Mis Deudas, Me Deben, Inversiones.
 - **Rol** admin sólo usa `/admin` (categorías default, activos, invitaciones, usuarios), sin finanzas.
 - Alta sólo por invitación (código fija plan inicial); después sólo admin cambia plan o rol desde `/admin/usuarios`. Nadie se los cambia a sí mismo: columnas sin permiso escritura desde cliente.
 - **Sumar función a plan:** capacidad en `PLAN_CAPS`/`ALL_CAPABILITIES` → gatear con `useCan(...)` o `RequireCapability` (`src/features/auth/guards.tsx`) → actualizar `plan.test.ts`.

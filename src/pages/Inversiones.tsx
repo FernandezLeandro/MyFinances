@@ -14,20 +14,23 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatMoney, formatQuantity, type Currency } from '@/lib/money'
 import { useHiddenBalance } from '@/lib/useHiddenBalance'
-import { useChartColors } from '@/lib/chartColors'
+import { useTheme } from '@/lib/useTheme'
+import { chartCategoryColors } from '@/lib/chartColors'
 import { useCategories } from '@/features/categories/api'
 import { CategoryChip } from '@/features/categories/CategoryChip'
-import { CategoryDonut } from '@/features/analytics/CategoryDonut'
 import { useAssets } from '@/features/assets/api'
-import { useAssetPrices, useDollarQuotes, useUsdRate } from '@/features/fx/api'
+import { useAssetPrices, useDollarQuotes } from '@/features/fx/api'
 import { useInvestments, type Investment } from '@/features/investments/api'
 import {
   UNCATEGORIZED,
   byCategory,
+  costIn,
   filterInvestments,
   investedBySlot,
   positionsByAsset,
+  sharesByAsset,
   summarize,
+  topWithOthers,
 } from '@/features/investments/aggregate'
 import { useInvestmentFilters } from '@/features/investments/filters'
 import {
@@ -41,6 +44,7 @@ import {
 } from '@/features/investments/period'
 import { InvestmentFormDialog } from '@/features/investments/InvestmentFormDialog'
 import { CategoryFilterDialog } from '@/features/investments/CategoryFilterDialog'
+import { DistributionPanel } from '@/features/investments/DistributionPanel'
 import { InvestedChart } from '@/features/investments/InvestedChart'
 import { GainFigure, PositionsPanel } from '@/features/investments/PositionsPanel'
 
@@ -97,11 +101,10 @@ export function Inversiones() {
   const { data: categories, isPending: isCategoriesPending } = useCategories(true)
   const prices = useAssetPrices()
   const { quotes } = useDollarQuotes()
-  const usdRate = useUsdRate()
-  const chartColors = useChartColors()
 
   const [filters, setFilters] = useInvestmentFilters()
   const [anchor, setAnchor] = useState(() => new Date())
+  const [isDark] = useTheme()
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('ARS')
   const [balanceHidden, toggleBalanceHidden] = useHiddenBalance('inversiones-total')
   const [form, setForm] = useState<{ investment: Investment | null } | null>(null)
@@ -123,30 +126,25 @@ export function Inversiones() {
   const range = rangeFor(filters.granularity, anchor)
 
   const filtered = useMemo(() => filterInvestments(all, { categoryIds: selectedIds, range }), [all, selectedIds, range])
-  const summary = useMemo(() => summarize(filtered, assetList, prices, quotes), [filtered, assetList, prices, quotes])
-  const positions = useMemo(() => positionsByAsset(filtered, assetList, prices, quotes), [filtered, assetList, prices, quotes])
-  const slices = useMemo(
-    () => byCategory(filtered, categories ?? [], assetList, prices, quotes),
-    [filtered, categories, assetList, prices, quotes],
+  // Todo se calcula en la moneda que se muestra: cada inversión se convierte con SU dólar (ver
+  // `usdRateCents`), no con uno global. El reparto de los donuts siempre pesa por valor en USD.
+  const summary = useMemo(() => summarize(filtered, assetList, prices, quotes, displayCurrency), [filtered, assetList, prices, quotes, displayCurrency])
+  const usdSummary = useMemo(() => summarize(filtered, assetList, prices, quotes, 'USD'), [filtered, assetList, prices, quotes])
+  const positions = useMemo(() => positionsByAsset(filtered, assetList, prices, quotes, displayCurrency), [filtered, assetList, prices, quotes, displayCurrency])
+  const categoryShares = useMemo(
+    () => byCategory(filtered, categories ?? [], assetList, prices, quotes, displayCurrency),
+    [filtered, categories, assetList, prices, quotes, displayCurrency],
   )
+  const assetShares = useMemo(() => {
+    const palette = chartCategoryColors[isDark ? 'dark' : 'light']
+    return topWithOthers(sharesByAsset(positions).map((s, i) => ({ ...s, color: palette[i] ?? null })), palette.length)
+  }, [positions, isDark])
   const earliest = useMemo(() => all.reduce<string | null>((min, inv) => (min == null || inv.occurred_on < min ? inv.occurred_on : min), null), [all])
   const bars = useMemo(() => {
     const slots = slotsFor(filters.granularity, anchor, earliest)
-    const invested = investedBySlot(filtered, slots)
+    const invested = investedBySlot(filtered, slots, assetList, quotes, displayCurrency)
     return slots.map((s, i) => ({ label: s.label, cents: invested[i] }))
-  }, [filters.granularity, anchor, earliest, filtered])
-
-  // Todo el estado interno vive en ARS: esto sólo convierte para MOSTRAR, con el «Dólar en uso».
-  function toDisplay(arsCents: number | null): number | null {
-    if (arsCents == null) return null
-    if (displayCurrency === 'ARS') return arsCents
-    return usdRate.rateCents == null ? null : Math.round((arsCents * 100) / usdRate.rateCents)
-  }
-
-  const valueDisplay = toDisplay(summary.valueCents)
-  const investedDisplay = toDisplay(summary.investedCents)
-  const gainDisplay = toDisplay(summary.gainCents)
-  const usdValue = displayCurrency === 'ARS' && summary.valueCents != null && usdRate.rateCents != null ? Math.round((summary.valueCents * 100) / usdRate.rateCents) : null
+  }, [filters.granularity, anchor, earliest, filtered, assetList, quotes, displayCurrency])
 
   const hasUncategorized = all.some((inv) => !inv.category_id || !categoryById.has(inv.category_id))
   const history = filtered
@@ -163,8 +161,6 @@ export function Inversiones() {
     setShown(HISTORY_PAGE)
   }
 
-  const donutData = slices.map((s) => ({ categoryId: s.categoryId, categoryName: s.name, color: s.color, cents: s.investedCents }))
-  const totalInvested = slices.reduce((sum, s) => sum + s.investedCents, 0)
 
   return (
     <div className="flex flex-col gap-8">
@@ -243,77 +239,48 @@ export function Inversiones() {
             <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:gap-11">
               <div className="shrink-0">
                 <p className="eyebrow">Valor actual</p>
-                {valueDisplay == null ? (
+                {summary.valueCents == null ? (
                   <p className="mt-2 text-[15px] text-fg-secondary">Cotización no disponible</p>
                 ) : (
-                  <Money cents={valueDisplay} currency={displayCurrency} tone="fg" size="hero" className="mt-1" hidden={balanceHidden} />
+                  <Money cents={summary.valueCents} currency={displayCurrency} tone="fg" size="hero" className="mt-1" hidden={balanceHidden} />
                 )}
                 <p className="mt-2 text-[12px] text-fg-muted">
                   {filtered.length} {filtered.length === 1 ? 'inversión' : 'inversiones'} · {rangeLabel(filters.granularity, anchor)}
                 </p>
               </div>
-              <div className="flex min-w-0 flex-1 flex-wrap gap-8 border-t border-divider pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-9">
-                {investedDisplay != null && <SecondaryFigure label="Invertido" cents={investedDisplay} currency={displayCurrency} tone="dim" hidden={balanceHidden} />}
-                {gainDisplay != null && (
+              <div className="flex min-w-0 flex-1 flex-wrap gap-x-10 gap-y-6 border-t border-divider pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-9">
+                {summary.investedCents != null && <SecondaryFigure label="Invertido" cents={summary.investedCents} currency={displayCurrency} tone="dim" hidden={balanceHidden} />}
+                {summary.gainCents != null && (
                   <div>
                     <p className="text-[10.5px] font-semibold tracking-[0.09em] text-fg-muted uppercase">Ganancia</p>
-                    <div className="mt-1.5">
-                      <GainFigure cents={gainDisplay} pct={summary.gainPct} currency={displayCurrency} hidden={balanceHidden} />
+                    <div className="mt-0.5">
+                      <GainFigure cents={summary.gainCents} pct={summary.gainPct} currency={displayCurrency} hidden={balanceHidden} size="figure" />
                     </div>
                   </div>
                 )}
-                {usdValue != null && usdRate.rateCents != null && (
+                {displayCurrency === 'ARS' && usdSummary.valueCents != null && (
                   <div>
-                    <SecondaryFigure label="En dólares" cents={usdValue} currency="USD" hidden={balanceHidden} />
-                    <p className="mt-0.5 text-[11px] text-fg-muted">1 USD = {formatMoney(usdRate.rateCents)}</p>
+                    <SecondaryFigure label="En dólares" cents={usdSummary.valueCents} currency="USD" hidden={balanceHidden} />
+                    <p className="mt-0.5 text-[11px] text-fg-muted">Al dólar de cada inversión</p>
                   </div>
                 )}
               </div>
             </div>
           </Panel>
 
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <DistributionPanel title="Por categoría" shares={categoryShares} currency={displayCurrency} hidden={balanceHidden} />
+            <DistributionPanel title="Por activo" shares={assetShares} currency={displayCurrency} hidden={balanceHidden} />
+          </div>
+
           <Panel className="p-panel">
             <h2 className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg">{CHART_TITLE[filters.granularity]}</h2>
             <div className="mt-4">
-              <InvestedChart data={bars.map((b) => ({ label: b.label, cents: toDisplay(b.cents) ?? 0 }))} />
+              <InvestedChart data={bars} currency={displayCurrency} />
             </div>
           </Panel>
 
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            <PositionsPanel positions={positions} summary={summary} toDisplay={toDisplay} currency={displayCurrency} hidden={balanceHidden} />
-
-            <Panel className="p-panel">
-              <h2 className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg">Por categoría</h2>
-              {slices.length === 0 || totalInvested === 0 ? (
-                <p className="mt-3 text-[13px] text-fg-muted">Sin inversiones en este período.</p>
-              ) : (
-                <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row">
-                  <CategoryDonut
-                    data={donutData.map((d) => ({ ...d, cents: toDisplay(d.cents) ?? 0 }))}
-                    centerOverride={{ eyebrow: '', value: `${Math.round((slices[0].investedCents / totalInvested) * 100)}%` }}
-                    size={140}
-                  />
-                  <ul className="w-full min-w-0 flex-1">
-                    {slices.map((s) => {
-                      const gain = toDisplay(s.gainCents)
-                      return (
-                        <li key={s.categoryId} className="flex items-center gap-3 py-2">
-                          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color ?? chartColors.fgMuted }} />
-                          <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg">{s.name}</span>
-                          <span className="flex shrink-0 flex-col items-end">
-                            <Money cents={toDisplay(s.investedCents) ?? 0} currency={displayCurrency} tone="dim" size="row" hidden={balanceHidden} />
-                            {gain != null && gain !== 0 && (
-                              <Money cents={gain} currency={displayCurrency} tone={gain < 0 ? 'negative' : 'accent'} signed size="row" hidden={balanceHidden} />
-                            )}
-                          </span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-            </Panel>
-          </div>
+          <PositionsPanel positions={positions} summary={summary} currency={displayCurrency} hidden={balanceHidden} />
 
           <Panel>
             <CardHeader title="Historial" action={<span className="text-[11.5px] text-fg-muted">{history.length} {history.length === 1 ? 'inversión' : 'inversiones'}</span>} />
@@ -325,7 +292,7 @@ export function Inversiones() {
                   const category = inv.category_id ? categoryById.get(inv.category_id) : undefined
                   const asset = assetList.find((a) => a.id === inv.asset_id)
                   const isArs = asset?.symbol === 'ARS'
-                  const cost = toDisplay(Math.round(Number(inv.amount) * 100))
+                  const cost = costIn(inv, asset, quotes, displayCurrency)
                   return (
                     <li key={inv.id} className="border-t border-divider first:border-t-0">
                       <button

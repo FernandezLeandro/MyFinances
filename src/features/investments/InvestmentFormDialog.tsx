@@ -18,7 +18,6 @@ import {
   unitsFromNumeric,
   unitsToNumeric,
 } from '@/lib/money'
-import { useProfile } from '@/features/profile/api'
 import { useAssets, type Asset } from '@/features/assets/api'
 import { useAssetPrices, useDollarQuotes } from '@/features/fx/api'
 import { DOLLAR_TYPES, type DollarType } from '@/features/fx/quotes'
@@ -80,7 +79,6 @@ interface InvestmentFormDialogProps {
  */
 export function InvestmentFormDialog({ open, onClose, investment }: InvestmentFormDialogProps) {
   const isEditing = !!investment
-  const { data: profile } = useProfile()
   const { data: allAssets } = useAssets(true)
   const { data: categories } = useCategories(true)
   const { data: categoryUsage } = useCategoryUsageCounts()
@@ -120,9 +118,8 @@ export function InvestmentFormDialog({ open, onClose, investment }: InvestmentFo
   const isArs = asset?.symbol === 'ARS'
   const decimals = asset?.decimals ?? 2
 
-  // Tipo de dólar (sólo USD): el elegido; si no hay, el «Dólar en uso» del perfil (o blue si es manual).
-  const defaultDollar: DollarType = profile && profile.fxSource !== 'manual' ? profile.fxSource : 'blue'
-  const dollar = fxSource ?? defaultDollar
+  // Tipo de dólar (sólo USD): el elegido; si no hay, el blue.
+  const dollar = fxSource ?? 'blue'
 
   const amountCents = parseAmountToCents(amount)
   const isUsd = asset?.symbol === 'USD'

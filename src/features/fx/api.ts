@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useProfile } from '@/features/profile/api'
 import { useAssets } from '@/features/assets/api'
-import { parseDollarQuotes, resolveQuotes, type ResolvedQuote } from './quotes'
+import { parseDollarQuotes, type DollarQuote, type DollarType } from './quotes'
 
 const DOLLAR_QUOTES_STALE_MS = 30 * 60 * 1000
 
@@ -26,13 +25,13 @@ async function fetchCoinGeckoPrices(ids: string[]): Promise<CoinGeckoResponse> {
   return res.json()
 }
 
+const NO_QUOTES: ReadonlyMap<DollarType, DollarQuote> = new Map()
+
 /**
- * Cotización de cada tipo de dólar. La API manda; si falla (o no trae un tipo) se usa el respaldo
- * manual que el usuario cargó en Ajustes. Nunca lanza — un dólar desactualizado es preferible a
- * romper la pantalla.
+ * Cotización de cada tipo de dólar, de dolarapi.com. Nunca lanza: si la API falla el mapa queda vacío
+ * y las pantallas muestran «Cotización no disponible» en vez de romperse.
  */
 export function useDollarQuotes() {
-  const { data: profile } = useProfile()
   const query = useQuery({
     queryKey: ['dollar-quotes'],
     queryFn: fetchDollarQuotes,
@@ -40,47 +39,8 @@ export function useDollarQuotes() {
     retry: 1,
   })
 
-  const manualCents = profile?.usdRateManualCents ?? null
-  const manualAt = profile?.usdRateUpdatedAt ?? null
-
-  const quotes = useMemo(
-    () => resolveQuotes(query.data, manualCents == null ? null : { rateCents: manualCents, updatedAt: manualAt }),
-    [query.data, manualCents, manualAt],
-  )
-
-  return { quotes, isPending: query.isPending && manualCents == null }
-}
-
-export interface UsdRate {
-  /** Centavos de ARS por 1 USD. `null` si no hay ninguna cotización disponible (ni API ni manual). */
-  rateCents: number | null
-  updatedAt: string | null
-  origin: 'api' | 'manual' | 'none'
-  /** La API falló (o no trajo ese tipo) y se está mostrando el respaldo cargado a mano. */
-  isFallback: boolean
-}
-
-/**
- * El «Dólar en uso» de Ajustes: el tipo que eligió el usuario (`fx_source`). Sólo convierte las cifras
- * que se MUESTRAN en dólares (el toggle ARS/USD de las pantallas), por eso usa la venta — lo que
- * cuesta ese dólar. Valuar una inversión no pasa por acá: cada una usa su propio tipo y la compra.
- */
-export function useUsdRate() {
-  const { data: profile } = useProfile()
-  const { quotes, isPending } = useDollarQuotes()
-  const source = profile?.fxSource ?? 'blue'
-  const manualCents = profile?.usdRateManualCents ?? null
-  const manualAt = profile?.usdRateUpdatedAt ?? null
-  const quote: ResolvedQuote | undefined = source === 'manual' ? undefined : quotes.get(source)
-
-  return useMemo(() => {
-    const rate: UsdRate = (() => {
-      if (quote?.origin === 'api') return { rateCents: quote.sellCents, updatedAt: quote.updatedAt, origin: 'api', isFallback: false }
-      if (manualCents != null) return { rateCents: manualCents, updatedAt: manualAt, origin: 'manual', isFallback: source !== 'manual' }
-      return { rateCents: null, updatedAt: null, origin: 'none', isFallback: source !== 'manual' }
-    })()
-    return { ...rate, isPending: source !== 'manual' && isPending }
-  }, [quote, manualCents, manualAt, source, isPending])
+  // `NO_QUOTES` es un solo objeto: identidad estable para los `useMemo` de las pantallas.
+  return { quotes: query.data ?? NO_QUOTES, isPending: query.isPending }
 }
 
 export interface AssetPrice {

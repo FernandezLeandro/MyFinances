@@ -39,7 +39,7 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
   Crear una cuenta no mueve el saldo salvo que se pida: la primera viene con el saldo actual y lo que
   no se declare queda en una cuenta «Sin repartir»; las siguientes pueden salir de otra cuenta.
 - **Categorías** (todos los planes): propias por cuenta, con un catálogo por defecto al darse de alta.
-- **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad. Dólar en uso es Premium.
+- **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad.
 - **Administración** (rol admin): categorías por defecto, catálogo de activos (precio en USD y dólar de conversión de cada uno), códigos de invitación,
   gestión de usuarios (plan, rol, borrado de cuentas).
 - **General**: alta sólo por invitación, PWA instalable, claro/oscuro, ocultar importes.
@@ -62,7 +62,6 @@ usuario o de administración). La fuente de verdad de qué habilita cada plan es
 | Análisis | | ✓ | ✓ |
 | Mis Deudas, Me Deben, Inversiones | | | ✓ |
 | Cuentas y transferencias | | ✓ | ✓ |
-| Ajustes completos (dólar en uso) | | | ✓ |
 
 El plan lo fija el código de invitación con el que se registra una cuenta, y sólo un admin puede
 cambiarlo después (`/admin/usuarios`). Ninguna cuenta puede cambiarse su propio plan ni su rol.

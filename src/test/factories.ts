@@ -7,7 +7,7 @@
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
 import type { Investment } from '@/features/investments/api'
-import type { DollarType, ResolvedQuote } from '@/features/fx/quotes'
+import type { DollarQuote, DollarType } from '@/features/fx/quotes'
 import type {
   CreditCard,
   CreditCardPayment,
@@ -58,11 +58,11 @@ export function makeInvestment(
 }
 
 /** `{ blue: [compra, venta] }` en centavos → cotizaciones resueltas de la API. */
-export function quoteMap(quotes: Partial<Record<DollarType, [number, number]>>): Map<DollarType, ResolvedQuote> {
+export function quoteMap(quotes: Partial<Record<DollarType, [number, number]>>): Map<DollarType, DollarQuote> {
   return new Map(
     Object.entries(quotes).map(([type, [buyCents, sellCents]]) => [
       type as DollarType,
-      { buyCents, sellCents, updatedAt: FIXED_DATE, origin: 'api' as const },
+      { buyCents, sellCents, updatedAt: FIXED_DATE },
     ]),
   )
 }

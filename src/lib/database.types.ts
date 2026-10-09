@@ -17,7 +17,6 @@ type AccountKind = 'cash' | 'wallet' | 'bank'
 type Role = 'user' | 'admin'
 type Plan = 'test' | 'basic' | 'premium'
 type DollarType = 'oficial' | 'blue' | 'bolsa' | 'contadoconliqui' | 'cripto'
-type FxSource = DollarType | 'manual'
 type CycleKind = 'monthly' | 'biweekly' | 'weekly'
 type BagFrequency = 'monthly' | 'biweekly' | 'weekly'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
@@ -35,9 +34,6 @@ export interface Database {
           role: Role
           plan: Plan
           created_at: string
-          fx_source: FxSource
-          usd_rate_manual: string | null
-          usd_rate_updated_at: string | null
           cycle_kind: CycleKind
           cycle_week_starts_on: number
         }
@@ -50,9 +46,6 @@ export interface Database {
         Update: Partial<{
           display_name: string | null
           currency: string
-          fx_source: FxSource
-          usd_rate_manual: number | string | null
-          usd_rate_updated_at: string | null
           cycle_kind: CycleKind
           cycle_week_starts_on: number
         }>

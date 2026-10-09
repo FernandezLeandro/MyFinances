@@ -9,7 +9,6 @@ const ALL_CAPS: Capability[] = [
   'inversiones',
   'mis-deudas',
   'me-deben',
-  'ajustes-completo',
   'cuentas',
   'movimientos-manuales',
 ]
@@ -28,14 +27,13 @@ describe('can', () => {
     expect(can('basic', 'movimientos-manuales')).toBe(false)
   })
 
-  it('test ve análisis, movimientos manuales y cuentas, pero no los ajustes completos', () => {
+  it('test ve análisis, movimientos manuales y cuentas, pero no inversiones', () => {
     expect(can('test', 'movimientos')).toBe(true)
     expect(can('test', 'fijos')).toBe(true)
     expect(can('test', 'analisis')).toBe(true)
     expect(can('test', 'movimientos-manuales')).toBe(true)
     expect(can('test', 'cuentas')).toBe(true)
     expect(can('test', 'inversiones')).toBe(false)
-    expect(can('test', 'ajustes-completo')).toBe(false)
   })
 
   it('PLANS lista los tres, para los selectores de admin', () => {

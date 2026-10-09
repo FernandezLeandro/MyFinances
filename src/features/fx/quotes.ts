@@ -3,9 +3,7 @@
  * levantar nada. dolarapi.com trae todas las casas en una sola llamada (`/v1/dolares`); cada una con
  * `compra` (lo que te pagan si vendés) y `venta` (lo que pagás si comprás).
  */
-import type { FxSource } from '@/features/profile/api'
-
-export type DollarType = Exclude<FxSource, 'manual'>
+export type DollarType = 'oficial' | 'blue' | 'bolsa' | 'contadoconliqui' | 'cripto'
 
 /** Orden y nombres con los que se muestran los tipos de dólar en toda la app. */
 export const DOLLAR_TYPES: readonly { value: DollarType; label: string }[] = [
@@ -28,11 +26,6 @@ export interface DollarQuote {
   updatedAt: string | null
 }
 
-/** `origin: 'manual'` = la API no trajo ese tipo (o falló) y se usa el valor de respaldo del perfil. */
-export interface ResolvedQuote extends DollarQuote {
-  origin: 'api' | 'manual'
-}
-
 const DOLLAR_TYPE_SET: ReadonlySet<string> = new Set(DOLLAR_TYPES.map((d) => d.value))
 
 function toCents(value: unknown): number | null {
@@ -41,8 +34,7 @@ function toCents(value: unknown): number | null {
 
 /**
  * Lo que devuelve `https://dolarapi.com/v1/dolares` → un mapa por tipo. Ignora las casas que la app no
- * usa (mayorista, tarjeta) y las filas mal formadas: un tipo que falta se resuelve con el respaldo
- * manual en `resolveQuotes`, no rompe a los demás.
+ * usa (mayorista, tarjeta) y las filas mal formadas: un tipo que falta no rompe a los demás.
  */
 export function parseDollarQuotes(rows: unknown): Map<DollarType, DollarQuote> {
   const quotes = new Map<DollarType, DollarQuote>()
@@ -62,23 +54,4 @@ export function parseDollarQuotes(rows: unknown): Map<DollarType, DollarQuote> {
     })
   }
   return quotes
-}
-
-/**
- * Un valor por cada tipo de dólar: el de la API si lo trajo, y si no el respaldo manual del perfil
- * (compra = venta, es un solo número). Sin ninguno de los dos el tipo no está en el mapa.
- */
-export function resolveQuotes(
-  api: ReadonlyMap<DollarType, DollarQuote> | undefined,
-  manual: { rateCents: number; updatedAt: string | null } | null,
-): Map<DollarType, ResolvedQuote> {
-  const resolved = new Map<DollarType, ResolvedQuote>()
-  for (const { value } of DOLLAR_TYPES) {
-    const fromApi = api?.get(value)
-    if (fromApi) resolved.set(value, { ...fromApi, origin: 'api' })
-    else if (manual) {
-      resolved.set(value, { buyCents: manual.rateCents, sellCents: manual.rateCents, updatedAt: manual.updatedAt, origin: 'manual' })
-    }
-  }
-  return resolved
 }

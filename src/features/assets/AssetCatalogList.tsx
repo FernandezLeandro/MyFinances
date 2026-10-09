@@ -7,7 +7,7 @@ import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { useAssetPrices, useDollarQuotes, type AssetPrice } from '@/features/fx/api'
-import { dollarLabel, type ResolvedQuote } from '@/features/fx/quotes'
+import { dollarLabel, type DollarQuote } from '@/features/fx/quotes'
 import { useAssets, useDeleteAsset, type Asset, type AssetClass } from '@/features/assets/api'
 import { AssetEditDialog } from '@/features/assets/AssetEditDialog'
 
@@ -30,7 +30,7 @@ function AssetRow({
   asset: Asset
   price: AssetPrice | undefined
   /** Cotización del dólar con el que se convierte este activo — para mostrar el equivalente en pesos. */
-  quote: ResolvedQuote | undefined
+  quote: DollarQuote | undefined
   onEdit: (a: Asset) => void
 }) {
   const deleteAsset = useDeleteAsset()
