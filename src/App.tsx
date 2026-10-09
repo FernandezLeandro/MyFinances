@@ -24,11 +24,11 @@ import { Bienvenida } from '@/pages/auth/Bienvenida'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
 
-// `lazy`, no import estático: son las únicas rutas que arrastran recharts (Analisis, Ahorros) o
+// `lazy`, no import estático: son las únicas rutas que arrastran recharts (Analisis, Inversiones) o
 // motion/react (Categorias, por el Reorder) — sacarlas del chunk inicial evita que /hoy pague el
 // peso de gráficos y drag-and-drop que ni siquiera usa. El resto queda eager (ver Suspense abajo).
 const Analisis = lazy(() => import('@/pages/Analisis').then((m) => ({ default: m.Analisis })))
-const Ahorros = lazy(() => import('@/pages/Ahorros').then((m) => ({ default: m.Ahorros })))
+const Inversiones = lazy(() => import('@/pages/Inversiones').then((m) => ({ default: m.Inversiones })))
 const CategoriasAdmin = lazy(() => import('@/pages/admin/Categorias').then((m) => ({ default: m.Categorias })))
 const Activos = lazy(() => import('@/pages/admin/Activos').then((m) => ({ default: m.Activos })))
 const Invitaciones = lazy(() => import('@/pages/admin/Invitaciones').then((m) => ({ default: m.Invitaciones })))
@@ -77,14 +77,13 @@ export default function App() {
             <Route path="mis-deudas" element={<RequireCapability cap="mis-deudas"><MisDeudas /></RequireCapability>} />
             <Route path="me-deben" element={<RequireCapability cap="me-deben"><MeDeben /></RequireCapability>} />
             <Route path="analisis" element={<RequireCapability cap="analisis"><Analisis /></RequireCapability>} />
-            <Route path="ahorros" element={<RequireCapability cap="ahorros"><Ahorros /></RequireCapability>} />
+            <Route path="inversiones" element={<RequireCapability cap="inversiones"><Inversiones /></RequireCapability>} />
             <Route path="cuentas" element={<RequireCapability cap="cuentas"><Cuentas /></RequireCapability>} />
             <Route path="cuentas/ayuda" element={<RequireCapability cap="cuentas"><CuentasAyuda /></RequireCapability>} />
             <Route path="categorias" element={<Categorias />} />
             <Route path="ajustes" element={<Ajustes />} />
             {/* Rutas viejas: por si alguien tiene el link guardado. */}
             <Route path="invitaciones" element={<Navigate to="/ajustes" replace />} />
-            <Route path="patrimonio" element={<Navigate to="/ahorros" replace />} />
             <Route path="creditos" element={<Navigate to="/mis-deudas" replace />} />
             <Route path="deudas" element={<Navigate to="/me-deben" replace />} />
           </Route>

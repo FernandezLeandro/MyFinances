@@ -16,7 +16,7 @@ function cat(id: string, name: string): Category {
 }
 
 function usage(map: Record<string, number>): Map<string, CategoryUsage> {
-  return new Map(Object.entries(map).map(([id, total]) => [id, { transactions: total, fixedExpenses: 0, creditPurchases: 0, total }]))
+  return new Map(Object.entries(map).map(([id, total]) => [id, { transactions: total, fixedExpenses: 0, creditPurchases: 0, investments: 0, total }]))
 }
 
 describe('topCategories', () => {

@@ -21,6 +21,8 @@ import {
 
 type EditorTarget = { kind: DefaultCategoryKind; category?: DefaultCategory } | null
 
+const KIND_NAME: Record<DefaultCategoryKind, string> = { expense: 'Gasto', income: 'Ingreso', investment: 'Inversión' }
+
 function CategoryRow({
   category,
   onEdit,
@@ -54,7 +56,7 @@ function CategoryRow({
         <span className="min-w-0 flex-1">
           <span className={cn('block truncate text-[14px]', category.is_archived ? 'text-fg-secondary' : 'text-fg')}>{category.name}</span>
           <span className="block text-[12px] text-fg-muted">
-            {category.kind === 'income' ? 'Ingreso' : 'Gasto'}
+            {KIND_NAME[category.kind]}
             {category.is_archived && ' · archivada'}
           </span>
         </span>
@@ -66,7 +68,7 @@ function CategoryRow({
 
 /**
  * Catálogo de categorías por defecto. Mismo editor modal que `/categorias`
- * (`CategoryEditorDialog`): el tipo se elige con el botón de alta («Nueva de gasto / de ingreso») y
+ * (`CategoryEditorDialog`): el tipo se elige con el botón de alta («De gasto / de ingreso / de inversión») y
  * queda fijo (HO-15); archivar y reactivar van en el pie del editor. Acá no hay eliminar — archivar
  * alcanza para que deje de sembrarse. La lista se reordena arrastrando.
  */
@@ -133,6 +135,9 @@ export function Categorias() {
               </Button>
               <Button variant="outline" size="sm" icon={<Plus className="size-4" aria-hidden />} onClick={() => setEditor({ kind: 'income' })}>
                 De ingreso
+              </Button>
+              <Button variant="outline" size="sm" icon={<Plus className="size-4" aria-hidden />} onClick={() => setEditor({ kind: 'investment' })}>
+                De inversión
               </Button>
             </div>
           }

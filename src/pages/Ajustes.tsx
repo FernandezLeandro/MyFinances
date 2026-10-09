@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
+import { Panel } from '@/components/ui/Panel'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
@@ -10,9 +10,8 @@ import { cn } from '@/lib/cn'
 import { parseAmountToCents, sanitizeAmountInput } from '@/lib/money'
 import { showToast } from '@/lib/toast'
 import { useProfile, useUpdateProfile, type CycleKind, type FxSource } from '@/features/profile/api'
-import { useUsdRate, useAssetPrices } from '@/features/fx/api'
-import { useAssets } from '@/features/assets/api'
-import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
+import { useUsdRate } from '@/features/fx/api'
+import { DOLLAR_TYPES } from '@/features/fx/quotes'
 import { ChangePasswordForm } from '@/features/auth/ChangePasswordPanel'
 import { useCurrentBalance } from '@/features/transactions/api'
 import { useBalanceLocations, useStopUsingAccounts } from '@/features/accounts/api'
@@ -25,17 +24,11 @@ import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
 import { useCan } from '@/features/access/useCan'
 
-const fxSources: { value: FxSource; label: string }[] = [
-  { value: 'oficial', label: 'Oficial' },
-  { value: 'blue', label: 'Blue' },
-  { value: 'bolsa', label: 'MEP' },
-  { value: 'cripto', label: 'Cripto' },
-  { value: 'manual', label: 'Manual' },
-]
+const fxSources: { value: FxSource; label: string }[] = [...DOLLAR_TYPES, { value: 'manual', label: 'Manual' }]
 
 /** La tarjeta oscura que manda en la columna izquierda — misma superficie invertida que el saldo de
- *  Hoy y los fijos proyectados: acá marca que esta cifra gobierna al resto de la app (Ahorros,
- *  activos, cualquier cifra en dólares). Los chips y el campo manual usan `inverse-divider` como
+ *  Hoy y los fijos proyectados: acá marca la cifra que se usa para MOSTRAR en dólares
+ *  (cada inversión se valúa con su propio dólar). Los chips y el campo manual usan `inverse-divider` como
  *  fondo/separador — el mismo token que ya usa `SaldoProyectadoPanel` para la barra de comprometido. */
 function FxPanel() {
   const { data: profile, isPending } = useProfile()
@@ -80,8 +73,7 @@ function FxPanel() {
             )}
           </div>
           <p className="mt-3 max-w-[420px] text-[12.5px] leading-relaxed text-on-inverse-muted">
-            Con esta cotización se convierte todo lo que no está en pesos: el total de Ahorros, los activos y las cifras en dólares de cada
-            pantalla.
+            Con esta cotización se muestran en dólares las cifras de cada pantalla. Cada inversión se valúa con el dólar con el que la cargaste.
           </p>
 
           <div className="mt-5 flex flex-wrap items-end gap-6 border-t border-inverse-divider pt-4.5">
@@ -128,31 +120,6 @@ function FxPanel() {
           </div>
         </>
       )}
-    </Panel>
-  )
-}
-
-function AssetsPanel() {
-  const { data: assets } = useAssets()
-  const prices = useAssetPrices()
-  const missingCount = (assets ?? []).filter(
-    (a) => a.symbol !== 'ARS' && a.symbol !== 'USD' && prices.get(a.id)?.priceArsCents == null,
-  ).length
-
-  return (
-    <Panel>
-      <PanelHeader
-        title="Activos"
-        hint="El catálogo lo gestiona el admin — acá cargás tu propia cotización de referencia"
-        action={
-          missingCount > 0 ? (
-            <span className="shrink-0 rounded-pill bg-badge-amber-bg px-[11px] py-[5px] text-[11.5px] font-semibold text-badge-amber-fg">
-              {missingCount} sin cotización
-            </span>
-          ) : undefined
-        }
-      />
-      <AssetCatalogList canEditCatalog={false} excludeMainCurrencies />
     </Panel>
   )
 }
@@ -260,7 +227,9 @@ function AccountsPanel() {
 /** Mismo patrón que `AccountsPanel`: chips de las activas + link a la pantalla completa
  *  (`/categorias`), donde vive archivar/eliminar con sus confirmaciones. */
 function CategoriesPanel() {
-  const { data: categories } = useCategories(true)
+  const { data: allCategories } = useCategories(true)
+  // Las de inversión no agrupan movimientos: viven en su pestaña de /categorias.
+  const categories = allCategories?.filter((c) => c.kind !== 'investment')
   const active = (categories ?? []).filter((c) => !c.is_archived)
   const archivedCount = (categories ?? []).filter((c) => c.is_archived).length
 
@@ -464,7 +433,6 @@ export function Ajustes() {
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
           <div className="flex flex-col gap-4">
             <FxPanel />
-            <AssetsPanel />
           </div>
           <div className="flex flex-col gap-4">
             {canCuentas && <AccountsPanel />}

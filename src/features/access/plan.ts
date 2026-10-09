@@ -12,7 +12,7 @@ export type Capability =
   | 'movimientos'
   | 'fijos'
   | 'analisis'
-  | 'ahorros'
+  | 'inversiones'
   | 'mis-deudas'
   | 'me-deben'
   | 'ajustes-completo'
@@ -28,7 +28,7 @@ const ALL_CAPABILITIES: readonly Capability[] = [
   'movimientos',
   'fijos',
   'analisis',
-  'ahorros',
+  'inversiones',
   'mis-deudas',
   'me-deben',
   'ajustes-completo',

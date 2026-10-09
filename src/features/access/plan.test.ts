@@ -6,7 +6,7 @@ const ALL_CAPS: Capability[] = [
   'movimientos',
   'fijos',
   'analisis',
-  'ahorros',
+  'inversiones',
   'mis-deudas',
   'me-deben',
   'ajustes-completo',
@@ -23,7 +23,7 @@ describe('can', () => {
     expect(can('basic', 'movimientos')).toBe(true)
     expect(can('basic', 'fijos')).toBe(true)
     expect(can('basic', 'analisis')).toBe(false)
-    expect(can('basic', 'ahorros')).toBe(false)
+    expect(can('basic', 'inversiones')).toBe(false)
     expect(can('basic', 'cuentas')).toBe(false)
     expect(can('basic', 'movimientos-manuales')).toBe(false)
   })
@@ -34,7 +34,7 @@ describe('can', () => {
     expect(can('test', 'analisis')).toBe(true)
     expect(can('test', 'movimientos-manuales')).toBe(true)
     expect(can('test', 'cuentas')).toBe(true)
-    expect(can('test', 'ahorros')).toBe(false)
+    expect(can('test', 'inversiones')).toBe(false)
     expect(can('test', 'ajustes-completo')).toBe(false)
   })
 

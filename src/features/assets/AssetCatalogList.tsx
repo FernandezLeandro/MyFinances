@@ -6,8 +6,9 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Money } from '@/components/ui/Money'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
-import { useAssetPrices, type AssetPrice } from '@/features/fx/api'
-import { useAssetManualPrices, useAssets, useDeleteAsset, type Asset, type AssetClass } from '@/features/assets/api'
+import { useAssetPrices, useDollarQuotes, type AssetPrice } from '@/features/fx/api'
+import { dollarLabel, type ResolvedQuote } from '@/features/fx/quotes'
+import { useAssets, useDeleteAsset, type Asset, type AssetClass } from '@/features/assets/api'
 import { AssetEditDialog } from '@/features/assets/AssetEditDialog'
 
 const assetClassLabels: Record<AssetClass, string> = {
@@ -18,27 +19,28 @@ const assetClassLabels: Record<AssetClass, string> = {
   other: 'Otro',
 }
 
+const usdFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 8 })
+
 function AssetRow({
   asset,
   price,
-  canEditCatalog,
+  quote,
   onEdit,
 }: {
   asset: Asset
   price: AssetPrice | undefined
-  canEditCatalog: boolean
+  /** Cotización del dólar con el que se convierte este activo — para mostrar el equivalente en pesos. */
+  quote: ResolvedQuote | undefined
   onEdit: (a: Asset) => void
 }) {
   const deleteAsset = useDeleteAsset()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  // Sin permiso de catálogo, sólo tiene sentido abrir el editor si hay un precio manual que tocar —
-  // para cripto (sin precio manual) no habría nada editable adentro.
-  const canEditSomething = canEditCatalog || asset.price_source === 'manual'
   // ARS/USD son la base del resto de la conversión de moneda en toda la app — no se pueden borrar.
-  const canDelete = canEditCatalog && asset.asset_class !== 'fiat'
+  const canDelete = asset.asset_class !== 'fiat'
+  const priceUsd = price?.priceUsd ?? null
 
   function handleConfirmDelete() {
-    // Si falla (típicamente por el FK de savings_entries), el MutationCache global ya muestra el
+    // Si falla (típicamente por el FK de investments), el MutationCache global ya muestra el
     // toast con el mensaje de "está en uso, archivalo" — acá sólo cerramos el diálogo si salió bien.
     deleteAsset.mutate(asset.id, { onSuccess: () => setConfirmingDelete(false) })
   }
@@ -55,38 +57,45 @@ function AssetRow({
         <div className="min-w-0">
           <p className="truncate text-[14px] text-fg">{asset.name}</p>
           <p className="text-[12px] text-fg-muted">
-            {assetClassLabels[asset.asset_class]} · cotiza en {asset.quote_currency}
+            {assetClassLabels[asset.asset_class]}
+            {asset.asset_class !== 'fiat' && ` · se convierte con ${dollarLabel(asset.fx_source)}`}
             {asset.is_archived && ' · archivado'}
           </p>
         </div>
       </div>
 
-      <div className="text-right text-[13px]">
-        {asset.price_source === 'coingecko' ? (
-          price?.priceArsCents != null ? (
-            <span className="text-fg-secondary">
-              <Money cents={price.priceArsCents} tone="dim" /> <span className="text-[11px] text-fg-muted">en vivo</span>
-            </span>
+      {asset.asset_class !== 'fiat' && (
+        <div className="text-right text-[13px]">
+          {priceUsd == null ? (
+            asset.price_source === 'coingecko' ? (
+              <span className="text-fg-muted">sin cotización</span>
+            ) : (
+              <Badge variant="amber">Sin precio</Badge>
+            )
           ) : (
-            <span className="text-fg-muted">sin cotización</span>
-          )
-        ) : price?.priceArsCents != null ? (
-          <Money cents={price.priceArsCents} tone="dim" />
-        ) : (
-          <Badge variant="amber">Sin cotización</Badge>
-        )}
-      </div>
-
-      {canEditSomething && (
-        <button
-          type="button"
-          onClick={() => onEdit(asset)}
-          aria-label={`Editar ${asset.symbol}`}
-          className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
-        >
-          <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
-        </button>
+            <>
+              <p className="tnum text-fg-secondary">
+                {usdFormat.format(priceUsd)}
+                {asset.price_source === 'coingecko' && <span className="ml-1 text-[11px] text-fg-muted">en vivo</span>}
+              </p>
+              {quote && (
+                <p className="text-[11.5px] text-fg-muted">
+                  ≈ <Money cents={Math.round(priceUsd * quote.buyCents)} tone="dim" size="row" className="inline" />
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
+
+      <button
+        type="button"
+        onClick={() => onEdit(asset)}
+        aria-label={`Editar ${asset.symbol}`}
+        className="shrink-0 rounded-chip p-1.5 text-fg-muted transition-colors hover:bg-fill-subtle hover:text-fg"
+      >
+        <Pencil className="size-4" strokeWidth={1.3} aria-hidden />
+      </button>
 
       {canDelete && (
         <button
@@ -125,55 +134,16 @@ function AssetRow({
   )
 }
 
-/** Puente chico: `AssetEditDialog` necesita el precio manual actual, que vive en otra query. */
-function AssetEditDialogWithPrice({
-  open,
-  onClose,
-  asset,
-  canEditCatalog,
-}: {
-  open: boolean
-  onClose: () => void
-  asset: Asset
-  canEditCatalog: boolean
-}) {
-  // Ojo: `useAssetManualPrices`, no `useAssetPrices` — este último ya devuelve el precio convertido
-  // a ARS en vivo, y acá hace falta el número tal cual lo cargó esta cuenta, en la moneda nativa del
-  // activo, que es lo que el campo del dialog vuelve a mostrar y a guardar.
-  const { data: manualPrices } = useAssetManualPrices()
-  return (
-    <AssetEditDialog
-      open={open}
-      onClose={onClose}
-      asset={asset}
-      currentPriceCents={manualPrices?.get(asset.id)?.priceCents ?? null}
-      canEditCatalog={canEditCatalog}
-    />
-  )
-}
-
-interface AssetCatalogListProps {
-  /** Nombre/clase/moneda/archivado sólo los toca el admin — la base ya lo exige (`is_admin()`). */
-  canEditCatalog: boolean
-  /** ARS y USD tienen su propio panel de cotización en Ajustes — ahí no hace falta repetirlos. */
-  excludeMainCurrencies?: boolean
-}
-
 /**
- * Lista del catálogo de activos, compartida entre Ajustes (cuenta común: sólo cargar el precio
- * propio) y el panel admin de Activos (catálogo completo). Lo que cambia entre ambos es sólo
- * `canEditCatalog` — el resto (fila, precio en vivo/manual, el dialog de edición) es lo mismo.
+ * Catálogo de activos del admin (`/admin/activos`): nombre, clase, precio en USD, el dólar con el que
+ * se convierte a pesos y el equivalente en pesos de hoy. El precio es el mismo para todas las cuentas.
  */
-export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false }: AssetCatalogListProps) {
+export function AssetCatalogList() {
   const { data: assets, isPending } = useAssets(true)
-  // Una sola vez acá arriba, no por fila — antes cada AssetRow llamaba su propio useAssetPrices(),
-  // reconstruyendo el Map completo N veces por render con N activos en la lista.
+  // Una sola vez acá arriba, no por fila.
   const prices = useAssetPrices()
+  const { quotes } = useDollarQuotes()
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
-
-  const listedAssets = excludeMainCurrencies
-    ? (assets ?? []).filter((a) => a.symbol !== 'ARS' && a.symbol !== 'USD')
-    : (assets ?? [])
 
   return (
     <>
@@ -181,24 +151,17 @@ export function AssetCatalogList({ canEditCatalog, excludeMainCurrencies = false
         <div className="px-panel pb-5">
           <Skeleton className="h-16 w-full" />
         </div>
-      ) : listedAssets.length === 0 ? (
+      ) : (assets ?? []).length === 0 ? (
         <p className="px-panel pb-5 text-[13px] text-fg-muted">Todavía no hay activos cargados.</p>
       ) : (
         <ul className="pb-1">
-          {listedAssets.map((asset) => (
-            <AssetRow key={asset.id} asset={asset} price={prices.get(asset.id)} canEditCatalog={canEditCatalog} onEdit={setEditingAsset} />
+          {(assets ?? []).map((asset) => (
+            <AssetRow key={asset.id} asset={asset} price={prices.get(asset.id)} quote={quotes.get(asset.fx_source)} onEdit={setEditingAsset} />
           ))}
         </ul>
       )}
 
-      {editingAsset && (
-        <AssetEditDialogWithPrice
-          open={!!editingAsset}
-          onClose={() => setEditingAsset(null)}
-          asset={editingAsset}
-          canEditCatalog={canEditCatalog}
-        />
-      )}
+      {editingAsset && <AssetEditDialog open={!!editingAsset} onClose={() => setEditingAsset(null)} asset={editingAsset} />}
     </>
   )
 }

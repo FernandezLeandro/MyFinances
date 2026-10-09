@@ -3,6 +3,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { DialogConfirmStack, DialogItemCard } from '@/components/ui/dialog-parts'
 import type { Category, CategoryUsage } from '@/features/categories/api'
 import { CategoryChip } from './CategoryChip'
+import { CATEGORY_KIND_LABEL } from './list'
 
 /** "12 movimientos y 2 fijos" — nombra los tipos con uso, omite los que están en cero. Mismo
  *  criterio que `previewNames` en la pantalla de categorías: nunca un total a secas cuando hay
@@ -13,6 +14,7 @@ function usageBreakdown(usage: CategoryUsage | undefined): string | null {
   if (usage.transactions > 0) parts.push(`${usage.transactions} movimiento${usage.transactions === 1 ? '' : 's'}`)
   if (usage.fixedExpenses > 0) parts.push(`${usage.fixedExpenses} fijo${usage.fixedExpenses === 1 ? '' : 's'}`)
   if (usage.creditPurchases > 0) parts.push(`${usage.creditPurchases} compra${usage.creditPurchases === 1 ? '' : 's'} en cuotas`)
+  if (usage.investments > 0) parts.push(`${usage.investments} ${usage.investments === 1 ? 'inversión' : 'inversiones'}`)
   if (parts.length === 1) return parts[0]
   return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`
 }
@@ -55,7 +57,7 @@ export function ArchiveCategoryDialog({ open, onClose, category, usage, onConfir
         <DialogItemCard
           leading={<CategoryChip color={category.color} icon={category.icon} size={38} />}
           title={category.name}
-          meta={[category.kind === 'expense' ? 'De gasto' : 'De ingreso', breakdown].filter(Boolean).join(' · ')}
+          meta={[CATEGORY_KIND_LABEL[category.kind], breakdown].filter(Boolean).join(' · ')}
         />
         <p className="text-[14px] text-fg-secondary">
           {breakdown ? 'Lo ya cargado sigue igual, con su categoría. ' : ''}Deja de ofrecerse al cargar algo nuevo; la reactivás desde Archivadas.
@@ -106,7 +108,7 @@ export function DeleteCategoryDialog({ open, onClose, category, usage, onConfirm
         <DialogItemCard
           leading={<CategoryChip color={category.color} icon={category.icon} size={38} />}
           title={category.name}
-          meta={`${category.kind === 'expense' ? 'De gasto' : 'De ingreso'} · archivada`}
+          meta={`${CATEGORY_KIND_LABEL[category.kind]} · archivada`}
         />
         <p className="text-[14px] text-fg-secondary">
           {breakdown ? `Sus ${breakdown} quedan como «Sin categoría». ` : ''}No se puede deshacer.

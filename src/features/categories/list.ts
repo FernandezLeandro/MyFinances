@@ -2,12 +2,22 @@ import { z } from 'zod'
 import { CATEGORY_COLOR_HEXES } from '@/lib/categoryColors'
 import { CATEGORY_ICON_KEYS, foldText } from '@/lib/categoryIcons'
 
+/** Tipos de categoría. Las de inversión no agrupan movimientos: sólo las usa `investments`. */
+export type CategoryKindName = 'expense' | 'income' | 'investment'
+
+/** «De gasto», «De ingreso», «De inversión» — la ficha del tipo en el editor y en las confirmaciones. */
+export const CATEGORY_KIND_LABEL: Record<CategoryKindName, string> = {
+  expense: 'De gasto',
+  income: 'De ingreso',
+  investment: 'De inversión',
+}
+
 /** Pestañas de `/categorias`: las activas por tipo, y todas las archivadas juntas. */
-export type CategoryTab = 'expense' | 'income' | 'archived'
+export type CategoryTab = CategoryKindName | 'archived'
 
 interface ListableCategory {
   name: string
-  kind: 'expense' | 'income'
+  kind: CategoryKindName
   is_archived: boolean
 }
 
@@ -25,7 +35,7 @@ export function filterCategories<T extends ListableCategory>(categories: readonl
 
 /** Cantidad de categorías por pestaña — lo que muestra el segmentado. Sin mirar el buscador. */
 export function tabCounts(categories: readonly ListableCategory[]): Record<CategoryTab, number> {
-  const counts = { expense: 0, income: 0, archived: 0 }
+  const counts = { expense: 0, income: 0, investment: 0, archived: 0 }
   for (const c of categories) {
     if (c.is_archived) counts.archived++
     else counts[c.kind]++

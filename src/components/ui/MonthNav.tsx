@@ -8,6 +8,9 @@ interface MonthNavProps {
   mobileLabel?: string
   onPrev: () => void
   onNext: () => void
+  /** Para qué ventana mueven las flechas, si no es un mes (Inversiones: semana o año). */
+  prevLabel?: string
+  nextLabel?: string
 }
 
 const arrowClass =
@@ -22,15 +25,15 @@ const arrowClass =
  * `02 Movimientos.dc.html`. Presentacional puro: cada pantalla guarda el mes a su manera (string
  * `anchor` vs. `Date`), así que esto sólo recibe los labels ya formateados y dos callbacks.
  */
-export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) {
+export function MonthNav({ label, mobileLabel, onPrev, onNext, prevLabel = 'Mes anterior', nextLabel = 'Mes siguiente' }: MonthNavProps) {
   return (
     <>
       <div className="hidden items-center gap-2 lg:flex">
-        <button type="button" onClick={onPrev} aria-label="Mes anterior" className={arrowClass}>
+        <button type="button" onClick={onPrev} aria-label={prevLabel} className={arrowClass}>
           <ChevronLeft className="size-3.5" strokeWidth={1.5} aria-hidden />
         </button>
         <p className="eyebrow">{label}</p>
-        <button type="button" onClick={onNext} aria-label="Mes siguiente" className={arrowClass}>
+        <button type="button" onClick={onNext} aria-label={nextLabel} className={arrowClass}>
           <ChevronRight className="size-3.5" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
@@ -39,7 +42,7 @@ export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) 
         <button
           type="button"
           onClick={onPrev}
-          aria-label="Mes anterior"
+          aria-label={prevLabel}
           className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted"
         >
           <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
@@ -48,7 +51,7 @@ export function MonthNav({ label, mobileLabel, onPrev, onNext }: MonthNavProps) 
         <button
           type="button"
           onClick={onNext}
-          aria-label="Mes siguiente"
+          aria-label={nextLabel}
           className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted"
         >
           <ChevronRight className="size-4" strokeWidth={2} aria-hidden />

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Field, Input } from '@/components/ui/Input'
 import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
-import { useCreateAsset, type AssetClass, type AssetQuoteCurrency } from '@/features/assets/api'
+import { useCreateAsset, type AssetClass } from '@/features/assets/api'
 
 const assetClassOptions: { value: Exclude<AssetClass, 'fiat'>; label: string }[] = [
   { value: 'equity', label: 'Acción' },
@@ -18,11 +18,10 @@ function AddAssetForm() {
   const [symbol, setSymbol] = useState('')
   const [name, setName] = useState('')
   const [assetClass, setAssetClass] = useState<Exclude<AssetClass, 'fiat'>>('equity')
-  const [quoteCurrency, setQuoteCurrency] = useState<AssetQuoteCurrency>('USD')
 
   async function handleCreate() {
     if (!symbol.trim() || !name.trim()) return
-    await createAsset.mutateAsync({ symbol, name, assetClass, quoteCurrency })
+    await createAsset.mutateAsync({ symbol, name, assetClass })
     setSymbol('')
     setName('')
   }
@@ -30,7 +29,7 @@ function AddAssetForm() {
   return (
     <div className="border-t border-fill-subtle p-panel">
       <p className="eyebrow">Agregar activo</p>
-      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas.</p>
+      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas. El precio en USD se carga después, al editarlo.</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-[150px_1fr] gap-3">
           <Field label="Símbolo">
@@ -47,14 +46,6 @@ function AddAssetForm() {
             </Chip>
           ))}
         </div>
-        <div className="flex gap-1.5">
-          <Chip size="lg" active={quoteCurrency === 'ARS'} onClick={() => setQuoteCurrency('ARS')}>
-            Se cotiza en ARS
-          </Chip>
-          <Chip size="lg" active={quoteCurrency === 'USD'} onClick={() => setQuoteCurrency('USD')}>
-            Se cotiza en USD
-          </Chip>
-        </div>
         <Button variant="outline" onClick={handleCreate} disabled={createAsset.isPending} className="self-start">
           {createAsset.isPending ? 'Agregando…' : 'Agregar activo'}
         </Button>
@@ -70,13 +61,13 @@ export function Activos() {
         <p className="eyebrow">Administración</p>
         <h1 className="mt-2 font-display text-figure font-semibold">Activos</h1>
         <p className="mt-2 max-w-md text-[13px] text-fg-muted">
-          El catálogo completo de Ahorros: nombre, clase y moneda de cotización. Cada cuenta sigue cargando su propio precio de referencia por separado.
+          El catálogo de Inversiones: nombre, clase, precio en USD y el dólar con el que se convierte a pesos. El precio es el mismo para todas las cuentas.
         </p>
       </header>
 
       <Panel>
-        <PanelHeader title="Catálogo" hint="Cripto se valúa sola vía CoinGecko — el resto necesita un precio cargado a mano por cuenta" />
-        <AssetCatalogList canEditCatalog />
+        <PanelHeader title="Catálogo" hint="Cripto se valúa sola vía CoinGecko — el resto necesita el precio en USD que cargás acá" />
+        <AssetCatalogList />
         <AddAssetForm />
       </Panel>
     </div>

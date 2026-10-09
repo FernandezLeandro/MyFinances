@@ -8,8 +8,8 @@ import {
   Ellipsis,
   HandCoins,
   LogOut,
-  PiggyBank,
   Settings,
+  TrendingUp,
 } from 'lucide-react'
 import { can } from '@/features/access/plan'
 import type { Capability, Plan } from '@/features/access/plan'
@@ -63,10 +63,10 @@ const allNavItems: NavItem[] = [
     cap: 'analisis',
   },
   {
-    to: '/ahorros',
-    label: 'Ahorros',
-    icon: <PiggyBank className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
-    cap: 'ahorros',
+    to: '/inversiones',
+    label: 'Inversiones',
+    icon: <TrendingUp className={navIconClass} strokeWidth={navIconStrokeWidth} aria-hidden />,
+    cap: 'inversiones',
   },
   {
     to: '/me-deben',
@@ -78,10 +78,10 @@ const allNavItems: NavItem[] = [
 
 /** Secciones que no se consultan seguido: se mudan al drawer de cuenta en mobile en vez de ocupar
  *  un lugar en la tab bar (ver `overflowNavItems`/`tabBarNavItems` abajo). Mis Deudas y Me Deben
- *  entran acá por el mismo motivo que Análisis/Ahorros: sobra lugar en la barra de escritorio (7
+ *  entran acá por el mismo motivo que Análisis/Inversiones: sobra lugar en la barra de escritorio (7
  *  ítems horizontales), pero la isla de mobile (`MobileTabBar`) es fija — Hoy, Movimientos, Fijos y
  *  Más — y no crece con la nav de escritorio. */
-const OVERFLOW_ROUTES = ['/mis-deudas', '/analisis', '/ahorros', '/me-deben']
+const OVERFLOW_ROUTES = ['/mis-deudas', '/analisis', '/inversiones', '/me-deben']
 
 /** Pone Fijos antes que Movimientos — sólo para un plan sin `movimientos-manuales` (BASIC), donde
  *  Fijos es el core y Movimientos es sólo la consecuencia de pagarlos (ver el plan "BASIC centrado
@@ -98,7 +98,7 @@ function fijosAntesQueMovimientos(items: NavItem[]): NavItem[] {
 }
 
 /** Barra superior de escritorio: las 7 secciones, en el orden que pidió el usuario — Hoy ·
- *  Movimientos · Fijos · Mis Deudas · Análisis · Ahorros · Me Deben — filtradas por lo que el plan
+ *  Movimientos · Fijos · Mis Deudas · Análisis · Inversiones · Me Deben — filtradas por lo que el plan
  *  de la cuenta puede ver. Un plan restringido nunca ve ni la sección en la barra ni en el drawer:
  *  la ruta detrás está igual de gateada (`RequireCapability` en `App.tsx`), esto es sólo para no
  *  ofrecer un link a algo que al clickear rebota.

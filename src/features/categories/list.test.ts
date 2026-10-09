@@ -7,13 +7,17 @@ const cats = [
   { name: 'Sueldo', kind: 'income' as const, is_archived: false },
   { name: 'Gimnasio', kind: 'expense' as const, is_archived: true },
   { name: 'Reintegros', kind: 'income' as const, is_archived: true },
+  { name: 'Jubilación', kind: 'investment' as const, is_archived: false },
+  { name: 'Ahorros', kind: 'investment' as const, is_archived: false },
+  { name: 'Viejo fondo', kind: 'investment' as const, is_archived: true },
 ]
 
 describe('filterCategories', () => {
   it('cada pestaña trae sólo lo suyo, por nombre; Archivadas junta los dos tipos', () => {
     expect(filterCategories(cats, 'expense', '').map((c) => c.name)).toEqual(['Educación', 'Salud'])
     expect(filterCategories(cats, 'income', '').map((c) => c.name)).toEqual(['Sueldo'])
-    expect(filterCategories(cats, 'archived', '').map((c) => c.name)).toEqual(['Gimnasio', 'Reintegros'])
+    expect(filterCategories(cats, 'investment', '').map((c) => c.name)).toEqual(['Ahorros', 'Jubilación'])
+    expect(filterCategories(cats, 'archived', '').map((c) => c.name)).toEqual(['Gimnasio', 'Reintegros', 'Viejo fondo'])
   })
 
   it('el buscador ignora tildes y mayúsculas y no cruza de pestaña', () => {
@@ -24,7 +28,7 @@ describe('filterCategories', () => {
 
 describe('tabCounts', () => {
   it('cuenta categorías por pestaña', () => {
-    expect(tabCounts(cats)).toEqual({ expense: 2, income: 1, archived: 2 })
+    expect(tabCounts(cats)).toEqual({ expense: 2, income: 1, investment: 2, archived: 3 })
   })
 })
 

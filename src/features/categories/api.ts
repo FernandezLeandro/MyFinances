@@ -94,6 +94,7 @@ export interface CategoryUsage {
   transactions: number
   fixedExpenses: number
   creditPurchases: number
+  investments: number
   total: number
 }
 
@@ -113,26 +114,30 @@ export function useCategoryUsageCounts() {
     queryKey: ['category-usage-counts', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const [transactionsRes, fixedExpensesRes, creditPurchasesRes] = await Promise.all([
+      const [transactionsRes, fixedExpensesRes, creditPurchasesRes, investmentsRes] = await Promise.all([
         supabase.from('transactions').select('category_id').not('category_id', 'is', null),
         supabase.from('fixed_expenses').select('category_id').not('category_id', 'is', null),
         supabase.from('credit_purchases').select('category_id').not('category_id', 'is', null),
+        supabase.from('investments').select('category_id').not('category_id', 'is', null),
       ])
       if (transactionsRes.error) throw transactionsRes.error
       if (fixedExpensesRes.error) throw fixedExpensesRes.error
       if (creditPurchasesRes.error) throw creditPurchasesRes.error
+      if (investmentsRes.error) throw investmentsRes.error
 
       const transactions = countByCategory(transactionsRes.data)
       const fixedExpenses = countByCategory(fixedExpensesRes.data)
       const creditPurchases = countByCategory(creditPurchasesRes.data)
+      const investments = countByCategory(investmentsRes.data)
 
-      const ids = new Set([...transactions.keys(), ...fixedExpenses.keys(), ...creditPurchases.keys()])
+      const ids = new Set([...transactions.keys(), ...fixedExpenses.keys(), ...creditPurchases.keys(), ...investments.keys()])
       const usage = new Map<string, CategoryUsage>()
       for (const id of ids) {
         const t = transactions.get(id) ?? 0
         const f = fixedExpenses.get(id) ?? 0
         const c = creditPurchases.get(id) ?? 0
-        usage.set(id, { transactions: t, fixedExpenses: f, creditPurchases: c, total: t + f + c })
+        const i = investments.get(id) ?? 0
+        usage.set(id, { transactions: t, fixedExpenses: f, creditPurchases: c, investments: i, total: t + f + c + i })
       }
       return usage
     },

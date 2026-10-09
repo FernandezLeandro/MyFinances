@@ -87,7 +87,13 @@ export function mensajeDeError(error: unknown): string {
   if (code === 'P0001' && /category_kind_locked/.test(message))
     return 'El tipo de una categoría no se puede cambiar: creá una nueva del otro tipo.'
   if (code === 'P0001' && /category_kind_mismatch/.test(message))
-    return 'Esa categoría es de otro tipo: elegí una de gasto o de ingreso según corresponda.'
+    return 'Esa categoría es de otro tipo: elegí una de gasto, de ingreso o de inversión según corresponda.'
+  // `trg_investments_refs` (`20261007015001_inversiones_cotizacion.sql`): sólo por API directa, la UI
+  // siempre manda la cotización con un activo que no es ARS, el dólar sólo en USD y la cantidad igual
+  // al importe en ARS.
+  if (code === 'P0001' && /investment_fx_invalid/.test(message))
+    return 'La inversión no cierra: en pesos no lleva cotización, y en cualquier otro activo sí (el dólar sólo va en USD).'
+  if (code === 'P0001' && /asset_not_found/.test(message)) return 'Ese activo ya no existe.'
   if (code === 'P0001' && /account_adjust_nothing_to_adjust/.test(message)) return 'Ya coincide: no hay nada que reajustar.'
   if (code === 'P0001' && /account_adjust_invalid_amount/.test(message)) return 'Ingresá un importe válido.'
   if (code === 'P0001' && /account_insufficient_funds/.test(message)) return 'Esa cuenta no tiene tanta plata: bajá el importe.'
