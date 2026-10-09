@@ -16,11 +16,11 @@ src/
   App.tsx                rutas
   app/                   shell: AppLayout, AdminLayout, AuthLayout, TopBar, MobileTabBar, nav, mainShell.ts
   pages/                 una por pantalla (Hoy, Fijos, Movimientos, Cuentas, Analisis, MisDeudas,
-                         MeDeben, Ahorros, Categorias, Ajustes) + admin/ y auth/
+                         MeDeben, Inversiones, Categorias, Ajustes) + admin/ y auth/
   features/<dominio>/    por dominio: api.ts (queries/RPC y hooks), aggregate.ts/period.ts (lógica
                          pura + tests), diálogos y componentes propios. Dominios: access (planes),
                          accounts, transactions, fixed-expenses, cycle-income (sueldo), credits (Mis
-                         Deudas), receivables (Me Deben), savings, assets, analytics, categories,
+                         Deudas), receivables (Me Deben), investments, assets, analytics, categories,
                          default-categories, invites, admin-users, profile, auth, fx (cotizaciones)
   components/ui/         piezas compartidas: Dialog + dialog-parts, Money, FloatingPanel, Button, etc.
   components/help/       piezas de las pantallas de ayuda
@@ -43,7 +43,7 @@ docs/                    supabase-auth.md, qa/README.md, icono.md
 
 ## Planes y rol
 
-- **Plan** (`profiles.plan`), única fuente de verdad `PLAN_CAPS` en `src/features/access/plan.ts`. **Básico**: Hoy, Fijos, Movimientos sólo lectura; `+` paga fijo, «Sueldo» asigna ingreso del ciclo, en Hoy tarjeta de fijos reemplaza saldo. **Test** (default invitación nueva): + carga manual, Análisis, Cuentas. **Premium**: + Mis Deudas, Me Deben, Ahorros, Ajustes completos.
+- **Plan** (`profiles.plan`), única fuente de verdad `PLAN_CAPS` en `src/features/access/plan.ts`. **Básico**: Hoy, Fijos, Movimientos sólo lectura; `+` paga fijo, «Sueldo» asigna ingreso del ciclo, en Hoy tarjeta de fijos reemplaza saldo. **Test** (default invitación nueva): + carga manual, Análisis, Cuentas. **Premium**: + Mis Deudas, Me Deben, Inversiones.
 - **Rol** admin sólo usa `/admin` (categorías default, activos, invitaciones, usuarios), sin finanzas.
 - Alta sólo por invitación (código fija plan inicial); después sólo admin cambia plan o rol desde `/admin/usuarios`. Nadie se los cambia a sí mismo: columnas sin permiso escritura desde cliente.
 - **Sumar función a plan:** capacidad en `PLAN_CAPS`/`ALL_CAPABILITIES` → gatear con `useCan(...)` o `RequireCapability` (`src/features/auth/guards.tsx`) → actualizar `plan.test.ts`.

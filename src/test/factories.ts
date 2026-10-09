@@ -6,7 +6,8 @@
  */
 import type { Asset } from '@/features/assets/api'
 import type { AssetPrice } from '@/features/fx/api'
-import type { SavingsBucket, SavingsEntry } from '@/features/savings/api'
+import type { Investment } from '@/features/investments/api'
+import type { DollarQuote, DollarType } from '@/features/fx/quotes'
 import type {
   CreditCard,
   CreditCardPayment,
@@ -28,44 +29,42 @@ export function makeAsset(p: Partial<Asset> & Pick<Asset, 'id' | 'symbol'>): Ass
     user_id: null,
     name: p.name ?? p.symbol,
     asset_class: 'other',
-    quote_currency: 'ARS',
     decimals: 2,
     price_source: 'manual',
     coingecko_id: null,
+    price_usd: null,
+    price_updated_at: null,
+    fx_source: 'contadoconliqui',
     is_archived: false,
     created_at: FIXED_DATE,
     ...p,
   }
 }
 
-export function makeBucket(p: Partial<SavingsBucket> & Pick<SavingsBucket, 'id'>): SavingsBucket {
+export function makeInvestment(
+  p: Partial<Investment> & Pick<Investment, 'asset_id' | 'amount' | 'quantity'>,
+): Investment {
   return {
+    id: `inv-${Math.random().toString(36).slice(2)}`,
     user_id: 'user-1',
-    name: 'Bucket de test',
-    slug: null,
-    single_currency: false,
-    include_in_total: true,
-    sort_order: 0,
-    is_archived: false,
-    goal_cents: null,
-    created_at: FIXED_DATE,
-    ...p,
-  }
-}
-
-export function makeEntry(
-  p: Partial<SavingsEntry> & Pick<SavingsEntry, 'asset_id' | 'kind' | 'amount'>,
-): SavingsEntry {
-  return {
-    id: `entry-${Math.random().toString(36).slice(2)}`,
-    user_id: 'user-1',
-    bucket_id: 'bucket-1',
-    rate_to_main: null,
+    category_id: null,
+    fx_source: null,
+    buy_price: null,
     occurred_on: '2026-01-01',
-    note: null,
+    description: null,
     created_at: FIXED_DATE,
     ...p,
   }
+}
+
+/** `{ blue: [compra, venta] }` en centavos → cotizaciones resueltas de la API. */
+export function quoteMap(quotes: Partial<Record<DollarType, [number, number]>>): Map<DollarType, DollarQuote> {
+  return new Map(
+    Object.entries(quotes).map(([type, [buyCents, sellCents]]) => [
+      type as DollarType,
+      { buyCents, sellCents, updatedAt: FIXED_DATE },
+    ]),
+  )
 }
 
 export function makeCard(p: Partial<CreditCard> & Pick<CreditCard, 'id'>): CreditCard {
@@ -252,12 +251,12 @@ export function makeFixedExpenseSaving(
   }
 }
 
-/** `{ ars: 100, btc: null }` → Map de assetId a `AssetPrice`, con `origin`/`updatedAt` de relleno. */
+/** `{ btc: 100000, meli: null }` → Map de assetId a `AssetPrice` (USD por unidad). */
 export function priceMap(precios: Record<string, number | null>): Map<string, AssetPrice> {
   return new Map(
-    Object.entries(precios).map(([assetId, priceArsCents]) => [
+    Object.entries(precios).map(([assetId, priceUsd]) => [
       assetId,
-      { priceArsCents, origin: priceArsCents == null ? 'none' : 'manual', updatedAt: priceArsCents == null ? null : FIXED_DATE },
+      { priceUsd, origin: priceUsd == null ? 'none' : 'admin', updatedAt: priceUsd == null ? null : FIXED_DATE },
     ]),
   )
 }

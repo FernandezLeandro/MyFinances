@@ -19,14 +19,17 @@ import {
 import { CategoryChip } from '@/features/categories/CategoryChip'
 import { CategoryEditorDialog } from '@/features/categories/CategoryEditorDialog'
 import { ArchiveCategoryDialog, DeleteCategoryDialog } from '@/features/categories/CategoryConfirmDialogs'
-import { filterCategories, tabCounts, type CategoryInput, type CategoryTab } from '@/features/categories/list'
+import { filterCategories, tabCounts, type CategoryInput, type CategoryKindName, type CategoryTab } from '@/features/categories/list'
+import { useCan } from '@/features/access/useCan'
 
 type EditorTarget = { kind: CategoryKind; category?: Category } | null
 
-const TAB_LABELS: Record<CategoryTab, string> = { expense: 'Gasto', income: 'Ingreso', archived: 'Archivadas' }
+const TAB_LABELS: Record<CategoryTab, string> = { expense: 'Gasto', income: 'Ingreso', investment: 'Inversión', archived: 'Archivadas' }
+const NEW_LABEL: Record<CategoryKindName, string> = { expense: 'Nueva de gasto', income: 'Nueva de ingreso', investment: 'Nueva de inversión' }
+const EMPTY_LABEL: Record<CategoryKindName, string> = { expense: 'gasto', income: 'ingreso', investment: 'inversión' }
 
 /**
- * Pantalla de categorías de la cuenta (`/categorias`), rediseño «Pantalla C» (2026-09-26): un solo panel con pestañas Gasto · Ingreso · Archivadas
+ * Pantalla de categorías de la cuenta (`/categorias`), rediseño «Pantalla C» (2026-09-26): un solo panel con pestañas Gasto · Ingreso · Inversión (sólo con el plan que tiene Inversiones) · Archivadas
  * (con la cantidad de categorías de cada una, no de movimientos) y un buscador. Toda la fila abre el
  * editor modal (`CategoryEditorDialog`), que es donde se archiva y, desde Archivadas, se elimina.
  *
@@ -43,6 +46,8 @@ export function Categorias() {
   const setArchived = useSetCategoryArchived()
   const deleteCategory = useDeleteCategory()
 
+  const canInvest = useCan('inversiones')
+  const tabs: readonly CategoryTab[] = canInvest ? ['expense', 'income', 'investment', 'archived'] : ['expense', 'income', 'archived']
   const [tab, setTab] = useState<CategoryTab>('expense')
   const [query, setQuery] = useState('')
   const [editor, setEditor] = useState<EditorTarget>(null)
@@ -78,7 +83,7 @@ export function Categorias() {
   }
 
   const newKind: CategoryKind | null = tab === 'archived' ? null : tab
-  const newLabel = tab === 'income' ? 'Nueva de ingreso' : 'Nueva de gasto'
+  const newLabel = newKind ? NEW_LABEL[newKind] : ''
 
   return (
     <div className="flex flex-col gap-5 sm:gap-7">
@@ -109,7 +114,7 @@ export function Categorias() {
             variant="tabs"
             value={tab}
             onChange={setTab}
-            options={(['expense', 'income', 'archived'] as const).map((t) => ({
+            options={tabs.map((t) => ({
               value: t,
               label: (
                 <>
@@ -146,7 +151,7 @@ export function Categorias() {
                 ? `Nada con «${query.trim()}»`
                 : tab === 'archived'
                   ? 'No hay archivadas'
-                  : `Sin categorías de ${tab === 'expense' ? 'gasto' : 'ingreso'}`
+                  : `Sin categorías de ${EMPTY_LABEL[tab]}`
             }
           />
         ) : (

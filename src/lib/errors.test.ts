@@ -122,8 +122,15 @@ describe('mensajeDeError', () => {
       'El tipo de una categoría no se puede cambiar: creá una nueva del otro tipo.',
     )
     expect(mensajeDeError({ code: 'P0001', message: 'category_kind_mismatch' })).toBe(
-      'Esa categoría es de otro tipo: elegí una de gasto o de ingreso según corresponda.',
+      'Esa categoría es de otro tipo: elegí una de gasto, de ingreso o de inversión según corresponda.',
     )
+  })
+
+  it('P0001 de Inversiones → cotización inconsistente o activo inexistente', () => {
+    expect(mensajeDeError({ code: 'P0001', message: 'investment_fx_invalid' })).toBe(
+      'La inversión no cierra: en pesos no lleva cotización, y en cualquier otro activo sí (el dólar sólo va en USD).',
+    )
+    expect(mensajeDeError({ code: 'P0001', message: 'asset_not_found' })).toBe('Ese activo ya no existe.')
   })
 
   // Bloques 3 y 4 del arreglo de Movimientos (MO-02 a MO-08): borrar/editar por API directa un

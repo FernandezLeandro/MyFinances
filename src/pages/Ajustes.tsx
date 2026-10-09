@@ -1,18 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { format, parseISO } from 'date-fns'
 import { ChevronRight } from 'lucide-react'
-import { Panel, PanelHeader } from '@/components/ui/Panel'
-import { Money } from '@/components/ui/Money'
+import { Panel } from '@/components/ui/Panel'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { cn } from '@/lib/cn'
-import { parseAmountToCents, sanitizeAmountInput } from '@/lib/money'
 import { showToast } from '@/lib/toast'
-import { useProfile, useUpdateProfile, type CycleKind, type FxSource } from '@/features/profile/api'
-import { useUsdRate, useAssetPrices } from '@/features/fx/api'
-import { useAssets } from '@/features/assets/api'
-import { AssetCatalogList } from '@/features/assets/AssetCatalogList'
+import { useProfile, useUpdateProfile, type CycleKind } from '@/features/profile/api'
 import { ChangePasswordForm } from '@/features/auth/ChangePasswordPanel'
 import { useCurrentBalance } from '@/features/transactions/api'
 import { useBalanceLocations, useStopUsingAccounts } from '@/features/accounts/api'
@@ -25,142 +19,6 @@ import { useTheme } from '@/lib/useTheme'
 import { supabase } from '@/lib/supabase'
 import { useCan } from '@/features/access/useCan'
 
-const fxSources: { value: FxSource; label: string }[] = [
-  { value: 'oficial', label: 'Oficial' },
-  { value: 'blue', label: 'Blue' },
-  { value: 'bolsa', label: 'MEP' },
-  { value: 'cripto', label: 'Cripto' },
-  { value: 'manual', label: 'Manual' },
-]
-
-/** La tarjeta oscura que manda en la columna izquierda — misma superficie invertida que el saldo de
- *  Hoy y los fijos proyectados: acá marca que esta cifra gobierna al resto de la app (Ahorros,
- *  activos, cualquier cifra en dólares). Los chips y el campo manual usan `inverse-divider` como
- *  fondo/separador — el mismo token que ya usa `SaldoProyectadoPanel` para la barra de comprometido. */
-function FxPanel() {
-  const { data: profile, isPending } = useProfile()
-  const updateProfile = useUpdateProfile()
-  const usdRate = useUsdRate()
-  const [manualInput, setManualInput] = useState('')
-
-  useEffect(() => {
-    if (profile?.usdRateManualCents != null) {
-      setManualInput((profile.usdRateManualCents / 100).toLocaleString('es-AR', { minimumFractionDigits: 2 }))
-    }
-  }, [profile?.usdRateManualCents])
-
-  async function saveManualRate() {
-    const cents = parseAmountToCents(manualInput)
-    if (cents == null || cents <= 0) return
-    await updateProfile.mutateAsync({ usdRateManualCents: cents })
-  }
-
-  const sourceLabel = fxSources.find((s) => s.value === profile?.fxSource)?.label
-  const originLabel = usdRate.origin === 'manual' ? (usdRate.isFallback ? 'manual (la API falló)' : 'manual') : 'dolarapi.com'
-  const timeLabel = usdRate.updatedAt ? format(parseISO(usdRate.updatedAt), 'HH:mm') : null
-
-  return (
-    <Panel tone="inverse" className="p-panel">
-      {isPending ? (
-        <Skeleton className="h-28 w-full bg-inverse-divider" />
-      ) : (
-        <>
-          <p className="text-[11.5px] font-semibold tracking-[0.12em] text-on-inverse-muted uppercase">Dólar en uso</p>
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-2.5">
-            {usdRate.rateCents == null ? (
-              <span className="font-display text-[32px] font-bold text-on-inverse">Sin cotización</span>
-            ) : (
-              <Money cents={usdRate.rateCents} tone="onInverse" size="display" />
-            )}
-            {usdRate.rateCents != null && (
-              <span className="text-[13px] text-on-inverse-muted">
-                {sourceLabel} · {originLabel}
-                {timeLabel ? ` · ${timeLabel}` : ''}
-              </span>
-            )}
-          </div>
-          <p className="mt-3 max-w-[420px] text-[12.5px] leading-relaxed text-on-inverse-muted">
-            Con esta cotización se convierte todo lo que no está en pesos: el total de Ahorros, los activos y las cifras en dólares de cada
-            pantalla.
-          </p>
-
-          <div className="mt-5 flex flex-wrap items-end gap-6 border-t border-inverse-divider pt-4.5">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10.5px] font-semibold tracking-[0.09em] text-on-inverse-muted uppercase">Fuente</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {fxSources.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    onClick={() => updateProfile.mutate({ fxSource: s.value })}
-                    className={cn(
-                      'rounded-chip px-[13px] py-[7px] text-[12.5px] transition-colors duration-150',
-                      profile?.fxSource === s.value
-                        ? 'bg-on-inverse font-semibold text-inverse'
-                        : 'bg-inverse-divider text-on-inverse-secondary hover:text-on-inverse',
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="w-[230px] shrink-0">
-              <p className="text-[10.5px] font-semibold tracking-[0.09em] text-on-inverse-muted uppercase">Manual, de respaldo</p>
-              <div className="mt-2 flex gap-2">
-                <input
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={manualInput}
-                  onChange={(e) => setManualInput(sanitizeAmountInput(e.target.value))}
-                  className="tnum h-10 min-w-0 flex-1 rounded-control bg-inverse-divider px-3 text-[14px] text-on-inverse outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={saveManualRate}
-                  disabled={updateProfile.isPending}
-                  className="shrink-0 rounded-control border border-inverse-divider px-3.5 text-[13px] font-semibold text-on-inverse transition-colors duration-150 hover:bg-inverse-divider"
-                >
-                  Guardar
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </Panel>
-  )
-}
-
-function AssetsPanel() {
-  const { data: assets } = useAssets()
-  const prices = useAssetPrices()
-  const missingCount = (assets ?? []).filter(
-    (a) => a.symbol !== 'ARS' && a.symbol !== 'USD' && prices.get(a.id)?.priceArsCents == null,
-  ).length
-
-  return (
-    <Panel>
-      <PanelHeader
-        title="Activos"
-        hint="El catálogo lo gestiona el admin — acá cargás tu propia cotización de referencia"
-        action={
-          missingCount > 0 ? (
-            <span className="shrink-0 rounded-pill bg-badge-amber-bg px-[11px] py-[5px] text-[11.5px] font-semibold text-badge-amber-fg">
-              {missingCount} sin cotización
-            </span>
-          ) : undefined
-        }
-      />
-      <AssetCatalogList canEditCatalog={false} excludeMainCurrencies />
-    </Panel>
-  )
-}
-
-/** Sin la cifra y sin "Transferir" (27a) — esos compiten con la tarjeta del dólar, la única cifra
- *  que esta pantalla destaca. Mismo patrón que `CategoriesPanel`: chips de las activas + link a la
- *  pantalla completa (`/cuentas`), donde viven el saldo, el reajuste, las transferencias y el
- *  archivar/eliminar. */
 const accountsToggleOptions = [
   { value: 'on', label: 'Activadas' },
   { value: 'off', label: 'Desactivadas' },
@@ -260,7 +118,9 @@ function AccountsPanel() {
 /** Mismo patrón que `AccountsPanel`: chips de las activas + link a la pantalla completa
  *  (`/categorias`), donde vive archivar/eliminar con sus confirmaciones. */
 function CategoriesPanel() {
-  const { data: categories } = useCategories(true)
+  const { data: allCategories } = useCategories(true)
+  // Las de inversión no agrupan movimientos: viven en su pestaña de /categorias.
+  const categories = allCategories?.filter((c) => c.kind !== 'investment')
   const active = (categories ?? []).filter((c) => !c.is_archived)
   const archivedCount = (categories ?? []).filter((c) => c.is_archived).length
 
@@ -450,7 +310,6 @@ function SecurityPanel() {
 }
 
 export function Ajustes() {
-  const canCompleto = useCan('ajustes-completo')
   const canCuentas = useCan('cuentas')
 
   return (
@@ -460,32 +319,14 @@ export function Ajustes() {
         <h1 className="mt-2 font-display text-figure font-semibold">Ajustes</h1>
       </header>
 
-      {canCompleto ? (
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
-          <div className="flex flex-col gap-4">
-            <FxPanel />
-            <AssetsPanel />
-          </div>
-          <div className="flex flex-col gap-4">
-            {canCuentas && <AccountsPanel />}
-            <CategoriesPanel />
-            <CiclosPanel />
-            <AppearancePanel />
-            <SecurityPanel />
-          </div>
-        </div>
-      ) : (
-        // Plan restringido: sin dólar — nada que gestionar todavía ahí. Cuentas aplica a Test (no a
-        // Básico) y Categorías a los dos (fijos y movimientos manuales la usan), sumadas a lo que ya
-        // pedía Lean para test/basic: ciclo, tema y seguridad, en una sola columna angosta.
-        <div className="flex max-w-[420px] flex-col gap-4">
-          {canCuentas && <AccountsPanel />}
-          <CategoriesPanel />
-          <CiclosPanel />
-          <AppearancePanel />
-          <SecurityPanel />
-        </div>
-      )}
+      {/* Una sola columna angosta para todos los planes; Cuentas sólo aparece donde el plan la tiene. */}
+      <div className="flex max-w-[420px] flex-col gap-4">
+        {canCuentas && <AccountsPanel />}
+        <CategoriesPanel />
+        <CiclosPanel />
+        <AppearancePanel />
+        <SecurityPanel />
+      </div>
     </div>
   )
 }

@@ -16,7 +16,7 @@ interface OpeningAmountFieldProps {
   /** Un error de ESTE campo (patrón 5b): ocupa el lugar de la ayuda, al costado, y tiñe el campo de
    *  rojo. Un error de guardado, en cambio, no va acá sino en un bloque arriba del pie. */
   error?: string
-  /** "$" por default. El aporte de `SavingsEntryFormDialog` lo pisa con el símbolo del activo
+  /** "$" por default. Un campo de cantidad lo puede pisar con el símbolo del activo
    *  elegido (USD, BTC…) — ahí el campo no siempre declara pesos. */
   symbol?: string
   /** Botón "MÁX." pegado al campo: rellena el importe con el tope que corresponda (el saldo de la
@@ -41,7 +41,7 @@ interface OpeningAmountFieldProps {
 /**
  * El campo de apertura: 150px, el "$" adelante y los dígitos a la izquierda, con la explicación al
  * costado. Se usa en los tres lugares donde se declara plata que ya estaba — alta de cuenta,
- * edición de cuenta y el aporte de `SavingsEntryFormDialog`.
+ * edición de cuenta y el alta de una cuenta.
  *
  * Va con los dígitos a la izquierda y no alineado a la derecha: una columna de montos comparables
  * entre sí se lee en vertical y pide alineación a la derecha, pero acá el monto está solo, así que

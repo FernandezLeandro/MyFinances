@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { centsFromNumeric, centsToNumeric } from '@/lib/money'
+import type { DollarType } from '@/features/fx/quotes'
 import type { Database } from '@/lib/database.types'
 
 export type Asset = Database['public']['Tables']['assets']['Row']
 export type AssetClass = Asset['asset_class']
-export type AssetQuoteCurrency = Asset['quote_currency']
 
 /** Catálogo global (BTC, USD, MELI...) + los activos propios que el usuario haya agregado. */
 export function useAssets(includeArchived = false) {
@@ -25,36 +24,10 @@ export function useAssets(includeArchived = false) {
   })
 }
 
-/**
- * Precio manual por activo, cargado por esta cuenta — igual que `profiles.usd_rate_manual`, es una
- * referencia propia, no un dato compartido: dos cuentas pueden tener valores distintos para el mismo
- * MELI del catálogo global. Se guarda en la moneda NATIVA del activo (`assets.quote_currency`), no
- * pre-convertido a ARS — así, si es en USD, sigue el dólar en vivo en vez de quedar congelado con el
- * que estaba vigente el día que se cargó. La conversión final a ARS pasa por `useAssetPrices`.
- */
-export function useAssetManualPrices() {
-  const { user } = useAuth()
-
-  return useQuery({
-    queryKey: ['asset-manual-prices', user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('asset_manual_prices').select('*')
-      if (error) throw error
-      const map = new Map<string, { priceCents: number; updatedAt: string }>()
-      for (const row of data) {
-        map.set(row.asset_id, { priceCents: centsFromNumeric(row.price), updatedAt: row.updated_at })
-      }
-      return map
-    },
-  })
-}
-
 export interface AssetInput {
   symbol: string
   name: string
   assetClass: Exclude<AssetClass, 'fiat'>
-  quoteCurrency: AssetQuoteCurrency
 }
 
 export function useCreateAsset() {
@@ -71,10 +44,8 @@ export function useCreateAsset() {
         symbol: input.symbol.trim().toUpperCase(),
         name: input.name.trim(),
         asset_class: input.assetClass,
-        quote_currency: input.quoteCurrency,
-        // Un activo agregado a mano siempre arranca sin cotización en vivo — el usuario la carga
-        // él mismo en Ajustes. 8 decimales para cualquier activo que no sea dinero: comprar
-        // fracciones finas (acciones, bonos, cripto) es más la regla que la excepción.
+        // Arranca sin precio: el admin lo carga en USD al editarlo. 8 decimales para cualquier activo
+        // que no sea dinero: comprar fracciones finas (acciones, bonos, cripto) es más la regla.
         decimals: 8,
         price_source: 'manual',
       })
@@ -87,12 +58,16 @@ export function useCreateAsset() {
 export interface AssetUpdateInput {
   name?: string
   assetClass?: Exclude<AssetClass, 'fiat'>
-  quoteCurrency?: AssetQuoteCurrency
+  /** USD por unidad. `null` lo borra. Sólo tiene efecto en los que no traen precio en vivo. */
+  priceUsd?: number | null
+  /** Dólar con el que se convierte este activo a pesos. */
+  fxSource?: DollarType
   isArchived?: boolean
 }
 
-/** Edita los datos propios del activo (nombre, clase, moneda de cotización, archivado). El símbolo
- *  no se puede cambiar — varias partes del código lo usan para identificar ARS/USD/etc. */
+/** Edita el activo (nombre, clase, precio en USD, dólar de conversión, archivado). Sólo el admin: la
+ *  base lo exige (`assets_update_global`). El símbolo no se puede cambiar — varias partes del código
+ *  lo usan para identificar ARS/USD. */
 export function useUpdateAsset() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -104,7 +79,11 @@ export function useUpdateAsset() {
         .update({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.assetClass !== undefined && { asset_class: input.assetClass }),
-          ...(input.quoteCurrency !== undefined && { quote_currency: input.quoteCurrency }),
+          ...(input.priceUsd !== undefined && {
+            price_usd: input.priceUsd,
+            price_updated_at: input.priceUsd == null ? null : new Date().toISOString(),
+          }),
+          ...(input.fxSource !== undefined && { fx_source: input.fxSource }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
         })
         .eq('id', id)
@@ -114,7 +93,7 @@ export function useUpdateAsset() {
   })
 }
 
-/** Sólo activos globales (RLS ya lo exige) — si está en uso en algún `savings_entries`, el FK sin
+/** Sólo activos globales (RLS ya lo exige) — si está en uso en alguna `investments`, el FK sin
  *  `on delete` frena el borrado y esto tira error en vez de arrastrar movimientos de otra cuenta. */
 export function useDeleteAsset() {
   const { user } = useAuth()
@@ -126,28 +105,5 @@ export function useDeleteAsset() {
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assets', user?.id] }),
-  })
-}
-
-export function useUpdateAssetManualPrice() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    /** `priceCents` va en la moneda nativa del activo (`quote_currency`) — nunca pre-convertido. */
-    mutationFn: async ({ assetId, priceCents }: { assetId: string; priceCents: number }) => {
-      if (!user) throw new Error('No autenticado')
-      const { error } = await supabase.from('asset_manual_prices').upsert(
-        {
-          user_id: user.id,
-          asset_id: assetId,
-          price: centsToNumeric(priceCents),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,asset_id' },
-      )
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['asset-manual-prices', user?.id] }),
   })
 }

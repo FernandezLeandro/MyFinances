@@ -1,11 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { centsFromNumeric, centsToNumeric } from '@/lib/money'
 import type { Database } from '@/lib/database.types'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
-export type FxSource = ProfileRow['fx_source']
 export type Role = ProfileRow['role']
 export type Plan = ProfileRow['plan']
 export type CycleKind = ProfileRow['cycle_kind']
@@ -16,10 +14,6 @@ export interface Profile {
   currency: string
   role: Role
   plan: Plan
-  fxSource: FxSource
-  /** Cotización manual en centavos de ARS por unidad de USD. `null` si nunca se cargó. */
-  usdRateManualCents: number | null
-  usdRateUpdatedAt: string | null
   /** Ciclo de caja elegido — la ventana con la que este usuario mira su plata (`src/lib/cycle.ts`).
    *  'monthly' es el default de toda cuenta que no configuró nada: preserva exactamente el
    *  comportamiento de siempre. */
@@ -35,9 +29,6 @@ function toProfile(row: ProfileRow): Profile {
     currency: row.currency,
     role: row.role,
     plan: row.plan,
-    fxSource: row.fx_source,
-    usdRateManualCents: row.usd_rate_manual == null ? null : centsFromNumeric(row.usd_rate_manual),
-    usdRateUpdatedAt: row.usd_rate_updated_at,
     cycleKind: row.cycle_kind,
     cycleWeekStartsOn: row.cycle_week_starts_on,
   }
@@ -63,8 +54,6 @@ export function useProfile() {
 }
 
 export interface ProfileUpdateInput {
-  fxSource?: FxSource
-  usdRateManualCents?: number | null
   cycleKind?: CycleKind
   cycleWeekStartsOn?: number
 }
@@ -77,12 +66,6 @@ export function useUpdateProfile() {
     mutationFn: async (input: ProfileUpdateInput) => {
       if (!user) throw new Error('No autenticado')
       const payload: Database['public']['Tables']['profiles']['Update'] = {}
-      if (input.fxSource !== undefined) payload.fx_source = input.fxSource
-      if (input.usdRateManualCents !== undefined) {
-        payload.usd_rate_manual =
-          input.usdRateManualCents == null ? null : centsToNumeric(input.usdRateManualCents)
-        payload.usd_rate_updated_at = new Date().toISOString()
-      }
       if (input.cycleKind !== undefined) payload.cycle_kind = input.cycleKind
       if (input.cycleWeekStartsOn !== undefined) payload.cycle_week_starts_on = input.cycleWeekStartsOn
       const { error } = await supabase.from('profiles').update(payload).eq('id', user.id)

@@ -11,15 +11,16 @@
  */
 
 type Kind = 'income' | 'expense'
+/** Tipo de una categoría: las de inversión no son un tipo de movimiento (`transactions.type` sigue siendo `Kind`). */
+type CategoryKind = Kind | 'investment'
 type AccountKind = 'cash' | 'wallet' | 'bank'
 type Role = 'user' | 'admin'
 type Plan = 'test' | 'basic' | 'premium'
-type FxSource = 'oficial' | 'blue' | 'bolsa' | 'cripto' | 'manual'
+type DollarType = 'oficial' | 'blue' | 'bolsa' | 'contadoconliqui' | 'cripto'
 type CycleKind = 'monthly' | 'biweekly' | 'weekly'
 type BagFrequency = 'monthly' | 'biweekly' | 'weekly'
 type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
-type AssetQuoteCurrency = 'ARS' | 'USD'
 type AssetPriceSource = 'coingecko' | 'manual'
 
 export interface Database {
@@ -33,9 +34,6 @@ export interface Database {
           role: Role
           plan: Plan
           created_at: string
-          fx_source: FxSource
-          usd_rate_manual: string | null
-          usd_rate_updated_at: string | null
           cycle_kind: CycleKind
           cycle_week_starts_on: number
         }
@@ -48,9 +46,6 @@ export interface Database {
         Update: Partial<{
           display_name: string | null
           currency: string
-          fx_source: FxSource
-          usd_rate_manual: number | string | null
-          usd_rate_updated_at: string | null
           cycle_kind: CycleKind
           cycle_week_starts_on: number
         }>
@@ -60,7 +55,7 @@ export interface Database {
         Row: {
           id: string
           name: string
-          kind: Kind
+          kind: CategoryKind
           color: string
           icon: string
           sort_order: number
@@ -70,13 +65,13 @@ export interface Database {
         Insert: {
           id?: string
           name: string
-          kind: Kind
+          kind: CategoryKind
           color: string
           icon?: string
           sort_order?: number
           is_archived?: boolean
         }
-        Update: Partial<{ name: string; kind: Kind; color: string; icon: string; sort_order: number; is_archived: boolean }>
+        Update: Partial<{ name: string; kind: CategoryKind; color: string; icon: string; sort_order: number; is_archived: boolean }>
         Relationships: []
       }
       savings_buckets: {
@@ -154,10 +149,14 @@ export interface Database {
           symbol: string
           name: string
           asset_class: AssetClass
-          quote_currency: AssetQuoteCurrency
           decimals: number
           price_source: AssetPriceSource
           coingecko_id: string | null
+          /** USD por unidad, cargado por el admin. `null` en ARS/USD y en cripto (esas traen precio en vivo). */
+          price_usd: string | null
+          price_updated_at: string | null
+          /** Dólar con el que se convierte este activo a pesos. */
+          fx_source: DollarType
           is_archived: boolean
           created_at: string
         }
@@ -169,15 +168,59 @@ export interface Database {
           symbol: string
           name: string
           asset_class: AssetClass
-          quote_currency: AssetQuoteCurrency
           decimals?: number
           price_source?: AssetPriceSource
+          fx_source?: DollarType
         }
         Update: Partial<{
           name: string
           asset_class: AssetClass
-          quote_currency: AssetQuoteCurrency
+          price_usd: number | string | null
+          price_updated_at: string | null
+          fx_source: DollarType
           is_archived: boolean
+        }>
+        Relationships: []
+      }
+      investments: {
+        Row: {
+          id: string
+          user_id: string
+          category_id: string | null
+          asset_id: string
+          /** ARS pagados: es el costo. */
+          amount: string
+          /** Cantidad real recibida, a los decimales del activo. En ARS = amount. */
+          quantity: string
+          /** Dólar con el que se valúa. Sólo en USD; null en ARS y en activos de mercado (usan el del activo). */
+          fx_source: DollarType | null
+          /** Pesos por unidad al comprar (por dólar, por USDT, por BTC…). null sólo en ARS. */
+          buy_price: string | null
+          occurred_on: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          category_id?: string | null
+          asset_id: string
+          amount: number | string
+          quantity: number | string
+          fx_source?: DollarType | null
+          buy_price?: number | string | null
+          occurred_on: string
+          description?: string | null
+        }
+        Update: Partial<{
+          category_id: string | null
+          asset_id: string
+          amount: number | string
+          quantity: number | string
+          fx_source: DollarType | null
+          buy_price: number | string | null
+          occurred_on: string
+          description: string | null
         }>
         Relationships: []
       }
@@ -192,7 +235,7 @@ export interface Database {
           id: string
           user_id: string
           name: string
-          kind: Kind
+          kind: CategoryKind
           color: string
           icon: string
           is_archived: boolean
@@ -202,12 +245,12 @@ export interface Database {
           id?: string
           user_id: string
           name: string
-          kind: Kind
+          kind: CategoryKind
           color: string
           icon?: string
           is_archived?: boolean
         }
-        Update: Partial<{ name: string; kind: Kind; color: string; icon: string; is_archived: boolean }>
+        Update: Partial<{ name: string; kind: CategoryKind; color: string; icon: string; is_archived: boolean }>
         Relationships: []
       }
       transactions: {

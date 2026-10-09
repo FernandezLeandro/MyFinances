@@ -31,7 +31,7 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
   categoría, fijo vs. variable, promedios mensuales.
 - **Mis Deudas** (Premium): tarjetas de crédito en cuotas y compras sueltas, con guardado por compra (con o sin movimiento); al pagar se genera sólo lo que falta.
 - **Me Deben** (Premium): plata prestada a otras personas, en una o varias cuotas, con abonos parciales y navegación por mes. Prestar y cobrar pueden generar el movimiento (opcional) en la categoría Préstamos.
-- **Ahorros** (Premium): ítems multi-activo (pesos, dólares, cripto, acciones), con metas opcionales.
+- **Inversiones** (Premium): cada inversión se carga en pesos, con su categoría (Ahorros, Fondo de emergencia, Jubilación… las que quieras en Categorías) y, si no es en pesos, el tipo de dólar, la cotización (editable) y la cantidad real recibida. Historial, posiciones por activo con la ganancia no realizada, y análisis por semana, mes y año con filtros por categoría que se recuerdan en el dispositivo. Cada inversión se valúa con su dólar, a la compra.
 - **Cuentas** (Test y Premium): efectivo, billeteras virtuales y bancos. El saldo de la app es la suma
   de las cuentas activas: archivar una la saca del saldo hasta que se reactiva. Transferencias entre
   cuentas (se ven en Movimientos, sin sumar como gasto ni ingreso), eliminar (con sus movimientos) y
@@ -39,15 +39,14 @@ Cada punto indica entre paréntesis desde qué plan está disponible — ver [Pl
   Crear una cuenta no mueve el saldo salvo que se pida: la primera viene con el saldo actual y lo que
   no se declare queda en una cuenta «Sin repartir»; las siguientes pueden salir de otra cuenta.
 - **Categorías** (todos los planes): propias por cuenta, con un catálogo por defecto al darse de alta.
-- **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad. Dólar en uso y catálogo de
-  activos son Premium.
-- **Administración** (rol admin): categorías por defecto, catálogo de activos, códigos de invitación,
+- **Ajustes**: ciclo (mensual/quincenal/semanal); apariencia; seguridad.
+- **Administración** (rol admin): categorías por defecto, catálogo de activos (precio en USD y dólar de conversión de cada uno), códigos de invitación,
   gestión de usuarios (plan, rol, borrado de cuentas).
 - **General**: alta sólo por invitación, PWA instalable, claro/oscuro, ocultar importes.
 
 **Lo que no hace, por ahora:** sincronización con bancos ni importación de resúmenes, notificaciones,
 cuentas compartidas entre usuarios. Los movimientos son en pesos — el dólar y otras monedas sólo
-aparecen en Ahorros.
+aparecen en Inversiones.
 
 ## Planes
 
@@ -61,9 +60,8 @@ usuario o de administración). La fuente de verdad de qué habilita cada plan es
 | Movimientos (sólo lectura de lo que generan fijos/sueldo) | ✓ | | |
 | Movimientos (carga manual) | | ✓ | ✓ |
 | Análisis | | ✓ | ✓ |
-| Mis Deudas, Me Deben, Ahorros | | | ✓ |
+| Mis Deudas, Me Deben, Inversiones | | | ✓ |
 | Cuentas y transferencias | | ✓ | ✓ |
-| Ajustes completos (dólar, activos) | | | ✓ |
 
 El plan lo fija el código de invitación con el que se registra una cuenta, y sólo un admin puede
 cambiarlo después (`/admin/usuarios`). Ninguna cuenta puede cambiarse su propio plan ni su rol.

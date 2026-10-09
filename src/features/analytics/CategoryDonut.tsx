@@ -1,6 +1,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 import { Money } from '@/components/ui/Money'
+import type { Currency } from '@/lib/money'
 import { useChartColors, type ChartColorSet } from '@/lib/chartColors'
 
 export interface DonutSlice {
@@ -10,7 +11,10 @@ export interface DonutSlice {
    *  porción "Otros"), no con un `var(--...)`: el `fill` de un `<Cell>` es un atributo SVG y no
    *  resuelve variables CSS de forma confiable entre navegadores (ver `useChartColors`). */
   color: string | null
+  /** Lo que da el tamaño de la porción. */
   cents: number
+  /** Lo que muestra el tooltip si no es `cents` (Inversiones reparte por valor en USD y muestra la moneda de la pantalla). */
+  displayCents?: number
 }
 
 /** Total del centro, redondeado al peso — mostrar los centavos ahí (como en el resto de la app)
@@ -38,7 +42,7 @@ function fitFontSize(size: number, label: string): number {
 // Factory en vez de un componente fijo: el tooltip necesita el total para calcular el % de la
 // porción que se está mirando (depende de `data`, que varía por instancia del donut) y los colores
 // del tema activo — ninguno de los dos está disponible cuando Recharts instancia el tooltip solo.
-function makeTooltip(totalCents: number, colors: ChartColorSet) {
+function makeTooltip(totalCents: number, colors: ChartColorSet, currency: Currency) {
   return function CustomTooltip({ active, payload }: TooltipContentProps) {
     if (!active || !payload?.length) return null
     const slice = payload[0]?.payload as DonutSlice
@@ -50,7 +54,7 @@ function makeTooltip(totalCents: number, colors: ChartColorSet) {
       >
         <p className="mb-0.5 text-fg">{slice.categoryName}</p>
         <div className="flex items-baseline gap-2">
-          <Money cents={slice.cents} tone="dim" />
+          <Money cents={slice.displayCents ?? slice.cents} currency={currency} tone="dim" />
           <span className="tnum text-[11px] text-fg-muted">{(share * 100).toFixed(0)}%</span>
         </div>
       </div>
@@ -74,9 +78,11 @@ interface CategoryDonutProps {
   centerOverride?: { eyebrow: string; value: string }
   /** `false` en Hoy: se abre decenas de veces por día y el barrido de cada entrada sería lentitud. */
   animated?: boolean
+  /** Moneda del importe del tooltip. ARS por default. */
+  currency?: Currency
 }
 
-export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerOverride, animated = true }: CategoryDonutProps) {
+export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerOverride, animated = true, currency = 'ARS' }: CategoryDonutProps) {
   const colors = useChartColors()
   const totalCents = data.reduce((sum, s) => sum + s.cents, 0)
   const totalLabel = formatWhole(totalCents)
@@ -110,12 +116,12 @@ export function CategoryDonut({ data, onSelect, centerLabel, size = 178, centerO
               <Cell key={slice.categoryId} fill={slice.color ?? colors.fgMuted} />
             ))}
           </Pie>
-          <Tooltip content={makeTooltip(totalCents, colors)} />
+          <Tooltip content={makeTooltip(totalCents, colors, currency)} />
         </PieChart>
       </ResponsiveContainer>
       {centerOverride ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-3 text-center">
-          <span className="text-[10px] font-semibold tracking-[0.08em] text-fg-muted uppercase">{centerOverride.eyebrow}</span>
+          <span className="max-w-[62%] truncate text-[10px] font-semibold tracking-[0.08em] text-fg-muted uppercase">{centerOverride.eyebrow}</span>
           <span className="tnum font-display text-[22px] font-semibold text-fg" style={{ letterSpacing: '-0.02em' }}>
             {centerOverride.value}
           </span>

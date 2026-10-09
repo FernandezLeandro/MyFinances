@@ -9,7 +9,7 @@ import { CATEGORY_ICONS, DEFAULT_CATEGORY_ICON, categoryIcon, firstRow, searchIc
 import { cn } from '@/lib/cn'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { CategoryChip } from './CategoryChip'
-import { categoryInputSchema, type CategoryInput } from './list'
+import { CATEGORY_KIND_LABEL, categoryInputSchema, type CategoryInput, type CategoryKindName } from './list'
 
 interface EditableCategory {
   name: string
@@ -21,7 +21,7 @@ interface EditableCategory {
 interface CategoryEditorDialogProps {
   open: boolean
   onClose: () => void
-  kind: 'expense' | 'income'
+  kind: CategoryKindName
   /** Sin categoría es un alta. Montar con `key` por categoría: el borrador sale de acá una sola vez. */
   category?: EditableCategory
   saving: boolean
@@ -129,7 +129,7 @@ export function CategoryEditorDialog({
     setIconQuery('')
   }
 
-  const kindLabel = kind === 'expense' ? 'De gasto' : 'De ingreso'
+  const kindLabel = CATEGORY_KIND_LABEL[kind]
   const saveButton = (
     <Button size="dialogFooter" onClick={save} disabled={!canSave} loading={saving}>
       {isNew ? 'Crear categoría' : 'Guardar'}
