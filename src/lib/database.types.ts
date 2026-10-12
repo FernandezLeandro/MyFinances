@@ -19,7 +19,6 @@ type Plan = 'test' | 'basic' | 'premium'
 type DollarType = 'oficial' | 'blue' | 'bolsa' | 'contadoconliqui' | 'cripto'
 type CycleKind = 'monthly' | 'biweekly' | 'weekly'
 type BagFrequency = 'monthly' | 'biweekly' | 'weekly'
-type SavingsEntryKind = 'deposit' | 'withdrawal'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
 type AssetPriceSource = 'coingecko' | 'manual'
 
@@ -72,74 +71,6 @@ export interface Database {
           is_archived?: boolean
         }
         Update: Partial<{ name: string; kind: CategoryKind; color: string; icon: string; sort_order: number; is_archived: boolean }>
-        Relationships: []
-      }
-      savings_buckets: {
-        Row: {
-          id: string
-          user_id: string
-          name: string
-          slug: string | null
-          single_currency: boolean
-          include_in_total: boolean
-          sort_order: number
-          is_archived: boolean
-          goal_cents: number | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          name: string
-          slug?: string | null
-          single_currency?: boolean
-          include_in_total?: boolean
-          sort_order?: number
-          is_archived?: boolean
-          goal_cents?: number | null
-        }
-        Update: Partial<{
-          name: string
-          single_currency: boolean
-          include_in_total: boolean
-          sort_order: number
-          is_archived: boolean
-          goal_cents: number | null
-        }>
-        Relationships: []
-      }
-      savings_entries: {
-        Row: {
-          id: string
-          user_id: string
-          bucket_id: string
-          kind: SavingsEntryKind
-          asset_id: string
-          amount: string
-          rate_to_main: string | null
-          occurred_on: string
-          note: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          bucket_id: string
-          kind: SavingsEntryKind
-          asset_id: string
-          amount: number | string
-          rate_to_main?: number | string | null
-          occurred_on?: string
-          note?: string | null
-        }
-        Update: Partial<{
-          kind: SavingsEntryKind
-          asset_id: string
-          amount: number | string
-          rate_to_main: number | string | null
-          occurred_on: string
-          note: string | null
-        }>
         Relationships: []
       }
       assets: {
@@ -222,12 +153,6 @@ export interface Database {
           occurred_on: string
           description: string | null
         }>
-        Relationships: []
-      }
-      asset_manual_prices: {
-        Row: { user_id: string; asset_id: string; price: string; updated_at: string }
-        Insert: { user_id: string; asset_id: string; price: number | string; updated_at?: string }
-        Update: Partial<{ price: number | string; updated_at: string }>
         Relationships: []
       }
       categories: {
