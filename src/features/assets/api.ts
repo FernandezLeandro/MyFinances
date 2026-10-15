@@ -60,6 +60,8 @@ export interface AssetUpdateInput {
   assetClass?: Exclude<AssetClass, 'fiat'>
   /** USD por unidad. `null` lo borra. Sólo tiene efecto en los que no traen precio en vivo. */
   priceUsd?: number | null
+  /** De dónde sale el precio de una acción/bono: a mano o automático desde Yahoo (lo escribe la base). */
+  priceSource?: 'manual' | 'yahoo'
   /** Dólar con el que se convierte este activo a pesos. */
   fxSource?: DollarType
   isArchived?: boolean
@@ -83,6 +85,7 @@ export function useUpdateAsset() {
             price_usd: input.priceUsd,
             price_updated_at: input.priceUsd == null ? null : new Date().toISOString(),
           }),
+          ...(input.priceSource !== undefined && { price_source: input.priceSource }),
           ...(input.fxSource !== undefined && { fx_source: input.fxSource }),
           ...(input.isArchived !== undefined && { is_archived: input.isArchived }),
         })

@@ -20,6 +20,7 @@ const assetClassLabels: Record<AssetClass, string> = {
 }
 
 const usdFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 8 })
+const priceDateFormat = new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 function AssetRow({
   asset,
@@ -82,6 +83,10 @@ function AssetRow({
                 <p className="text-[11.5px] text-fg-muted">
                   ≈ <Money cents={Math.round(priceUsd * quote.buyCents)} tone="dim" size="row" className="inline" />
                 </p>
+              )}
+              {/* Con la fecha: si el job de la base dejó de correr, se ve acá. Línea propia: no ensancha la fila. */}
+              {asset.price_source === 'yahoo' && price?.updatedAt && (
+                <p className="text-[11px] text-fg-muted">auto · {priceDateFormat.format(new Date(price.updatedAt))}</p>
               )}
             </>
           )}

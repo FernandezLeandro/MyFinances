@@ -20,7 +20,7 @@ type DollarType = 'oficial' | 'blue' | 'bolsa' | 'contadoconliqui' | 'cripto'
 type CycleKind = 'monthly' | 'biweekly' | 'weekly'
 type BagFrequency = 'monthly' | 'biweekly' | 'weekly'
 type AssetClass = 'fiat' | 'crypto' | 'equity' | 'bond' | 'other'
-type AssetPriceSource = 'coingecko' | 'manual'
+type AssetPriceSource = 'coingecko' | 'manual' | 'yahoo'
 
 export interface Database {
   public: {
@@ -83,7 +83,8 @@ export interface Database {
           decimals: number
           price_source: AssetPriceSource
           coingecko_id: string | null
-          /** USD por unidad, cargado por el admin. `null` en ARS/USD y en cripto (esas traen precio en vivo). */
+          /** USD por unidad: lo carga el admin o, con `price_source = 'yahoo'`, el job de la base. `null` en
+           *  ARS/USD y en cripto (esas traen precio en vivo). */
           price_usd: string | null
           price_updated_at: string | null
           /** Dólar con el que se convierte este activo a pesos. */
@@ -106,6 +107,7 @@ export interface Database {
         Update: Partial<{
           name: string
           asset_class: AssetClass
+          price_source: AssetPriceSource
           price_usd: number | string | null
           price_updated_at: string | null
           fx_source: DollarType

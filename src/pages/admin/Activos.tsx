@@ -29,7 +29,7 @@ function AddAssetForm() {
   return (
     <div className="border-t border-fill-subtle p-panel">
       <p className="eyebrow">Agregar activo</p>
-      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas. El precio en USD se carga después, al editarlo.</p>
+      <p className="mt-1.5 text-[12px] text-fg-muted">Queda visible para todas las cuentas. El precio en USD se carga después, al editarlo (a mano o automático desde Yahoo).</p>
       <div className="mt-3 flex flex-col gap-3">
         <div className="grid grid-cols-[150px_1fr] gap-3">
           <Field label="Símbolo">
@@ -66,7 +66,7 @@ export function Activos() {
       </header>
 
       <Panel>
-        <PanelHeader title="Catálogo" hint="Cripto se valúa sola vía CoinGecko — el resto necesita el precio en USD que cargás acá" />
+        <PanelHeader title="Catálogo" hint="Cripto se valúa sola vía CoinGecko y las acciones en automático, vía Yahoo — el resto necesita el precio en USD que cargás acá" />
         <AssetCatalogList />
         <AddAssetForm />
       </Panel>

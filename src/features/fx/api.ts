@@ -52,8 +52,9 @@ export interface AssetPrice {
 
 /**
  * Precio en USD de cada activo de mercado del catálogo, por `asset_id`. Cripto (`price_source =
- * 'coingecko'`) pega una sola vez a CoinGecko por todos juntos; el resto lo fija el admin en
- * `assets.price_usd`, igual para todas las cuentas. ARS y USD no están: se valúan directo con el
+ * 'coingecko'`) pega una sola vez a CoinGecko por todos juntos; el resto sale de `assets.price_usd`,
+ * igual para todas las cuentas: lo fija el admin o, con `price_source = 'yahoo'`, el job de la base
+ * (`refresh_yahoo_prices`). ARS y USD no están: se valúan directo con el
  * dólar (ver `investments/aggregate.ts`). Nunca lanza — un precio faltante es `null`, no un error.
  */
 export function useAssetPrices() {
@@ -88,7 +89,7 @@ export function useAssetPrices() {
         const priceUsd = asset.price_usd == null ? null : Number(asset.price_usd)
         prices.set(asset.id, {
           priceUsd,
-          origin: priceUsd == null ? 'none' : 'admin',
+          origin: priceUsd == null ? 'none' : asset.price_source === 'yahoo' ? 'api' : 'admin',
           updatedAt: asset.price_updated_at,
         })
       }

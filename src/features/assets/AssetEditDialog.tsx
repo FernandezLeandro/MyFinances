@@ -26,18 +26,22 @@ interface AssetEditDialogProps {
   asset: Asset
 }
 
+type PriceSource = 'manual' | 'yahoo'
+
 /**
  * Un solo lugar para corregir un activo del catálogo (sólo admin): nombre, clase, precio en USD,
  * el dólar con el que se convierte a pesos y archivarlo. El símbolo no se toca: varias partes del
- * código lo usan para reconocer ARS/USD. El precio sólo se carga si el activo no trae uno en vivo
- * (cripto se valúa sola con CoinGecko).
+ * código lo usan para reconocer ARS/USD. El precio sólo se carga a mano si el activo no trae uno solo
+ * (cripto se valúa con CoinGecko; lo que está en Yahoo lo actualiza la base).
  */
 export function AssetEditDialog({ open, onClose, asset }: AssetEditDialogProps) {
   const updateAsset = useUpdateAsset()
   const isFiat = asset.asset_class === 'fiat'
   const hasLivePrice = asset.price_source === 'coingecko'
+  const initialPriceSource: PriceSource = asset.price_source === 'yahoo' ? 'yahoo' : 'manual'
 
   const [name, setName] = useState(asset.name)
+  const [priceSource, setPriceSource] = useState<PriceSource>(initialPriceSource)
   const [assetClass, setAssetClass] = useState<Exclude<AssetClass, 'fiat'>>(asset.asset_class === 'fiat' ? 'other' : asset.asset_class)
   const [fxSource, setFxSource] = useState<DollarType>(asset.fx_source)
   const [isArchived, setIsArchived] = useState(asset.is_archived)
@@ -47,6 +51,7 @@ export function AssetEditDialog({ open, onClose, asset }: AssetEditDialogProps) 
   useEffect(() => {
     if (!open) return
     setName(asset.name)
+    setPriceSource(initialPriceSource)
     setAssetClass(asset.asset_class === 'fiat' ? 'other' : asset.asset_class)
     setFxSource(asset.fx_source)
     setIsArchived(asset.is_archived)
@@ -57,7 +62,7 @@ export function AssetEditDialog({ open, onClose, asset }: AssetEditDialogProps) 
 
   function handleSave() {
     let priceUsd: number | null | undefined
-    if (!isFiat && !hasLivePrice) {
+    if (!isFiat && !hasLivePrice && priceSource === 'manual') {
       if (priceInput.trim()) {
         const units = parseQuantity(priceInput, 8)
         if (units == null || units <= 0) {
@@ -75,6 +80,7 @@ export function AssetEditDialog({ open, onClose, asset }: AssetEditDialogProps) 
         id: asset.id,
         name: name.trim() || asset.name,
         ...(!isFiat && { assetClass, fxSource, isArchived }),
+        ...(!isFiat && !hasLivePrice && priceSource !== initialPriceSource && { priceSource }),
         ...(priceUsd !== undefined && priceUsd !== (asset.price_usd == null ? null : Number(asset.price_usd)) && { priceUsd }),
       },
       { onSuccess: onClose },
@@ -121,18 +127,37 @@ export function AssetEditDialog({ open, onClose, asset }: AssetEditDialogProps) 
             {hasLivePrice ? (
               <p className="text-[13px] text-fg-muted">El precio en USD se actualiza solo en vivo (CoinGecko) — no hace falta cargarlo.</p>
             ) : (
-              <Field label="Precio en USD" htmlFor="asset-price" hint="USD por unidad. Es el mismo para todas las cuentas" error={priceError ?? undefined}>
-                <Input
-                  id="asset-price"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={priceInput}
-                  onChange={(e) => {
-                    setPriceInput(e.target.value)
-                    setPriceError(null)
-                  }}
-                />
-              </Field>
+              <>
+                <Field label="Precio">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Chip active={priceSource === 'yahoo'} onClick={() => setPriceSource('yahoo')}>
+                      Automático (Yahoo)
+                    </Chip>
+                    <Chip active={priceSource === 'manual'} onClick={() => setPriceSource('manual')}>
+                      Manual
+                    </Chip>
+                  </div>
+                </Field>
+
+                {priceSource === 'yahoo' ? (
+                  <p className="text-[13px] text-fg-muted">
+                    Se actualiza solo cada 30 min en horario de mercado, con el símbolo como ticker de EE.UU.
+                  </p>
+                ) : (
+                  <Field label="Precio en USD" htmlFor="asset-price" hint="USD por unidad. Es el mismo para todas las cuentas" error={priceError ?? undefined}>
+                    <Input
+                      id="asset-price"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={priceInput}
+                      onChange={(e) => {
+                        setPriceInput(e.target.value)
+                        setPriceError(null)
+                      }}
+                    />
+                  </Field>
+                )}
+              </>
             )}
 
             <Field label="Dólar para convertir" hint="Con este dólar se pasa el precio a pesos al valuar">
